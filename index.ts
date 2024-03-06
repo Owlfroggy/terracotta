@@ -65,6 +65,9 @@ function GetNextCharacters(charAmount: number, dontIncludeWhitespace: boolean = 
     while (charAmount > 0) {
         index++
         let char = SCRIPT_CONTENTS[index]
+        //if at the end of the script
+        if (char == undefined) {break}
+
         if (
             !(char == " ") &&
             !(char == "\t")
@@ -92,24 +95,8 @@ class Token {
 
 }
 
-class VariableToken extends Token {
-    constructor(scope: String, name: String) {
-        super()
-        if (scope == "global") { scope = "game" }
-        this.Scope = scope
-        this.Name = name
-    }
-
-    Scope: String
-    Name: String
-}
-
-class OperatorToken extends Token {
+class ExprOperatorToken extends Token {
     Operator: string
-    constructor(operator: string) {
-        super()
-        this.Operator = operator
-    }
 }
 
 //==========[ Parser ]=========\\
@@ -124,6 +111,19 @@ class Parser {
     Activate(): [number, ...any] | null { 
         return null
     }
+}
+
+//= Variables =\\
+class VariableToken extends Token {
+    constructor(scope: String, name: String) {
+        super()
+        if (scope == "global") { scope = "game" }
+        this.Scope = scope
+        this.Name = name
+    }
+
+    Scope: String
+    Name: String
 }
 
 class VariableParser extends Parser {
@@ -155,6 +155,26 @@ class VariableParser extends Parser {
         return null
     }
 }
+//= String =\\
+
+class StringToken extends Token {
+    constructor(value: string) {
+        super()
+        this.Value = value
+    }
+
+    Value: string
+}
+
+//= Operators =\\
+class OperatorToken extends Token {
+    constructor(operator: string) {
+        super()
+        this.Operator = operator
+    }
+    
+    Operator: string
+}
 
 class OperatorParser extends Parser {
     Activate(): [number, OperatorToken] | null {
@@ -167,11 +187,41 @@ class OperatorParser extends Parser {
     }
 }
 
+//= Expressions =\\
+class ExpressionToken extends Token {
+    Expression: [ExprOperatorToken | StringToken]
+}
+
+class ExpressionParser extends Parser {
+    constructor(terminateAt: string = "\n") {
+        super()
+        this.TerminateAt = terminateAt
+    }
+
+    TerminateAt: string
+
+    private parseNext() {
+        //next part is a string
+        if (GetNextCharacters(1) == '"') {
+            print("strin found")
+            Running = false
+        }
+        CharIndex++
+    }
+
+    Activate(): [number, ExpressionToken] | null {
+        while (GetNextCharacters(1) != "" && GetNextCharacters(1) != this.TerminateAt) {
+            this.parseNext()
+        }
+
+        return null
+    }
+}
 //main logic goes here
-function Logic(): void {
+function DoTheThing(): void {
     // if current line is empty
     if (CurrentLine.length == 0) {
-        //line begins with a variable
+        //check for a variable
         let variableResults = new VariableParser().Activate()
         if (variableResults) {
             ApplyResults(variableResults)
@@ -180,20 +230,38 @@ function Logic(): void {
     }
 
     //if current line starts with a variable
-    else if (CurrentLine[0] instanceof VariableToken) {
-        let operatorResults = new OperatorParser().Activate()
-        if (operatorResults) {
-            ApplyResults(operatorResults)
+    if (CurrentLine[0] instanceof VariableToken) {
+        //if the only thing in the line is a variable
+        if (CurrentLine.length == 1) {
+            //check for an operator
+            let operatorResults = new OperatorParser().Activate()
+            if (operatorResults) {
+                ApplyResults(operatorResults)
+            }
         }
 
-        Running = false
+        //if line is <variable> <operator>
+        if (CurrentLine[1] instanceof OperatorToken) {
+            let operation = CurrentLine[1].Operator
+            //<variable> =
+            //must be followed by an expression
+            if (operation == "=") {
+                //parse expression
+                let expressionResults = new ExpressionParser().Activate()
+                if (expressionResults) {
+                    ApplyResults(expressionResults)
+                }
+
+                Running = false
+            }
+        }
     }
 }
 
 //==========[ other code ]=========\\
 
 while (Running) {
-    Logic()
+    DoTheThing()
 }
 
 print(CurrentLine)
