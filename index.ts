@@ -58,8 +58,7 @@ function GetIdentifier(): [string, number] {
 }
 
 //Get next amount of characters from CharIndex, with option to ignore whitespaces
-function GetNextCharacters(charAmount: number, dontIncludeWhitespace: boolean = true) {
-    let index = CharIndex
+function GetNextCharacters(index: number,charAmount: number, dontIncludeWhitespace: boolean = true) {
     let string = ""
 
     while (charAmount > 0) {
@@ -75,6 +74,40 @@ function GetNextCharacters(charAmount: number, dontIncludeWhitespace: boolean = 
             string += char
             charAmount -= 1
         }
+    }
+
+    return string
+}
+
+//returns the number of whitespace characters from CharIndex
+function GetWhitespaceAmount(index: number): number {
+    let count = 0
+
+    while (index < SCRIPT_CONTENTS.length) {
+        index++
+        if (
+            (SCRIPT_CONTENTS[index] == "\n") ||
+            (SCRIPT_CONTENTS[index] == " ")
+        ) {
+            count += 1
+        } else {
+            return count
+        }
+    }
+
+    return count
+}
+
+//returns a string with every character from CharIndex until the first instance of anything in terminateAt
+function GetCharactersUntil(index: number,terminateAt: Array<string>) {
+    let string = ""
+    
+    while (index < SCRIPT_CONTENTS.length-1) {
+        index++
+        if (terminateAt.includes(SCRIPT_CONTENTS[index])) {
+            return string
+        }
+        string += SCRIPT_CONTENTS[index]
     }
 
     return string
@@ -101,18 +134,6 @@ class ExprOperatorToken extends Token {
 
 //==========[ Parser ]=========\\
 
-class Parser {
-    constructor() { }
-
-    ParentParser: Parser
-
-    //If returnResults is null, this Parser is being activated after first being entered
-    //Otherwise, its being activated after returning from a subParser
-    Activate(): [number, ...any] | null { 
-        return null
-    }
-}
-
 //= Variables =\\
 class VariableToken extends Token {
     constructor(scope: String, name: String) {
@@ -126,34 +147,32 @@ class VariableToken extends Token {
     Name: String
 }
 
-class VariableParser extends Parser {
-    static ValidScopes = {
-        "global": "game",
-        "saved": "save",
-        "local": "local",
-        "line:": "line"
+const VALID_VAR_SCCOPES = {
+    "global": "game",
+    "saved": "save",
+    "local": "local",
+    "line:": "line"
+}
+
+function ParseVariable(): [number, VariableToken] | null {
+    let [scopeKeyword, scopeKeywordEnd] = GetIdentifier()
+
+    //if keyword is a var scope
+    let scope = VALID_VAR_SCCOPES[scopeKeyword]
+    if (scope == null) {return null}
+
+    //if theres a space after the keyword, use identifier as name
+    if (SCRIPT_CONTENTS[scopeKeywordEnd + 1] == " ") {
+        //move 2 characters (to the start of the name)
+        CharIndex = scopeKeywordEnd + 2
+
+        //get name of variable
+        let [variableName, variableNameEnd] = GetIdentifier()
+
+        return [variableNameEnd, new VariableToken(scopeKeyword, variableName)]
     }
 
-    Activate(): [number, VariableToken] | null {
-        let [scopeKeyword, scopeKeywordEnd] = GetIdentifier()
-
-        //if keyword is a var scope
-        let scope = VariableParser.ValidScopes[scopeKeyword]
-        if (scope == null) {return null}
-
-        //if theres a space after the keyword, use identifier as name
-        if (SCRIPT_CONTENTS[scopeKeywordEnd + 1] == " ") {
-            //move 2 characters (to the start of the name)
-            CharIndex = scopeKeywordEnd + 2
-
-            //get name of variable
-            let [variableName, variableNameEnd] = GetIdentifier()
-
-            return [variableNameEnd, new VariableToken(scopeKeyword, variableName)]
-        }
-
-        return null
-    }
+    return null
 }
 //= String =\\
 
@@ -166,6 +185,39 @@ class StringToken extends Token {
     Value: string
 }
 
+//returned number will be index of closing char
+function ParseString(index: number,openingChar:string, closingChar: string = openingChar): [number, StringToken] | null {
+    //if not a string, return
+    if (GetNextCharacters(index,1) != openingChar) {return null}
+
+    //move to start of string contents (after opening "")
+    index += 1 + GetWhitespaceAmount(index)
+
+    let string = ""
+    while (index < SCRIPT_CONTENTS.length) {
+        let nextChunk = GetCharactersUntil(index,["\n","\\",closingChar])
+        string += nextChunk
+        index += nextChunk.length
+
+        //if chunk stopp due to a backslash
+        if (SCRIPT_CONTENTS[index+1] == "\\") {
+            //add char after backslash into the value without parsing it
+            string += SCRIPT_CONTENTS[index+2] //WARNING: some funny shit will probably happen if a line ends with a string that ends with a backslash and no closing char | "awesome string\
+            index += 2
+        }
+        //if chunk stopped due to closing char
+        else if (SCRIPT_CONTENTS[index+1] == closingChar) {
+            return [index+1,new StringToken(string)]
+        }
+        //if chunk stopped due to newline
+        else if (SCRIPT_CONTENTS[index+1] == "\n") {
+            throw new Error("String was never closed")
+        }
+    }
+
+    return null
+}
+
 //= Operators =\\
 class OperatorToken extends Token {
     constructor(operator: string) {
@@ -176,53 +228,52 @@ class OperatorToken extends Token {
     Operator: string
 }
 
-class OperatorParser extends Parser {
-    Activate(): [number, OperatorToken] | null {
-        let operatorString = GetNextCharacters(1)
-        if (operatorString == "=") {
-            return [CharIndex + 1, new OperatorToken("=")]
-        }
-
-        return null
+function ParseOperator(): [number, OperatorToken] | null {
+    let operatorString = GetNextCharacters(CharIndex,1)
+    if (operatorString == "=") {
+        return [CharIndex + 1, new OperatorToken("=")]
     }
+
+    return null
 }
 
 //= Expressions =\\
 class ExpressionToken extends Token {
-    Expression: [ExprOperatorToken | StringToken]
+    constructor(symbols: Array<any>) {
+        super()
+        this.Expression = symbols
+    }
+
+    Expression: Array<ExprOperatorToken | StringToken>
 }
 
-class ExpressionParser extends Parser {
-    constructor(terminateAt: string = "\n") {
-        super()
-        this.TerminateAt = terminateAt
-    }
+function ParseExpression(terminateAt: string = "\n"): [number, ExpressionToken] | null {
+    let expressionSymbols: Array<any> = []
+    let index = CharIndex
 
-    TerminateAt: string
-
-    private parseNext() {
+    while (GetNextCharacters(index,1) != "" && GetNextCharacters(index,1) != terminateAt) {
+        // parse next token!!
         //next part is a string
-        if (GetNextCharacters(1) == '"') {
-            print("strin found")
-            Running = false
+        let stringResults = ParseString(index,"\"")
+        if (stringResults) {
+            expressionSymbols.push(stringResults[1])
+            index = stringResults[0]
+            continue
         }
-        CharIndex++
+        index++
     }
 
-    Activate(): [number, ExpressionToken] | null {
-        while (GetNextCharacters(1) != "" && GetNextCharacters(1) != this.TerminateAt) {
-            this.parseNext()
-        }
-
-        return null
+    if (expressionSymbols.length > 0) {
+        return [index, new ExpressionToken(expressionSymbols)]
     }
+    return null
 }
 //main logic goes here
 function DoTheThing(): void {
     // if current line is empty
     if (CurrentLine.length == 0) {
         //check for a variable
-        let variableResults = new VariableParser().Activate()
+        let variableResults = ParseVariable()
         if (variableResults) {
             ApplyResults(variableResults)
             return
@@ -234,7 +285,7 @@ function DoTheThing(): void {
         //if the only thing in the line is a variable
         if (CurrentLine.length == 1) {
             //check for an operator
-            let operatorResults = new OperatorParser().Activate()
+            let operatorResults = ParseOperator()
             if (operatorResults) {
                 ApplyResults(operatorResults)
             }
@@ -247,7 +298,7 @@ function DoTheThing(): void {
             //must be followed by an expression
             if (operation == "=") {
                 //parse expression
-                let expressionResults = new ExpressionParser().Activate()
+                let expressionResults = ParseExpression("\n")
                 if (expressionResults) {
                     ApplyResults(expressionResults)
                 }
