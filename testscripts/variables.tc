@@ -1,1 +1,1 @@
-global awesomeVariable = .05
+saved[%default ballsAmount] = global balls + 2

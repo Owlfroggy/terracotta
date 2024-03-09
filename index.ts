@@ -49,22 +49,27 @@ function IsCharacterValidNumber(char) {
 }
 
 //Gets word until a special character is encountered
+//IMPORTANT: index should be the first character IN TEH KEYWORD!!!
 //SPACE COUNTS AS A SPECIAL CHARACTER!!!!
 //returns: the word, the index of the final character in the word
-function GetIdentifier(index): [string, number] {
+function GetIdentifier(index): [number, string] | null {
     let word = "";
 
-    while (index < SCRIPT_CONTENTS.length) {
-        index++
+    //dont let identifiers start with numbers
+    let firstCharacterCode = SCRIPT_CONTENTS[index].charCodeAt(0)
+    if (firstCharacterCode > 47 && firstCharacterCode < 58) {
+        return null
+    }
 
+    while (index < SCRIPT_CONTENTS.length) {
         if (IsCharacterValidIdentifier(SCRIPT_CONTENTS[index])) {
             word += SCRIPT_CONTENTS[index]
         } else {
             break
         }
+        index++
     }
-
-    return [word, index - 1]
+    return [index - 1, word]
 }
 
 //Get next amount of characters from CharIndex, with option to ignore whitespaces
@@ -123,6 +128,39 @@ function GetCharactersUntil(index: number,terminateAt: Array<string>) {
     return string
 }
 
+//returned number will be index of closing char
+function GetString(index: number,openingChar:string, closingChar: string = openingChar): [number, string] | null {
+    //if not a string, return
+    if (GetNextCharacters(index,1) != openingChar) {return null}
+
+    //move to start of string contents (after opening "")
+    index += 1 + GetWhitespaceAmount(index)
+
+    let string = ""
+    while (index < SCRIPT_CONTENTS.length) {
+        let nextChunk = GetCharactersUntil(index,["\n","\\",closingChar])
+        string += nextChunk
+        index += nextChunk.length
+
+        //if chunk stopp due to a backslash
+        if (SCRIPT_CONTENTS[index+1] == "\\") {
+            //add char after backslash into the value without parsing it
+            string += SCRIPT_CONTENTS[index+2] //WARNING: some funny shit will probably happen if a line ends with a string that ends with a backslash and no closing char | "awesome string\
+            index += 2
+        }
+        //if chunk stopped due to closing char
+        else if (SCRIPT_CONTENTS[index+1] == closingChar) {
+            return [index+1,string]
+        }
+        //if chunk stopped due to newline
+        else if (SCRIPT_CONTENTS[index+1] == "\n") {
+            throw new Error("String was never closed")
+        }
+    }
+
+    throw new Error("String was never closed")
+}
+
 //Useful function for applying the results of most parsers
 function ApplyResults(results: [number, ...any]) {
     //move cursor to the end of the variable
@@ -166,23 +204,36 @@ const VALID_VAR_SCCOPES = {
 
 //returned number will be closing ] or final character of identifier
 function ParseVariable(index): [number, VariableToken] | null {
-    let [scopeKeyword, scopeKeywordEnd] = GetIdentifier(index)
+    index += GetWhitespaceAmount(index) + 1
+    
+    let keywordResults = GetIdentifier(index)
+    if (keywordResults == null) { return null }
+
+    let scopeKeyword = keywordResults[1]
 
     //if keyword is a var scope
     let scope = VALID_VAR_SCCOPES[scopeKeyword]
     if (scope == null) {return null}
-    index += scopeKeyword.length
-    index += GetWhitespaceAmount(index)
+
+    //move into position to parse variable name
+    index = keywordResults[0]
+
     
+    let complexNameResults = GetString(index,"[","]")
     //if theres a [, use the inside of the [] as name
-    if (GetNextCharacters(index,1) == "[") {
+    if (complexNameResults) {
+        return [complexNameResults[0],new VariableToken(scopeKeyword, complexNameResults[1])]
     }
     //otherwise, use identifier as name
     else {
-        //get name of variable
-        let [variableName, variableNameEnd] = GetIdentifier(index)
+        index += GetWhitespaceAmount(index)
+        index++ //GetIdentifier's starts first character of identifier so move 1 char to that
 
-        return [variableNameEnd, new VariableToken(scopeKeyword, variableName)]
+        //get name of variable
+        let variableNameResults = GetIdentifier(index)
+        if (variableNameResults == null) { return null }
+
+        return [variableNameResults[0], new VariableToken(scopeKeyword, variableNameResults[1])]
     }
 
     throw new Error("it appears you have fucked up a variable")
@@ -198,37 +249,19 @@ class StringToken extends Token {
     String: string
 }
 
-//returned number will be index of closing char
+//litearlly just GetString but it returns a string token
 function ParseString(index: number,openingChar:string, closingChar: string = openingChar): [number, StringToken] | null {
-    //if not a string, return
-    if (GetNextCharacters(index,1) != openingChar) {return null}
-
-    //move to start of string contents (after opening "")
-    index += 1 + GetWhitespaceAmount(index)
-
-    let string = ""
-    while (index < SCRIPT_CONTENTS.length) {
-        let nextChunk = GetCharactersUntil(index,["\n","\\",closingChar])
-        string += nextChunk
-        index += nextChunk.length
-
-        //if chunk stopp due to a backslash
-        if (SCRIPT_CONTENTS[index+1] == "\\") {
-            //add char after backslash into the value without parsing it
-            string += SCRIPT_CONTENTS[index+2] //WARNING: some funny shit will probably happen if a line ends with a string that ends with a backslash and no closing char | "awesome string\
-            index += 2
+    let results
+    try {
+        results = GetString(index,openingChar,closingChar)
+        if (results) {
+            return results
         }
-        //if chunk stopped due to closing char
-        else if (SCRIPT_CONTENTS[index+1] == closingChar) {
-            return [index+1,new StringToken(string)]
-        }
-        //if chunk stopped due to newline
-        else if (SCRIPT_CONTENTS[index+1] == "\n") {
+    } catch (e) {
+        if (e == "String was never closed") {
             throw new Error("String was never closed")
         }
     }
-
-    return null
 }
 
 //= Number =\\
@@ -248,20 +281,15 @@ function ParseNumber(index: number): [number, NumberToken] | null {
     let decimalFound = false
     let string = ""
 
-    index += GetWhitespaceAmount(index)
+    index += 1 + GetWhitespaceAmount(index)
 
-    while (index < SCRIPT_CONTENTS.length-1) {
-        index++
-
+    while (index < SCRIPT_CONTENTS.length) {
         //if this char is a .
         if (SCRIPT_CONTENTS[index] == ".") {
             //if there has already been a . throw error
             if (decimalFound) {
                 throw new Error("you cant have 2 decimals in one number")
             }
-
-            //if this is the first character in the number, add in the leading 0
-            if (string == "") { string += "0" }
 
             string += "."
 
@@ -270,7 +298,6 @@ function ParseNumber(index: number): [number, NumberToken] | null {
         //if this char is a digit
         else if (IsCharacterValidNumber(SCRIPT_CONTENTS[index])){
             //dont include any leading 0s
-            //0<x<1 wont be missing its starting 0 since decimal parsing will add its own 0 at the start
             if (string.length == 0 && SCRIPT_CONTENTS[index] == "0") { continue }
 
             string += SCRIPT_CONTENTS[index]
@@ -279,12 +306,23 @@ function ParseNumber(index: number): [number, NumberToken] | null {
         else {
             break
         }
+
+        index++
     }
+
+    //a single . on its own is not a number
+    if (string == ".") { return null }
+
+    //add one leading 0 if starting with decimal
+    if (string == "") { string = "0" + string }
 
     return [index-1, new NumberToken(string)]
 }
 
 //= Operators =\\
+const ValidOperators = ["="]
+const ValidExpressionOperators = ["+","-","*","/"]
+
 class OperatorToken extends Token {
     constructor(operator: string) {
         super()
@@ -294,11 +332,31 @@ class OperatorToken extends Token {
     Operator: string
 }
 
+//returned number is final character in the operator
 function ParseOperator(index: number): [number, OperatorToken] | null {
-    let operatorString = GetNextCharacters(index,1)
+    index += GetWhitespaceAmount(index)
 
-    if (operatorString == "=") {
-        return [index + 1, new OperatorToken("=")]
+    let length = 1
+    
+    //1 length operators
+    let operatorString = GetNextCharacters(index,length)
+    if (ValidOperators.includes(operatorString)) {
+        return [index + length + GetWhitespaceAmount(index + length), new OperatorToken(operatorString)]
+    }
+
+    return null
+}
+
+//returned number is final character in the operator
+function ParseExpressionOperator(index: number): [number, OperatorToken] | null {
+    index += GetWhitespaceAmount(index)
+
+    let length = 1
+    
+    //1 length operators
+    let operatorString = GetNextCharacters(index,length)
+    if (ValidExpressionOperators.includes(operatorString)) {
+        return [index + length + GetWhitespaceAmount(index + length), new OperatorToken(operatorString)]
     }
 
     return null
@@ -314,31 +372,39 @@ class ExpressionToken extends Token {
     Expression: Array<ExprOperatorToken | StringToken>
 }
 
-function ParseExpression(terminateAt: string = "\n"): [number, ExpressionToken] | null {
+function ParseExpression(index: number,terminateAt: string = "\n"): [number, ExpressionToken] | null {
     let expressionSymbols: Array<any> = []
-    let index = CharIndex
+
+    index += GetWhitespaceAmount(index)
+
 
     while (GetNextCharacters(index,1) != "" && GetNextCharacters(index,1) != terminateAt) {
-        index++
-        let results: [number, Token] | null
+        let results: [number, Token] | null = null
         // parse next token!!
         
-        //if previous token is an operator or this is the first token in the expression
-        if (expressionSymbols.length == 0) {
+        //if previous token is an operator or this is the first token in the expression, parse for value
+        if (expressionSymbols[expressionSymbols.length-1] instanceof OperatorToken || expressionSymbols.length == 0) {
+            //try string
+            results = ParseString(index,"\"")
 
+            //try number
+            if (results == null) { results = ParseNumber(index) }
+
+            //try variable
+            if (results == null) { results = ParseVariable(index) }
+        } 
+        //otherwise, parse for operator
+        else {
+            results = ParseExpressionOperator(index)
         }
-
-        //try string
-        results = ParseString(index,"\"")
-
-        //try number
-        if (results == null) { results = ParseNumber(index) }
 
 
         if (results) {
             expressionSymbols.push(results[1])
             index = results[0]
             continue
+        } else {
+            throw new Error("y'all, that expression dont look right")
         }
     }
 
@@ -376,7 +442,7 @@ function DoTheThing(): void {
             //must be followed by an expression
             if (operation == "=") {
                 //parse expression
-                let expressionResults = ParseExpression("\n")
+                let expressionResults = ParseExpression(CharIndex,"\n")
                 if (expressionResults) {
                     ApplyResults(expressionResults)
                 }
