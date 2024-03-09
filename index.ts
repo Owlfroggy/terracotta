@@ -1,14 +1,13 @@
 //DISCLAIMER!!!!!!! i literally have no clue how to write a programming lanague and am
-//totally just winging it so i take no responsibility for any psycological damage that
+//totally just winging it so i take no responsibility for any psycological damage thats
 //may result from smart peoiple looking at my goofy ass code
-
 export { }
 const FILE_PATH = "testscripts/variables.tc"
 
 const SCRIPT_CONTENTS = await Bun.file(FILE_PATH).text()
 
 //Current index in the file that the parser is looking at
-var CharIndex = 0
+var CharIndex = -1
 var Running = true
 
 var Lines: Array<[Token]> = []
@@ -24,6 +23,7 @@ function print(...data: any[]) {
 }
 
 //returns true if if a char is valid for use in an identifier
+//totally not copy pasted from stack overflow
 function IsCharacterValidIdentifier(char) {
     let code = char.charCodeAt(0);
     if (!(code > 47 && code < 58) && // numeric (0-9)
@@ -35,26 +35,36 @@ function IsCharacterValidIdentifier(char) {
     return true;
 };
 
+//returns true if char is valid for use in a number
+function IsCharacterValidNumber(char) {
+    let code = char.charCodeAt(0);
+    if (
+        !(code > 47 && code < 58) && // numeric (0-9)
+        !(code == 46) //decimal (.)
+    ){
+        return false
+    }
+
+    return true
+}
+
 //Gets word until a special character is encountered
 //SPACE COUNTS AS A SPECIAL CHARACTER!!!!
 //returns: the word, the index of the final character in the word
-function GetIdentifier(): [string, number] {
-    let currentPosition = CharIndex
+function GetIdentifier(index): [string, number] {
     let word = "";
 
-    while (currentPosition < SCRIPT_CONTENTS.length) {
-        let thisCharacter = SCRIPT_CONTENTS[currentPosition]
+    while (index < SCRIPT_CONTENTS.length) {
+        index++
 
-        if (IsCharacterValidIdentifier(thisCharacter)) {
-            word += thisCharacter
+        if (IsCharacterValidIdentifier(SCRIPT_CONTENTS[index])) {
+            word += SCRIPT_CONTENTS[index]
         } else {
             break
         }
-
-        currentPosition++
     }
 
-    return [word, currentPosition - 1]
+    return [word, index - 1]
 }
 
 //Get next amount of characters from CharIndex, with option to ignore whitespaces
@@ -154,35 +164,38 @@ const VALID_VAR_SCCOPES = {
     "line:": "line"
 }
 
-function ParseVariable(): [number, VariableToken] | null {
-    let [scopeKeyword, scopeKeywordEnd] = GetIdentifier()
+//returned number will be closing ] or final character of identifier
+function ParseVariable(index): [number, VariableToken] | null {
+    let [scopeKeyword, scopeKeywordEnd] = GetIdentifier(index)
 
     //if keyword is a var scope
     let scope = VALID_VAR_SCCOPES[scopeKeyword]
     if (scope == null) {return null}
-
-    //if theres a space after the keyword, use identifier as name
-    if (SCRIPT_CONTENTS[scopeKeywordEnd + 1] == " ") {
-        //move 2 characters (to the start of the name)
-        CharIndex = scopeKeywordEnd + 2
-
+    index += scopeKeyword.length
+    index += GetWhitespaceAmount(index)
+    
+    //if theres a [, use the inside of the [] as name
+    if (GetNextCharacters(index,1) == "[") {
+    }
+    //otherwise, use identifier as name
+    else {
         //get name of variable
-        let [variableName, variableNameEnd] = GetIdentifier()
+        let [variableName, variableNameEnd] = GetIdentifier(index)
 
         return [variableNameEnd, new VariableToken(scopeKeyword, variableName)]
     }
 
-    return null
+    throw new Error("it appears you have fucked up a variable")
 }
 //= String =\\
 
 class StringToken extends Token {
     constructor(value: string) {
         super()
-        this.Value = value
+        this.String = value
     }
 
-    Value: string
+    String: string
 }
 
 //returned number will be index of closing char
@@ -218,6 +231,59 @@ function ParseString(index: number,openingChar:string, closingChar: string = ope
     return null
 }
 
+//= Number =\\
+class NumberToken extends Token {
+    constructor(value: string) {
+        super()
+        this.Number = value
+    }
+    Number: string
+}
+
+//returned number will be index of final character of the number
+function ParseNumber(index: number): [number, NumberToken] | null {
+    //if not a number, return null
+    if (!IsCharacterValidNumber(GetNextCharacters(index,1))) { return null }
+
+    let decimalFound = false
+    let string = ""
+
+    index += GetWhitespaceAmount(index)
+
+    while (index < SCRIPT_CONTENTS.length-1) {
+        index++
+
+        //if this char is a .
+        if (SCRIPT_CONTENTS[index] == ".") {
+            //if there has already been a . throw error
+            if (decimalFound) {
+                throw new Error("you cant have 2 decimals in one number")
+            }
+
+            //if this is the first character in the number, add in the leading 0
+            if (string == "") { string += "0" }
+
+            string += "."
+
+            decimalFound = true
+        }
+        //if this char is a digit
+        else if (IsCharacterValidNumber(SCRIPT_CONTENTS[index])){
+            //dont include any leading 0s
+            //0<x<1 wont be missing its starting 0 since decimal parsing will add its own 0 at the start
+            if (string.length == 0 && SCRIPT_CONTENTS[index] == "0") { continue }
+
+            string += SCRIPT_CONTENTS[index]
+        }
+        //if this character is the end of the number
+        else {
+            break
+        }
+    }
+
+    return [index-1, new NumberToken(string)]
+}
+
 //= Operators =\\
 class OperatorToken extends Token {
     constructor(operator: string) {
@@ -228,10 +294,11 @@ class OperatorToken extends Token {
     Operator: string
 }
 
-function ParseOperator(): [number, OperatorToken] | null {
-    let operatorString = GetNextCharacters(CharIndex,1)
+function ParseOperator(index: number): [number, OperatorToken] | null {
+    let operatorString = GetNextCharacters(index,1)
+
     if (operatorString == "=") {
-        return [CharIndex + 1, new OperatorToken("=")]
+        return [index + 1, new OperatorToken("=")]
     }
 
     return null
@@ -252,15 +319,27 @@ function ParseExpression(terminateAt: string = "\n"): [number, ExpressionToken] 
     let index = CharIndex
 
     while (GetNextCharacters(index,1) != "" && GetNextCharacters(index,1) != terminateAt) {
+        index++
+        let results: [number, Token] | null
         // parse next token!!
-        //next part is a string
-        let stringResults = ParseString(index,"\"")
-        if (stringResults) {
-            expressionSymbols.push(stringResults[1])
-            index = stringResults[0]
+        
+        //if previous token is an operator or this is the first token in the expression
+        if (expressionSymbols.length == 0) {
+
+        }
+
+        //try string
+        results = ParseString(index,"\"")
+
+        //try number
+        if (results == null) { results = ParseNumber(index) }
+
+
+        if (results) {
+            expressionSymbols.push(results[1])
+            index = results[0]
             continue
         }
-        index++
     }
 
     if (expressionSymbols.length > 0) {
@@ -273,7 +352,7 @@ function DoTheThing(): void {
     // if current line is empty
     if (CurrentLine.length == 0) {
         //check for a variable
-        let variableResults = ParseVariable()
+        let variableResults = ParseVariable(CharIndex)
         if (variableResults) {
             ApplyResults(variableResults)
             return
@@ -285,12 +364,11 @@ function DoTheThing(): void {
         //if the only thing in the line is a variable
         if (CurrentLine.length == 1) {
             //check for an operator
-            let operatorResults = ParseOperator()
+            let operatorResults = ParseOperator(CharIndex)
             if (operatorResults) {
                 ApplyResults(operatorResults)
             }
         }
-
         //if line is <variable> <operator>
         if (CurrentLine[1] instanceof OperatorToken) {
             let operation = CurrentLine[1].Operator
@@ -307,6 +385,8 @@ function DoTheThing(): void {
             }
         }
     }
+
+    Running = false
 }
 
 //==========[ other code ]=========\\
@@ -315,4 +395,4 @@ while (Running) {
     DoTheThing()
 }
 
-print(CurrentLine)
+print(JSON.stringify(CurrentLine,null,"  "))
