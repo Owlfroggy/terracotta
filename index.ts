@@ -322,8 +322,23 @@ function ParseNumber(index: number): [number, NumberToken] | null {
 }
 
 //= Operators =\\
-const ValidOperators = ["="]
-const ValidExpressionOperators = ["+","-","*","/","^"]
+const ValidAssignmentOperators = ["=","+=","-=","*=","/="]
+const ValidMathOperators = ["+","-","*","/","^"]
+
+//create lists of lengths of all operators, one entry per length
+const AssignmentOperatorsLengths: Array<number> = []
+for (const v of ValidAssignmentOperators) {
+    if (!AssignmentOperatorsLengths.includes(v.length)) {
+        AssignmentOperatorsLengths.push(v.length)
+    }
+}
+
+const MathOperatorsLengths: Array<number> = []
+for (const v of ValidMathOperators) {
+    if (!MathOperatorsLengths.includes(v.length)) {
+        MathOperatorsLengths.push(v.length)
+    }
+}
 
 class OperatorToken extends Token {
     constructor(operator: string) {
@@ -335,30 +350,29 @@ class OperatorToken extends Token {
 }
 
 //returned number is final character in the operator
-function ParseOperator(index: number): [number, OperatorToken] | null {
+function ParseOperator(index: number,operatorType: "assignment" | "math"): [number, OperatorToken] | null {
     index += GetWhitespaceAmount(index)
 
-    let length = 1
-    
-    //1 length operators
-    let operatorString = GetNextCharacters(index,length)
-    if (ValidOperators.includes(operatorString)) {
-        return [index + length + GetWhitespaceAmount(index + length), new OperatorToken(operatorString)]
+    let validOperators
+    let lengthList
+    switch(operatorType) {
+        case "assignment": 
+            validOperators = ValidAssignmentOperators
+            lengthList = AssignmentOperatorsLengths
+            break
+        case "math": 
+            validOperators = ValidMathOperators
+            lengthList = MathOperatorsLengths
+            break
     }
 
-    return null
-}
+    //try every possible length of operator
+    for (const length of lengthList) {
+        let operatorString = GetNextCharacters(index,length)
 
-//returned number is final character in the operator
-function ParseExpressionOperator(index: number): [number, OperatorToken] | null {
-    index += GetWhitespaceAmount(index)
-
-    let length = 1
-    
-    //1 length operators
-    let operatorString = GetNextCharacters(index,length)
-    if (ValidExpressionOperators.includes(operatorString)) {
-        return [index + length + GetWhitespaceAmount(index + length), new OperatorToken(operatorString)]
+        if (validOperators.includes(operatorString)) {
+            return [index + length, new OperatorToken(operatorString)]
+        }
     }
 
     return null
@@ -402,7 +416,7 @@ function ParseExpression(index: number,terminateAt: string = "\n"): [number, Exp
         } 
         //otherwise, parse for operator
         else {
-            results = ParseExpressionOperator(index)
+            results = ParseOperator(index,"math")
         }
 
         if (results) {
@@ -436,7 +450,7 @@ function DoTheThing(): void {
         //if the only thing in the line is a variable
         if (CurrentLine.length == 1) {
             //check for an operator
-            let operatorResults = ParseOperator(CharIndex)
+            let operatorResults = ParseOperator(CharIndex,"assignment")
             if (operatorResults) {
                 ApplyResults(operatorResults)
             }
@@ -446,7 +460,7 @@ function DoTheThing(): void {
             let operation = CurrentLine[1].Operator
             //<variable> =
             //must be followed by an expression
-            if (operation == "=") {
+            if (ValidAssignmentOperators.includes(operation)) {
                 //parse expression
                 let expressionResults = ParseExpression(CharIndex,"\n")
                 if (expressionResults) {
