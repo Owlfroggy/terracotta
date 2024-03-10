@@ -1,1 +1,1 @@
-saved[%default ballsAmount] = global balls + 2
+saved [%default ballsAmount] = global balls + (2 / 3)

@@ -262,6 +262,8 @@ function ParseString(index: number,openingChar:string, closingChar: string = ope
             throw new Error("String was never closed")
         }
     }
+
+    return null
 }
 
 //= Number =\\
@@ -384,8 +386,13 @@ function ParseExpression(index: number,terminateAt: string = "\n"): [number, Exp
         
         //if previous token is an operator or this is the first token in the expression, parse for value
         if (expressionSymbols[expressionSymbols.length-1] instanceof OperatorToken || expressionSymbols.length == 0) {
+            //try nested expression
+            if (GetNextCharacters(index,1) == "(") {
+                results = ParseExpression(index + GetWhitespaceAmount(index) + 1,")")
+            }
+
             //try string
-            results = ParseString(index,"\"")
+            if (results == null) { results = ParseString(index,"\"") }
 
             //try number
             if (results == null) { results = ParseNumber(index) }
@@ -398,7 +405,6 @@ function ParseExpression(index: number,terminateAt: string = "\n"): [number, Exp
             results = ParseExpressionOperator(index)
         }
 
-
         if (results) {
             expressionSymbols.push(results[1])
             index = results[0]
@@ -409,7 +415,7 @@ function ParseExpression(index: number,terminateAt: string = "\n"): [number, Exp
     }
 
     if (expressionSymbols.length > 0) {
-        return [index, new ExpressionToken(expressionSymbols)]
+        return [index+1, new ExpressionToken(expressionSymbols)]
     }
     return null
 }
