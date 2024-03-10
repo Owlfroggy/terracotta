@@ -1,5 +1,8 @@
 //DISCLAIMER!!!!!!! i literally have no clue how to write a programming lanague and am
 //totally just winging it so i take no responsibility for any psycological damage thats
+
+import { listen } from "bun"
+
 //may result from smart peoiple looking at my goofy ass code
 export { }
 const FILE_PATH = "testscripts/variables.tc"
@@ -10,7 +13,7 @@ const SCRIPT_CONTENTS = await Bun.file(FILE_PATH).text()
 var CharIndex = -1
 var Running = true
 
-var Lines: Array<[Token]> = []
+var Lines: Array<Array<Token>> = []
 var CurrentLine: Array<Token> = []
 
 //==========[ constants ]=========\\
@@ -95,13 +98,13 @@ function GetNextCharacters(index: number,charAmount: number, dontIncludeWhitespa
 }
 
 //returns the number of whitespace characters from CharIndex
-function GetWhitespaceAmount(index: number): number {
+function GetWhitespaceAmount(index: number,newlinesAreWhitespace = false): number {
     let count = 0
 
     while (index < SCRIPT_CONTENTS.length) {
         index++
         if (
-            (SCRIPT_CONTENTS[index] == "\n") ||
+            (SCRIPT_CONTENTS[index] == "\t") ||
             (SCRIPT_CONTENTS[index] == " ")
         ) {
             count += 1
@@ -433,8 +436,35 @@ function ParseExpression(index: number,terminateAt: string = "\n"): [number, Exp
     }
     return null
 }
+
 //main logic goes here
 function DoTheThing(): void {
+    //if at the end of the file, stop running
+    if (CharIndex == SCRIPT_CONTENTS.length) {
+        Lines.push(CurrentLine)
+        CurrentLine = []
+        Running = false
+        return
+    }
+
+    //if at the end of a line, push that line and start a new one
+    if (SCRIPT_CONTENTS[CharIndex] == "\n") {
+        Lines.push(CurrentLine)
+        CurrentLine = []
+
+        //keep skipping blank lines
+        while (GetNextCharacters(CharIndex,1) == "\n") {
+            CharIndex++
+
+            //if this is just a stray newline before the end of the file, dont bother parsing next line. stop runnign immediately instead
+            if (CharIndex + 1 >= SCRIPT_CONTENTS.length) {
+                Running = false
+                return
+            }
+        }
+    }
+
+
     // if current line is empty
     if (CurrentLine.length == 0) {
         //check for a variable
@@ -466,13 +496,11 @@ function DoTheThing(): void {
                 if (expressionResults) {
                     ApplyResults(expressionResults)
                 }
-
-                Running = false
             }
         }
     }
 
-    Running = false
+    //Running = false
 }
 
 //==========[ other code ]=========\\
@@ -481,4 +509,4 @@ while (Running) {
     DoTheThing()
 }
 
-print(JSON.stringify(CurrentLine,null,"  "))
+print(JSON.stringify(Lines,null,"  "))
