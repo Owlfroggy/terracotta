@@ -323,7 +323,7 @@ function ParseNumber(index: number): [number, NumberToken] | null {
 
 //= Operators =\\
 const ValidOperators = ["="]
-const ValidExpressionOperators = ["+","-","*","/"]
+const ValidExpressionOperators = ["+","-","*","/","^"]
 
 class OperatorToken extends Token {
     constructor(operator: string) {
