@@ -1,9 +1,1 @@
-default:SetToCreativeMode
-default:SendMessage()
-default:SendMessage("Hello world!")
-default:SendMessage("Nested expressions work?" + (7/3), "oh wow they do!!!")
-default:SendMessage((7+2))
-default:SendMessage("Very","Many",global parameters,"test",892359)
-
-
-     default    :        SendMessage         (       "whitespace"         ,        "test"      )    
+allPlayers:SendMessage("balls"   

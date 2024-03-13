@@ -391,42 +391,6 @@ function ParseList(index,openingChar: string, closingChar: string, seperatingCha
     return [index, new ListToken(items)]
 }
 
-// function ParseList(index,openingChar: string, closingChar: string, seperator: string): [number,ListToken] | null {
-//     index += GetWhitespaceAmount(index)
-
-//     let items: Array<ExpressionToken> = []
-    
-//     if (GetNextCharacters(index, 1) != openingChar) {return null}
-//     //move to opening char
-//     index += GetWhitespaceAmount(index) + 1
-
-//     while (SCRIPT_CONTENTS[index] != closingChar) {
-//         //parse expression
-//         let expressionResults = ParseExpression(index,[closingChar,","])
-
-//         //apply expression
-//         if (expressionResults != null) {
-//             print(expressionResults[0])
-            
-//             index = expressionResults[0]+ GetWhitespaceAmount(index)
-//             if (SCRIPT_CONTENTS[expressionResults[0]] == "," || SCRIPT_CONTENTS[expressionResults[0]] == closingChar) { 
-//                 index -= 1
-//             }
-//             items.push(expressionResults[1])
-//         }
-//         if (GetNextCharacters(index,1) == ",") {
-//             index += GetWhitespaceAmount(index) + 1
-//         }
-//         //im not entirely sure why, but without this check the list will fail to close if theres whitespace between final expr and closing char
-//         else if (GetNextCharacters(index,1) == closingChar && GetWhitespaceAmount(index) > 0) {
-//             index++
-//             print("e",index)
-//         }
-//     }
-    
-//     return [index,new ListToken(items)]
-// }
-
 //= Action =\\
 class ActionToken extends Token {
     constructor(domain: string, action: string, params: ListToken | null = null) {
@@ -486,25 +450,6 @@ function ParseAction(index: number): [number, ActionToken] | null {
     }
 
     return [index, new ActionToken(domain.Identifier,actionResults[1],params)]
-
-    // let actionResults = GetIdentifier(CharIndex + GetWhitespaceAmount(CharIndex) + 1)
-    // if (actionResults) {
-    //     let actionType = GetTargetActionType(CurrentLine[0])
-    //     let validActions = (
-    //         actionType == "player" ? ValidPlayerActions :
-    //             actionType == "entity"
-    //     )
-
-    //     if (!validActions[actionResults[1]]) {
-    //         throw new Error(`Invalid ${actionType} action: '${actionResults[1]}'`)
-    //     }
-
-    //     ApplyResults([actionResults[0], new IdentifierToken(actionResults[1])])
-    //     return
-    // }
-
-    // throw new Error(`Missing action name following '${CurrentLine[0].Target}:'`)
-    return null
 }
 
 //= Identifier ==\\
@@ -605,7 +550,7 @@ function ParseExpression(index: number,terminateAt: Array<string> = ["\n"], endI
 
             //try variable
             if (results == null) { results = ParseVariable(index) }
-        } 
+        }
         //otherwise, parse for operator 
         else {
             results = ParseOperator(index,"math")
@@ -674,22 +619,6 @@ function DoTheThing(): void {
             return
         }
     }
-
-    // //if line starts with target
-    // if (CurrentLine[0] instanceof TargetToken) {
-    //     //action is being happened
-    //     if (CurrentLine[1] instanceof CallerToken) {
-            
-    //     }
-
-    //     //try caller (:)
-    //     if (GetNextCharacters(CharIndex,1) == ":") {
-    //         CurrentLine.push(new CallerToken)
-    //         CharIndex += GetWhitespaceAmount(CharIndex) + 1
-
-    //         return
-    //     }
-    // }
 
     //if current line starts with a variable
     if (CurrentLine[0] instanceof VariableToken) {

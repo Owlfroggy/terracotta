@@ -39,5 +39,11 @@ export class TargetDomain extends Domain {
 }
 
 export var TargetDomains = {
-    default: new TargetDomain("default",ValidPlayerActions,"default")
+    selection: new TargetDomain("selection",ValidPlayerActions,"default"),
+    default: new TargetDomain("default",ValidPlayerActions,"default"),
+    killer: new TargetDomain("killer",ValidPlayerActions,"killer"),
+    damager: new TargetDomain("damager",ValidPlayerActions,"damager"),
+    shooter: new TargetDomain("shooter",ValidPlayerActions,"shooter"),
+    victim: new TargetDomain("victim",ValidPlayerActions,"victim"),
+    allPlayers: new TargetDomain("allPlayers",ValidPlayerActions,"allPlayers")
 }
