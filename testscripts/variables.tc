@@ -1,1 +1,7 @@
-allPlayers:SendMessage("balls"   
+default:SetToCreativeMode
+default:EnableBlockModification(55,29)
+
+default:SendMessage(global[prefix_info], "§aconrgatjsurlations youa re now god!")
+
+allPlayers:SendMessage(+ global prefix_danger, "warning!!!! %default has ascended to a higher plane of existance")
+allPlayers:SendMessage(global[prefix_danger], "current danger level: ",global dangerLevel)

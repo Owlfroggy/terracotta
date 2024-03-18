@@ -1,12 +1,17 @@
 //DISCLAIMER!!!!!!! i literally have no clue how to write a programming lanague and am
 //totally just winging it so i take no responsibility for any psycological damage thats
 //may result from smart peoiple looking at my goofy ass code
+
+
+//TODO: add \n -> newline to string parsing
 import { Domain, DomainList, TargetDomain } from "./domains"
+import { PrintError, TCError } from "./errorHandler"
+import {IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil} from "./characterUtils"
 
 export { }
 const FILE_PATH = "testscripts/variables.tc"
 
-const SCRIPT_CONTENTS = await Bun.file(FILE_PATH).text()
+export const SCRIPT_CONTENTS = await Bun.file(FILE_PATH).text()
 
 //Current index in the file that the parser is looking at
 var CharIndex = -1
@@ -25,114 +30,13 @@ function print(...data: any[]) {
 }
 
 
-//returns true if if a char is valid for use in an identifier
-//totally not copy pasted from stack overflow
-function IsCharacterValidIdentifier(char) {
-    let code = char.charCodeAt(0);
-    if (!(code > 47 && code < 58) && // numeric (0-9)
-        !(code > 64 && code < 91) && // upper alpha (A-Z)
-        !(code == 95) && //underscore
-        !(code > 96 && code < 123)) { // lower alpha (a-z)
-        return false;
-    }
-    return true;
-};
 
-//returns true if char is valid for use in a number
-function IsCharacterValidNumber(char) {
-    let code = char.charCodeAt(0);
-    if (
-        !(code > 47 && code < 58) && // numeric (0-9)
-        !(code == 46) //decimal (.)
-    ){
-        return false
-    }
-
-    return true
-}
-
-//Gets word until a special character is encountered
-//IMPORTANT: index should be the first character IN TEH KEYWORD!!!
-//SPACE COUNTS AS A SPECIAL CHARACTER!!!!
-//returns: the word, the index of the final character in the word
-function GetIdentifier(index): [number, string] | null {
-    if (SCRIPT_CONTENTS[index] == undefined) {return null}
-    let word = "";
-
-    //dont let identifiers start with numbers
-    let firstCharacterCode = SCRIPT_CONTENTS[index].charCodeAt(0)
-    if (firstCharacterCode > 47 && firstCharacterCode < 58) {
-        return null
-    }
-
-    while (index < SCRIPT_CONTENTS.length) {
-        if (IsCharacterValidIdentifier(SCRIPT_CONTENTS[index])) {
-            word += SCRIPT_CONTENTS[index]
-        } else {
-            break
-        }
-        index++
-    }
-    return [index - 1, word]
-}
-
-//Get next amount of characters from CharIndex, with option to ignore whitespaces
-function GetNextCharacters(index: number,charAmount: number, newlinesAreWhitespace: boolean = false) {
-    let string = ""
-
-    while (charAmount > 0) {
-        index++
-        let char = SCRIPT_CONTENTS[index]
-        //if at the end of the script
-        if (char == undefined) {break}
-
-        if (char == " ") {continue}
-        if (char == "\t") {continue}
-        if (char == "\n" && newlinesAreWhitespace) {continue}
-
-        string += char
-        charAmount -= 1
-    }
-
-    return string
-}
-
-//returns the number of whitespace characters from CharIndex
-function GetWhitespaceAmount(index: number,newlinesAreWhitespace = false): number {
-    let count = 0
-
-    while (index < SCRIPT_CONTENTS.length) {
-        index++
-        if (
-            (SCRIPT_CONTENTS[index] == "\t") ||
-            (SCRIPT_CONTENTS[index] == " ")
-        ) {
-            count += 1
-        } else {
-            return count
-        }
-    }
-
-    return count
-}
-
-//returns a string with every character from CharIndex until the first instance of anything in terminateAt
-function GetCharactersUntil(index: number,terminateAt: Array<string>) {
-    let string = ""
-    
-    while (index < SCRIPT_CONTENTS.length-1) {
-        index++
-        if (terminateAt.includes(SCRIPT_CONTENTS[index])) {
-            return string
-        }
-        string += SCRIPT_CONTENTS[index]
-    }
-
-    return string
-}
 
 //returned number will be index of closing char
+//ERR1 = string was not closed
 function GetString(index: number,openingChar:string, closingChar: string = openingChar): [number, string] | null {
+    let initIndex = index
+
     //if not a string, return
     if (GetNextCharacters(index,1) != openingChar) {return null}
 
@@ -140,8 +44,8 @@ function GetString(index: number,openingChar:string, closingChar: string = openi
     index += 1 + GetWhitespaceAmount(index)
 
     let string = ""
-    while (index < SCRIPT_CONTENTS.length) {
-        let nextChunk = GetCharactersUntil(index,["\n","\\",closingChar])
+    while (index < SCRIPT_CONTENTS.length-1) {
+        let nextChunk = GetCharactersUntil(index+1,["\n","\\",closingChar])[1]
         string += nextChunk
         index += nextChunk.length
 
@@ -157,11 +61,10 @@ function GetString(index: number,openingChar:string, closingChar: string = openi
         }
         //if chunk stopped due to newline
         else if (SCRIPT_CONTENTS[index+1] == "\n") {
-            throw new Error("String was never closed")
+            throw new TCError("String was never closed",1,initIndex+GetWhitespaceAmount(initIndex)+1,index)
         }
     }
-
-    throw new Error("String was never closed")
+    throw new TCError("String was never closed",1,initIndex+GetWhitespaceAmount(initIndex)+1,index)
 }
 
 //Useful function for applying the results of most parsers
@@ -202,12 +105,14 @@ const VALID_VAR_SCCOPES = {
     "global": "game",
     "saved": "save",
     "local": "local",
-    "line:": "line"
+    "line": "line"
 }
 
 //returned number will be closing ] or final character of identifier
+//ERR1 = variable name never closed
 function ParseVariable(index): [number, VariableToken] | null {
     index += GetWhitespaceAmount(index) + 1
+    let initIndex = index
     
     let keywordResults = GetIdentifier(index)
     if (keywordResults == null) { return null }
@@ -221,8 +126,16 @@ function ParseVariable(index): [number, VariableToken] | null {
     //move into position to parse variable name
     index = keywordResults[0]
 
-    
-    let complexNameResults = GetString(index,"[","]")
+    let complexNameResults
+
+    try {
+        complexNameResults = GetString(index,"[","]")
+    }
+    catch (e) {
+        if (e.Code == 1) {
+            throw new TCError("Variable name was never closed",1,e.CharStart,e.CharLoc)
+        }
+    }
     //if theres a [, use the inside of the [] as name
     if (complexNameResults) {
         return [complexNameResults[0],new VariableToken(scopeKeyword, complexNameResults[1])]
@@ -238,8 +151,6 @@ function ParseVariable(index): [number, VariableToken] | null {
 
         return [variableNameResults[0], new VariableToken(scopeKeyword, variableNameResults[1])]
     }
-
-    throw new Error("it appears you have fucked up a variable")
 }
 //= String =\\
 
@@ -255,15 +166,9 @@ class StringToken extends Token {
 //litearlly just GetString but it returns a string token
 function ParseString(index: number,openingChar:string, closingChar: string = openingChar): [number, StringToken] | null {
     let results
-    try {
-        results = GetString(index,openingChar,closingChar)
-        if (results) {
-            return [results[0], new StringToken(results[1])]
-        }
-    } catch (e) {
-        if (e == "String was never closed") {
-            throw new Error("String was never closed")
-        }
+    results = GetString(index,openingChar,closingChar)
+    if (results) {
+        return [results[0], new StringToken(results[1])]
     }
 
     return null
@@ -278,8 +183,11 @@ class NumberToken extends Token {
     Number: string
 }
 
+//ERR1 = invalid character found
 //returned number will be index of final character of the number
 function ParseNumber(index: number): [number, NumberToken] | null {
+    let initIndex = index
+    
     //if not a number, return null
     if (!IsCharacterValidNumber(GetNextCharacters(index,1))) { return null }
 
@@ -306,6 +214,10 @@ function ParseNumber(index: number): [number, NumberToken] | null {
             if (string.length == 0 && SCRIPT_CONTENTS[index] == "0") { continue }
 
             string += SCRIPT_CONTENTS[index]
+        }
+        //if character is some other thing that shouldnt be allowed in numbers
+        else if (IsCharacterValidIdentifier(SCRIPT_CONTENTS[index])){
+            throw new TCError(`'${SCRIPT_CONTENTS[index]}' is not a valid character in a number`,1,index,index)
         }
         //if this character is the end of the number
         else {
@@ -365,8 +277,10 @@ class ListToken extends Token {
     Items: Array<ExpressionToken>
 }
 
+//ERR1 = list was never closed
 function ParseList(index,openingChar: string, closingChar: string, seperatingChar: string): [number,ListToken] | null {
     index += GetWhitespaceAmount(index)
+    let initIndex = index
 
     if (GetNextCharacters(index, 1) != openingChar) {return null}
     
@@ -376,7 +290,16 @@ function ParseList(index,openingChar: string, closingChar: string, seperatingCha
     let items: Array<ExpressionToken> = []
 
     while (SCRIPT_CONTENTS[index] != closingChar) {
-        let expressionResults = ParseExpression(index,[seperatingChar,closingChar],false)
+        let expressionResults
+        try {
+            expressionResults = ParseExpression(index,[seperatingChar,closingChar],false)
+        } catch (e) {
+            if (e.message == "Expression was never closed") {
+                throw new TCError("List was never closed",1,initIndex+1,GetLineEnd(index)-1)
+            } else {
+                throw e
+            }
+        }
         if (expressionResults == null) {
             //the only situation this can happen is when the list is empty eg. ()
             //move to closing char so loop finishes:
@@ -406,8 +329,11 @@ class ActionToken extends Token {
     Action: string
 }
 
+//ERR1 = missing function
+//ERR2 = invalid function
 function ParseAction(index: number): [number, ActionToken] | null {
     index += GetWhitespaceAmount(index)
+    let initIndex = index
 
     //= parse domain =\\
     let domainResults = GetIdentifier(index + 1)
@@ -428,15 +354,23 @@ function ParseAction(index: number): [number, ActionToken] | null {
     //= parse action =\\
     let actionResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
     //error for missing action
-    if (actionResults == null) {
-        if (domain instanceof TargetDomain) {throw Error(`Expected name for ${domain.ActionType} action`)}
-        else {throw Error(`Expected function name`)}
+    if (actionResults == null || actionResults[1] == "") {
+        if (domain instanceof TargetDomain) {
+            throw new TCError(`Expected name for ${domain.ActionType} action`,1,initIndex+1,index)
+        }
+        else {
+            throw new TCError(`Expected function name`,1,initIndex+1,index)
+        }
     }
 
     //error for invalid action
     if (domain.Actions[actionResults[1]] == undefined) {
-        if (domain instanceof TargetDomain) {throw Error(`Invalid ${domain.ActionType} action: '${actionResults[1]}'`)}
-        else {throw Error(`'${domain.Identifier} does not contain function '${actionResults[1]}'`)}
+        if (domain instanceof TargetDomain) {
+            throw new TCError(`Invalid ${domain.ActionType} action: '${actionResults[1]}'`,2,index+GetWhitespaceAmount(index)+1,actionResults[0])
+        }
+        else {
+            throw new TCError(`'${domain.Identifier} does not contain function '${actionResults[1]}'`,2,index+GetWhitespaceAmount(index)+1,actionResults[0])
+        }
     }
 
     //move to the end of the action name
@@ -526,12 +460,31 @@ class ExpressionToken extends Token {
     Expression: Array<ExprOperatorToken | StringToken>
 }
 
-function ParseExpression(index: number,terminateAt: Array<string> = ["\n"], endIndexAtTerminator: boolean = true): [number, ExpressionToken] | null {
+//ERR1 = expression never closed
+//ERR2 = invalid value
+//ERR3 = invalid operator
+//ERR4 = expression started with operator
+//ERR5 = operator instead of value
+function ParseExpression(index: number,terminateAt: Array<string | null> = ["\n"], endIndexAtTerminator: boolean = true): [number, ExpressionToken] | null {
+    //if it should terminate at a newline, also terminate at eof
+    if (terminateAt.includes("\n")) {
+        if (!terminateAt.includes(null)) {terminateAt.push(null)}
+        if (!terminateAt.includes("")) {terminateAt.push("")}
+    }
+    
     let expressionSymbols: Array<any> = []
 
+    let initIndex = index
     index += GetWhitespaceAmount(index)
 
-    while (GetNextCharacters(index,1) != "" && !terminateAt.includes(GetNextCharacters(index,1))) {
+    while (!terminateAt.includes(GetNextCharacters(index,1))) {
+        let valueInitIndex = index
+
+        //= ERROR: expression isnt closed
+        if (GetNextCharacters(index,1) == "\n" || (GetNextCharacters(index,1) == "" && !terminateAt.includes("\n")) ) {
+            throw new TCError("Expression was never closed",1,initIndex,index)
+        }
+
         let results: [number, Token] | null = null
         // parse next token!!
         
@@ -550,10 +503,36 @@ function ParseExpression(index: number,terminateAt: Array<string> = ["\n"], endI
 
             //try variable
             if (results == null) { results = ParseVariable(index) }
+
+            if (results == null) { 
+                //= ERROR: operator was given instead of expr
+                let operatorResults = ParseOperator(index,"math") 
+                if (operatorResults != null) {
+                    if (expressionSymbols.length == 0) {
+                        throw new TCError("Expressions can't start with operators",4,initIndex + GetWhitespaceAmount(initIndex) + 1,initIndex + GetWhitespaceAmount(initIndex) + 1)
+                    } else {
+                        throw new TCError("Expected value or expression following operator", 5, index + GetWhitespaceAmount(index) + 1, index + GetWhitespaceAmount(index) + 1)
+                    }
+                }
+
+                let identifierResults = GetIdentifier(index+GetWhitespaceAmount(index)+1)!
+                if (identifierResults[1] == "") {
+                    throw new TCError(`Invalid character: '${GetNextCharacters(index,1)}'`,2,valueInitIndex + GetWhitespaceAmount(index) + 1,valueInitIndex + GetWhitespaceAmount(index) + 1)
+                }
+                else {
+                    throw new TCError(`Invalid value: '${GetIdentifier(index+GetWhitespaceAmount(index)+1)![1]}'`,2,valueInitIndex + GetWhitespaceAmount(index) + 1,identifierResults[0])
+                }
+            }
         }
         //otherwise, parse for operator 
         else {
             results = ParseOperator(index,"math")
+
+            //= ERROR: invalid operator
+            if (results == null) {
+                let identifierResults = GetCharactersUntil(index+GetWhitespaceAmount(index)+1,[" ","\n"])
+                throw new TCError(`Expected operator, got '${identifierResults[1]}'`,3,index+GetWhitespaceAmount(index)+1,identifierResults[0])
+            }
         }
 
 
@@ -562,17 +541,27 @@ function ParseExpression(index: number,terminateAt: Array<string> = ["\n"], endI
             index = results[0]
             continue
         } else {
-            throw new Error("y'all, that expression dont look right")
+            throw Error("y'all, that expression dont look right")
         }
     }
 
+    //= ERROR: throw err if expression ends with operator
+    if (expressionSymbols[expressionSymbols.length - 1] instanceof OperatorToken) {
+        throw new TCError("Expression cannot end on an operator",1,index,index)
+    }
+
+    //if this expression has a terminator, move index to that terminate if told to
     if (terminateAt.includes(GetNextCharacters(index,1)) && endIndexAtTerminator) {
-        index++
+        //dont move if expression ended because of eof
+        if (GetNextCharacters(index,1) != "") {
+            index += 1 + GetWhitespaceAmount(index)
+        }
     }
 
     if (expressionSymbols.length > 0) {
         return [index, new ExpressionToken(expressionSymbols)]
     }
+
     return null
 }
 
@@ -614,10 +603,14 @@ function DoTheThing(): void {
         //try variable
         if (results == null) { results = ParseVariable(CharIndex) }
 
-        if (results != null) {
-            ApplyResults(results)
-            return
+        //error
+        if (results == null) {
+            let result = GetCharactersUntil(CharIndex+1,[" ","\n"])
+            throw new TCError(`Unexpected '${result[1]}'`,0,CharIndex+1,result[0])
         }
+
+        ApplyResults(results)
+        return
     }
 
     //if current line starts with a variable
@@ -648,13 +641,23 @@ function DoTheThing(): void {
         }
     }
 
-    Running = false
+    throw new TCError("Something's definitely wrong here (fallback error)",0,CharIndex,-1)
+    print("Current line:",CurrentLine)
 }
 
 //==========[ other code ]=========\\
+let WasErrorThrown = false
 
 while (Running) {
-    DoTheThing()
+    try {
+        DoTheThing()
+    } catch (e) {
+        PrintError(e)
+        WasErrorThrown = true
+        break
+    }
 }
 
-print(JSON.stringify(Lines,null,"  "))
+if (!WasErrorThrown) {
+    print(JSON.stringify(Lines,null,"  "))
+}
