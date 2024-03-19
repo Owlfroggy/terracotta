@@ -1,11 +1,12 @@
-import { ValidPlayerActions } from "./actionDump"
+import { ValidPlayerActions, ValidPlayerCompActions } from "./actionDump"
 
 //list of all registered domain ids
 export var DomainList: Dict<Domain> = {}
 
 export class Domain {
-    constructor(identifier: string, actions: Dict<string>) {
+    constructor(identifier: string, actions: Dict<string>, comparisons: Dict<string>) {
         this.Identifier = identifier
+        this.Comparisons = comparisons
         this.Actions = actions
 
         DomainList[identifier] = this
@@ -13,11 +14,12 @@ export class Domain {
 
     Identifier: string
     Actions: Dict<string>
+    Comparisons: Dict<string>
 }
 
 export class TargetDomain extends Domain {
-    constructor(identifier: string, actions: Dict<string>, target: string) {
-        super(identifier,actions)
+    constructor(identifier: string, actions: Dict<string>, comparisons: Dict<string>, target: string) {
+        super(identifier,actions,comparisons)
 
         this.Target = target
         if (
@@ -39,11 +41,11 @@ export class TargetDomain extends Domain {
 }
 
 export var TargetDomains = {
-    selection: new TargetDomain("selection",ValidPlayerActions,"default"),
-    default: new TargetDomain("default",ValidPlayerActions,"default"),
-    killer: new TargetDomain("killer",ValidPlayerActions,"killer"),
-    damager: new TargetDomain("damager",ValidPlayerActions,"damager"),
-    shooter: new TargetDomain("shooter",ValidPlayerActions,"shooter"),
-    victim: new TargetDomain("victim",ValidPlayerActions,"victim"),
-    allPlayers: new TargetDomain("allPlayers",ValidPlayerActions,"allPlayers")
+    selection: new TargetDomain("selection",ValidPlayerActions,ValidPlayerCompActions,"default"),
+    default: new TargetDomain("default",ValidPlayerActions,ValidPlayerCompActions,"default"),
+    killer: new TargetDomain("killer",ValidPlayerActions,ValidPlayerCompActions,"killer"),
+    damager: new TargetDomain("damager",ValidPlayerActions,ValidPlayerCompActions,"damager"),
+    shooter: new TargetDomain("shooter",ValidPlayerActions,ValidPlayerCompActions,"shooter"),
+    victim: new TargetDomain("victim",ValidPlayerActions,ValidPlayerCompActions,"victim"),
+    allPlayers: new TargetDomain("allPlayers",ValidPlayerActions,ValidPlayerCompActions,"allPlayers")
 }

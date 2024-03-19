@@ -1,7 +1,8 @@
 const ACTION_DUMP = await Bun.file("actiondump.json").json()
 
 //key: function name in terracotta, value: sign value in df
-let ValidPlayerActions: Dict<string> = {}
+export let ValidPlayerActions: Dict<string> = {}
+export let ValidPlayerCompActions: Dict<string> = {}
 
 
 //name overrides
@@ -19,18 +20,38 @@ const PlayerActionOverrides = {
     "SurvivalMode": "SetToSurvivalMode"
 }
 
-for (const action of ACTION_DUMP.actions) {
-    if (action.codeblockName == "PLAYER ACTION") {
-        let name = action.icon.name.replace(/ /g,"")
+const PlayerCompActionOverrides = {
 
-        if (name.length == 0) {continue}
-
-        if (PlayerActionOverrides[action.name]) {
-            name = PlayerActionOverrides[action.name]
-        }
-        
-        ValidPlayerActions[name] = action.name
-    }
 }
 
-export {ValidPlayerActions}
+//convert code blocks
+for (const action of ACTION_DUMP.actions) {
+    let overrides
+    let validActions
+
+    //figure out what tables to use for this code block
+    switch (action.codeblockName) {
+        case "PLAYER ACTION":
+            overrides = PlayerActionOverrides
+            validActions = ValidPlayerActions
+            break
+        case "IF PLAYER":
+            overrides = PlayerCompActionOverrides
+            validActions = ValidPlayerCompActions
+            break
+    }
+
+    //if this is not a supported code block, skip it
+    if (validActions == null) { continue }
+
+    //remove all spaces in code block name
+    let name = action.icon.name.replace(/ /g,"")
+
+    //if code block name is empty, skip it
+    if (name.length == 0) {continue}
+ 
+    if (overrides[action.name]) {
+        name = validActions[action.name]
+    }
+    validActions[name] = action.name
+}

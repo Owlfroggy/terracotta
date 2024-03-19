@@ -7,6 +7,7 @@
 import { Domain, DomainList, TargetDomain } from "./domains"
 import { PrintError, TCError } from "./errorHandler"
 import {IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil} from "./characterUtils"
+import { NullSyncSubprocess } from "bun"
 
 export { }
 const FILE_PATH = "testscripts/variables.tc"
@@ -25,7 +26,7 @@ var CurrentLine: Array<Token> = []
 //==========[ helper functions ]=========\\
 
 //none of this console.log bullshit! i mean do you seriously expect me to type that whole thing out every singel time i wanna print something!?!?!? at least its better than java but still
-function print(...data: any[]) {
+function print (...data: any[]) {
     console.log(...data)
 }
 
@@ -184,6 +185,7 @@ class NumberToken extends Token {
 }
 
 //ERR1 = invalid character found
+//ERR2 = multiple decimal points
 //returned number will be index of final character of the number
 function ParseNumber(index: number): [number, NumberToken] | null {
     let initIndex = index
@@ -201,7 +203,7 @@ function ParseNumber(index: number): [number, NumberToken] | null {
         if (SCRIPT_CONTENTS[index] == ".") {
             //if there has already been a . throw error
             if (decimalFound) {
-                throw new Error("you cant have 2 decimals in one number")
+                throw new TCError("Multiple decimal points in one number",2,index,index)
             }
 
             string += "."
@@ -233,12 +235,16 @@ function ParseNumber(index: number): [number, NumberToken] | null {
     //add one leading 0 if starting with decimal
     if (string == "") { string = "0" + string }
 
+    //remove trailing decimal if nothing's after it
+    if (string[string.length-1] == ".") {string = string.substring(0,string.length - 1)}
+
     return [index-1, new NumberToken(string)]
 }
 
 //= Operators =\\
 const ValidAssignmentOperators = ["=","+=","-=","*=","/="]
 const ValidMathOperators = ["+","-","*","/","^"]
+const ValidComparisonOperators = ["==","!=","<",">","<=",">="]
 
 class OperatorToken extends Token {
     constructor(operator: string) {
@@ -262,6 +268,46 @@ for (const v of ValidMathOperators) {
     if (!MathOperatorsLengths.includes(v.length)) {
         MathOperatorsLengths.push(v.length)
     }
+}
+
+const ComparisonOperatorsLengths: Array<number> = []
+for (const v of ValidComparisonOperators) {
+    if (!ComparisonOperatorsLengths.includes(v.length)) {
+        ComparisonOperatorsLengths.push(v.length)
+    }
+}
+
+//returned number is final character in the operator
+function ParseOperator(index: number,operatorType: "assignment" | "math" | "comparison"): [number, OperatorToken] | null {
+    index += GetWhitespaceAmount(index)
+
+    let validOperators
+    let lengthList
+    switch(operatorType) {
+        case "assignment": 
+            validOperators = ValidAssignmentOperators
+            lengthList = AssignmentOperatorsLengths
+            break
+        case "math": 
+            validOperators = ValidMathOperators
+            lengthList = MathOperatorsLengths
+            break
+        case "comparison":
+            validOperators = ValidComparisonOperators
+            lengthList = ComparisonOperatorsLengths
+            break
+    }
+
+    //try every possible length of operator
+    for (const length of lengthList) {
+        let operatorString = GetNextCharacters(index,length)
+
+        if (validOperators.includes(operatorString)) {
+            return [index + length, new OperatorToken(operatorString)]
+        }
+    }
+
+    return null
 }
 
 //= Accessor & Caller =\\
@@ -314,24 +360,84 @@ function ParseList(index,openingChar: string, closingChar: string, seperatingCha
     return [index, new ListToken(items)]
 }
 
+//= If statements!!! =\\
+class ElseToken extends Token {
+    Else = "Else"
+}
+
+function ParseElse(index: number): [number, ElseToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let identifierResults = GetIdentifier(index)
+
+    if (identifierResults != null && identifierResults[1] == "else") {
+        return [identifierResults[0], new ElseToken()]
+    }
+
+    return null
+}
+
+class IfToken extends Token {
+    constructor(not: boolean) {
+        super()
+        if (not != null) {this.Not = not}
+    }
+
+    If = "If"
+    Not: boolean = false
+}
+
+function ParseIf(index: number): [number, IfToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let identifierResults = GetIdentifier(index)
+    let not = false
+
+    //if this is an "if" keyword
+    if (identifierResults != null && identifierResults[1] == "if") {
+        index = identifierResults[0]
+
+        //try for not
+        let notResults = GetIdentifier(index + 1 + GetWhitespaceAmount(index))
+        if (notResults != null && notResults[1] == "not") {
+            not = true
+            index = notResults[0]
+        }
+
+        return [index, new IfToken(not)]
+    }
+
+    return null
+}
+
+//= Brackets =\\
+class BracketToken extends Token {
+    constructor(type: "open" | "close"){
+        super()
+        this.Type = type
+    }
+
+    Type: "open" | "close"
+}
+
 //= Action =\\
 class ActionToken extends Token {
-    constructor(domain: string, action: string, params: ListToken | null = null) {
+    constructor(domain: string, action: string, params: ListToken | null = null, isComparison: boolean = false) {
         super()
         this.DomainId = domain
         this.Action = action
         this.Params = params
+        if (isComparison) {this.Type = "comparison"}
     }
 
     Params: ListToken | null
     Tags: ListToken | null
     DomainId: string
     Action: string
+    Type: "comparison" | "action" = "action"
 }
 
 //ERR1 = missing function
 //ERR2 = invalid function
-function ParseAction(index: number): [number, ActionToken] | null {
+function ParseAction(index: number, allowComparisons: boolean = false): [number, ActionToken] | null {
     index += GetWhitespaceAmount(index)
     let initIndex = index
 
@@ -346,9 +452,21 @@ function ParseAction(index: number): [number, ActionToken] | null {
     index = domainResults[0]
 
     //= only progress if calling an action =\\
-    if (GetNextCharacters(index,1) != ":") {return null}
+    let accessor = GetNextCharacters(index,1)
+    if (
+        !(accessor == ":") &&
+        !(accessor == "?" && allowComparisons)
+    ) {
+        return null
+    }
+    let isComparison = false
+    let actions = domain.Actions
+    if (accessor == "?") {
+        isComparison = true
+        actions = domain.Comparisons
+    }
 
-    //move to the ':'
+    //move to the accessor
     index += 1 + GetWhitespaceAmount(index)
 
     //= parse action =\\
@@ -364,7 +482,7 @@ function ParseAction(index: number): [number, ActionToken] | null {
     }
 
     //error for invalid action
-    if (domain.Actions[actionResults[1]] == undefined) {
+    if (actions[actionResults[1]] == undefined) {
         if (domain instanceof TargetDomain) {
             throw new TCError(`Invalid ${domain.ActionType} action: '${actionResults[1]}'`,2,index+GetWhitespaceAmount(index)+1,actionResults[0])
         }
@@ -377,13 +495,15 @@ function ParseAction(index: number): [number, ActionToken] | null {
     index = actionResults[0]
 
     let paramResults = ParseList(index,"(",")",",")
-    let params: ListToken | null = null
+    let params: ListToken
     if (paramResults) {
         index = paramResults[0]
         params = paramResults[1]
+    } else {
+        params = new ListToken([])
     }
 
-    return [index, new ActionToken(domain.Identifier,actionResults[1],params)]
+    return [index, new ActionToken(domain.Identifier,actionResults[1],params,isComparison)]
 }
 
 //= Identifier ==\\
@@ -421,35 +541,6 @@ function ParseTarget(index: number): [number, TargetToken] | null {
     return null
 }
 
-//returned number is final character in the operator
-function ParseOperator(index: number,operatorType: "assignment" | "math"): [number, OperatorToken] | null {
-    index += GetWhitespaceAmount(index)
-
-    let validOperators
-    let lengthList
-    switch(operatorType) {
-        case "assignment": 
-            validOperators = ValidAssignmentOperators
-            lengthList = AssignmentOperatorsLengths
-            break
-        case "math": 
-            validOperators = ValidMathOperators
-            lengthList = MathOperatorsLengths
-            break
-    }
-
-    //try every possible length of operator
-    for (const length of lengthList) {
-        let operatorString = GetNextCharacters(index,length)
-
-        if (validOperators.includes(operatorString)) {
-            return [index + length, new OperatorToken(operatorString)]
-        }
-    }
-
-    return null
-}
-
 //= Expressions =\\
 class ExpressionToken extends Token {
     constructor(symbols: Array<any>) {
@@ -465,7 +556,8 @@ class ExpressionToken extends Token {
 //ERR3 = invalid operator
 //ERR4 = expression started with operator
 //ERR5 = operator instead of value
-function ParseExpression(index: number,terminateAt: Array<string | null> = ["\n"], endIndexAtTerminator: boolean = true): [number, ExpressionToken] | null {
+//ERR6 = multiple comparisons
+function ParseExpression(index: number,terminateAt: Array<string | null> = ["\n"], endIndexAtTerminator: boolean = true, allowComparisons: boolean = false): [number, ExpressionToken] | null {
     //if it should terminate at a newline, also terminate at eof
     if (terminateAt.includes("\n")) {
         if (!terminateAt.includes(null)) {terminateAt.push(null)}
@@ -473,11 +565,11 @@ function ParseExpression(index: number,terminateAt: Array<string | null> = ["\n"
     }
     
     let expressionSymbols: Array<any> = []
+    let comparisonFound = false
 
     let initIndex = index
     index += GetWhitespaceAmount(index)
-
-    while (!terminateAt.includes(GetNextCharacters(index,1))) {
+    while (!terminateAt.includes(GetNextCharacters(index,1,false))) {
         let valueInitIndex = index
 
         //= ERROR: expression isnt closed
@@ -499,10 +591,15 @@ function ParseExpression(index: number,terminateAt: Array<string | null> = ["\n"
             if (results == null) { results = ParseString(index,"\"") }
 
             //try number
-            if (results == null) { results = ParseNumber(index) }
+            if (results == null) { 
+                results = ParseNumber(index) 
+            }
 
             //try variable
             if (results == null) { results = ParseVariable(index) }
+
+            //try action
+            if (results == null) { results = ParseAction(index, true)}
 
             if (results == null) { 
                 //= ERROR: operator was given instead of expr
@@ -528,6 +625,18 @@ function ParseExpression(index: number,terminateAt: Array<string | null> = ["\n"
         else {
             results = ParseOperator(index,"math")
 
+            //comparison operator
+            if (results == null && allowComparisons) {
+                results = ParseOperator(index,"comparison")
+
+                //error if this is the not the first comparison operator in this expression
+                if (results != null && comparisonFound) {
+                    throw new TCError("Cannot have more than one comparison per statement",6,valueInitIndex + GetWhitespaceAmount(valueInitIndex) + 1,results[0])
+                }
+
+                comparisonFound = true
+            }
+
             //= ERROR: invalid operator
             if (results == null) {
                 let identifierResults = GetCharactersUntil(index+GetWhitespaceAmount(index)+1,[" ","\n"])
@@ -543,7 +652,7 @@ function ParseExpression(index: number,terminateAt: Array<string | null> = ["\n"
         } else {
             throw Error("y'all, that expression dont look right")
         }
-    }
+    } //end of value while loop
 
     //= ERROR: throw err if expression ends with operator
     if (expressionSymbols[expressionSymbols.length - 1] instanceof OperatorToken) {
@@ -565,8 +674,13 @@ function ParseExpression(index: number,terminateAt: Array<string | null> = ["\n"
     return null
 }
 
+let symbols = "!@#$%^&*(){}[]-:;\"'~`=/*-+|\\/,.<>".split("")
+
 //main logic goes here
 function DoTheThing(): void {
+    let previousLine = Lines[Lines.length-1]
+    if (previousLine == undefined) {previousLine = []}
+
     //if at the end of a line, push that line and start a new one
     if (GetNextCharacters(CharIndex,1) == "\n" || CharIndex + GetWhitespaceAmount(CharIndex) == SCRIPT_CONTENTS.length-1) {
         Lines.push(CurrentLine)
@@ -588,11 +702,41 @@ function DoTheThing(): void {
                 return
             }
         }
+
+        return
+    }
+
+    //else parsing
+    if (
+        (previousLine[0] instanceof BracketToken && previousLine[0].Type == "close") ||
+        (CurrentLine[CurrentLine.length-1] instanceof BracketToken && (CurrentLine[CurrentLine.length-1] as BracketToken).Type == "close")
+    ) {
+        let results = ParseElse(CharIndex)
+        if (results) {
+            //apply else token
+            ApplyResults(results)
+
+            //parse opening bracket
+            if (SCRIPT_CONTENTS[CharIndex + GetWhitespaceAmount(CharIndex) + 1] == "{") {
+                CharIndex += GetWhitespaceAmount(CharIndex) + 1
+                CurrentLine.push(new BracketToken("open"))
+            } else {
+                throw new TCError("Else statement missing opening bracket",0,CharIndex,-1)
+            }
+
+            return
+        }
     }
 
     // if current line is empty
     if (CurrentLine.length == 0) {
         let results
+
+        //try closing bracket
+        if (GetNextCharacters(CharIndex,1) == "}") { results = [CharIndex + 1 + GetWhitespaceAmount(CharIndex), new BracketToken("close")]}
+
+        //try if
+        if (results == null) { results = ParseIf(CharIndex) }
 
         //try action
         if (results == null) { results = ParseAction(CharIndex)}
@@ -605,11 +749,37 @@ function DoTheThing(): void {
 
         //error
         if (results == null) {
-            let result = GetCharactersUntil(CharIndex+1,[" ","\n"])
-            throw new TCError(`Unexpected '${result[1]}'`,0,CharIndex+1,result[0])
+            let result = GetCharactersUntil(CharIndex+1+GetWhitespaceAmount(CharIndex),[" ","\n"])
+            throw new TCError(`Unexpected '${result[1]}'`,0,CharIndex+1+GetWhitespaceAmount(CharIndex),result[0])
         }
 
         ApplyResults(results)
+        return
+    }
+
+    //if current line is an if statement
+    if (CurrentLine[0] instanceof IfToken) {
+        //parse condition
+        try {
+            let expressionResults = ParseExpression(CharIndex,["{"],undefined,true)!
+
+            if (expressionResults == null) {throw new TCError("expr results somehow returned null",0,CharIndex,-1)}
+            ApplyResults(expressionResults)
+        } 
+        catch (e) {
+            //missing opening bracket
+            if (e.Code == 1) {
+                throw new TCError("If statement missing opening bracket",0,CharIndex,-1)
+            } else {
+                throw e
+            }
+        }
+
+        //parse opening bracket
+        if (SCRIPT_CONTENTS[CharIndex] == "{") {
+            CurrentLine.push(new BracketToken("open"))
+        }
+
         return
     }
 
@@ -632,7 +802,7 @@ function DoTheThing(): void {
             //must be followed by an expression
             if (ValidAssignmentOperators.includes(operation)) {
                 //parse expression
-                let expressionResults = ParseExpression(CharIndex,["\n"])
+                let expressionResults = ParseExpression(CharIndex,["\n"],false)
                 if (expressionResults) {
                     ApplyResults(expressionResults)
                     return
@@ -641,8 +811,14 @@ function DoTheThing(): void {
         }
     }
 
-    throw new TCError("Something's definitely wrong here (fallback error)",0,CharIndex,-1)
-    print("Current line:",CurrentLine)
+    //fallback error for random symbols
+    if (symbols.includes(GetNextCharacters(CharIndex,1))) {
+        throw new TCError(`Unexpected ${GetNextCharacters(CharIndex,1)}`,0,CharIndex + GetWhitespaceAmount(CharIndex) + 1,CharIndex + GetWhitespaceAmount(CharIndex) + 1)
+    }
+
+    console.log("Current line:",CurrentLine)
+    console.log("Current indx:",CharIndex)
+    throw new TCError("Something's definitely wrong here (fallback error)",0,CharIndex,CharIndex)
 }
 
 //==========[ other code ]=========\\
@@ -659,5 +835,5 @@ while (Running) {
 }
 
 if (!WasErrorThrown) {
-    print(JSON.stringify(Lines,null,"  "))
+    console.log(JSON.stringify(Lines,null,"  "))
 }
