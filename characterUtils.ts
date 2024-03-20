@@ -80,14 +80,17 @@ function GetLineFromIndex(index: number) {
 
 //returned number will be the first character AFTER the newline
 function GetLineStart(index: number): number {
+    let isFirstChar = true
+
     while (index > 0) {
-        if (SCRIPT_CONTENTS[index] == "\n") {return index+1}
+        if (SCRIPT_CONTENTS[index] == "\n" && !isFirstChar) {return index+1}
+        isFirstChar = false
         index--
     }
     return 0
 }
 
-//returned character will be the first character BEFORE ending newline
+//returned character will be the ending newline
 function GetLineEnd(index: number): number {
     while (index < SCRIPT_CONTENTS.length) {
         if (SCRIPT_CONTENTS[index] == "\n") {return index}

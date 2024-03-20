@@ -7,6 +7,7 @@ export function PrintError(e: Error | TCError) {
         let lineEnd = GetLineEnd(e.CharStart)
 
         //show the line that had the error
+        console.log(lineStart,lineEnd)
         console.log(SCRIPT_CONTENTS.substring(lineStart,lineEnd))
         
         //CharLoc -1 means the location of the error is unknown so don't draw the arrows
@@ -14,7 +15,9 @@ export function PrintError(e: Error | TCError) {
             console.log()
         } else {
             //show the ^ thingies that point to the error
-            if (e.CharLoc - e.CharStart == 0) {
+            if (e.CharLoc - lineStart < 0) {
+                console.log(" ".repeat(e.CharStart-e.CharStart) + "^".repeat(e.CharLoc - e.CharStart+1))
+            } else if (e.CharLoc - e.CharStart == 0) {
                 console.log(" ".repeat(e.CharStart-lineStart) + "^".repeat(e.CharLoc - e.CharStart+1))
             } else {
                 console.log(" ".repeat(e.CharStart-lineStart) + "^".repeat(e.CharLoc - (e.CharStart-1)))
