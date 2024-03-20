@@ -1,10 +1,2 @@
-if default ? IsSwimming {
-    default:SendMessage("&cNO water! you're fate is"+"%default")
-    default:Kick
-}
-if global dingus {
-    
-}
-else 
-    saved [%default points] += 10000.
-}
+global dingus = "funny happen please?\
+global dongus = "kjadhfgkjdafhgkjhadfkjkhjgkhj"

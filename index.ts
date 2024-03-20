@@ -3,11 +3,9 @@
 //may result from smart peoiple looking at my goofy ass code
 
 
-//TODO: add \n -> newline to string parsing
 import { Domain, DomainList, TargetDomain } from "./domains"
 import { PrintError, TCError } from "./errorHandler"
 import {IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil} from "./characterUtils"
-import { NullSyncSubprocess } from "bun"
 
 export { }
 const FILE_PATH = "testscripts/variables.tc"
@@ -53,7 +51,7 @@ function GetString(index: number,openingChar:string, closingChar: string = openi
         //if chunk stopp due to a backslash
         if (SCRIPT_CONTENTS[index+1] == "\\") {
             //add char after backslash into the value without parsing it
-            string += SCRIPT_CONTENTS[index+2] //WARNING: some funny shit will probably happen if a line ends with a string that ends with a backslash and no closing char | "awesome string\
+            string += SCRIPT_CONTENTS[index+2]
             index += 2
         }
         //if chunk stopped due to closing char
@@ -541,6 +539,69 @@ function ParseTarget(index: number): [number, TargetToken] | null {
     return null
 }
 
+
+//======== SPECIAL CODE ITEMS ========\\
+
+//= Game Values =\\
+class GameValueToken extends Token {
+    constructor(gameValue: string, target: string | null) {
+        super()
+        this.Value = gameValue
+        this.Target = target
+    }
+
+    Value: string
+    Target: string | null
+}
+
+function ParseGameValue(index: number): [number, Token] | null {
+    index += GetWhitespaceAmount(index)
+    let initIndex = index
+
+    //= parse domain =\\
+    let domainResults = GetIdentifier(index + 1)
+    if (domainResults == null) {return null}
+    
+    let domain = DomainList[domainResults[1]]
+    if (!domain) {return null}
+
+    //move to end of domain
+    index = domainResults[0]
+
+    //= only progress if accessing a game value
+    if (GetNextCharacters(index,1) != ".") {return null}
+
+    //move to the accessor
+    index += 1 + GetWhitespaceAmount(index)
+
+    //= parse value =\\
+    let valueResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
+    //error for missing action
+    if (valueResults == null || valueResults[1] == "") {
+        if (domain instanceof TargetDomain) {
+            throw new TCError(`Expected name for game value`,1,initIndex+1,index)
+        }
+        else {
+            throw new TCError(`Expected value name`,1,initIndex+1,index)
+        }
+    }
+
+    //error for invalid value
+    if (domain.Values[valueResults[1]] == undefined) {
+        if (domain instanceof TargetDomain) {
+            throw new TCError(`Invalid targeted game value: '${valueResults[1]}'`,2,index+GetWhitespaceAmount(index)+1,valueResults[0])
+        }
+        else {
+            throw new TCError(`'${domain.Identifier} does not contain value '${valueResults[1]}'`,2,index+GetWhitespaceAmount(index)+1,valueResults[0])
+        }
+    }
+
+    //move to the end of the action name
+    index = valueResults[0]
+
+    return [index, new GameValueToken(domain.Identifier,valueResults[1])]
+}
+
 //= Expressions =\\
 class ExpressionToken extends Token {
     constructor(symbols: Array<any>) {
@@ -600,6 +661,9 @@ function ParseExpression(index: number,terminateAt: Array<string | null> = ["\n"
 
             //try action
             if (results == null) { results = ParseAction(index, true)}
+
+            //try game value
+            if (results == null) { results = ParseGameValue(index) }
 
             if (results == null) { 
                 //= ERROR: operator was given instead of expr

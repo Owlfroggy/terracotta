@@ -3,6 +3,7 @@ const ACTION_DUMP = await Bun.file("actiondump.json").json()
 //key: function name in terracotta, value: sign value in df
 export let ValidPlayerActions: Dict<string> = {}
 export let ValidPlayerCompActions: Dict<string> = {}
+export let ValidPlayerGameValues: Dict<string> = {}
 
 
 //name overrides
@@ -22,6 +23,12 @@ const PlayerActionOverrides = {
 
 const PlayerCompActionOverrides = {
 
+}
+
+const GameValueOverrides = {
+    "X-Coordinate": "X",
+    "Y-Coordinate": "Y",
+    "Z-Coordinate": "Z"
 }
 
 //convert code blocks
@@ -55,3 +62,20 @@ for (const action of ACTION_DUMP.actions) {
     }
     validActions[name] = action.name
 }
+
+//convert game values
+for (const value of ACTION_DUMP.gameValues) {
+    let name = value.icon.name.replace(/ /g,"")
+    if (GameValueOverrides[value.icon.name]) {name = GameValueOverrides[value.icon.name]}
+
+    //plot game values
+    if (value.category == "Event Values" || value.category == "Plot Values") {
+        
+    }
+    //targeted game values 
+    else {
+        ValidPlayerGameValues[name] = value.icon.name
+    }
+}
+
+console.log(ValidPlayerGameValues)
