@@ -50,6 +50,11 @@ function GetString(index: number,openingChar:string, closingChar: string = openi
 
         //if chunk stopp due to a backslash
         if (SCRIPT_CONTENTS[index+1] == "\\") {
+            //dont escape newline if a string is unclosed and ends on \
+            if (SCRIPT_CONTENTS[index+2] == "\n") {
+                throw new TCError("String was never closed",1,initIndex+GetWhitespaceAmount(initIndex)+1,index+1)
+            }
+            
             //add char after backslash into the value without parsing it
             string += SCRIPT_CONTENTS[index+2]
             index += 2
