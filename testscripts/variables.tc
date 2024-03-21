@@ -1,2 +1,7 @@
-global dingus = "awesome?\
-global dongus = "kjadhfgkjdafhgkjhadfkjkhjgkhj"
+local awesomeVariable = 5
+local [%default even awesomer variable] = "kjadfhgkjadhfgkjahdfgkjhadfgkj"
+
+if default ? HasRoomForItem <Checked Slots: local [%default even awesomer variable] ? Main inventory, Check Mode: Has Room for Any Item> {
+    default:SendMessage("dingus")<Text Value Merging: No spaces>
+    local [%default even awesomer variable] = "jk"
+}

@@ -1,10 +1,10 @@
-import { ValidPlayerActions, ValidPlayerCompActions, ValidPlayerGameValues } from "./actionDump"
+import * as AD from "./actionDump"
 
 //list of all registered domain ids
 export var DomainList: Dict<Domain> = {}
 
 export class Domain {
-    constructor(identifier: string, actions: Dict<string>, comparisons: Dict<string>, values: Dict<string>) {
+    constructor(identifier: string, actions: Dict<AD.Action>, comparisons: Dict<AD.Action>, values: Dict<string>) {
         this.Identifier = identifier
         this.Comparisons = comparisons
         this.Actions = actions
@@ -14,13 +14,13 @@ export class Domain {
     }
 
     Identifier: string
-    Actions: Dict<string>
-    Comparisons: Dict<string>
+    Actions: Dict<AD.Action>
+    Comparisons: Dict<AD.Action>
     Values: Dict<string>
 }
 
 export class TargetDomain extends Domain {
-    constructor(identifier: string, target: string, actions: Dict<string>, comparisons: Dict<string>, values: Dict<string>) {
+    constructor(identifier: string, target: string, actions: Dict<AD.Action>, comparisons: Dict<AD.Action>, values: Dict<string>) {
         super(identifier,actions,comparisons,values)
 
         this.Target = target
@@ -43,11 +43,11 @@ export class TargetDomain extends Domain {
 }
 
 export var TargetDomains = { //this feels like a sin
-    selection: new TargetDomain("selection","selection",ValidPlayerActions,ValidPlayerCompActions,ValidPlayerGameValues),
-    default: new TargetDomain("default","default",ValidPlayerActions,ValidPlayerCompActions,ValidPlayerGameValues),
-    killer: new TargetDomain("killer","killer",ValidPlayerActions,ValidPlayerCompActions,ValidPlayerGameValues),
-    damager: new TargetDomain("damager","damager",ValidPlayerActions,ValidPlayerCompActions,ValidPlayerGameValues),
-    shooter: new TargetDomain("shooter","shooter",ValidPlayerActions,ValidPlayerCompActions,ValidPlayerGameValues),
-    victim: new TargetDomain("victim","victim",ValidPlayerActions,ValidPlayerCompActions,ValidPlayerGameValues),
-    allPlayers: new TargetDomain("allPlayers","allPlayers",ValidPlayerActions,ValidPlayerCompActions,ValidPlayerGameValues)
+    selection: new TargetDomain("selection","selection",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues),
+    default: new TargetDomain("default","default",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues),
+    killer: new TargetDomain("killer","killer",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues),
+    damager: new TargetDomain("damager","damager",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues),
+    shooter: new TargetDomain("shooter","shooter",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues),
+    victim: new TargetDomain("victim","victim",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues),
+    allPlayers: new TargetDomain("allPlayers","allPlayers",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues)
 }

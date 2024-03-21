@@ -1,8 +1,20 @@
 const ACTION_DUMP = await Bun.file("actiondump.json").json()
 
+export class Action {
+    constructor(tcName: string, dfName: string, tags: Dict<Array<string>>){
+        this.TCName = tcName
+        this.DFName = dfName
+        this.Tags = tags
+    }
+
+    DFName: string
+    TCName: string
+    Tags: Dict<Array<string>>
+}
+
 //key: function name in terracotta, value: sign value in df
-export let ValidPlayerActions: Dict<string> = {}
-export let ValidPlayerCompActions: Dict<string> = {}
+export let ValidPlayerActions: Dict<Action> = {}
+export let ValidPlayerCompActions: Dict<Action> = {}
 export let ValidPlayerGameValues: Dict<string> = {}
 
 
@@ -29,6 +41,21 @@ const GameValueOverrides = {
     "X-Coordinate": "X",
     "Y-Coordinate": "Y",
     "Z-Coordinate": "Z"
+}
+
+function getTags(actionData): Dict<Array<string>> {
+    let actionJson = {}
+
+    for (const tag of actionData.tags) {
+        let tagList: Array<string> = []
+
+        actionJson[tag.name] = tagList
+        
+        for (const option of tag.options) {
+            tagList.push(option.name)
+        }
+    }
+    return actionJson
 }
 
 //convert code blocks
@@ -60,7 +87,7 @@ for (const action of ACTION_DUMP.actions) {
     if (overrides[action.name]) {
         name = validActions[action.name]
     }
-    validActions[name] = action.name
+    validActions[name] = new Action(name,action.name,getTags(action))
 }
 
 //convert game values
@@ -77,5 +104,3 @@ for (const value of ACTION_DUMP.gameValues) {
         ValidPlayerGameValues[name] = value.icon.name
     }
 }
-
-console.log(ValidPlayerGameValues)
