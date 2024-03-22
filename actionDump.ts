@@ -1,3 +1,5 @@
+//middleman between action dump and the rest of the code
+
 const ACTION_DUMP = await Bun.file("actiondump.json").json()
 
 export class Action {
@@ -17,6 +19,10 @@ export let ValidPlayerActions: Dict<Action> = {}
 export let ValidPlayerCompActions: Dict<Action> = {}
 export let ValidPlayerGameValues: Dict<string> = {}
 
+export let ValidEntityActions: Dict<Action> = {}
+export let ValidEntityCompActions: Dict<Action> = {}
+export let ValidEntityGameValues: Dict<string> = {}
+
 
 //name overrides
 //key: dimaondfire id, value: func name in terracotta
@@ -34,6 +40,16 @@ const PlayerActionOverrides = {
 }
 
 const PlayerCompActionOverrides = {
+
+}
+
+const EntityActionOverrides = {
+    "SetBaby": "SetIsBaby",
+    "TDisplaySeeThru": "SetTextDisplaySeeThrough",
+    "DispRotAxisAngle": "SetDisplayRotationFromAxisAngle"
+}
+
+const EntityCompActionOverrides = {
 
 }
 
@@ -58,6 +74,19 @@ function getTags(actionData): Dict<Array<string>> {
     return actionJson
 }
 
+function codeifyName(name: string): string {
+    //convert characters following spaces to uppercase
+    for (let i = 0; i < name.length; i++) {
+        if (name[i] == " ") {
+            name = name.substring(0, i+1) + name[i+1].toUpperCase() + name.substring(i+2)
+        }
+    }
+    //remove spaces
+    name = name.replace(/ /g,"")
+
+    return name
+}
+
 //convert code blocks
 for (const action of ACTION_DUMP.actions) {
     let overrides
@@ -73,22 +102,37 @@ for (const action of ACTION_DUMP.actions) {
             overrides = PlayerCompActionOverrides
             validActions = ValidPlayerCompActions
             break
+        case "ENTITY ACTION":
+            overrides = EntityActionOverrides
+            validActions = ValidEntityActions
+            break
+        case "IF ENTITY":
+            overrides = EntityCompActionOverrides
+            validActions = ValidEntityCompActions
+            break
     }
 
     //if this is not a supported code block, skip it
     if (validActions == null) { continue }
 
     //remove all spaces in code block name
-    let name = action.icon.name.replace(/ /g,"")
+    //let name = action.icon.name.replace(/ /g,"")
+    let name = codeifyName(action.icon.name)
 
     //if code block name is empty, skip it
     if (name.length == 0) {continue}
  
     if (overrides[action.name]) {
-        name = validActions[action.name]
+        name = overrides[action.name]
     }
+
     validActions[name] = new Action(name,action.name,getTags(action))
 }
+
+/* view names when deciding overrides */
+// for (let [k,v] of Object.entries(ValidEntityCompActions)) {
+//     console.log(k,"  :  ",v?.DFName)
+// }
 
 //convert game values
 for (const value of ACTION_DUMP.gameValues) {
@@ -102,5 +146,6 @@ for (const value of ACTION_DUMP.gameValues) {
     //targeted game values 
     else {
         ValidPlayerGameValues[name] = value.icon.name
+        ValidEntityGameValues[name] = value.icon.name
     }
 }

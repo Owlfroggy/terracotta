@@ -1,7 +1,8 @@
-local awesomeVariable = 5
-local [%default even awesomer variable] = "kjadfhgkjadhfgkjahdfgkjhadfgkj"
-
-if default ? HasRoomForItem <Checked Slots: local [%default even awesomer variable] ? Main inventory, Check Mode: Has Room for Any Item> {
-    default:SendMessage("dingus")<Text Value Merging: No spaces>
-    local [%default even awesomer variable] = "jk"
+if projectile ? HasCustomTag("RayOfGod",1) {
+    if not shooter ? NameEquals("MrAwesomeOwl") {
+        default:SendMessage("YOU ARE NOT WORTHY! PAY FOR YOUR CRIMESS!!!!!")
+        default:Kick
+    } else {
+        projectile:SetProjectileDisplayItem("minecraft:sea_lantern")
+    }
 }
