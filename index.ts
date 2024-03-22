@@ -217,7 +217,10 @@ function ParseNumber(index: number): [number, NumberToken] | null {
         //if this char is a digit
         else if (IsCharacterValidNumber(SCRIPT_CONTENTS[index])){
             //dont include any leading 0s
-            if (string.length == 0 && SCRIPT_CONTENTS[index] == "0") { continue }
+            if (string.length == 0 && SCRIPT_CONTENTS[index] == "0") { 
+                index++
+                continue 
+            }
 
             string += SCRIPT_CONTENTS[index]
         }
@@ -243,6 +246,127 @@ function ParseNumber(index: number): [number, NumberToken] | null {
     if (string[string.length-1] == ".") {string = string.substring(0,string.length - 1)}
 
     return [index-1, new NumberToken(string)]
+}
+
+//= Vectors =\\
+class VectorToken extends Token {
+    constructor(x: ExpressionToken, y: ExpressionToken, z: ExpressionToken) {
+        super()
+        this.X = x
+        this.Y = y
+        this.Z = z
+    }
+
+    X: ExpressionToken
+    Y: ExpressionToken
+    Z: ExpressionToken
+}
+
+//ERR1 = missing arguments
+//ERR2 = missing coordinate
+function ParseVector(index: number): [number, VectorToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let keywordInitIndex = index
+
+    //parse vec keyword
+    let identifierResults = GetIdentifier(index)
+
+    //if no vec keyword, this is not a vector
+    if (identifierResults == null || identifierResults[1] != "vec") { return null }
+
+    //move to end of vec keyword
+    index = identifierResults[0]
+
+    //parse arguments
+    let argResults = ParseList(index,"[","]",",")
+    if (argResults == null) {
+        throw new TCError("Expected arguments following vector constructor",1,keywordInitIndex,index)
+    }
+    let args = argResults[1].Items
+
+    //error for too many args
+    if (args.length > 3) {
+        throw new TCError(`Vector takes at most 3 arguments, ${args.length} were provided instead`,3,keywordInitIndex,argResults[0])
+    }
+
+    //error for missing args
+    if (args[0] == null) {
+        throw new TCError("Vector is missing X coordinate",2,keywordInitIndex,argResults[0])
+    }
+
+    if (args[1] == null) {
+        throw new TCError("Vector is missing Y coordinate",2,keywordInitIndex,argResults[0])
+    }
+
+    if (args[2] == null) {
+        throw new TCError("Vector is missing Z coordinate",2,keywordInitIndex,argResults[0])
+    }
+
+    //successful vector creation
+    return [argResults[0],new VectorToken(args[0],args[1],args[2])]
+}
+
+//= Locations =\\
+class LocationToken extends Token {
+    constructor(x: ExpressionToken,y: ExpressionToken,z: ExpressionToken,pitch: ExpressionToken | null = null,yaw: ExpressionToken | null = null) {
+        super()
+        this.X = x
+        this.Y = y
+        this.Z = z
+        this.Pitch = pitch
+        this.Yaw = yaw
+    }
+
+    X: ExpressionToken
+    Y: ExpressionToken
+    Z: ExpressionToken
+    Pitch: ExpressionToken | null
+    Yaw: ExpressionToken | null
+}
+
+//ERR1 = missing arguments
+//ERR2 = missing coordinate
+//ERR3 = too many args
+function ParseLocation(index: number): [number, LocationToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let keywordInitIndex = index
+
+    //parse loc keyword
+    let identifierResults = GetIdentifier(index)
+
+    //if no loc keyword, this is not a location
+    if (identifierResults == null || identifierResults[1] != "loc") { return null }
+
+    //move to end of loc keyword
+    index = identifierResults[0]
+
+    //parse arguments
+    let argResults = ParseList(index,"[","]",",")
+    if (argResults == null) {
+        throw new TCError("Expected arguments following location constructor",1,keywordInitIndex,index)
+    }
+    let args = argResults[1].Items
+
+    //error for too many args
+    if (args.length > 5) {
+        throw new TCError(`Location takes at most 5 arguments, ${args.length} were provided instead`,3,keywordInitIndex,argResults[0])
+    }
+
+    //error for missing args
+    if (args[0] == null) {
+        throw new TCError("Location is missing X coordinate",2,keywordInitIndex,argResults[0])
+    }
+
+    if (args[1] == null) {
+        throw new TCError("Location is missing Y coordinate",2,keywordInitIndex,argResults[0])
+    }
+
+    if (args[2] == null) {
+        throw new TCError("Location is missing Z coordinate",2,keywordInitIndex,argResults[0])
+    }
+
+    //successful location creation
+    return [argResults[0],new LocationToken(args[0],args[1],args[2],args[3],args[4])]
 }
 
 //= Operators =\\
@@ -774,9 +898,13 @@ function ParseExpression(index: number,terminateAt: Array<string | null> = ["\n"
             if (results == null) { results = ParseString(index,"\"") }
 
             //try number
-            if (results == null) { 
-                results = ParseNumber(index) 
-            }
+            if (results == null) { results = ParseNumber(index) }
+
+            //try location
+            if (results == null) { results = ParseLocation(index) }
+
+            //try vector
+            if (results == null) { results = ParseVector(index) }
 
             //try variable
             if (results == null) { results = ParseVariable(index) }

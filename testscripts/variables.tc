@@ -1,8 +1,2 @@
-if projectile ? HasCustomTag("RayOfGod",1) {
-    if not shooter ? NameEquals("MrAwesomeOwl") {
-        default:SendMessage("YOU ARE NOT WORTHY! PAY FOR YOUR CRIMESS!!!!!")
-        default:Kick
-    } else {
-        projectile:SetProjectileDisplayItem("minecraft:sea_lantern")
-    }
-}
+global loc = loc [0, 5, 0, 90, default.Yaw / 5]
+global vec = vec [1,2,252]
