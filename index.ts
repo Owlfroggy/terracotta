@@ -306,6 +306,39 @@ function ParseVector(index: number): [number, VectorToken] | null {
     return [argResults[0],new VectorToken(args[0],args[1],args[2])]
 }
 
+//= Minimessage Text =\\
+class TextToken extends Token {
+    constructor(text: string){
+        super()
+        this.Text = text
+    }
+    Text: string 
+}
+
+//ERR1 = missing string
+function ParseText(index: number): [number, TextToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let keywordInitIndex = index
+
+    //parse txt keyword
+    let identifierResults = GetIdentifier(index)
+
+    //if no txt keyword, this is not a text
+    if (identifierResults == null || identifierResults[1] != "txt") { return null }
+
+    //move to end of loc keyword
+    index = identifierResults[0]
+
+    //parse value (string)
+    let stringResults = GetString(index,'"','"')
+    if (stringResults == null) {
+        throw new TCError("Expected string following 'txt' keyword", 1, keywordInitIndex,index)
+    }
+
+    return [stringResults[0],new TextToken(stringResults[1])]
+}
+
+
 //= Locations =\\
 class LocationToken extends Token {
     constructor(x: ExpressionToken,y: ExpressionToken,z: ExpressionToken,pitch: ExpressionToken | null = null,yaw: ExpressionToken | null = null) {
@@ -905,6 +938,9 @@ function ParseExpression(index: number,terminateAt: Array<string | null> = ["\n"
 
             //try vector
             if (results == null) { results = ParseVector(index) }
+
+            //try text
+            if (results == null) { results = ParseText(index) }
 
             //try variable
             if (results == null) { results = ParseVariable(index) }

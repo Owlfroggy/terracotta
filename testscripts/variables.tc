@@ -1,2 +1,1 @@
-global loc = loc [0, 5, 0, 90, default.Yaw / 5]
-global vec = vec [1,2,252]
+global awesome = txt"<&c>the fog is coming!!!! yay" + txt"oh no i cant believe it"
