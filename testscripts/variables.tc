@@ -1,1 +1,1 @@
-global awesome = txt"<&c>the fog is coming!!!! yay" + txt"oh no i cant believe it"
+global awesome = snd["block.anvil.land",5,2,"awesome variant"]
