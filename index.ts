@@ -727,7 +727,7 @@ function ParseAction(index: number, allowComparisons: boolean = false): [number,
             throw new TCError(`Invalid ${isComparison == true ? 'if ' : ''}game action: '${actionResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, actionResults[0])
         }
         else {
-            throw new TCError(`'${domain.Identifier} does not contain function '${actionResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, actionResults[0])
+            throw new TCError(`${domain.Identifier} does not contain function '${actionResults[1]}`, 2, index + GetWhitespaceAmount(index) + 1, actionResults[0])
         }
     }
 
@@ -735,7 +735,12 @@ function ParseAction(index: number, allowComparisons: boolean = false): [number,
     index = actionResults[0]
 
     //parse params
-    let paramResults = ParseList(index, "(", ")", ",")
+    let paramResults
+    try {
+        paramResults = ParseList(index, "(", ")", ",")
+    } catch (e) {
+        throw new TCError(`Arguments list never closed`,10,e.CharStart,e.CharLoc)
+    }
     let params: ListToken
     if (paramResults) {
         index = paramResults[0]
