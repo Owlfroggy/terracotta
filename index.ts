@@ -933,7 +933,7 @@ function ParseGameValue(index: number): [number, Token] | null {
     //move to the end of the action name
     index = valueResults[0]
 
-    return [index, new GameValueToken(domain.Identifier, valueResults[1])]
+    return [index, new GameValueToken(valueResults[1],domain.Identifier)]
 }
 
 //= Expressions =\\
