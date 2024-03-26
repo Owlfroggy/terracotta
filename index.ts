@@ -721,7 +721,10 @@ function ParseAction(index: number, allowComparisons: boolean = false): [number,
     //error for invalid action
     if (actions[actionResults[1]] == undefined) {
         if (domain instanceof TargetDomain) {
-            throw new TCError(`Invalid ${domain.ActionType} action: '${actionResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, actionResults[0])
+            throw new TCError(`Invalid ${isComparison == true ? 'if ' : ''}${domain.ActionType} action: '${actionResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, actionResults[0])
+        }
+        else if (domain.Identifier == "game") {
+            throw new TCError(`Invalid ${isComparison == true ? 'if ' : ''}game action: '${actionResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, actionResults[0])
         }
         else {
             throw new TCError(`'${domain.Identifier} does not contain function '${actionResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, actionResults[0])
