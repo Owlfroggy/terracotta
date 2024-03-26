@@ -735,12 +735,7 @@ function ParseAction(index: number, allowComparisons: boolean = false): [number,
     index = actionResults[0]
 
     //parse params
-    let paramResults
-    try {
-        paramResults = ParseList(index, "(", ")", ",")
-    } catch (e) {
-        throw new TCError(`Arguments list never closed`, 10, e.CharStart, e.CharLoc)
-    }
+    let paramResults = ParseList(index, "(", ")", ",")
     let params: ListToken
     if (paramResults) {
         index = paramResults[0]
