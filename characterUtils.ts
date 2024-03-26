@@ -1,3 +1,4 @@
+import { readableStreamToArray } from "bun";
 import { SCRIPT_CONTENTS } from ".";
 
 //returns true if if a char is valid for use in an identifier
@@ -51,13 +52,19 @@ function GetIdentifier(index): [number, string] | null {
     return [index - 1, word]
 }
 
-//Get next amount of characters from CharIndex, with option to ignore whitespaces
+//Get next amount of characters from CharIndex
 function GetNextCharacters(index: number,charAmount: number, newlinesAreWhitespace: boolean = false) {
     let string = ""
 
     while (charAmount > 0) {
         index++
         let char = SCRIPT_CONTENTS[index]
+
+        //if comment, simulate line end
+        if (char == "#") {
+            char = "\n"
+            index = GetLineEnd(index)
+        }
         //if at the end of the script
         if (char == undefined) {break}
 
@@ -105,6 +112,12 @@ function GetWhitespaceAmount(index: number,newlinesAreWhitespace = false): numbe
 
     while (index < SCRIPT_CONTENTS.length) {
         index++
+
+        //count all characters part of a comment as whitespace
+        if (SCRIPT_CONTENTS[index] == "#") {
+            index += GetLineEnd(index) - index
+        }
+
         if (
             (SCRIPT_CONTENTS[index] == "\t") ||
             (SCRIPT_CONTENTS[index] == " ")
@@ -119,18 +132,31 @@ function GetWhitespaceAmount(index: number,newlinesAreWhitespace = false): numbe
 }
 
 //returns a string with every character from CharIndex until the first instance of anything in terminateAt
-function GetCharactersUntil(index: number,terminateAt: Array<string>): [number, string] {
+function GetCharactersUntil(index: number, terminateAt: Array<string>, ignoreCommentRules: boolean = false): [number, string] {
     let string = ""
     
     while (index < SCRIPT_CONTENTS.length) {
-        if (terminateAt.includes(SCRIPT_CONTENTS[index])) {
+        let char = SCRIPT_CONTENTS[index]
+        if (char == "#" && ignoreCommentRules == false) {
+            char = "\n"
+            index = GetLineEnd(index)
+        }
+
+        if (terminateAt.includes(char)) {
             return [index-1, string]
         }
-        string += SCRIPT_CONTENTS[index]
+        string += char
         index++
     }
 
     return [index-1, string]
 }
 
-export {IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil}
+function GetCharacterAtIndex(index: number) {
+    if (SCRIPT_CONTENTS[index] == "#") {
+        return "\n"
+    }
+    return SCRIPT_CONTENTS[index]
+}
+
+export {IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil, GetCharacterAtIndex}

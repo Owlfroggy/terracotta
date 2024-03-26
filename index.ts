@@ -5,7 +5,7 @@
 
 import { Domain, DomainList, TargetDomain } from "./domains"
 import { PrintError, TCError } from "./errorHandler"
-import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil } from "./characterUtils"
+import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil, GetCharacterAtIndex } from "./characterUtils"
 import { NullSyncSubprocess } from "bun"
 
 export { }
@@ -45,7 +45,7 @@ function GetString(index: number, openingChar: string, closingChar: string = ope
 
     let string = ""
     while (index < SCRIPT_CONTENTS.length - 1) {
-        let nextChunk = GetCharactersUntil(index + 1, ["\n", "\\", closingChar])[1]
+        let nextChunk = GetCharactersUntil(index + 1, ["\n", "\\", closingChar],true)[1]
         string += nextChunk
         index += nextChunk.length
 
@@ -117,7 +117,7 @@ const VALID_VAR_SCCOPES = {
 //ERR1 = variable name never closed
 function ParseVariable(index): [number, VariableToken] | null {
     index += GetWhitespaceAmount(index) + 1
-    let initIndex = index
+    let initIndex = index //used for error messages
 
     let keywordResults = GetIdentifier(index)
     if (keywordResults == null) { return null }
@@ -130,6 +130,8 @@ function ParseVariable(index): [number, VariableToken] | null {
 
     //move into position to parse variable name
     index = keywordResults[0]
+
+    let keywordEndIndex = index// used for error messages
 
     let complexNameResults
 
@@ -152,7 +154,9 @@ function ParseVariable(index): [number, VariableToken] | null {
 
         //get name of variable
         let variableNameResults = GetIdentifier(index)
-        if (variableNameResults == null) { return null }
+        if (variableNameResults == null || variableNameResults[1] == "") {
+            throw new TCError(`Expected variable name following '${scopeKeyword}'`,2,initIndex,keywordEndIndex)
+        }
 
         return [variableNameResults[0], new VariableToken(scopeKeyword, variableNameResults[1])]
     }
@@ -1086,12 +1090,22 @@ function DoTheThing(): void {
     if (previousLine == undefined) { previousLine = [] }
 
     //if at the end of a line, push that line and start a new one
-    if (GetNextCharacters(CharIndex, 1) == "\n" || CharIndex + GetWhitespaceAmount(CharIndex) == SCRIPT_CONTENTS.length - 1) {
-        Lines.push(CurrentLine)
+    if (GetNextCharacters(CharIndex, 1) == "\n" || CharIndex + GetWhitespaceAmount(CharIndex) == SCRIPT_CONTENTS.length - 1 || SCRIPT_CONTENTS[CharIndex] == "#") {
+        //dont push empty lines
+        if (CurrentLine.length > 0) {
+            Lines.push(CurrentLine)
+        }
+        
         CurrentLine = []
 
+        //if this is a line whos entire purpose is to be a comment
+        if (SCRIPT_CONTENTS[CharIndex] == "#") {
+            //skip to end of comment
+            CharIndex = GetLineEnd(CharIndex)
+        }
+
         //if at the end of the file, stop running
-        if (CharIndex + GetWhitespaceAmount(CharIndex) == SCRIPT_CONTENTS.length - 1) {
+        if (CharIndex + GetWhitespaceAmount(CharIndex) >= SCRIPT_CONTENTS.length - 1) {
             Running = false
             return
         }
@@ -1121,7 +1135,7 @@ function DoTheThing(): void {
             ApplyResults(results)
 
             //parse opening bracket
-            if (SCRIPT_CONTENTS[CharIndex + GetWhitespaceAmount(CharIndex) + 1] == "{") {
+            if (GetCharacterAtIndex(CharIndex + GetWhitespaceAmount(CharIndex) + 1) == "{") {
                 CharIndex += GetWhitespaceAmount(CharIndex) + 1
                 CurrentLine.push(new BracketToken("open"))
             } else {
@@ -1180,7 +1194,7 @@ function DoTheThing(): void {
         }
 
         //parse opening bracket
-        if (SCRIPT_CONTENTS[CharIndex] == "{") {
+        if (GetCharacterAtIndex(CharIndex) == "{") {
             CurrentLine.push(new BracketToken("open"))
         }
 
