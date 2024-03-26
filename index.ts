@@ -45,7 +45,7 @@ function GetString(index: number, openingChar: string, closingChar: string = ope
 
     let string = ""
     while (index < SCRIPT_CONTENTS.length - 1) {
-        let nextChunk = GetCharactersUntil(index + 1, ["\n", "\\", closingChar],true)[1]
+        let nextChunk = GetCharactersUntil(index + 1, ["\n", "\\", closingChar], true)[1]
         string += nextChunk
         index += nextChunk.length
 
@@ -155,7 +155,7 @@ function ParseVariable(index): [number, VariableToken] | null {
         //get name of variable
         let variableNameResults = GetIdentifier(index)
         if (variableNameResults == null || variableNameResults[1] == "") {
-            throw new TCError(`Expected variable name following '${scopeKeyword}'`,2,initIndex,keywordEndIndex)
+            throw new TCError(`Expected variable name following '${scopeKeyword}'`, 2, initIndex, keywordEndIndex)
         }
 
         return [variableNameResults[0], new VariableToken(scopeKeyword, variableNameResults[1])]
@@ -344,7 +344,7 @@ function ParseText(index: number): [number, TextToken] | null {
 
 //= Sound =\\
 class SoundToken extends Token {
-    constructor(id: ExpressionToken,volume: ExpressionToken | null,pitch: ExpressionToken | null,variant: ExpressionToken | null) {
+    constructor(id: ExpressionToken, volume: ExpressionToken | null, pitch: ExpressionToken | null, variant: ExpressionToken | null) {
         super()
         this.SoundId = id
         this.Volume = volume
@@ -739,7 +739,7 @@ function ParseAction(index: number, allowComparisons: boolean = false): [number,
     try {
         paramResults = ParseList(index, "(", ")", ",")
     } catch (e) {
-        throw new TCError(`Arguments list never closed`,10,e.CharStart,e.CharLoc)
+        throw new TCError(`Arguments list never closed`, 10, e.CharStart, e.CharLoc)
     }
     let params: ListToken
     if (paramResults) {
@@ -752,94 +752,100 @@ function ParseAction(index: number, allowComparisons: boolean = false): [number,
     let tags = {}
     //parse tags
     if (GetNextCharacters(index, 1) == "[") {
-        tags = {}
         //move to opening <
         index += 1 + GetWhitespaceAmount(index)
-        let tagsListInitIndex = index
 
-        while (SCRIPT_CONTENTS[index] != "]") {
-            //move to first character of tag name
+        //if empty tag list
+        if (GetNextCharacters(index, 1) == "]") {
             index += 1 + GetWhitespaceAmount(index)
+        } else {
+            tags = {}
+            let tagsListInitIndex = index
 
-            //parse tag name
-            let tagNameResults = GetCharactersUntil(index, [":", "\n", "]"])
-            if (tagNameResults[1] == "") {
-                throw new TCError("Missing tag name", 3, index, index)
-            }
-            //remove trailing whitespace from tag name
-            let tagName = tagNameResults[1].trim()
-
-            //error if invalid tag name
-            if (actions[actionResults[1]]!.Tags[tagName] == undefined) {
-                throw new TCError(`Invalid tag name: '${tagName}'`, 4, index, index + tagName.length - 1)
-            }
-
-            //move to end of tag name
-            index = tagNameResults[0]
-
-            //error if next char isn't :
-            if (GetNextCharacters(index, 1) != ":") {
-                throw new TCError("Expected ':' following tag name", 6, index + 1, index + 1)
-            }
-
-            //move to :
-            index += 1 + GetWhitespaceAmount(index)
-
-            //parse variable
-            let variableResults = ParseVariable(index)
-            let variable: VariableToken | null = null
-            if (variableResults) {
-                let variableInitIndex = index
-                //move to end of variable
-                index = variableResults[0]
-
-                //throw error if next character isn't a ?
-                if (GetNextCharacters(index, 1) != "?") {
-                    throw new TCError(`Expected '?' following variable '${variableResults[1].Name}'`, 9, index + 1, index + 1)
-                }
-
-                variable = variableResults[1]
-
-                //move to ?
+            while (SCRIPT_CONTENTS[index] != "]") {
+                //move to first character of tag name
                 index += 1 + GetWhitespaceAmount(index)
-            }
-            let lastCharIndex = index
 
-            //move to first character of value
-            index += 1 + GetWhitespaceAmount(index)
-
-            //parse tag value
-            let tagValueResults = GetCharactersUntil(index, [",", "\n", "]"])
-
-            //error if missing tag value
-            if (tagValueResults[1] == "") {
-                if (variable) {
-                    throw new TCError("Expected tag value following '?'", 7, lastCharIndex, lastCharIndex)
-                } else {
-                    throw new TCError("Expected variable or tag value", 7, index, index)
+                //parse tag name
+                let tagNameResults = GetCharactersUntil(index, [":", "\n", "]"])
+                if (tagNameResults[1] == "") {
+                    throw new TCError("Missing tag name", 3, index, index)
                 }
+                //remove trailing whitespace from tag name
+                let tagName = tagNameResults[1].trim()
+
+                //error if invalid tag name
+                if (actions[actionResults[1]]!.Tags[tagName] == undefined) {
+                    throw new TCError(`Invalid tag name: '${tagName}'`, 4, index, index + tagName.length - 1)
+                }
+
+                //move to end of tag name
+                index = tagNameResults[0]
+
+                //error if next char isn't :
+                if (GetNextCharacters(index, 1) != ":") {
+                    throw new TCError("Expected ':' following tag name", 6, index + 1, index + 1)
+                }
+
+                //move to :
+                index += 1 + GetWhitespaceAmount(index)
+
+                //parse variable
+                let variableResults = ParseVariable(index)
+                let variable: VariableToken | null = null
+                if (variableResults) {
+                    let variableInitIndex = index
+                    //move to end of variable
+                    index = variableResults[0]
+
+                    //throw error if next character isn't a ?
+                    if (GetNextCharacters(index, 1) != "?") {
+                        throw new TCError(`Expected '?' following variable '${variableResults[1].Name}'`, 9, index + 1, index + 1)
+                    }
+
+                    variable = variableResults[1]
+
+                    //move to ?
+                    index += 1 + GetWhitespaceAmount(index)
+                }
+                let lastCharIndex = index
+
+                //move to first character of value
+                index += 1 + GetWhitespaceAmount(index)
+
+                //parse tag value
+                let tagValueResults = GetCharactersUntil(index, [",", "\n", "]"])
+
+                //error if missing tag value
+                if (tagValueResults[1] == "") {
+                    if (variable) {
+                        throw new TCError("Expected tag value following '?'", 7, lastCharIndex, lastCharIndex)
+                    } else {
+                        throw new TCError("Expected variable or tag value", 7, index, index)
+                    }
+                }
+                //remove trailing whitespace from tag value
+                let tagValue = tagValueResults[1].trim()
+
+                //error if invalid tag value
+                if (!actions[actionResults[1]]!.Tags[tagName]!.includes(tagValue)) {
+                    throw new TCError(`Invalid tag value: '${tagValue}'`, 8, index, index + tagValue.length - 1)
+                }
+
+                //move to end of tag value
+                index = tagValueResults[0]
+
+                //throw error if next character is end of line
+                if (GetNextCharacters(index, 1) == "\n" || index + 1 + GetWhitespaceAmount(index) >= SCRIPT_CONTENTS.length) {
+                    throw new TCError("Tags list never closed", 5, tagsListInitIndex, GetLineEnd(index) - 1)
+                }
+
+                //move to next character (, or >)
+                index += 1 + GetWhitespaceAmount(index)
+
+                //add to tag list
+                tags[tagName] = new ActionTag(tagName, tagValue, variable)
             }
-            //remove trailing whitespace from tag value
-            let tagValue = tagValueResults[1].trim()
-
-            //error if invalid tag value
-            if (!actions[actionResults[1]]!.Tags[tagName]!.includes(tagValue)) {
-                throw new TCError(`Invalid tag value: '${tagValue}'`, 8, index, index + tagValue.length - 1)
-            }
-
-            //move to end of tag value
-            index = tagValueResults[0]
-
-            //throw error if next character is end of line
-            if (GetNextCharacters(index, 1) == "\n" || index + 1 + GetWhitespaceAmount(index) >= SCRIPT_CONTENTS.length) {
-                throw new TCError("Tags list never closed", 5, tagsListInitIndex, GetLineEnd(index) - 1)
-            }
-
-            //move to next character (, or >)
-            index += 1 + GetWhitespaceAmount(index)
-
-            //add to tag list
-            tags[tagName] = new ActionTag(tagName, tagValue, variable)
         }
     }
 
@@ -941,7 +947,7 @@ function ParseGameValue(index: number): [number, Token] | null {
     //move to the end of the action name
     index = valueResults[0]
 
-    return [index, new GameValueToken(valueResults[1],domain.Identifier)]
+    return [index, new GameValueToken(valueResults[1], domain.Identifier)]
 }
 
 //= Expressions =\\
@@ -1103,7 +1109,7 @@ function DoTheThing(): void {
         if (CurrentLine.length > 0) {
             Lines.push(CurrentLine)
         }
-        
+
         CurrentLine = []
 
         //if this is a line whos entire purpose is to be a comment
