@@ -31,14 +31,14 @@ function IsCharacterValidNumber(char) {
 //IMPORTANT: index should be the first character IN TEH KEYWORD!!!
 //SPACE COUNTS AS A SPECIAL CHARACTER!!!!
 //returns: the word, the index of the final character in the word
-function GetIdentifier(index): [number, string] | null {
-    if (SCRIPT_CONTENTS[index] == undefined) {return null}
+function GetIdentifier(index): [number, string] {
+    if (SCRIPT_CONTENTS[index] == undefined) {return [index, ""]}
     let word = "";
 
     //dont let identifiers start with numbers
     let firstCharacterCode = SCRIPT_CONTENTS[index].charCodeAt(0)
     if (firstCharacterCode > 47 && firstCharacterCode < 58) {
-        return null
+        return [index, ""]
     }
 
     while (index < SCRIPT_CONTENTS.length) {
