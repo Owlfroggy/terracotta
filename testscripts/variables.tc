@@ -1,6 +1,6 @@
-if game ? CommandEquals(1,"enableblocks")[Ignore Case: True] {
-    game:EnableBlockDrops(5,2,1,"ding\nus")
+if game ? CommandEquals(1, "enableblocks")[Ignore Case: True] {
+    game:EnableBlockDrops(5, 2, 1, "ding\nus")
 }
 
 #awesome comment
-default:SendMessage(game.Timestamp,game.ServerTPS,game.CPUUsage)
+default:SendMessage(game.Timestamp, game.ServerTPS, game.CPUUsage)
