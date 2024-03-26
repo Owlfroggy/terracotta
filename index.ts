@@ -56,8 +56,14 @@ function GetString(index: number, openingChar: string, closingChar: string = ope
                 throw new TCError("String was never closed", 1, initIndex + GetWhitespaceAmount(initIndex) + 1, index + 1)
             }
 
-            //add char after backslash into the value without parsing it
-            string += SCRIPT_CONTENTS[index + 2]
+            if (SCRIPT_CONTENTS[index + 2] == "n") {
+                //newline from \n
+                string += "\n"
+            } else {
+                //add char after backslash into the value without parsing it
+                string += SCRIPT_CONTENTS[index + 2]
+            }
+
             index += 2
         }
         //if chunk stopped due to closing char
