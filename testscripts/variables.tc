@@ -1,19 +1,5 @@
-# if player is a plot developer
-if default ? HasPlotPermission<Permission: Developer or builder> {
-    #if player is joining in editor mode
-    if saved [%default #editor inEditorMode] == 1 {
-        default:SendMessage(txt"<&a>you joined in editor mode!")
-        default:SetToCreativeMode
-
-        # strike fear in the hearts of the players (if enabled)
-        if saved [%default #editor intendsToDoEvil] {
-            allPlayers: SendMessage(txt"<&c>%default has arrived...")
-        }
-
-        # teleport to location logged out at
-        default:Teleport(saved[%default #editor lastSavedLocation])
-        #default:Teleport(loc[0, 50, 0]) # old code no longer in use
-    }   
+if game ? CommandEquals(1,"enableblocks")<Ignore Case: True> {
+    game:EnableBlockDrops
 }
 
-default:SendMessage(txt"I changed my mind about these parameters") #("Message of the day: %var(MESSAGE_OF_THE_DAY)")
+default:SendMessage(game.Timestamp,game.ServerTPS,game.CPUUsage)

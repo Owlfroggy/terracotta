@@ -64,3 +64,5 @@ export var TargetDomains = { //this feels like a sin
     projectile: new TargetDomain("projectile","projectile",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues),
     lastSpawnedEntity: new TargetDomain("lastSpawnedEntity","lastSpawnedEntity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues),
 }
+
+export var GameDomain = new Domain("game",AD.ValidGameActions,AD.ValidGameCompActions,AD.ValidGameGameValues)

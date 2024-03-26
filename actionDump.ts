@@ -23,9 +23,15 @@ export let ValidEntityActions: Dict<Action> = {}
 export let ValidEntityCompActions: Dict<Action> = {}
 export let ValidEntityGameValues: Dict<string> = {}
 
+export let ValidGameActions: Dict<Action> = {}
+export let ValidGameCompActions: Dict<Action> = {}
+export let ValidGameGameValues: Dict<string> = {}
+
 
 //name overrides
 //key: dimaondfire id, value: func name in terracotta
+
+//players
 const PlayerActionOverrides = {
     "DisableBlocks": "DisableBlockModification",
     "EnableBlocks": "EnableBlockModification",
@@ -38,21 +44,25 @@ const PlayerActionOverrides = {
     "CreativeMode": "SetToCreativeMode",
     "SurvivalMode": "SetToSurvivalMode"
 }
+const PlayerCompActionOverrides = {}
 
-const PlayerCompActionOverrides = {
-
-}
-
+//entities
 const EntityActionOverrides = {
     "SetBaby": "SetIsBaby",
     "TDisplaySeeThru": "SetTextDisplaySeeThrough",
     "DispRotAxisAngle": "SetDisplayRotationFromAxisAngle"
 }
-
 const EntityCompActionOverrides = {
-
+    "HasPlayer": "HasPlayer"
 }
 
+//game
+const GameActionOverrides = {
+    "LaunchProj": "LaunchProjectile"
+}
+const GameCompActionOverrides = {}
+
+//game values
 const GameValueOverrides = {
     "X-Coordinate": "X",
     "Y-Coordinate": "Y",
@@ -110,6 +120,14 @@ for (const action of ACTION_DUMP.actions) {
             overrides = EntityCompActionOverrides
             validActions = ValidEntityCompActions
             break
+        case "GAME ACTION":
+            overrides = GameActionOverrides
+            validActions = ValidGameActions
+            break
+        case "IF GAME":
+            overrides = GameCompActionOverrides
+            validActions = ValidGameCompActions
+            break
     }
 
     //if this is not a supported code block, skip it
@@ -130,7 +148,7 @@ for (const action of ACTION_DUMP.actions) {
 }
 
 /* view names when deciding overrides */
-// for (let [k,v] of Object.entries(ValidEntityCompActions)) {
+// for (let [k,v] of Object.entries(ValidGameCompActions)) {
 //     console.log(k,"  :  ",v?.DFName)
 // }
 
@@ -141,7 +159,7 @@ for (const value of ACTION_DUMP.gameValues) {
 
     //plot game values
     if (value.category == "Event Values" || value.category == "Plot Values") {
-        
+        ValidGameGameValues[name] = value.icon.name
     }
     //targeted game values 
     else {
