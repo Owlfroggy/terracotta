@@ -743,18 +743,18 @@ function ParseAction(index: number, allowComparisons: boolean = false): [number,
 
     let tags = {}
     //parse tags
-    if (GetNextCharacters(index, 1) == "<") {
+    if (GetNextCharacters(index, 1) == "[") {
         tags = {}
         //move to opening <
         index += 1 + GetWhitespaceAmount(index)
         let tagsListInitIndex = index
 
-        while (SCRIPT_CONTENTS[index] != ">") {
+        while (SCRIPT_CONTENTS[index] != "]") {
             //move to first character of tag name
             index += 1 + GetWhitespaceAmount(index)
 
             //parse tag name
-            let tagNameResults = GetCharactersUntil(index, [":", "\n", ">"])
+            let tagNameResults = GetCharactersUntil(index, [":", "\n", "]"])
             if (tagNameResults[1] == "") {
                 throw new TCError("Missing tag name", 3, index, index)
             }
@@ -801,7 +801,7 @@ function ParseAction(index: number, allowComparisons: boolean = false): [number,
             index += 1 + GetWhitespaceAmount(index)
 
             //parse tag value
-            let tagValueResults = GetCharactersUntil(index, [",", "\n", ">"])
+            let tagValueResults = GetCharactersUntil(index, [",", "\n", "]"])
 
             //error if missing tag value
             if (tagValueResults[1] == "") {

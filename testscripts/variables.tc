@@ -1,5 +1,6 @@
-if game ? CommandEquals(1,"enableblocks")<Ignore Case: True> {
+if game ? CommandEquals(1,"enableblocks")[Ignore Case: True] {
     game:EnableBlockDrops
 }
 
+#awesome comment
 default:SendMessage(game.Timestamp,game.ServerTPS,game.CPUUsage)
