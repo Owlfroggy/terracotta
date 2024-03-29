@@ -459,6 +459,43 @@ function ParseLocation(index: number): [number, LocationToken] | null {
     return [argResults[0], new LocationToken(args[0], args[1], args[2], args[3], args[4])]
 }
 
+//= Potions =\\
+class PotionToken extends Token {
+    constructor(pot: ExpressionToken, amp: ExpressionToken | null, dur: ExpressionToken | null) {
+        super()
+        this.Potion = pot
+        this.Amplifier = amp
+        this.Duration = dur
+    }
+
+    Potion: ExpressionToken
+    Amplifier: ExpressionToken | null
+    Duration: ExpressionToken | null
+}
+
+function ParsePotion(index): [number, PotionToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let keywordInitIndex = index
+
+    //parse pot keyword
+    let identifierResults = GetIdentifier(index)
+
+    //if no pot keyword, this is not a potion
+    if (identifierResults == null || identifierResults[1] != "pot") { return null }
+
+    //move to end of pot keyword
+    index = identifierResults[0]
+
+    //parse arguments
+    let argResults = ParseList(index, "[", "]", ",")
+    if (argResults == null) {
+        throw new TCError("Expected arguments following potion constructor", 1, keywordInitIndex, index)
+    }
+    let args = argResults[1].Items
+
+    return [argResults[0],new PotionToken(args[0],args[1],args[2])]
+}
+
 //= Items =\\
 class ItemToken extends Token {
     constructor(id: ExpressionToken, count: ExpressionToken | null = null, nbt: ExpressionToken | undefined, library: ExpressionToken | undefined) {
@@ -1248,6 +1285,9 @@ function ParseExpression(index: number, terminateAt: Array<string | null> = ["\n
 
             //try sound
             if (results == null) { results = ParseSound(index) }
+
+            //try potion
+            if (results == null) { results = ParsePotion(index) }
 
             //try variable
             if (results == null) { results = ParseVariable(index) }
