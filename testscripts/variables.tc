@@ -1,4 +1,23 @@
-FUNCTION [the fog is coming]
+FUNCTION AddTwoNumbers
+#just making sure comments can be in metadata territory without making everything explode
+PARAM result: var
+PARAM number1: num
+PARAM number2: num
 
-global simpleVariable = "the fog is coming"
-global [complex variable] = "the fog is coming"
+PARAM easterEgg: optional any = 0 #hehehehehhehehehehehehehehehehehhehehehe
+
+## actual code starts here ##
+
+if line easterEgg == "obliterate the math" {
+    allPlayers:SendMessage("GET OUT!!!!!!!")
+    allPlayers:Kick
+    
+    #violently murder whatever thread called this function
+    returnmult 53487
+}
+else {
+    #this is worthy of a whole entire function
+    line result = line number1 + line number2
+}
+
+#hello :)

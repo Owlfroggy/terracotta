@@ -22,6 +22,9 @@ var CurrentLine: Array<Token> = []
 
 //==========[ constants ]=========\\
 
+const VALID_TYPES = ["str","num","vec","loc","pot","var","snd","any","txt","item"]
+const VALID_PARAM_MODIFIERS = ["plural","optional"]
+
 //==========[ helper functions ]=========\\
 
 //none of this console.log bullshit! i mean do you seriously expect me to type that whole thing out every singel time i wanna print something!?!?!? at least its better than java but still
@@ -1417,8 +1420,122 @@ function ParseEventMetadata(index: number): [number, EventMetadataToken] | null 
     index = identifierResults[0]
 
     let nameResults = GetComplexName(index)
-
     return [nameResults[0], new EventMetadataToken(identifierResults[1],nameResults[1])]
+}
+
+class ParamMetadataToken extends MetadataToken {
+    constructor(name: string, type: string, plural: boolean, optional: boolean, defaultValue: ExpressionToken | null) {
+        super()
+        this.Name = name
+        this.Type = type
+        this.Plural = plural
+        this.Optional = optional
+        this.DefaultValue = defaultValue
+    }
+    Name: string
+    Type: string
+    Plural: boolean
+    Optional: boolean
+    DefaultValue: ExpressionToken | null
+}
+
+function ParseParamMetadata(index: number): [number, ParamMetadataToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let initIndex = index //used for errors
+    
+    //make sure its the right metadata typre
+    let identifierResults = GetIdentifier(index)
+    if (identifierResults == null || identifierResults[1] != "PARAM") { return null }
+    index = identifierResults[0]
+
+    //parse name
+    let nameResults = GetComplexName(index)
+    index = nameResults[0]
+
+    //if next character isn't a ':' then finish param parsing now
+    if (GetNextCharacters(index,1) != ":") {
+        return [index, new ParamMetadataToken(nameResults[1],"any",false,false,null)]
+    }
+
+    //move to :
+    index += GetWhitespaceAmount(index) + 1
+    let modifiersInitIndex = index //used for errors
+
+    let modifiers: Array<string> = []
+    let type: string | null = null
+    //parse modifiers until either end of line or =
+    while (!["\n","="].includes(GetNextCharacters(index,1))) {
+        let modInitIndex = index + GetWhitespaceAmount(index) + 1 //used for error messages
+
+        let identifierResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
+        if (identifierResults == null) {
+            throw new TCError("Malformed param type",0,index,-1)
+        }
+
+        index = identifierResults[0]
+
+        //type has been found
+        if (VALID_TYPES.includes(identifierResults[1])) {
+            type = identifierResults[1]
+            break
+
+        //yet another modifier
+        } else {
+            //error for invalid modifier
+            if (!VALID_PARAM_MODIFIERS.includes(identifierResults[1])) {
+                throw new TCError(`Invalid param modifier: ${identifierResults[1]}`,0,modInitIndex,identifierResults[0])
+            }
+
+            //if valid, add it to list of mods
+            modifiers.push(identifierResults[1])
+        }
+    }
+
+    //throw error if theres no type after the :
+    if (type == null) {
+        throw new TCError("Expected type following ':'",0,modifiersInitIndex,index)
+    }
+
+    //throw error for trying to use modifiers with vars
+    if (type == "var") {
+        if (modifiers.includes("plural")) {
+            throw new TCError("Variable parameters cannot be plural",0,initIndex,GetLineEnd(initIndex)-1)
+        } else if (modifiers.includes("optional")) {
+            throw new TCError("Variable parameters cannot be optional",0,initIndex,GetLineEnd(initIndex)-1)
+        }
+    }
+
+    let defaultValue: ExpressionToken | null = null
+    //if there is an = after the type
+    if (GetNextCharacters(index,1) == "=") {
+        //move to =
+        index += GetWhitespaceAmount(index) + 1
+        let equalSignIndex = index //used for errors
+
+        //throw error if param is required
+        if (!modifiers.includes("optional")) {
+            throw new TCError("Only optional parameters can have default values",0,index,GetLineEnd(initIndex)-1)
+        }
+        //throw error if param is optional, but plural
+        if (modifiers.includes("plural")) {
+            throw new TCError("Plural parameters cannot have default values",0,index,GetLineEnd(initIndex)-1)
+        }
+
+        //parse default value
+        let expressionResults = ParseExpression(index,["\n"],false)
+        if (expressionResults == null) {
+            throw new TCError("Expected param default value following '='",0,equalSignIndex,equalSignIndex)
+        }
+        
+        index = expressionResults[0]
+        defaultValue = expressionResults[1]
+    }
+    //if there isn't a = but the param is optional
+    else if (modifiers.includes("optional") && !modifiers.includes("plural")) {
+        throw new TCError("Optional parameter must have default value",0,initIndex,GetLineEnd(initIndex)-1)
+    }
+
+    return [index, new ParamMetadataToken(nameResults[1],type,modifiers.includes("plural"),modifiers.includes("optional"),defaultValue)]
 }
 
 let symbols = "!@#$%^&*(){}[]-:;\"'~`=/*-+|\\/,.<>".split("")
@@ -1493,7 +1610,10 @@ function DoTheThing(): void {
         //metadata
         if (InMetadataParsingStage) {
             //top event metadata e.g. 'PLAYER_EVENT LeftClick'
-            if (results == null) { results = ParseEventMetadata(CharIndex)}
+            if (results == null) { results = ParseEventMetadata(CharIndex) }
+
+            //param metadata
+            if (results == null) { results = ParseParamMetadata(CharIndex) }
         }
 
         //try control
