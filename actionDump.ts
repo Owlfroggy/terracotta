@@ -14,6 +14,14 @@ export class Action {
     Tags: Dict<Array<string>>
 }
 
+//key: terracotta name, value: diamondfire id
+export const ValidLineStarters = {
+    "PLAYER_EVENT": "event",
+    "ENTITY_EVENT": "entity_event",
+    "FUNCTION": "func",
+    "PROCESS": "process"
+}
+
 //key: function name in terracotta, value: sign value in df
 export let ValidPlayerActions: Dict<Action> = {}
 export let ValidPlayerCompActions: Dict<Action> = {}

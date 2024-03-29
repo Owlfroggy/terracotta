@@ -6,6 +6,7 @@
 import { Domain, DomainList, TargetDomain } from "./domains"
 import { PrintError, TCError } from "./errorHandler"
 import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil, GetCharacterAtIndex } from "./characterUtils"
+import * as AD from "./actionDump"
 
 export { }
 const FILE_PATH = "testscripts/variables.tc"
@@ -1383,7 +1384,64 @@ function ParseExpression(index: number, terminateAt: Array<string | null> = ["\n
     return null
 }
 
+//= Metadata Headers ==\\
+class MetadataToken extends Token {} //base class for all metadata thingies
+
+//functiosn and processes also use this
+class EventMetadataToken extends MetadataToken {
+    constructor(codeblock: string, event: string) {
+        super()
+        this.Codeblock = codeblock
+        this.Event = event
+    }
+
+    Codeblock: string
+    Event: string
+}
+
+function ParseEventMetadata(index: number): [number, EventMetadataToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    
+    //make sure its the right metadata typre
+    let identifierResults = GetIdentifier(index)
+    if (identifierResults == null || !AD.ValidLineStarters[identifierResults[1]]) { return null }
+    index = identifierResults[0]
+
+    //= parse event name =\\
+    let complexNameResults
+    let name
+
+    //try [] name
+    try {
+        complexNameResults = GetString(index, "[", "]")
+    }
+    catch (e) {
+        if (e.Code == 1) {
+            throw new TCError("Name was never closed", 1, e.CharStart, e.CharLoc)
+        }
+    }
+
+    //if theres a [, use the inside of the [] as name
+    if (complexNameResults) {
+        return [complexNameResults[0], new EventMetadataToken(identifierResults[1],complexNameResults[1])]
+    }
+    //otherwise, use identifier as name
+    else {
+        index += GetWhitespaceAmount(index)
+        index++ //GetIdentifier's starts first character of identifier so move 1 char to that
+
+        //get name of variable
+        let variableNameResults = GetIdentifier(index)
+        if (variableNameResults == null || variableNameResults[1] == "") {
+            //throw new TCError(`Expected variable name following '${scopeKeyword}'`, 2, initIndex, keywordEndIndex)
+        }
+
+        return [variableNameResults[0], new EventMetadataToken(identifierResults[1],variableNameResults[1])]
+    }
+}
+
 let symbols = "!@#$%^&*(){}[]-:;\"'~`=/*-+|\\/,.<>".split("")
+let InMetadataParsingStage = true
 
 //main logic goes here
 function DoTheThing(): void {
@@ -1451,6 +1509,12 @@ function DoTheThing(): void {
     if (CurrentLine.length == 0) {
         let results
 
+        //metadata
+        if (InMetadataParsingStage) {
+            //top event metadata e.g. 'PLAYER_EVENT LeftClick'
+            if (results == null) { results = ParseEventMetadata(CharIndex)}
+        }
+
         //try control
         if (results == null) { results = ParseControlBlock(CharIndex) }
 
@@ -1476,6 +1540,11 @@ function DoTheThing(): void {
         if (results == null) {
             let result = GetCharactersUntil(CharIndex + 1 + GetWhitespaceAmount(CharIndex), [" ", "\n"])
             throw new TCError(`Unexpected '${result[1]}'`, 0, CharIndex + 1 + GetWhitespaceAmount(CharIndex), result[0])
+        }
+
+        //if any token other than metadata is found, stop allowing metadata
+        if (!(results[1] instanceof MetadataToken)) {
+            InMetadataParsingStage = false
         }
 
         ApplyResults(results)

@@ -1,1 +1,3 @@
-global dingus = pot["Haste",2,10000]
+FUNCTION Join
+
+default:SendMessage("Hello world!")
