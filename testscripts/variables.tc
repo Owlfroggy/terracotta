@@ -1,1 +1,21 @@
-allPlayers:GiveItems(litem ["dungeonLoot", local rolledItem, 5], item ["stone",64,"awesome nbt"])
+line [this variable has no reason to exist in the context of the script but i need to test!!!] = "Ticks"
+
+#while doesn't exist yet pretend this is a while loop
+if global GameIsRunning == 1 {
+    global GameTime -= 1
+
+    if global GameTime <= 0 {
+        allPlayers:SendMessage("The game is over!")
+        saved [%var(winnerUUID) coins] += 100
+
+        global GameIsRunning = 0
+        returnmult 69
+    }
+
+    #wait 2 extra ticks if time slowing modifier is enabled
+    if global Modifier_TimeSlow == 1 {
+        wait(2)
+    }
+
+    wait(1)[Time Unit: line [this variable has no reason to exist in the context of the script but i need to test!!!] ? Seconds]
+}

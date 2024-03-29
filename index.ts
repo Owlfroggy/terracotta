@@ -6,7 +6,6 @@
 import { Domain, DomainList, TargetDomain } from "./domains"
 import { PrintError, TCError } from "./errorHandler"
 import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil, GetCharacterAtIndex } from "./characterUtils"
-import { NullSyncSubprocess } from "bun"
 
 export { }
 const FILE_PATH = "testscripts/variables.tc"
@@ -630,6 +629,86 @@ function ParseList(index, openingChar: string, closingChar: string, seperatingCh
     }
 
     return [index, new ListToken(items)]
+}
+
+//= Control =\\
+//break, skip, endthread, return, returnmult, wait
+const ValidControlKeywords = ["break","continue","return","returnmult","wait","endthread"]
+const ValidWaitUnits = {
+    "ticks": "Ticks",
+    "seconds": "Seconds",
+    "minutes": "Minutes",
+
+    "t": "Ticks",
+    "s": "Seconds",
+    "m": "Minutes"
+}
+
+class ControlBlockToken extends Token {
+    constructor(action: string, params: ListToken | null = null, tags: Dict<ActionTag> | null = null) {
+        super()
+        this.Action = action
+        this.Params = params
+        this.Tags = tags
+    }
+
+    Action: string
+    Params: ListToken | null
+    Tags: Dict<ActionTag> | null
+}
+
+function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let initIndex = index
+
+    //get keyword
+    let identifierResults = GetIdentifier(index)
+    if (identifierResults != null && !ValidControlKeywords.includes(identifierResults[1])) {
+        return null
+    }
+
+    index = identifierResults[0]
+
+    //return action based on what keyword was used
+    if (identifierResults[1] == "break") {
+        return [index, new ControlBlockToken("StopRepeat")]
+    } 
+    else if (identifierResults[1] == "continue") {
+        return [index, new ControlBlockToken("Skip")]
+    }
+    else if (identifierResults[1] == "endthread") {
+        return [index, new ControlBlockToken("End")]
+    }
+    else if (identifierResults[1] == "return") {
+        return [index, new ControlBlockToken("Return")]
+    }
+    else if (identifierResults[1] == "returnmult") {
+        //parse number for how many times to return
+        let expressionResults = ParseExpression(index,["\n"],false)
+        if (expressionResults == null) {
+            throw new TCError("Expected number following 'returnmult'",0,initIndex,index)
+        }
+
+        return [expressionResults[0], new ControlBlockToken("ReturnNTimes",new ListToken([expressionResults[1]]))]
+    }
+    else if (identifierResults[1] == "wait") {
+        let listResults = ParseList(index,"(",")",",")
+        if (listResults == null) {
+            throw new TCError("Expected arguments following 'wait'",0,initIndex,index)
+        }
+        index = listResults[0]
+
+        let tagResults = ParseTags(index, {"Time Unit":["Ticks", "Seconds", "Minutes"]})
+        let tags
+        if (tagResults) {
+            index = tagResults[0]
+            tags = tagResults[1]
+        }
+
+        return [index, new ControlBlockToken("Wait",listResults[1],tags)]
+    }   
+
+    return null
 }
 
 //= If statements!!! =\\
@@ -1331,6 +1410,9 @@ function DoTheThing(): void {
     // if current line is empty
     if (CurrentLine.length == 0) {
         let results
+
+        //try control
+        if (results == null) { results = ParseControlBlock(CharIndex) }
 
         //try closing bracket
         if (GetNextCharacters(CharIndex, 1) == "}") { results = [CharIndex + 1 + GetWhitespaceAmount(CharIndex), new BracketToken("close")] }
