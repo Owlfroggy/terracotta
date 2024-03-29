@@ -25,7 +25,7 @@ var CurrentLine: Array<Token> = []
 //==========[ helper functions ]=========\\
 
 //none of this console.log bullshit! i mean do you seriously expect me to type that whole thing out every singel time i wanna print something!?!?!? at least its better than java but still
-function print(...data: any[]) {
+function print (...data: any[]) {
     console.log(...data)
 }
 
@@ -529,10 +529,6 @@ function ParseOperator(index: number, operatorType: "assignment" | "math" | "com
     return null
 }
 
-//= Accessor & Caller =\\
-class CallerToken extends Token {
-    Token = "Caller"
-}
 //= ListToken =\\
 class ListToken extends Token {
     constructor(items: Array<ExpressionToken>) {
@@ -863,6 +859,98 @@ function ParseAction(index: number, allowComparisons: boolean = false): [number,
     return [index, new ActionToken(domain.Identifier, actionResults[1], params, isComparison, tags!)]
 }
 
+//= Call function/start process =\\
+class CallToken extends Token {
+    constructor(type: "function" | "process", name: string, args: ListToken | null, tags: Dict<ActionTag> | null) {
+        super()
+        this.Type = type
+        this.Name = name
+        this.Arguments = args
+        this.Tags = tags
+    }
+
+    Type: "function" | "process"
+    Name: string
+    Arguments: ListToken | null
+    Tags: Dict<ActionTag> | null
+}
+
+function ParseCall(index: number): [number, CallToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let initIndex = index
+    let mode
+
+    //parse keyword
+    let keywordResults = GetIdentifier(index)
+    if (keywordResults[1] == "call") {
+        mode = "function"
+    } else if (keywordResults[1] == "start") {
+        mode = "process"
+    } else {
+        return null
+    }
+
+    //parse function name (totally not copy pasted from ParseVariable)
+    let name
+    //move into position to parse function name
+    index = keywordResults[0]
+
+    let keywordEndIndex = index// used for error messages
+
+    //try [] name
+    let complexNameResults
+    try {
+        complexNameResults = GetString(index, "[", "]")
+    }
+    catch (e) {
+        if (e.Code == 1) {
+            throw new TCError(`${mode == "function" ? "Function" : "Process"} name was never closed`, 1, e.CharStart, e.CharLoc)
+        }
+    }
+
+    //if [] name, use that as the name
+    if (complexNameResults) {
+        index = complexNameResults[0]
+        name = complexNameResults[1]
+    }
+    //otherwise, use identifier as name
+    else {
+        index += GetWhitespaceAmount(index)
+        index++ //GetIdentifier's starts first character of identifier so move 1 char to that
+
+        //get name of variable
+        let variableNameResults = GetIdentifier(index)
+        if (variableNameResults == null || variableNameResults[1] == "") {
+            throw new TCError(`Expected function name`, 2, initIndex, keywordEndIndex)
+        }
+
+        index = variableNameResults[0]
+        name = variableNameResults[1]
+    }
+    let args
+    let tags
+
+    //parse arguments
+    if (mode == "function") {
+        let argsResults = ParseList(index,"(",")",",")
+        if (argsResults) {
+            index = argsResults[0]
+            args = argsResults[1]
+        }
+    }
+
+    //parse tags
+    if (mode == "process") {
+        let tagsResults = ParseTags(index,{"Local Variables":["Don't copy", "Copy", "Share"],"Target Mode":["With current targets", "With current selection", "With no targets", "For each in selection"]})
+        if (tagsResults) {
+            index = tagsResults[0]
+            tags = tagsResults[1]
+        }
+    }
+
+    return [index, new CallToken(mode,name,args,tags)]
+}
+
 //= Identifier ==\\
 class IdentifierToken extends Token {
     constructor(identifier: string) {
@@ -1031,6 +1119,15 @@ function ParseExpression(index: number, terminateAt: Array<string | null> = ["\n
             //try action
             if (results == null) { results = ParseAction(index, true) }
 
+            //try function
+            if (results == null) { 
+                results = ParseCall(index)
+
+                if (results && (results[1] as CallToken).Type == "process") {
+                    throw new TCError("Processes cannot be started from within expressions",0,valueInitIndex + GetWhitespaceAmount(valueInitIndex) + 1,results[0])
+                }
+            }
+
             //try game value
             if (results == null) { results = ParseGameValue(index) }
 
@@ -1189,6 +1286,9 @@ function DoTheThing(): void {
 
         //try variable
         if (results == null) { results = ParseVariable(CharIndex) }
+
+        //try function/process
+        if (results == null) { results = ParseCall(CharIndex) }
 
         //error
         if (results == null) {
