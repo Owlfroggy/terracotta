@@ -1,3 +1,4 @@
-FUNCTION Join
+FUNCTION [the fog is coming]
 
-default:SendMessage("Hello world!")
+global simpleVariable = "the fog is coming"
+global [complex variable] = "the fog is coming"

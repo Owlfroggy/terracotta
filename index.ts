@@ -75,6 +75,43 @@ function GetString(index: number, openingChar: string, closingChar: string = ope
     throw new TCError("String was never closed", 1, initIndex + GetWhitespaceAmount(initIndex) + 1, index)
 }
 
+//function for names that can either be an identifier or contents of []
+//ERR1: complex name never closed
+//ERR2: missing name
+function GetComplexName(index: number): [number, string] {
+    //= parse event name =\\
+    let complexNameResults
+    let name
+
+    //try [] name
+    try {
+        complexNameResults = GetString(index, "[", "]")
+    }
+    catch (e) {
+        if (e.Code == 1) {
+            throw new TCError("Name was never closed", 1, e.CharStart, e.CharLoc)
+        }
+    }
+
+    //if theres a [, use the inside of the [] as name
+    if (complexNameResults) {
+        return [complexNameResults[0], complexNameResults[1]]
+    }
+    //otherwise, use identifier as name
+    else {
+        index += GetWhitespaceAmount(index)
+        index++ //GetIdentifier starts first character of identifier so move 1 char to that
+
+        //get name of variable
+        let variableNameResults = GetIdentifier(index)
+        if (variableNameResults == null || variableNameResults[1] == "") {
+            throw new TCError(`Expected name'`, 2, index,-1)
+        }
+
+        return [variableNameResults[0], variableNameResults[1]]
+    }
+}
+
 //Useful function for applying the results of most parsers
 function ApplyResults(results: [number, ...any]) {
     //move cursor to the end of the variable
@@ -133,36 +170,22 @@ function ParseVariable(index): [number, VariableToken] | null {
 
     //move into position to parse variable name
     index = keywordResults[0]
-
     let keywordEndIndex = index// used for error messages
 
-    let complexNameResults
+    let nameResults
 
+    //parse variable name
     try {
-        complexNameResults = GetString(index, "[", "]")
-    }
-    catch (e) {
+        nameResults = GetComplexName(index)
+    } catch (e) {
         if (e.Code == 1) {
             throw new TCError("Variable name was never closed", 1, e.CharStart, e.CharLoc)
-        }
-    }
-    //if theres a [, use the inside of the [] as name
-    if (complexNameResults) {
-        return [complexNameResults[0], new VariableToken(scopeKeyword, complexNameResults[1])]
-    }
-    //otherwise, use identifier as name
-    else {
-        index += GetWhitespaceAmount(index)
-        index++ //GetIdentifier's starts first character of identifier so move 1 char to that
-
-        //get name of variable
-        let variableNameResults = GetIdentifier(index)
-        if (variableNameResults == null || variableNameResults[1] == "") {
+        } else if (e.Code == 2) {
             throw new TCError(`Expected variable name following '${scopeKeyword}'`, 2, initIndex, keywordEndIndex)
         }
-
-        return [variableNameResults[0], new VariableToken(scopeKeyword, variableNameResults[1])]
     }
+
+    return [nameResults[0], new VariableToken(scopeKeyword, nameResults[1])]
 }
 //= String =\\
 
@@ -1071,36 +1094,22 @@ function ParseCall(index: number): [number, CallToken] | null {
 
     let keywordEndIndex = index// used for error messages
 
-    //try [] name
-    let complexNameResults
+    //get name
+    let nameResults
     try {
-        complexNameResults = GetString(index, "[", "]")
+        nameResults = GetComplexName(index)
     }
     catch (e) {
         if (e.Code == 1) {
             throw new TCError(`${mode == "function" ? "Function" : "Process"} name was never closed`, 1, e.CharStart, e.CharLoc)
-        }
-    }
-
-    //if [] name, use that as the name
-    if (complexNameResults) {
-        index = complexNameResults[0]
-        name = complexNameResults[1]
-    }
-    //otherwise, use identifier as name
-    else {
-        index += GetWhitespaceAmount(index)
-        index++ //GetIdentifier's starts first character of identifier so move 1 char to that
-
-        //get name of variable
-        let variableNameResults = GetIdentifier(index)
-        if (variableNameResults == null || variableNameResults[1] == "") {
+        } else if (e.Code == 2) {
             throw new TCError(`Expected function name`, 2, initIndex, keywordEndIndex)
         }
-
-        index = variableNameResults[0]
-        name = variableNameResults[1]
     }
+
+    index = nameResults[0]
+    name = nameResults[1]
+
     let args
     let tags
 
@@ -1407,37 +1416,9 @@ function ParseEventMetadata(index: number): [number, EventMetadataToken] | null 
     if (identifierResults == null || !AD.ValidLineStarters[identifierResults[1]]) { return null }
     index = identifierResults[0]
 
-    //= parse event name =\\
-    let complexNameResults
-    let name
+    let nameResults = GetComplexName(index)
 
-    //try [] name
-    try {
-        complexNameResults = GetString(index, "[", "]")
-    }
-    catch (e) {
-        if (e.Code == 1) {
-            throw new TCError("Name was never closed", 1, e.CharStart, e.CharLoc)
-        }
-    }
-
-    //if theres a [, use the inside of the [] as name
-    if (complexNameResults) {
-        return [complexNameResults[0], new EventMetadataToken(identifierResults[1],complexNameResults[1])]
-    }
-    //otherwise, use identifier as name
-    else {
-        index += GetWhitespaceAmount(index)
-        index++ //GetIdentifier's starts first character of identifier so move 1 char to that
-
-        //get name of variable
-        let variableNameResults = GetIdentifier(index)
-        if (variableNameResults == null || variableNameResults[1] == "") {
-            //throw new TCError(`Expected variable name following '${scopeKeyword}'`, 2, initIndex, keywordEndIndex)
-        }
-
-        return [variableNameResults[0], new EventMetadataToken(identifierResults[1],variableNameResults[1])]
-    }
+    return [nameResults[0], new EventMetadataToken(identifierResults[1],nameResults[1])]
 }
 
 let symbols = "!@#$%^&*(){}[]-:;\"'~`=/*-+|\\/,.<>".split("")
