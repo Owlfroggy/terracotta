@@ -460,6 +460,63 @@ function ParseLocation(index: number): [number, LocationToken] | null {
     return [argResults[0], new LocationToken(args[0], args[1], args[2], args[3], args[4])]
 }
 
+//= Items =\\
+class ItemToken extends Token {
+    constructor(id: ExpressionToken, count: ExpressionToken | null = null, nbt: ExpressionToken | undefined, library: ExpressionToken | undefined) {
+        super()
+        this.Id = id
+        this.Count = count
+        this.Nbt = nbt
+        this.Library = library
+
+        if (this.Library) {
+            this.Mode = "library"
+        } else {
+            this.Mode = "basic"
+        }
+    }
+
+    Id: ExpressionToken
+    Library: ExpressionToken | undefined
+    Count: ExpressionToken | null
+    Nbt: ExpressionToken | undefined
+
+    Mode: "basic" | "library"
+}
+
+//BASIC ITEM SYNTAX: item [id,count,nbt]
+//LIB ITEM SYNTAX: litem [library, id, count]
+function ParseItem(index: number): [number, ItemToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let keywordInitIndex = index
+
+    //parse item keyword
+    let identifierResults = GetIdentifier(index)
+
+    //if no item keyword, this is not an item
+    if (identifierResults == null || !(identifierResults[1] == "item" || identifierResults[1] == "litem")) { return null }
+
+    //move to end of item keyword
+    index = identifierResults[0]
+
+    //parse arguments
+    let argResults = ParseList(index, "[", "]", ",")
+    if (argResults == null) {
+        throw new TCError("Expected arguments following item constructor", 1, keywordInitIndex, index)
+    }
+    let args = argResults[1].Items
+
+    //basic item
+    if (identifierResults[1] == "item") {
+        return [argResults[0], new ItemToken(args[0], args[1], args[3], undefined)]
+        //library item
+    } else if (identifierResults[1] == "litem") {
+        return [argResults[0], new ItemToken(args[1],args[2],undefined,args[0])]
+    }
+
+    return [argResults[0],new ItemToken(args[0],args[1],args[2],args[3])]
+}
+
 //= Operators =\\
 const ValidAssignmentOperators = ["=", "+=", "-=", "*=", "/="]
 const ValidMathOperators = ["+", "-", "*", "/", "^"]
@@ -1115,6 +1172,9 @@ function ParseExpression(index: number, terminateAt: Array<string | null> = ["\n
 
             //try variable
             if (results == null) { results = ParseVariable(index) }
+
+            //try item
+            if (results == null) { results = ParseItem(index) }
 
             //try action
             if (results == null) { results = ParseAction(index, true) }

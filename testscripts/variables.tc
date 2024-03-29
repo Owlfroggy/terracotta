@@ -1,12 +1,1 @@
-#processes
-start PlayerLoop
-start [%var(dingus)_loop]
-
-#functions
-call AwesomeFunction(1,2,3,4,5)
-call StartGame
-call [spawn_mob_%var(mob)](loc [1,2,3])
-call [ajhgjkadhgjk jkahd jkghkdj hfjka h]
-
-#from within expression
-global functionvar = call dingus(local dongus) + call getMeaningOfLifeForPlayer("%default")
+allPlayers:GiveItems(litem ["dungeonLoot", local rolledItem, 5], item ["stone",64,"awesome nbt"])
