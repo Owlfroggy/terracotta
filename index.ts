@@ -1666,19 +1666,15 @@ function DoTheThing(): void {
         //try function/process
         if (results == null) { results = ParseCall(CharIndex) }
 
-        //error
-        if (results == null) {
-            let result = GetCharactersUntil(CharIndex + 1 + GetWhitespaceAmount(CharIndex), [" ", "\n"])
-            throw new TCError(`Unexpected '${result[1]}'`, 0, CharIndex + 1 + GetWhitespaceAmount(CharIndex), result[0])
-        }
+        if (results != null) {
+            //if any token other than metadata is found, stop allowing metadata
+            if (!(results[1] instanceof MetadataToken)) {
+                InMetadataParsingStage = false
+            }
 
-        //if any token other than metadata is found, stop allowing metadata
-        if (!(results[1] instanceof MetadataToken)) {
-            InMetadataParsingStage = false
+            ApplyResults(results)
+            return
         }
-
-        ApplyResults(results)
-        return
     }
 
     //if current line is an if statement
@@ -1739,6 +1735,13 @@ function DoTheThing(): void {
     if (symbols.includes(GetNextCharacters(CharIndex, 1))) {
         throw new TCError(`Unexpected ${GetNextCharacters(CharIndex, 1)}`, 0, CharIndex + GetWhitespaceAmount(CharIndex) + 1, CharIndex + GetWhitespaceAmount(CharIndex) + 1)
     }
+
+    //fallback error for random identifier
+    let invalidIdentifierResults = GetIdentifier(CharIndex + GetWhitespaceAmount(CharIndex) + 1,true)
+    if (invalidIdentifierResults[1] != "") {
+        throw new TCError(`Unexpected '${invalidIdentifierResults[1]}'`, 0, CharIndex + GetWhitespaceAmount(CharIndex) + 1, invalidIdentifierResults[0])
+    }
+
 
     console.log("Current line:", CurrentLine)
     console.log("Current indx:", CharIndex)

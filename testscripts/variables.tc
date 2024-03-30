@@ -1,8 +1,3 @@
-global awesome = local vector1: vec + local vector2: vec
-global even_cooler: vec = local vector1 + local vector2
+global dingus = 5243
 
-local newLocation = local oldLocation: loc + local offset: vec
-
-global [%default asdfsdafadfasdfasdf]: itemasdf = "totally an item (trust me)"
-
-default:SendMessage("dingus!")[Alignment Mode: global[dingus]:snd ? Centered]
+adkjfghasdkjghakjdfhgkjahfgkjadfhjgladhfgkjadhfkgjhadfgkjhadfkgj hdafkjghadfkjgh adlkfjghadkljfh;kjdafghak;jdf hgjka;dfh gkjadfhgk;jalk
