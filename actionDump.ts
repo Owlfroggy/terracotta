@@ -35,6 +35,8 @@ export let ValidGameActions: Dict<Action> = {}
 export let ValidGameCompActions: Dict<Action> = {}
 export let ValidGameGameValues: Dict<string> = {}
 
+export let ValidSelectionEntityComparisons: Dict<Action> = {}
+export let ValidSelectionPlayerComparisons: Dict<Action> = {}
 
 //name overrides
 //key: dimaondfire id, value: func name in terracotta
@@ -180,6 +182,27 @@ for (const action of ACTION_DUMP.actions) {
     }
 
     validActions[name] = new Action(name,action.name,getTags(action))
+}
+
+//= valid selection conditions =\\
+//if player
+for (let [tcName, action] of Object.entries(ValidPlayerCompActions)) {
+    if (ValidEntityCompActions[tcName]) {
+        //if this is one of the things thats in both if entity and if player, specify this as the player version
+        ValidSelectionPlayerComparisons[tcName] = new Action(tcName,"P"+action?.DFName,action?.Tags!)
+    } else {
+        ValidSelectionPlayerComparisons[tcName] = action
+    }
+}
+
+//if player
+for (let [tcName, action] of Object.entries(ValidEntityCompActions)) {
+    if (ValidPlayerCompActions[tcName]) {
+        //if this is one of the things thats in both if entity and if player, specify this as the entity version
+        ValidSelectionEntityComparisons[tcName] = new Action(tcName,"E"+action?.DFName,action?.Tags!)
+    } else {
+        ValidSelectionEntityComparisons[tcName] = action
+    }
 }
 
 /* view names when deciding overrides */
