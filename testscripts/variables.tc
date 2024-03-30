@@ -1,1 +1,1 @@
-global dingus = allEntities.FoodLevel
+global dingus = allPlayers.FoodLevel

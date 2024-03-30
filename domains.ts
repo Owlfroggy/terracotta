@@ -10,9 +10,14 @@ export class Domain {
         this.Actions = actions
         this.Values = values
 
+        if (Object.entries(values).length == 0) {
+            this.SupportsGameValues = false
+        }
+
         DomainList[identifier] = this
     }
 
+    SupportsGameValues: boolean = true
     Identifier: string
     Actions: Dict<AD.Action>
     Comparisons: Dict<AD.Action>
@@ -50,7 +55,7 @@ export var TargetDomains = { //this feels like a sin
     damager: new TargetDomain("damager","damager",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues),
     shooter: new TargetDomain("shooter","shooter",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues),
     victim: new TargetDomain("victim","victim",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues),
-    allPlayers: new TargetDomain("allPlayers","allPlayers",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues),
+    allPlayers: new TargetDomain("allPlayers","allPlayers",AD.ValidPlayerActions,AD.ValidPlayerCompActions,{}),
 
     //entities
     selectionEntities: new TargetDomain("selectionEntity","selection",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues),
@@ -59,8 +64,8 @@ export var TargetDomains = { //this feels like a sin
     damagerEntity: new TargetDomain("damagerEntity","damager",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues),
     shooterEntity: new TargetDomain("shooterEntity","shooter",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues),
     victimEntity: new TargetDomain("victimEntity","victim",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues),
-    allEntities: new TargetDomain("allEntities","allEntities",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues),
-    allMobs: new TargetDomain("allMobs","allMobs",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues),
+    allEntities: new TargetDomain("allEntities","allEntities",AD.ValidEntityActions,AD.ValidEntityCompActions,{}),
+    allMobs: new TargetDomain("allMobs","allMobs",AD.ValidEntityActions,AD.ValidEntityCompActions,{}),
     projectile: new TargetDomain("projectile","projectile",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues),
     lastSpawnedEntity: new TargetDomain("lastSpawnedEntity","lastSpawnedEntity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues),
 }
