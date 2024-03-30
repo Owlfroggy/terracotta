@@ -35,6 +35,9 @@ export let ValidGameActions: Dict<Action> = {}
 export let ValidGameCompActions: Dict<Action> = {}
 export let ValidGameGameValues: Dict<string> = {}
 
+export let ValidCreateSelectActions: Dict<Action> = {}
+export let ValidFilterSelectActions: Dict<Action> = {}
+
 export let ValidSelectionEntityComparisons: Dict<Action> = {}
 export let ValidSelectionPlayerComparisons: Dict<Action> = {}
 
@@ -66,6 +69,30 @@ const EntityCompActionOverrides = {
     "HasPlayer": "HasPlayer"
 }
 
+//select object
+//IMPORTANT! only actions that are listed here will make it into the final exported dicts
+const CreateSelectionOverrides = { //actions here will be placed into create selection
+    "RandomPlayer": "RandomPlayers",
+    "LastEntity": "LastSpawnedEntity",
+    "EntityName": "EntitiesByName",
+    "PlayerName": "PlayersByName",
+    "AllEntities": "AllEntities",
+    "Reset": "Nothing",
+    "EventTarget": "EventTarget",
+    "EntitiesCond": "EntitiesByCondition",
+    "AllPlayers": "AllPlayers",
+    "Invert": "Inverse",
+    "PlayersCond": "PlayersByCondition"
+}
+
+const FilterSelectionOverrides = {
+    "FilterRandom": "Randomly",
+    "FilterDistance": "ByDistance",
+    "FilterRay": "ByRaycast",
+    "FilterCondition": "ByCondition",
+    "FilterSort": "BySort"
+}
+
 //game
 const GameActionOverrides = {
     "LaunchProj": "LaunchProjectile"
@@ -83,13 +110,13 @@ const GameValueOverrides = {
 //why isnt this in the action dump akjdfhgnbadm,nfvlkjhdfh
 //df game value names
 export const InvalidEntityGameValues = [
-    "Food Level", 
-    "Food Saturation", 
-    "Food Exhaustion", 
-    "Attack Damage", 
-    "Attack Speed", 
-    "Attack Cooldown", 
-    "Attack Cooldown Ticks", 
+    "Food Level",
+    "Food Saturation",
+    "Food Exhaustion",
+    "Attack Damage",
+    "Attack Speed",
+    "Attack Cooldown",
+    "Attack Cooldown Ticks",
     "Experience Level",
     "Experience Progress",
     "Held Slot",
@@ -113,7 +140,7 @@ function getTags(actionData): Dict<Array<string>> {
         let tagList: Array<string> = []
 
         actionJson[tag.name] = tagList
-        
+
         for (const option of tag.options) {
             tagList.push(option.name)
         }
@@ -167,21 +194,32 @@ for (const action of ACTION_DUMP.actions) {
             break
     }
 
-    //if this is not a supported code block, skip it
-    if (validActions == null) { continue }
+    //special logic for select
+    if (action.codeblockName == "SELECT OBJECT") {
+        if (CreateSelectionOverrides[action.name]) {
+            ValidCreateSelectActions[CreateSelectionOverrides[action.name]] = new Action(CreateSelectionOverrides[action.name],action.name,getTags(action))
+        } else if (FilterSelectionOverrides[action.name]) {
+            ValidFilterSelectActions[FilterSelectionOverrides[action.name]] = new Action(FilterSelectionOverrides[action.name],action.name,getTags(action))
+        }
+    } 
+    //logic for everything else
+    else {
+        //if this is not a supported code block, skip it
+        if (validActions == null) { continue }
 
-    //remove all spaces in code block name
-    //let name = action.icon.name.replace(/ /g,"")
-    let name = codeifyName(action.icon.name)
+        //remove all spaces in code block name
+        //let name = action.icon.name.replace(/ /g,"")
+        let name = codeifyName(action.icon.name)
 
-    //if code block name is empty, skip it
-    if (name.length == 0) {continue}
- 
-    if (overrides[action.name]) {
-        name = overrides[action.name]
+        //if code block name is empty, skip it
+        if (name.length == 0) {continue}
+
+        if (overrides[action.name]) {
+            name = overrides[action.name]
+        }
+
+        validActions[name] = new Action(name,action.name,getTags(action))
     }
-
-    validActions[name] = new Action(name,action.name,getTags(action))
 }
 
 //= valid selection conditions =\\
