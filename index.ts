@@ -1607,13 +1607,15 @@ class SelectActionToken extends Token {
     Tags: Dict<ActionTag> | null
 }
 
-function ParseCreateSelection(index): [number, SelectActionToken] | null {
+function ParseSelectAction(index): [number, SelectActionToken] | null {
     index += GetWhitespaceAmount(index) + 1
     let initIndex = index
 
-    //make sure theres the select keyword
+    //make sure theres the select or filter keyword
     let keywordResults = GetIdentifier(index)
-    if (keywordResults[1] != "select") {return null}
+    if (!(keywordResults[1] == "select" || keywordResults[1] == "filter")) {return null}
+    let keyword = keywordResults[1]
+
     //move to end of select keyword
     index = keywordResults[0]
     let actionInitIndex = index + GetWhitespaceAmount(index) + 1 //used for errors
@@ -1626,7 +1628,7 @@ function ParseCreateSelection(index): [number, SelectActionToken] | null {
     }
 
     //get action data
-    let actionData = AD.ValidCreateSelectActions[action]
+    let actionData = (keyword == "select" ? AD.ValidCreateSelectActions : AD.ValidFilterSelectActions)[action]
 
     //error for invalid action
     if (!actionData) {
@@ -1636,7 +1638,7 @@ function ParseCreateSelection(index): [number, SelectActionToken] | null {
     index = actionResults[0]
 
     //parse condition (if applicable)
-    if (action == "PlayersByCondition" || action == "EntitiesByCondition") {
+    if (action == "PlayersByCondition" || action == "EntitiesByCondition" || action == "ByCondition") {
         //parse 'not'
         let notResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
         if (notResults[1] == "not") {
@@ -1751,7 +1753,7 @@ function DoTheThing(): void {
         }
 
         //try select
-        if (results == null) { results = ParseCreateSelection(CharIndex) }
+        if (results == null) { results = ParseSelectAction(CharIndex) }
 
         //try control
         if (results == null) { results = ParseControlBlock(CharIndex) }

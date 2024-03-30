@@ -1,10 +1,34 @@
-##  Initiates the rapture (call sparingly)  ##
+##  Initiates the rapture (warning: no undo)  ##
 FUNCTION Rapture
 
+global IsRaptureInitiated = 1
+
+# step one: select evil doers
+
 #select all players who aren't swimming
-#(fish are safe from the rapture)
+#(fish are considered holy)
 select PlayersByCondition not player ? IsSwimming
 
 #alternative method
 select PlayersByCondition player ? IsSwimming
 select Inverse
+
+#filter out good
+filter ByCondition saved [%default reputation] >= 0
+#let 10% of sinners get to ascend anyway (wouldn't want things to get too boring up there)
+filter Randomly (game.PlayerCount*0.9)
+
+selection:SendMessage("&ccry about it")
+selection:Kick
+
+# everyone who remains gets to ascend
+#different message for lucky sinners
+select PlayersByCondition saved [%default reputation] < 0
+selection:SendMessage("you got lucky! enjoy your ascension")
+select Inverse
+selection:SendMessage("congrats on not being evil! enjoy your ascension")
+
+select Nothing
+
+# imaginary function for ascending because i need to be adding more features instead of doing whatever im doing right now
+call AscendRemainingPlayers
