@@ -7,6 +7,7 @@ import { Domain, DomainList, TargetDomain } from "./domains"
 import { PrintError, TCError } from "./errorHandler"
 import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil, GetCharacterAtIndex } from "./characterUtils"
 import * as AD from "./actionDump"
+import { build } from "bun"
 
 export { }
 const FILE_PATH = "testscripts/variables.tc"
@@ -138,15 +139,17 @@ class ExprOperatorToken extends Token {
 
 //= Variables =\\
 class VariableToken extends Token {
-    constructor(scope: String, name: String) {
+    constructor(scope: String, name: String, type: string) {
         super()
         if (scope == "global") { scope = "game" }
         this.Scope = scope
         this.Name = name
+        this.Type = type
     }
 
     Scope: String
     Name: String
+    Type: string
 }
 
 const VALID_VAR_SCCOPES = {
@@ -188,7 +191,33 @@ function ParseVariable(index): [number, VariableToken] | null {
         }
     }
 
-    return [nameResults[0], new VariableToken(scopeKeyword, nameResults[1])]
+    index = nameResults[0]
+
+    let type = "any"
+    //if theres a : after the variable, parse its type
+    if (GetNextCharacters(index,1) == ":") {
+        //move to :
+        index += GetWhitespaceAmount(index) + 1
+        let colonIndex = index //used for errors
+
+        //move to start of type
+        index += GetWhitespaceAmount(index) + 1
+        
+        //actually get type
+        let typeResults = GetIdentifier(index)
+        if (typeResults[1] == "") {
+            throw new TCError("Expected type following ':'",0,initIndex,colonIndex)
+        }
+        //error for invalid type
+        if (!VALID_TYPES.includes(typeResults[1])) {
+            throw new TCError(`Invalid type '${typeResults[1]}'`,0,index,typeResults[0])
+        }
+
+        index = typeResults[0]
+        type = typeResults[1]
+    }
+
+    return [index, new VariableToken(scopeKeyword, nameResults[1], type)]
 }
 //= String =\\
 

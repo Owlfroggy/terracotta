@@ -1,23 +1,8 @@
-FUNCTION AddTwoNumbers
-#just making sure comments can be in metadata territory without making everything explode
-PARAM result: var
-PARAM number1: num
-PARAM number2: num
+global awesome = local vector1: vec + local vector2: vec
+global even_cooler: vec = local vector1 + local vector2
 
-PARAM easterEgg: optional any = 0 #hehehehehhehehehehehehehehehehehhehehehe
+local newLocation = local oldLocation: loc + local offset: vec
 
-## actual code starts here ##
+global [%default asdfsdafadfasdfasdf]: itemasdf = "totally an item (trust me)"
 
-if line easterEgg == "obliterate the math" {
-    allPlayers:SendMessage("GET OUT!!!!!!!")
-    allPlayers:Kick
-    
-    #violently murder whatever thread called this function
-    returnmult 53487
-}
-else {
-    #this is worthy of a whole entire function
-    line result = line number1 + line number2
-}
-
-#hello :)
+default:SendMessage("dingus!")[Alignment Mode: global[dingus]:snd ? Centered]
