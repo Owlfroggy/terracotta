@@ -1262,7 +1262,12 @@ function ParseGameValue(index: number): [number, Token] | null {
             }
         }
         else {
-            throw new TCError(`'${domain.Identifier} does not contain value '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
+            if (domain.Identifier == "game") {
+                //throw special error for game game values
+                throw new TCError(`Invalid game value: '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
+            } else {
+                throw new TCError(`'${domain.Identifier} does not contain value '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
+            }
         }
     }
 
