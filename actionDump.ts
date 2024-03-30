@@ -77,6 +77,33 @@ const GameValueOverrides = {
     "Z-Coordinate": "Z"
 }
 
+//all targeted gvs that work with players but not entities
+//why isnt this in the action dump akjdfhgnbadm,nfvlkjhdfh
+//df game value names
+export const InvalidEntityGameValues = [
+    "Food Level", 
+    "Food Saturation", 
+    "Food Exhaustion", 
+    "Attack Damage", 
+    "Attack Speed", 
+    "Attack Cooldown", 
+    "Attack Cooldown Ticks", 
+    "Experience Level",
+    "Experience Progress",
+    "Held Slot",
+    "Ping",
+    "Steer Sideways Movement",
+    "Steer Forward Movement",
+    "Hotbar Items",
+    "Inventory Items",
+    "Cursor Item",
+    "Inventory Menu Items",
+    "Saddle Item",
+    "Entity Item",
+    "Game Mode",
+    "Open Inventory Title",
+]
+
 function getTags(actionData): Dict<Array<string>> {
     let actionJson = {}
 
@@ -172,6 +199,8 @@ for (const value of ACTION_DUMP.gameValues) {
     //targeted game values 
     else {
         ValidPlayerGameValues[name] = value.icon.name
-        ValidEntityGameValues[name] = value.icon.name
+        if (!InvalidEntityGameValues.includes(value.icon.name)) {
+            ValidEntityGameValues[name] = value.icon.name
+        }
     }
 }

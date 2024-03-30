@@ -1251,7 +1251,12 @@ function ParseGameValue(index: number): [number, Token] | null {
     //error for invalid value
     if (domain.Values[valueResults[1]] == undefined) {
         if (domain instanceof TargetDomain) {
-            throw new TCError(`Invalid targeted game value: '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
+            if (domain.ActionType == "entity" && AD.InvalidEntityGameValues.includes(AD.ValidPlayerGameValues[valueResults[1]]!)) {
+                //throw special error if this gv is valid for players but not entities and the target is an entity
+                throw new TCError(`Invalid entity game value: '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
+            } else {
+                throw new TCError(`Invalid targeted game value: '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
+            }
         }
         else {
             throw new TCError(`'${domain.Identifier} does not contain value '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])

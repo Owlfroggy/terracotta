@@ -1,3 +1,1 @@
-global dingus = 5243
-
-adkjfghasdkjghakjdfhgkjahfgkjadfhjgladhfgkjadhfkgjhadfgkjhadfkgj hdafkjghadfkjgh adlkfjghadkljfh;kjdafghak;jdf hgjka;dfh gkjadfhgk;jalk
+global dingus = allEntities.FoodLevel
