@@ -3,11 +3,11 @@
 //may result from smart peoiple looking at my goofy ass code
 
 
-import { Domain, DomainList, TargetDomain } from "./domains"
+import { Domain, DomainList, TargetDomain, GenericDomains, GenericTargetDomains } from "./domains"
 import { PrintError, TCError } from "./errorHandler"
 import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil, GetCharacterAtIndex } from "./characterUtils"
 import * as AD from "./actionDump"
-import { build } from "bun"
+import { openInEditor } from "bun"
 
 export { }
 const FILE_PATH = "testscripts/variables.tc"
@@ -843,7 +843,7 @@ function ParseIf(index: number): [number, IfToken] | null {
         let notResults = GetIdentifier(index + 1 + GetWhitespaceAmount(index))
         if (notResults != null && notResults[1] == "not") {
             not = true
-            index = notResults[0]
+            index
         }
 
         return [index, new IfToken(not)]
@@ -1008,7 +1008,7 @@ function ParseTags(index, validTags): [number,Dict<ActionTag>] | null {
 //ERR8 = invalid tag value
 //ERR9 = missing ? after tag value variable
 
-function ParseAction(index: number, allowComparisons: boolean = false): [number, ActionToken] | null {
+function ParseAction(index: number, allowComparisons: boolean = false, genericTargetComparisons: boolean = false): [number, ActionToken] | null {
     index += GetWhitespaceAmount(index)
     let initIndex = index
 
@@ -1016,7 +1016,9 @@ function ParseAction(index: number, allowComparisons: boolean = false): [number,
     let domainResults = GetIdentifier(index + 1)
     if (domainResults == null) { return null }
 
-    let domain = DomainList[domainResults[1]]
+    let validDomains = genericTargetComparisons ? GenericTargetDomains : DomainList
+
+    let domain = validDomains[domainResults[1]]
     if (!domain) { return null }
 
     //move to end of domain
@@ -1293,7 +1295,14 @@ class ExpressionToken extends Token {
 //ERR4 = expression started with operator
 //ERR5 = operator instead of value
 //ERR6 = multiple comparisons
-function ParseExpression(index: number, terminateAt: Array<string | null> = ["\n"], endIndexAtTerminator: boolean = true, allowComparisons: boolean = false): [number, ExpressionToken] | null {
+function ParseExpression(
+    index: number, 
+    terminateAt: Array<string | null> = ["\n"], 
+    endIndexAtTerminator: boolean | undefined = true, 
+    features: Array<"comparisons" | "genericTargetComparisons"> = []
+    ): [number, ExpressionToken] | null 
+    {
+
     //if it should terminate at a newline, also terminate at eof
     if (terminateAt.includes("\n")) {
         if (!terminateAt.includes(null)) { terminateAt.push(null) }
@@ -1351,7 +1360,7 @@ function ParseExpression(index: number, terminateAt: Array<string | null> = ["\n
             if (results == null) { results = ParseItem(index) }
 
             //try action
-            if (results == null) { results = ParseAction(index, true) }
+            if (results == null) { results = ParseAction(index, true, features.includes("genericTargetComparisons")) }
 
             //try function
             if (results == null) { 
@@ -1390,7 +1399,7 @@ function ParseExpression(index: number, terminateAt: Array<string | null> = ["\n
             results = ParseOperator(index, "math")
 
             //comparison operator
-            if (results == null && allowComparisons) {
+            if (results == null && features.includes("comparisons")) {
                 results = ParseOperator(index, "comparison")
 
                 //error if this is the not the first comparison operator in this expression
@@ -1580,6 +1589,89 @@ function ParseParamMetadata(index: number): [number, ParamMetadataToken] | null 
     return [index, new ParamMetadataToken(nameResults[1],type,modifiers.includes("plural"),modifiers.includes("optional"),defaultValue)]
 }
 
+//= Selections ==\\
+class SelectActionToken extends Token {
+    constructor(action: string, args: ListToken | null = null, tags: Dict<ActionTag> | null = null, conditionExpr: ExpressionToken | null = null, conditionNot: boolean = false) {
+        super()
+        this.Action = action
+        this.Arguments = args
+        this.Tags = tags
+        this.ConditionExpression = conditionExpr
+        this.ConditionNot = conditionNot
+    }
+
+    Action: string
+    ConditionExpression: ExpressionToken | null
+    ConditionNot: boolean
+    Arguments: ListToken | null
+    Tags: Dict<ActionTag> | null
+}
+
+function ParseCreateSelection(index): [number, SelectActionToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let initIndex = index
+
+    //make sure theres the select keyword
+    let keywordResults = GetIdentifier(index)
+    if (keywordResults[1] != "select") {return null}
+    //move to end of select keyword
+    index = keywordResults[0]
+    let actionInitIndex = index + GetWhitespaceAmount(index) + 1 //used for errors
+
+    let actionResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
+    let action = actionResults[1]
+    //error for no action given
+    if (action == "") {
+        throw new TCError("Expected action following 'select'",0,initIndex,index)
+    }
+
+    //get action data
+    let actionData = AD.ValidCreateSelectActions[action]
+
+    //error for invalid action
+    if (!actionData) {
+        throw new TCError(`Invalid select action: '${action}'`,0,index + GetWhitespaceAmount(index) + 1, actionResults[0])
+    }
+
+    index = actionResults[0]
+
+    //parse condition (if applicable)
+    if (action == "PlayersByCondition" || action == "EntitiesByCondition") {
+        //parse 'not'
+        let notResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
+        if (notResults[1] == "not") {
+            index = notResults[0]
+        }
+
+        //parse expression
+        let expressionResults = ParseExpression(index,["\n"],false,["comparisons","genericTargetComparisons"])
+        if (expressionResults == null) { 
+            throw new TCError(`Expected condition following 'select ${action}'`,0,initIndex,index)
+        }
+        index = expressionResults[0]
+
+        return [expressionResults[0], new SelectActionToken(actionResults[1],null,null,expressionResults[1],notResults[1] == "not")]
+    } else {
+        //parse arguments
+        let argResults = ParseList(index, "(", ")", ",")
+        let args
+        if (argResults != null) {
+            index = argResults[0]
+            args = argResults[1]
+        }
+
+        //parse tags
+        let tagResults = ParseTags(index, actionData.Tags)
+        let tags
+        if (tagResults != null) {
+            index = tagResults[0]
+            tags = tagResults[1]
+        }
+
+        return [index, new SelectActionToken(actionResults[1],null,args,tags)]
+    }
+}
+
 let symbols = "!@#$%^&*(){}[]-:;\"'~`=/*-+|\\/,.<>".split("")
 let InMetadataParsingStage = true
 
@@ -1658,6 +1750,9 @@ function DoTheThing(): void {
             if (results == null) { results = ParseParamMetadata(CharIndex) }
         }
 
+        //try select
+        if (results == null) { results = ParseCreateSelection(CharIndex) }
+
         //try control
         if (results == null) { results = ParseControlBlock(CharIndex) }
 
@@ -1694,7 +1789,7 @@ function DoTheThing(): void {
     if (CurrentLine[0] instanceof IfToken) {
         //parse condition
         try {
-            let expressionResults = ParseExpression(CharIndex, ["{"], undefined, true)!
+            let expressionResults = ParseExpression(CharIndex, ["{"], true, ["comparisons"])!
 
             if (expressionResults == null) { throw new TCError("expr results somehow returned null", 0, CharIndex, -1) }
             ApplyResults(expressionResults)

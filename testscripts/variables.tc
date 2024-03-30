@@ -1,1 +1,10 @@
-global dingus = game.FoodLevel
+##  Initiates the rapture (call sparingly)  ##
+FUNCTION Rapture
+
+#select all players who aren't swimming
+#(fish are safe from the rapture)
+select PlayersByCondition not player ? IsSwimming
+
+#alternative method
+select PlayersByCondition player ? IsSwimming
+select Inverse
