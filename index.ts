@@ -1376,6 +1376,10 @@ function ParseExpression(
             //try game value
             if (results == null) { results = ParseGameValue(index) }
 
+            if (results == null) { results = ParseList(index, "[","]",",") }
+
+
+
             if (results == null) {
                 //= ERROR: operator was given instead of expr
                 let operatorResults = ParseOperator(index, "math")
