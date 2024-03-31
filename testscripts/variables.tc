@@ -32,3 +32,5 @@ select Nothing
 
 # imaginary function for ascending because i need to be adding more features instead of doing whatever im doing right now
 call AscendRemainingPlayers
+
+local dingus = 1.0

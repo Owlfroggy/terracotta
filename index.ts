@@ -260,6 +260,7 @@ function ParseNumber(index: number): [number, NumberToken] | null {
     if (!IsCharacterValidNumber(GetNextCharacters(index, 1))) { return null }
 
     let decimalFound = false
+    let forceToBeNumber = false
     let string = ""
 
     index += 1 + GetWhitespaceAmount(index)
@@ -278,6 +279,7 @@ function ParseNumber(index: number): [number, NumberToken] | null {
         }
         //if this char is a digit
         else if (IsCharacterValidNumber(SCRIPT_CONTENTS[index])) {
+            forceToBeNumber = true
             //dont include any leading 0s
             if (string.length == 0 && SCRIPT_CONTENTS[index] == "0") {
                 index++
@@ -299,10 +301,10 @@ function ParseNumber(index: number): [number, NumberToken] | null {
     }
 
     //a single . on its own is not a number
-    if (string == ".") { return null }
+    if (string == "." && forceToBeNumber == false) { return null }
 
     //add one leading 0 if starting with decimal
-    if (string == "") { string = "0" + string }
+    if (string == "" || string.charAt(0) == ".") { string = "0" + string }
 
     //remove trailing decimal if nothing's after it
     if (string[string.length - 1] == ".") { string = string.substring(0, string.length - 1) }
