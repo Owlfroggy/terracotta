@@ -22,7 +22,7 @@ var CurrentLine: Array<Token> = []
 
 //==========[ constants ]=========\\
 
-const VALID_TYPES = ["str","num","vec","loc","pot","var","snd","any","txt","item"]
+const VALID_TYPES = ["str","num","vec","loc","pot","var","snd","any","txt","item","list"]
 const VALID_PARAM_MODIFIERS = ["plural","optional"]
 
 //==========[ helper functions ]=========\\
