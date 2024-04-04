@@ -20,7 +20,7 @@ export function PrintError(e: TCError) {
             }
             //if the line contains the end of the highlight
             else if (e.CharLoc < lineEnd && e.CharLoc > lineStart) {
-                let relativeErrorEndPos = e.CharLoc - lineStart
+                let relativeErrorEndPos = e.CharLoc - lineStart + 1
                 codeLine = COLOR.Red + codeLine.slice(0, relativeErrorEndPos) + COLOR.Reset + codeLine.slice(relativeErrorEndPos)
             }
             console.log(codeLine)
