@@ -1,5 +1,9 @@
-import { readableStreamToArray } from "bun";
 import { SCRIPT_CONTENTS } from ".";
+
+export const COLOR = {
+    Red: "\x1b[31m",
+    Reset: "\x1B[0m",
+}
 
 //returns true if if a char is valid for use in an identifier
 //totally not copy pasted from stack overflow
@@ -62,15 +66,16 @@ function GetNextCharacters(index: number,charAmount: number, newlinesAreWhitespa
 
         //if comment, simulate line end
         if (char == "#") {
-            char = "\n"
+            //char = ";"
             index = GetLineEnd(index)
+            continue
         }
         //if at the end of the script
         if (char == undefined) {break}
 
         if (char == " ") {continue}
         if (char == "\t") {continue}
-        if (char == "\n" && newlinesAreWhitespace) {continue}
+        if (char == "\n") {continue}
 
         string += char
         charAmount -= 1
@@ -107,7 +112,7 @@ function GetLineEnd(index: number): number {
 }
 
 //returns the number of whitespace characters from CharIndex
-function GetWhitespaceAmount(index: number,newlinesAreWhitespace = false): number {
+function GetWhitespaceAmount(index: number,newlinesAreWhitespace = true): number {
     let count = 0
 
     while (index < SCRIPT_CONTENTS.length) {
@@ -115,12 +120,14 @@ function GetWhitespaceAmount(index: number,newlinesAreWhitespace = false): numbe
 
         //count all characters part of a comment as whitespace
         if (SCRIPT_CONTENTS[index] == "#") {
+            count += GetLineEnd(index) - index
             index += GetLineEnd(index) - index
         }
 
         if (
             (SCRIPT_CONTENTS[index] == "\t") ||
-            (SCRIPT_CONTENTS[index] == " ")
+            (SCRIPT_CONTENTS[index] == " ") ||
+            (SCRIPT_CONTENTS[index] == "\n" && newlinesAreWhitespace)
         ) {
             count += 1
         } else {
@@ -138,7 +145,7 @@ function GetCharactersUntil(index: number, terminateAt: Array<string>, ignoreCom
     while (index < SCRIPT_CONTENTS.length) {
         let char = SCRIPT_CONTENTS[index]
         if (char == "#" && ignoreCommentRules == false) {
-            char = "\n"
+            char = ";"
             index = GetLineEnd(index)
         }
 
@@ -153,9 +160,9 @@ function GetCharactersUntil(index: number, terminateAt: Array<string>, ignoreCom
 }
 
 function GetCharacterAtIndex(index: number) {
-    if (SCRIPT_CONTENTS[index] == "#") {
-        return "\n"
-    }
+    // if (SCRIPT_CONTENTS[index] == "#") {
+    //     return "\n"
+    // }
     return SCRIPT_CONTENTS[index]
 }
 

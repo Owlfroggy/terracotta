@@ -1,36 +1,75 @@
-##  Initiates the rapture (warning: no undo)  ##
-FUNCTION Rapture
+FUNCTION dingus;
+PARAM akjdfhgkjadfhgajfdhg: plural num;
+PARAM test: num;
+PARAM results: var;
 
-global IsRaptureInitiated = 1
+#please dont do this
+PARAM 
+[balls]
+: 
+optional 
+str 
+= 
+"balls"
+;
 
-# step one: select evil doers
+if 1 == 2 { local dingus = 10; } else { local dingus = 5; }
 
-#select all players who aren't swimming
-#(fish are considered holy)
-select PlayersByCondition not player ? IsSwimming
 
-#alternative method
-select PlayersByCondition player ? IsSwimming
-select Inverse
 
-#filter out good
-filter ByCondition saved [%default reputation] >= 0
-#let 10% of sinners get to ascend anyway (wouldn't want things to get too boring up there)
-filter Randomly (game.PlayerCount*0.9)
 
-selection:SendMessage("&ccry about it")
-selection:Kick
+#singe line if statements!! yay
+if global [varoiahfdgkjda }adkg hdafg] == 12 { default:SendMessage("die"); }
 
-# everyone who remains gets to ascend
-#different message for lucky sinners
-select PlayersByCondition saved [%default reputation] < 0
-selection:SendMessage("you got lucky! enjoy your ascension")
-select Inverse
-selection:SendMessage("congrats on not being evil! enjoy your ascension")
+#technically you can stack conditions like this for a kind of &&
+#but its cursed and you will bring shame to your entire family if you do
+if default ? IsSneaking { if not default ? IsSneaking {
+    default:SendMessage("you are a fish");
+}}
 
-select Nothing
 
-# imaginary function for ascending because i need to be adding more features instead of doing whatever im doing right now
-call AscendRemainingPlayers
+# this right here probably takes up like an entire basic plot codeline
+# and is a crime against programming in general
+if default ? IsSneaking { if default ? IsSprinting { if default ? IsSwimming { if default ? IsBlocking { if default ? HotbarSlotEquals(4) {
+    local results = "yes";
+    return;
+} else {local results = "wrong hotbar slot"; return; }
+}}}
+}
 
-local dingus = 1.0
+
+
+
+line stupidList = [1,2,3,4,5];
+
+#i just realized you can use styled unicode for variable names and im not sure how to feel about it
+line [𝓻𝓮𝓪𝓵𝓵𝔂 𝓬𝓸𝓸𝓵 𝓵𝓲𝓼𝓽] = [
+    1,
+    2, #mid-list comment test
+    item["stone"],
+    line stupidList, #this list is so cool that it just owns stupidList
+    ["cool", "sub", "list"]
+];
+
+global dingus = [
+    [
+        "oh my great heavens",
+        global [dingus],
+    ],
+    "balls"
+];
+
+#WHAT HAVE I DONE OH GOD
+saved war_crime 
+    = 
+    [
+    1
+    ,
+    2
+    ,
+    4
+    +
+    9
+    ,
+    ]
+    ;

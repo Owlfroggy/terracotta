@@ -7,7 +7,6 @@ import { Domain, DomainList, TargetDomain, GenericDomains, GenericTargetDomains 
 import { PrintError, TCError } from "./errorHandler"
 import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil, GetCharacterAtIndex } from "./characterUtils"
 import * as AD from "./actionDump"
-import { openInEditor } from "bun"
 
 export { }
 const FILE_PATH = "testscripts/variables.tc"
@@ -701,7 +700,7 @@ function ParseList(index, openingChar: string, closingChar: string, seperatingCh
 
     let items: Array<ExpressionToken> = []
 
-    while (SCRIPT_CONTENTS[index] != closingChar) {
+    while (SCRIPT_CONTENTS[index] != closingChar && index < SCRIPT_CONTENTS.length) {
         let expressionResults
         try {
             expressionResults = ParseExpression(index, [seperatingChar, closingChar], false)
@@ -712,6 +711,7 @@ function ParseList(index, openingChar: string, closingChar: string, seperatingCh
                 throw e
             }
         }
+
         if (expressionResults == null) {
             //the only situation this can happen is when the list is empty eg. ()
             //move to closing char so loop finishes:
@@ -721,6 +721,11 @@ function ParseList(index, openingChar: string, closingChar: string, seperatingCh
             index = expressionResults[0] + GetWhitespaceAmount(expressionResults[0]) + 1
             items.push(expressionResults[1])
         }
+    }
+
+    //error if list is unclosed because of EOF
+    if (index >= SCRIPT_CONTENTS.length) {
+        throw new TCError("List was never closed", 1, initIndex + 1, GetLineEnd(index) - 1)
     }
 
     return [index, new ListToken(items)]
@@ -779,7 +784,7 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
     }
     else if (identifierResults[1] == "returnmult") {
         //parse number for how many times to return
-        let expressionResults = ParseExpression(index,["\n"],false)
+        let expressionResults = ParseExpression(index,[";"],false)
         if (expressionResults == null) {
             throw new TCError("Expected number following 'returnmult'",0,initIndex,index)
         }
@@ -845,7 +850,7 @@ function ParseIf(index: number): [number, IfToken] | null {
         let notResults = GetIdentifier(index + 1 + GetWhitespaceAmount(index))
         if (notResults != null && notResults[1] == "not") {
             not = true
-            index
+            index = notResults[0]
         }
 
         return [index, new IfToken(not)]
@@ -1299,7 +1304,7 @@ class ExpressionToken extends Token {
 //ERR6 = multiple comparisons
 function ParseExpression(
     index: number, 
-    terminateAt: Array<string | null> = ["\n"], 
+    terminateAt: Array<string | null> = [";"], 
     endIndexAtTerminator: boolean | undefined = true, 
     features: Array<"comparisons" | "genericTargetComparisons"> = []
     ): [number, ExpressionToken] | null 
@@ -1316,12 +1321,12 @@ function ParseExpression(
 
     let initIndex = index
     index += GetWhitespaceAmount(index)
-    while (!terminateAt.includes(GetNextCharacters(index, 1, false))) {
+    while (!terminateAt.includes(GetNextCharacters(index, 1)) && index + GetWhitespaceAmount(index) + 1 < SCRIPT_CONTENTS.length) {
         let valueInitIndex = index
 
         //= ERROR: expression isnt closed
-        if (GetNextCharacters(index, 1) == "\n" || (GetNextCharacters(index, 1) == "" && !terminateAt.includes("\n"))) {
-            throw new TCError("Expression was never closed", 1, initIndex, index)
+        if (GetNextCharacters(index, 1) == ";" || (GetNextCharacters(index, 1) == "" && !terminateAt.includes(";"))) {
+            throw new TCError("Expression was never closed", 1, initIndex + GetWhitespaceAmount(initIndex) + 1, index)
         }
 
         let results: [number, Token] | null = null
@@ -1377,7 +1382,6 @@ function ParseExpression(
             if (results == null) { results = ParseGameValue(index) }
 
             if (results == null) { results = ParseList(index, "[","]",",") }
-
 
 
             if (results == null) {
@@ -1579,7 +1583,7 @@ function ParseParamMetadata(index: number): [number, ParamMetadataToken] | null 
         }
 
         //parse default value
-        let expressionResults = ParseExpression(index,["\n"],false)
+        let expressionResults = ParseExpression(index,[";"],false)
         if (expressionResults == null) {
             throw new TCError("Expected param default value following '='",0,equalSignIndex,equalSignIndex)
         }
@@ -1652,7 +1656,7 @@ function ParseSelectAction(index): [number, SelectActionToken] | null {
         }
 
         //parse expression
-        let expressionResults = ParseExpression(index,["\n"],false,["comparisons","genericTargetComparisons"])
+        let expressionResults = ParseExpression(index,[";"],false,["comparisons","genericTargetComparisons"])
         if (expressionResults == null) { 
             throw new TCError(`Expected condition following 'select ${action}'`,0,initIndex,index)
         }
@@ -1683,19 +1687,25 @@ function ParseSelectAction(index): [number, SelectActionToken] | null {
 let symbols = "!@#$%^&*(){}[]-:;\"'~`=/*-+|\\/,.<>".split("")
 let InMetadataParsingStage = true
 
+//push current line to line list even if theres no semicolon
+//will NOT move the index
+function PushLineAsIs(){
+    //dont push empty lines
+    if (CurrentLine.length > 0) {
+        Lines.push(CurrentLine)
+    }
+
+    CurrentLine = []
+}
+
 //main logic goes here
 function DoTheThing(): void {
     let previousLine = Lines[Lines.length - 1]
     if (previousLine == undefined) { previousLine = [] }
 
     //if at the end of a line, push that line and start a new one
-    if (GetNextCharacters(CharIndex, 1) == "\n" || CharIndex + GetWhitespaceAmount(CharIndex) == SCRIPT_CONTENTS.length - 1 || SCRIPT_CONTENTS[CharIndex] == "#") {
-        //dont push empty lines
-        if (CurrentLine.length > 0) {
-            Lines.push(CurrentLine)
-        }
-
-        CurrentLine = []
+    if (GetNextCharacters(CharIndex, 1) == ";" || CharIndex + GetWhitespaceAmount(CharIndex) == SCRIPT_CONTENTS.length - 1 || SCRIPT_CONTENTS[CharIndex] == "#") {
+        PushLineAsIs()
 
         //if this is a line whos entire purpose is to be a comment
         if (SCRIPT_CONTENTS[CharIndex] == "#") {
@@ -1710,7 +1720,7 @@ function DoTheThing(): void {
         }
 
         //keep skipping blank lines
-        while (GetNextCharacters(CharIndex, 1) == "\n") {
+        while (GetNextCharacters(CharIndex, 1) == "\n" || GetNextCharacters(CharIndex, 1) == ";") {
             CharIndex++
 
             //if this is just a stray newline before the end of the file, dont bother parsing next line. stop runnign immediately instead
@@ -1722,7 +1732,7 @@ function DoTheThing(): void {
 
         return
     }
-
+    
     //else parsing
     if (
         (previousLine[0] instanceof BracketToken && previousLine[0].Type == "close") ||
@@ -1733,10 +1743,15 @@ function DoTheThing(): void {
             //apply else token
             ApplyResults(results)
 
+            //else gets to be its own line
+            PushLineAsIs()
+
             //parse opening bracket
             if (GetCharacterAtIndex(CharIndex + GetWhitespaceAmount(CharIndex) + 1) == "{") {
                 CharIndex += GetWhitespaceAmount(CharIndex) + 1
                 CurrentLine.push(new BracketToken("open"))
+                //brackets are always their own lines
+                PushLineAsIs()
             } else {
                 throw new TCError("Else statement missing opening bracket", 0, CharIndex, -1)
             }
@@ -1764,9 +1779,6 @@ function DoTheThing(): void {
         //try control
         if (results == null) { results = ParseControlBlock(CharIndex) }
 
-        //try closing bracket
-        if (GetNextCharacters(CharIndex, 1) == "}") { results = [CharIndex + 1 + GetWhitespaceAmount(CharIndex), new BracketToken("close")] }
-
         //try if
         if (results == null) { results = ParseIf(CharIndex) }
 
@@ -1781,6 +1793,20 @@ function DoTheThing(): void {
 
         //try function/process
         if (results == null) { results = ParseCall(CharIndex) }
+
+        //closing brackets
+        if (GetNextCharacters(CharIndex, 1) == "}") {
+            //push current line (since closing bracket shoudl always be treated as its own line)
+            PushLineAsIs()
+            //add closing bracket to new line
+            CurrentLine.push(new BracketToken("close"))
+            //push closing bracket line
+            PushLineAsIs()
+            //move char index to closing bracket
+            CharIndex += GetWhitespaceAmount(CharIndex) + 1
+
+            return
+        }
 
         if (results != null) {
             //if any token other than metadata is found, stop allowing metadata
@@ -1813,7 +1839,12 @@ function DoTheThing(): void {
 
         //parse opening bracket
         if (GetCharacterAtIndex(CharIndex) == "{") {
+            //push current line (since brackets are always treated as their own line)
+            PushLineAsIs()
+            //add bracket to new line
             CurrentLine.push(new BracketToken("open"))
+            //push new line with bracket
+            PushLineAsIs()
         }
 
         return
@@ -1838,7 +1869,7 @@ function DoTheThing(): void {
             //must be followed by an expression
             if (ValidAssignmentOperators.includes(operation)) {
                 //parse expression
-                let expressionResults = ParseExpression(CharIndex, ["\n"], false)
+                let expressionResults = ParseExpression(CharIndex, [";"], false)
                 if (expressionResults) {
                     ApplyResults(expressionResults)
                     return
