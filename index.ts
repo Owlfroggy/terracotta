@@ -22,7 +22,7 @@ var CurrentLine: Array<Token> = []
 
 //==========[ constants ]=========\\
 
-const VALID_TYPES = ["str","num","vec","loc","pot","var","snd","any","txt","item","list"]
+const VALID_TYPES = ["str","num","vec","loc","pot","var","snd","any","txt","item","list","dict"]
 const VALID_PARAM_MODIFIERS = ["plural","optional"]
 
 //==========[ helper functions ]=========\\
@@ -677,6 +677,73 @@ function ParseOperator(index: number, operatorType: "assignment" | "math" | "com
     }
 
     return null
+}
+
+//= Dictionary =\\
+class DictionaryToken extends Token {
+    constructor(keys: Array<ExpressionToken>, values: Array<ExpressionToken>) {
+        super()
+        this.Keys = keys
+        this.Values = values
+    }
+
+    Keys: Array<ExpressionToken>
+    Values: Array<ExpressionToken>
+}
+
+function ParseDictionary(index, openingChar: string, closingChar: string, seperatingChar: string, assignmentChar: string): [number, DictionaryToken] | null {
+    index += GetWhitespaceAmount(index)
+    let initIndex = index
+
+    if (GetNextCharacters(index,1) != openingChar) { return null }
+    
+    //move to opening char
+    index += GetWhitespaceAmount(index) + 1
+
+    let keys: Array<ExpressionToken> = []
+    let values: Array<ExpressionToken> = []
+    
+    while (SCRIPT_CONTENTS[index] != closingChar && index < SCRIPT_CONTENTS.length) {
+        //= key =\\
+        let keyInitIndex = index + GetWhitespaceAmount(index) + 1 //used for errors
+        let keyResults = ParseExpression(index,[closingChar,assignmentChar],false)
+        //if empty dictionary, stop
+        if (keyResults == null) { break }
+        //move to end of key
+        index = keyResults[0]
+        //add to key list
+        keys.push(keyResults[1])
+
+        //= assignment char =\\
+        //throw error if missing assignment char
+        if (GetNextCharacters(index,1) != assignmentChar) {
+            throw new TCError(`Expected '${assignmentChar}' following key`,0,keyInitIndex,index)
+        }
+        //move to assignment char
+        index += GetWhitespaceAmount(index) + 1
+        
+        //= value =\\
+        let valueResults = ParseExpression(index,[closingChar,seperatingChar],false)
+        if (valueResults == null) {
+            throw new TCError(`Expected value following '${assignmentChar}'`,0,keyInitIndex,index)
+        }
+        //move to end of value
+        index = valueResults[0]
+        //add value to list
+        values.push(valueResults[1])
+
+        //move to seperating char or ending char
+        if (GetNextCharacters(index,1) == seperatingChar || GetNextCharacters(index,1) == closingChar) {
+            index += GetWhitespaceAmount(index) + 1
+        }
+    }
+
+    //error if list is unclosed because of EOF
+    if (index + GetWhitespaceAmount(index) + 1 >= SCRIPT_CONTENTS.length) {
+        throw new TCError("Dictionary was never closed", 1, initIndex + 1, GetLineEnd(index) - 1)
+    }
+
+    return [index, new DictionaryToken(keys,values)]
 }
 
 //= ListToken =\\
@@ -1381,8 +1448,11 @@ function ParseExpression(
             //try game value
             if (results == null) { results = ParseGameValue(index) }
 
+            //try list
             if (results == null) { results = ParseList(index, "[","]",",") }
 
+            //try dict
+            if (results == null) { results = ParseDictionary(index, "{", "}", ",", "=")}
 
             if (results == null) {
                 //= ERROR: operator was given instead of expr

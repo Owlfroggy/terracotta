@@ -1,2 +1,12 @@
-FUNCTION dingus;
-PARAM dingus: list;
+PARAM dingus: optional dict = {
+    "the fog" = "is coming"
+};
+
+global weee: dict = {
+    "the dingus dinguses dingusfully" = "yes",
+    "dingus" = 5,
+    "expression" + "key" = 10,
+    global dingus + 20 = "923487uiolkajfsd"
+};
+
+global single_line = {"key" = "value"};
