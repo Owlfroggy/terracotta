@@ -1560,6 +1560,29 @@ function ParseExpression(
 //= Metadata Headers ==\\
 class MetadataToken extends Token {} //base class for all metadata thingies
 
+class KeywordMetadataToken extends MetadataToken {
+    constructor(keyword: string) {
+        super()
+        this.Keyword = keyword
+    }
+    Keyword: string
+}
+
+const VALID_METADATA_KEYWORDS = [
+    "LAGSLAYER_CANCEL"
+]
+
+function ParseKeywordMetadataToken(index): [number, KeywordMetadataToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let identifierResults = GetIdentifier(index)
+    if (VALID_METADATA_KEYWORDS.includes(identifierResults[1])) {
+        //if valid keyword
+        return [identifierResults[0],new KeywordMetadataToken(identifierResults[1])]
+    } else {
+        return null
+    }
+}
+
 //functiosn and processes also use this
 class EventMetadataToken extends MetadataToken {
     constructor(codeblock: string, event: string) {
@@ -1871,6 +1894,8 @@ function DoTheThing(): void {
 
             //param metadata
             if (results == null) { results = ParseParamMetadata(CharIndex) }
+
+            if (results == null) { results = ParseKeywordMetadataToken(CharIndex) }
         }
 
         //try select
