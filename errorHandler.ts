@@ -54,9 +54,7 @@ export function PrintError(e: TCError) {
                 }
             }
         }
-
-        console.log(e.CharLoc, lineEnd)
-
+        
         //show what the error actually was
         console.log(`Error at line ${GetLineFromIndex(e.CharStart) + 1}: ${e.message}`)
     } else {
