@@ -610,6 +610,33 @@ function ParseItem(index: number): [number, ItemToken] | null {
     return [argResults[0],new ItemToken(args[0],args[1],args[2],args[3])]
 }
 
+//= List/Dictionary Indexer =\\
+class IndexerToken extends Token {
+    constructor(index: ExpressionToken) {
+        super()
+        this.Index = index
+    }
+
+    Index: ExpressionToken
+}
+
+function ParseIndexer(index: number): [number, IndexerToken] | null {
+    //if next character isn't a [ then this isnt an indexer
+    if (GetNextCharacters(index,1) != "[") { return null }
+
+    //move to [
+    index += GetWhitespaceAmount(index) + 1
+    let initIndex = index
+
+    //parse indexer expression
+    let expressionResults = ParseExpression(index,["]"],true)
+    if (expressionResults == null) {
+        throw new TCError("Expected index value for indexer",0,initIndex, initIndex)
+    }
+
+    return [expressionResults[0],new IndexerToken(expressionResults[1])]
+}
+
 //= Operators =\\
 const ValidAssignmentOperators = ["=", "+=", "-=", "*=", "/="]
 const ValidMathOperators = ["+", "-", "*", "/", "^"]
@@ -1477,6 +1504,9 @@ function ParseExpression(
         //otherwise, parse for operator 
         else {
             results = ParseOperator(index, "math")
+
+            //indexer thingy
+            if (results == null) { results = ParseIndexer(index) }
 
             //comparison operator
             if (results == null && features.includes("comparisons")) {

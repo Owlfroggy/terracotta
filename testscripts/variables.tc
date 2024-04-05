@@ -1,1 +1,22 @@
-default:SendMessage("hello world!"){Text Value Merging = global dingus ? No spaces}
+FUNCTION StartGame;
+
+global game_data = {
+    "roundType" = "bossfight",
+    "roundLength" = 100,
+    "modifiers" = ["moreItems","instantRespawn"],
+    "bossInfo" = {
+        "initialBoss" = "MrAwesomeOwl",
+        "sidekick" = "creepercreeper8"
+    }
+};
+
+allPlayers:SendMessage("starting a new",global game_data["roundType"],"round!!");
+allPlayers:SendMessage("modifiers:",global game_data["modifiers"]);
+
+if global game_data["roundType"] == "bossfight" {
+    allPlayers:SendMessage(global game_data["bossInfo"]["initialBoss"],"is the boss!");
+}
+
+
+#test to make sure vars and stuff work in indexer
+global dingus = global game_data: dict["modifiers"][line [modifier index]];
