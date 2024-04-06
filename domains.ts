@@ -69,6 +69,20 @@ export var GenericTargetDomains = {
 
 export var GameDomain = new Domain("game",AD.ValidGameActions,AD.ValidGameCompActions,AD.ValidGameGameValues)
 
+export var TypeDomains = {
+    "str": new Domain("str",AD.ValidSetVarStringActions,{},{}),
+    "num": new Domain("num",AD.ValidSetVarNumActions,{},{}),
+    "vec": new Domain("vec",AD.ValidSetVarVectorActions,{},{}),
+    "loc": new Domain("loc",AD.ValidSetVarLocActions,{},{}),
+    "pot": new Domain("pot",AD.ValidSetVarPotionActions,{},{}),
+    "var": new Domain("var",AD.ValidSetVarVarActions,{},{}),
+    "snd": new Domain("snd",AD.ValidSetVarSoundActions,{},{}),
+    "txt": new Domain("txt",AD.ValidSetVarTextActions,{},{}),
+    "item": new Domain("item",AD.ValidSetVarItemActions,{},{}),
+    "list": new Domain("list",AD.ValidSetVarListActions,{},{}),
+    "dict": new Domain("dict",AD.ValidSetVarDictActions,{},{})
+}
+
 //DomainsList except it has generic target domains instead of normal target domains
 export var GenericDomains = {
     player: GenericTargetDomains.player,

@@ -41,6 +41,19 @@ export let ValidFilterSelectActions: Dict<Action> = {}
 export let ValidSelectionEntityComparisons: Dict<Action> = {}
 export let ValidSelectionPlayerComparisons: Dict<Action> = {}
 
+export let ValidSetVarVarActions: Dict<Action> = {}
+export let ValidSetVarNumActions: Dict<Action> = {}
+export let ValidSetVarStringActions: Dict<Action> = {}
+export let ValidSetVarTextActions: Dict<Action> = {}
+export let ValidSetVarLocActions: Dict<Action> = {}
+export let ValidSetVarItemActions: Dict<Action> = {}
+export let ValidSetVarListActions: Dict<Action> = {}
+export let ValidSetVarDictActions: Dict<Action> = {}
+export let ValidSetVarParticleActions: Dict<Action> = {}
+export let ValidSetVarVectorActions: Dict<Action> = {}
+export let ValidSetVarPotionActions: Dict<Action> = {}
+export let ValidSetVarSoundActions: Dict<Action> = {}
+
 //name overrides
 //key: dimaondfire id, value: func name in terracotta
 
@@ -68,6 +81,200 @@ const EntityActionOverrides = {
 const EntityCompActionOverrides = {
     "HasPlayer": "HasPlayer"
 }
+
+//set var
+const SetVarActionOverrides = {
+    //var domain
+    "PurgeVars": "PurgeMatching",
+    "=": "Set",
+    "Raycast": "Raycast",
+    "RandomValue": "SetToRandom",
+    "GetContainerItems": "GetContainerItems",
+
+    //num domain
+    "AbsoluteValue": "Abs",
+    "%": "Remainder",
+    "+": "Add",
+    "-": "Subtract",
+    "/": "Divide",
+    "Bitwise": "Bitwise",
+    "RandomNumber": "Random",
+    "Average": "Average",
+    "x": "Multiply",
+    "MinNumber": "Min",
+    "Sine": "Sin",
+    "NormalRandom": "NormalRandom",
+    "Logarithm": "Log",
+    "WrapNum": "Wrap",
+    "RootNum": "Root",
+    "MaxNumber": "Max",
+    "Tangent": "Tan",
+    "+=": "Increment",
+    " RoundNumber ": "Round",
+    "-=": "Decrement",
+    "Cosine": "Cos",
+    "ParseNumber": "ParseNumber",
+    "Exponent": "Exponent",
+    "ClampNumber": "Clamp",
+
+    //string domain
+    "RepeatString": "Repeat",
+    "JoinSring": "Join",
+    "SplitString": "Split",
+    "TrimString": "Trim",
+    "ReplaceString": "Replace",
+    "SetCase": "SetCase",
+    "RemoveString": "Remove",
+    "StringLength": "Len",
+
+    //text domain
+    "ParseMiniMessageExpr": "ParseExpression",
+    "TrimStyledText": "Trim",
+    "GetMiniMessageExpr": "GetExpression",
+    "ContentLength": "Len",
+
+    //loc domain
+    "ShiftAllAxes": "ShiftAllAxes",
+    "ShiftOnVector": "ShiftOnVector",
+    "ShiftRotation": "ShiftRotation",
+    "ShiftOnAxis": "ShiftOnAxis",
+    "GetCenterLoc": "GetCenter",
+    "AlignLoc": "Align",
+    "FaceLocation": "FaceLocation",
+    "SetAllCoords": "SetCoords",
+    "ShiftInDirection": "ShiftInDirection",
+    "Distance": "GetDistance",
+    "GetDirection": "GetDirection",
+    "GetCoord": "GetCoord",
+    "RandomLoc": "Random",
+    " SetDirection ": "SetDirection",
+    "SetCoord": "SetCoord",
+    "ShiftToward": "ShiftToward",
+    "ShiftAllDirections": "ShiftAllDirections",
+
+    //item domain
+    "ClearItemTag": "ClearTags",
+    "GetItemAttribute": "GetAttribute",
+    " GetItemName ": "GetName",
+    "GetItemRarity": "GetRarity",
+    "AddItemAttribute": "AddAttribute",
+    "SetItemDura": "SetDurability",
+    "SetBreakability": "SetBreakability",
+    " GetItemLore ": "GetLore",
+    "SetItemTag": "SetTag",
+    "GetItemAmount": "GetStackSize",
+    "GetItemDura": "GetDurability",
+    " SetItemName ": "SetName",
+    "SetLodestoneLoc": "SetLodestoneLocation",
+    "SetItemAmount": "SetStackSize",
+    "AddItemEnchant": "AddEnchant",
+    "GetItemType": "GetMaterial",
+    "GetLoreLine": "GetLoreLine",
+    "RemoveItemTag": "RemoveTag",
+    "GetLodestoneLoc": "GetLodestoneLocation",
+    "GetMaxItemAmount": "GetMaxStackSize",
+    " SetItemEnchants ": "SetEnchantments",
+    "SetItemType": "SetMaterial",
+    "GetItemColor": "GetColor",
+    " GetItemEnchants ": "GetEnchantments",
+    "SetItemColor": "SetColor",
+    "SetItemFlags": "SetVisiblityFlags",
+    "GetItemEffects": "GetPotionEffects",
+    " SetItemLore ": "SetItemLore",
+    "SetItemEffects": "SetPotionEffects",
+    "GetItemTag": "GetTag",
+    "ClearEnchants": "ClearEnchantments",
+    "RemItemEnchant": "RemoveEnchantment",
+    "GetAllItemTags": "GetAllTags",
+
+    //list domain
+    "AppendValue": "Append",
+    "PopListValue": "Pop",
+    "ListLength": "Len",
+    "ReverseList": "Reverse",
+    "DedupList": "RemoveDuplicateElements",
+    "RemoveListIndex": "Remove",
+    "FlattenList": "Flatten",
+    "SetListValue": "Set",
+    "GetListValue": "Get",
+    "InsertListValue": "Insert",
+    "SortList": "Sort",
+    "CreateList": "Create",
+    "AppendList": "AppendList",
+    "TrimList": "Trim",
+    "GetValueIndex": "Find",
+    "RandomizeList": "Randomize",
+    "RemoveListValue": "RemoveValue",
+
+    //dict domain
+    "ClearDict": "Clear",
+    "SortDict": "Sort",
+    "CreateDict": "Create",
+    "SetDictValue": "Set",
+    "GetDictSize": "Len",
+    "GetDictValues": "GetValues",
+    "GetDictKeys": "GetKeys",
+    "AppendDict": "AppendDictionary",
+    "Remove": "RemoveDictEntry",
+    "GetDictValue": "Get",
+    
+    //par domain
+    "SetParticleType": "SetType",
+    "GetParticleMat": "GetMaterial",
+    "SetParticleSprd": "SetSpread",
+    "GetParticleMotion": "GetMotion",
+    "SetParticleMotion": "SetMotion",
+    "GetParticleRoll": "GetRoll",
+    "GetParticleAmount": "GetAmount",
+    "SetParticleColor": "SetColor",
+    "SetParticleAmount": "SetAmount",
+    "GetParticleType": "GetType",
+    "SetParticleMat": "SetMaterial",
+    "SetParticleSize": "SetSize",
+    "GetParticleSpread": "GetSpread",
+    "GetParticleColor": "GetColor",
+    "SetParticleRoll": "SetRoll",
+    "GetParticleSize": "GetSize",
+
+    //vec domain
+    "MultiplyVector": "Multiply",
+    "VectorBetween": "Between",
+    "GetVectorComponent": "GetComponent",
+    "RotateAroundVec": "RotateAroundVec",
+    "CrossProduct": "Cross",
+    "DotProduct": "Dot",
+    "DirectionName": "GetDirectionName",
+    "SetVectorLength": "SetLength",
+    "AlignVector": "Align",
+    "RotateAroundAxis": "RotateAroundAxis",
+    "SubtractVectors": "Subtract",
+    "Vector": "Set",
+    "ReflectVector": "Reflect",
+    "AddVectors": "Add",
+    "SetVectorComp": "SetComponent",
+    "GetVectorLength": "Len",
+
+    //pot domain
+    "GetPotionType": "GetType",
+    "SetPotionDur": "SetDuration",
+    "SetPotionType": "SetType",
+    "SetPotionAmp": "SetAmplifier",
+    "GetPotionAmp": "GetAmplifier",
+    "GetPotionDur": "GetDuration",
+
+    //sound domain
+    "GetSoundVolume": "GetVolume",
+    "GetCustomSound": "GetCustomKey",
+    "SetSoundType": "SetType",
+    "GetSoundType": "GetType",
+    "GetSoundVariant": "GetVariant",
+    "SetSoundVolume": "SetVolume",
+    "SetSoundPitch": "SetPitch",
+    "SetCustomSound": "SetCustomKey",
+    "SetSoundVariant": "SetVariant",
+    "GetSoundPitch": "GetPitch"
+}
+
 
 //select object
 //IMPORTANT! only actions that are listed here will make it into the final exported dicts
@@ -105,6 +312,27 @@ const GameValueOverrides = {
     "Y-Coordinate": "Y",
     "Z-Coordinate": "Z"
 }
+
+//set var actions
+const SetVarVarActions = [
+    //stuff in var category
+    "=","RandomValue","PurgeVars",
+    //stuff in world category
+    "GetBlockType","GetBlockData","GetAllBlockData","GetBlockGrowth","GetBlockPower","GetLight"," GetSignText ","ContainerName","ContainerLock","GetContainerItems","GetLecternBook","GetLecternPage","Raycast",
+    //stuff in misc category
+    "BlockHardness","BlockResistance","RGBColor","HSBColor","HSLColor","GetColorChannels"
+]
+const SetVarNumActions = ["+","-","x","/","%","+=","-=","Exponent","Root","Logarithm","ParseNumber","AbsoluteValue","ClampNumber","WrapNum","Average","RandomNumber"," RoundNumber ","MinNumber","MaxNumber","NormalRandom","Sine","Cosine","Tangent","Noise","GradientNoise","CellularNoise","ValueNoise","Bitwise"]
+const SetVarStringActions = ["String","ReplaceString","RemoveString","TrimString","SplitString","JoinString","SetCase","StringLength","RepeatString","FormatTime","TranslateColors"]
+const SetVarTextActions = ["StyledText","ClearFormatting","GetMiniMessageExpr","ParseMiniMessageExpr","TrimStyledText","ContentLength"]
+const SetVarLocActions = ["GetCoord","SetCoord","SetAllCoords","ShiftOnAxis","ShiftAllAxes","ShiftInDirection","ShiftAllDirections","ShiftToward","ShiftOnVector","GetDirection"," SetDirection ","ShiftRotation","FaceLocation","AlignLoc","Distance","GetCenterLoc","RandomLoc"]
+const SetVarItemActions = ["GetItemType","SetItemType"," GetItemName "," SetItemName "," GetItemLore ","GetLoreLine"," SetItemLore ","GetItemAmount","SetItemAmount","GetMaxItemAmount","GetItemDura","SetItemDura","SetBreakability"," GetItemEnchants "," SetItemEnchants ","AddItemEnchant","RemItemEnchant","ClearEnchants","GetHeadOwner","SetHeadTexture"," GetBookText ","SetBookText","GetItemTag","GetAllItemTags","SetItemTag","RemoveItemTag","ClearItemTag","SetModelData","GetItemEffects","SetItemEffects","SetItemFlags","GetCanPlaceOn","SetCanPlaceOn","GetCanDestroy","SetCanDestroy","GetItemRarity","GetLodestoneLoc","SetLodestoneLoc","SetArmorTrim","GetItemColor","SetItemColor","GetItemAttribute","AddItemAttribute","SetMapTexture"]
+const SetVarListActions = ["CreateList","AppendValue","AppendList","GetListValue","PopListValue","SetListValue","GetValueIndex","ListLength","InsertListValue","RemoveListValue","RemoveListIndex","DedupList","TrimList","SortList","ReverseList","RandomizeList","FlattenList"]
+const SetVarDictActions = ["CreateDict","SetDictValue","GetDictValue","GetDictSize","RemoveDictEntry","ClearDict","GetDictKeys","GetDictValues","AppendDict","SortDict"]
+const SetVarParticleActions = ["GetParticleType","SetParticleType","GetParticleAmount","SetParticleAmount","GetParticleSprd","SetParticleSprd","GetParticleSize","SetParticleSize","GetParticleMat","SetParticleMat","GetParticleColor","SetParticleColor","GetParticleMotion","SetParticleMotion","GetParticleRoll","SetParticleRoll"]
+const SetVarVectorActions = ["Vector","VectorBetween","GetVectorComp","SetVectorComp","GetVectorLength","SetVectorLength","MultiplyVector","AddVectors","SubtractVectors","AlignVector","RotateAroundAxis","RotateAroundVec","ReflectVector","CrossProduct","DotProduct","DirectionName"]
+const SetVarPotionActions = ["GetPotionType","SetPotionType","GetPotionAmp","SetPotionAmp","GetPotionDur","SetPotionDur"]
+const SetVarSoundActions = ["GetSoundType","SetSoundType","GetSoundVariant","SetSoundVariant","GetCustomSound","SetCustomSound","GetSoundPitch","SetSoundPitch","GetSoundVolume","SetSoundVolume"]
 
 //all targeted gvs that work with players but not entities
 //why isnt this in the action dump akjdfhgnbadm,nfvlkjhdfh
@@ -192,6 +420,25 @@ for (const action of ACTION_DUMP.actions) {
             overrides = GameCompActionOverrides
             validActions = ValidGameCompActions
             break
+        case "SET VARIABLE":
+            overrides = SetVarActionOverrides
+            validActions = 
+                SetVarVarActions.includes(action.name) ? ValidSetVarVarActions :
+                SetVarNumActions.includes(action.name) ? ValidSetVarNumActions :
+                SetVarStringActions.includes(action.name) ? ValidSetVarStringActions :
+                SetVarTextActions.includes(action.name) ? ValidSetVarTextActions :
+                SetVarLocActions.includes(action.name) ? ValidSetVarLocActions :
+                SetVarItemActions.includes(action.name) ? ValidSetVarItemActions :
+                SetVarListActions.includes(action.name) ? ValidSetVarListActions :
+                SetVarDictActions.includes(action.name) ? ValidSetVarDictActions :
+                SetVarParticleActions.includes(action.name) ? ValidSetVarParticleActions :
+                SetVarVectorActions.includes(action.name) ? ValidSetVarVectorActions :
+                SetVarPotionActions.includes(action.name) ? ValidSetVarPotionActions :
+                SetVarSoundActions.includes(action.name) ? ValidSetVarSoundActions : null
+            if (validActions == null) {
+                //console.log("Unassigned SET VARIABLE action:",action.name)
+                continue
+            }
     }
 
     //special logic for select
@@ -244,8 +491,8 @@ for (let [tcName, action] of Object.entries(ValidEntityCompActions)) {
 }
 
 /* view names when deciding overrides */
-// for (let [k,v] of Object.entries(ValidGameCompActions)) {
-//     console.log(k,"  :  ",v?.DFName)
+// for (let [k,v] of Object.entries(ValidSetVarSoundActions)) {
+//     console.log(k,"  :  |"+v?.DFName+"|")
 // }
 
 //convert game values

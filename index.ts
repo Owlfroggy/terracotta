@@ -1164,7 +1164,7 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
             throw new TCError(`Invalid ${isComparison == true ? 'if ' : ''}game action: '${actionResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, actionResults[0])
         }
         else {
-            throw new TCError(`${domain.Identifier} does not contain function '${actionResults[1]}`, 2, index + GetWhitespaceAmount(index) + 1, actionResults[0])
+            throw new TCError(`'${domain.Identifier}' does not contain function '${actionResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, actionResults[0])
         }
     }
 
@@ -1369,7 +1369,7 @@ function ParseGameValue(index: number): [number, Token] | null {
                 //throw special error for game game values
                 throw new TCError(`Invalid game value: '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
             } else {
-                throw new TCError(`'${domain.Identifier} does not contain value '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
+                throw new TCError(`'${domain.Identifier}' does not contain value '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
             }
         }
     }
