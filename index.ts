@@ -931,32 +931,18 @@ function ParseElse(index: number): [number, ElseToken] | null {
 }
 
 class IfToken extends Token {
-    constructor(not: boolean) {
-        super()
-        if (not != null) { this.Not = not }
-    }
-
     If = "If"
-    Not: boolean = false
 }
 
 function ParseIf(index: number): [number, IfToken] | null {
     index += GetWhitespaceAmount(index) + 1
     let identifierResults = GetIdentifier(index)
-    let not = false
 
     //if this is an "if" keyword
     if (identifierResults != null && identifierResults[1] == "if") {
         index = identifierResults[0]
 
-        //try for not
-        let notResults = GetIdentifier(index + 1 + GetWhitespaceAmount(index))
-        if (notResults != null && notResults[1] == "not") {
-            not = true
-            index = notResults[0]
-        }
-
-        return [index, new IfToken(not)]
+        return [index, new IfToken()]
     }
 
     return null
@@ -986,12 +972,13 @@ class ActionTag {
 }
 
 class ActionToken extends Token {
-    constructor(domain: string, action: string, params: ListToken | null = null, isComparison: boolean = false, tags: Dict<ActionTag> = {}) {
+    constructor(domain: string, action: string, params: ListToken | null = null, isComparison: boolean = false, tags: Dict<ActionTag> = {}, not: boolean | undefined) {
         super()
         this.DomainId = domain
         this.Action = action
         this.Params = params
         this.Tags = tags
+        this.Not = not
         if (isComparison) { this.Type = "comparison" }
     }
 
@@ -999,6 +986,7 @@ class ActionToken extends Token {
     Tags: Dict<ActionTag>
     DomainId: string
     Action: string
+    Not: boolean | undefined
     Type: "comparison" | "action" = "action"
 }
 
@@ -1122,6 +1110,16 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
     index += GetWhitespaceAmount(index)
     let initIndex = index
 
+    let not: boolean | undefined = undefined
+    //= parse not =\\
+    if (allowComparisons) {
+        let notResults = GetIdentifier(index + 1)
+        if (notResults[1] == "not") {
+            not = true
+            index = notResults[0] + GetWhitespaceAmount(notResults[0])
+        }
+    }
+
     //= parse domain =\\
     let domainResults = GetIdentifier(index + 1)
     if (domainResults == null) { return null }
@@ -1147,6 +1145,10 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
     if (accessor == "?") {
         isComparison = true
         actions = domain.Comparisons
+    }
+    //return null if not was used on a normal action
+    else if (not == true) {
+        return null
     }
 
     //move to the accessor
@@ -1197,7 +1199,7 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
         index = tagResults[0]
     }
 
-    return [index, new ActionToken(domain.Identifier, actionResults[1], params, isComparison, tags!)]
+    return [index, new ActionToken(domain.Identifier, actionResults[1], params, isComparison, tags!, not)]
 }
 
 //= Call function/start process =\\
@@ -1781,12 +1783,6 @@ function ParseSelectAction(index): [number, SelectActionToken] | null {
 
     //parse condition (if applicable)
     if (action == "PlayersByCondition" || action == "EntitiesByCondition" || action == "ByCondition") {
-        //parse 'not'
-        let notResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
-        if (notResults[1] == "not") {
-            index = notResults[0]
-        }
-
         //parse expression
         let expressionResults = ParseExpression(index,[";"],false,["comparisons","genericTargetComparisons"])
         if (expressionResults == null) { 
@@ -1794,7 +1790,7 @@ function ParseSelectAction(index): [number, SelectActionToken] | null {
         }
         index = expressionResults[0]
 
-        return [expressionResults[0], new SelectActionToken(actionResults[1],null,null,expressionResults[1],notResults[1] == "not")]
+        return [expressionResults[0], new SelectActionToken(actionResults[1],null,null,expressionResults[1])]
     } else {
         //parse arguments
         let argResults = ParseList(index, "(", ")", ",")

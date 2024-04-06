@@ -1,3 +1,9 @@
-line absolute = num:Abs(-29939);
+FUNCTION DoTheThing;
 
-line expression_test = (5 - -2) - (3--2) - (global dingus-global dongus);
+#i gotta fix that next VV
+#if not default ? IsSwimming { default:SendMessage("you are definitely not a fish"); }
+
+select PlayersByCondition not player ? IsSprinting;
+filter ByCondition not player ? IsInGameMode{Game Mode = Spectator};
+
+selection:SendMessage("&cslow dowb")
