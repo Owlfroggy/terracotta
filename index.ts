@@ -255,12 +255,21 @@ class NumberToken extends Token {
 function ParseNumber(index: number): [number, NumberToken] | null {
     let initIndex = index
 
-    //if not a number, return null
-    if (!IsCharacterValidNumber(GetNextCharacters(index, 1))) { return null }
-
     let decimalFound = false
     let forceToBeNumber = false
     let string = ""
+
+    //parse negative sign
+    if (GetNextCharacters(index,1) == "-") {
+        string = "-"
+        index += GetWhitespaceAmount(index) + 1
+        //dont let there be a space between the - and the number
+        if (!IsCharacterValidNumber(GetCharacterAtIndex(index + 1))) { return null }
+    //not a negative number
+    } else {
+        //if not a number, return null
+        if (!IsCharacterValidNumber(GetNextCharacters(index, 1))) { return null }
+    }
 
     index += 1 + GetWhitespaceAmount(index)
 

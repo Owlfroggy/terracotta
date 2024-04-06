@@ -1,13 +1,3 @@
-FUNCTION dingus;
+line absolute = num:Abs(-29939);
 
-global dingus = num:Round(5.22234);
-
-global balls = 56;
-
-dict:Clear(global awesome_dict);
-
-line listVal = list:Pop(global aweomseListVariable, 5);
-
-line absolute = num:Abs(2352);
-
-line page = var:GetLecternPage(line dingus, loc[5,2,3]);
+line expression_test = (5 - -2) - (3--2) - (global dingus-global dongus);
