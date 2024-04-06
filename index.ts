@@ -638,8 +638,8 @@ function ParseIndexer(index: number): [number, IndexerToken] | null {
 }
 
 //= Operators =\\
-const ValidAssignmentOperators = ["=", "+=", "-=", "*=", "/="]
-const ValidMathOperators = ["+", "-", "*", "/", "^"]
+const ValidAssignmentOperators = ["=", "+=", "-=", "*=", "/=", "%="]
+const ValidMathOperators = ["+", "-", "*", "/", "^", "%"]
 const ValidComparisonOperators = ["==", "!=", "<", ">", "<=", ">="]
 
 class OperatorToken extends Token {
