@@ -931,21 +931,37 @@ function ParseElse(index: number): [number, ElseToken] | null {
 }
 
 class IfToken extends Token {
-    If = "If"
+    constructor(condition: ExpressionToken) {
+        super()
+        this.Condition = condition
+    }
+    Condition: ExpressionToken
 }
 
 function ParseIf(index: number): [number, IfToken] | null {
     index += GetWhitespaceAmount(index) + 1
+    let initIndex = index
     let identifierResults = GetIdentifier(index)
 
-    //if this is an "if" keyword
-    if (identifierResults != null && identifierResults[1] == "if") {
-        index = identifierResults[0]
+    //make sure this is an if keyword
+    if (identifierResults[1] != "if") { return null }
 
-        return [index, new IfToken()]
+    index = identifierResults[0]
+
+    //make sure theres a ( for the condition afterwards
+    if (GetNextCharacters(index, 1) != "(") {
+        throw new TCError("Expected condition wrapped in parentheses following 'if'",0,initIndex,identifierResults[0])
     }
 
-    return null
+    index += GetWhitespaceAmount(index) + 1
+
+    //parse expression
+    let expressionResults = ParseExpression(index,[")"],true,["comparisons"])
+    if (expressionResults == null) {
+        throw new TCError("Expected condition following 'if'",0,initIndex,identifierResults[0])
+    }
+    
+    return [expressionResults[0],new IfToken(expressionResults[1])]
 }
 
 //= Brackets =\\
@@ -1875,7 +1891,7 @@ function DoTheThing(): void {
             PushLineAsIs()
 
             //parse opening bracket
-            if (GetCharacterAtIndex(CharIndex + GetWhitespaceAmount(CharIndex) + 1) == "{") {
+            if (GetNextCharacters(CharIndex,1) == "{") {
                 CharIndex += GetWhitespaceAmount(CharIndex) + 1
                 CurrentLine.push(new BracketToken("open"))
                 //brackets are always their own lines
@@ -1951,30 +1967,18 @@ function DoTheThing(): void {
 
     //if current line is an if statement
     if (CurrentLine[0] instanceof IfToken) {
-        //parse condition
-        try {
-            let expressionResults = ParseExpression(CharIndex, ["{"], true, ["comparisons"])!
-
-            if (expressionResults == null) { throw new TCError("expr results somehow returned null", 0, CharIndex, -1) }
-            ApplyResults(expressionResults)
-        }
-        catch (e) {
-            //missing opening bracket
-            if (e.Code == 1) {
-                throw new TCError("If statement missing opening bracket", 0, CharIndex, -1)
-            } else {
-                throw e
-            }
-        }
-
         //parse opening bracket
-        if (GetCharacterAtIndex(CharIndex) == "{") {
+        if (GetNextCharacters(CharIndex,1) == "{") {
             //push current line (since brackets are always treated as their own line)
             PushLineAsIs()
             //add bracket to new line
             CurrentLine.push(new BracketToken("open"))
+            //move to bracket
+            CharIndex += GetWhitespaceAmount(CharIndex) + 1
             //push new line with bracket
             PushLineAsIs()
+        } else {
+            throw new TCError("If statement missing opening bracket", 0, GetLineStart(CharIndex), GetLineEnd(CharIndex))
         }
 
         return

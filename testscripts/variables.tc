@@ -1,7 +1,6 @@
 FUNCTION DoTheThing;
 
-#i gotta fix that next VV
-#if not default ? IsSwimming { default:SendMessage("you are definitely not a fish"); }
+if (not default ? IsSwimming) { default:SendMessage("you are definitely not a fish"); }
 
 select PlayersByCondition not player ? IsSprinting;
 filter ByCondition not player ? IsInGameMode{Game Mode = Spectator};
