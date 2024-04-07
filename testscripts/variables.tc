@@ -1,8 +1,38 @@
-FUNCTION DoTheThing;
+FUNCTION SpeedLimit;
 
-if (not default ? IsSwimming) { default:SendMessage("you are definitely not a fish"); }
-
-select PlayersByCondition not player ? IsSprinting;
+# select all players who are sprinting
+select PlayersByCondition player ? IsSprinting;
 filter ByCondition not player ? IsInGameMode{Game Mode = Spectator};
 
-selection:SendMessage("&cslow dowb")
+repeat (10) {
+    selection:SendMessage("&cslow dowb");
+}
+
+global PunishmentActive = 1;
+line speeders = game.SelectionTargetUUIDs;
+
+#keep punishing speeders until someone stops it
+while (global PunishmentActive == 1) {
+    #ForEachInSelection when
+    for line uuid in ( List(line speeders) ) {
+        select PlayersByName(line uuid);
+
+        #civilian casualties are inevitable but it is a sacrifice that must be made
+        game:CreateExplosion(
+            selection.Location,
+            4
+        );
+    }
+
+    wait(1);
+}
+
+#let speeders know they've been freed
+select PlayersByName(line speeders);
+selection:SendMessage("&ayou have been bestowed mercy");
+
+
+#literally does nothing but i need to make sure repeat foerver works
+repeat Forever {
+    break;
+}

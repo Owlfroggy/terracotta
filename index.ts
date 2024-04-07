@@ -964,6 +964,180 @@ function ParseIf(index: number): [number, IfToken] | null {
     return [expressionResults[0],new IfToken(expressionResults[1])]
 }
 
+//= Repeat =\\
+class RepeatToken extends Token {}
+
+class RepeatMultipleToken extends RepeatToken {
+    constructor(amount: ExpressionToken) {
+        super()
+        this.Amount = amount
+    }
+    Amount: ExpressionToken
+}
+
+class RepeatForeverToken extends RepeatToken {
+    Amount = "Forever"
+}
+
+class RepeatForToken extends RepeatToken {
+    constructor(variables: Array<VariableToken>, args: ListToken, tags: Dict<ActionTag>) {
+        super()
+        this.Variables = variables
+        this.Arguments = args
+        this.Tags = tags
+    }
+
+    Arguments: ListToken
+    Tags: Dict<ActionTag>
+    Variables: Array<VariableToken>
+}
+
+class RepeatWhileToken extends RepeatToken {
+    constructor(condition: ExpressionToken) {
+        super()
+        this.Condition = condition
+    }
+
+    Condition: ExpressionToken
+}
+
+function ParseRepeat(index: number): [number, RepeatToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let initIndex = index
+    let keywordResults = GetIdentifier(index)
+    index = keywordResults[0]
+
+    //repeat n times or repeat forever
+    if (keywordResults[1] == "repeat") {
+        //repeat Forever
+        let foreverResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
+        if (foreverResults[1] == "Forever") {
+            return [foreverResults[0], new RepeatForeverToken()]
+        }
+
+        //repeat (n)
+        if (GetNextCharacters(index,1) != "(") {
+            throw new TCError("Expected expression wrapped in parentheses or 'Forever' following 'repeat'",0,initIndex,keywordResults[0])
+        }
+        index += GetWhitespaceAmount(index) + 1
+
+        //expression
+        let expressionResults = ParseExpression(index,[")"],true)
+        if (expressionResults == null) {
+            throw new TCError("Expected amount following 'repeat'",0,initIndex,keywordResults[0])
+        }
+
+        //success
+        return [expressionResults[0],new RepeatMultipleToken(expressionResults[1])]
+    }
+    //while
+    else if (keywordResults[1] == "while") {
+        //make sure theres a (
+        if (GetNextCharacters(index,1) != "(") {
+            throw new TCError("Expected condoition wrapped in parentheses following 'while'",0,initIndex,keywordResults[0])
+        }
+        index += GetWhitespaceAmount(index) + 1
+
+        //expression
+        let expressionResults = ParseExpression(index,[")"],true,["comparisons"])
+        if (expressionResults == null) {
+            throw new TCError("Expected condition following 'while'",0,initIndex,keywordResults[0])
+        }
+
+        //success
+        return [expressionResults[0],new RepeatWhileToken(expressionResults[1])]
+    }
+    //for
+    else if (keywordResults[1] == "for") {
+        let variables: Array<VariableToken> = []
+
+        //accumulate variables until 'in' keyword
+        while (true) { //scary!!
+            let variableResults = ParseVariable(index)
+            //error for invalid variable
+            if (variableResults == null) {
+                let identifierResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
+                throw new TCError(`'${identifierResults[1]}' is not valid variable syntax`,0,initIndex,identifierResults[0])
+            }
+
+            //add to variables list
+            variables.push(variableResults[1])
+
+            index = variableResults[0]
+
+            //if the 'in' keyword was found
+            let inResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
+            if (inResults[1] == "in") {
+                //move to end of in
+                index = inResults[0]
+                break
+            }
+
+            //throw error if next character isnt a comma
+            if (GetNextCharacters(index,1) != ",") {
+                throw new TCError("Expected comma or 'in'",0,initIndex,index)
+            }
+
+            //move to comma
+            index += GetWhitespaceAmount(index) + 1
+        }
+
+        //make sure theres a (
+        if (GetNextCharacters(index,1) != "(") {
+            throw new TCError("Expected (",0,initIndex,index)
+        }
+        index += GetWhitespaceAmount(index) + 1
+        let actionInitIndex = index
+
+        //parse action name
+        let actionNameInitIndex = index + GetWhitespaceAmount(index) + 1
+        let actionNameResults = GetIdentifier(actionNameInitIndex)
+        //error for missing action name
+        if (actionNameResults[1] == "") {
+            throw new TCError("Missing action name",0,initIndex,actionNameResults[0])
+        }
+        //error for invalid action name
+        if (AD.ValidRepeatActions[actionNameResults[1]] == null) {
+            throw new TCError(`Invalid repeat action '${actionNameResults[1]}'`,0,actionNameInitIndex,actionNameResults[0])
+        }
+
+        //move to end of action name
+        index = actionNameResults[0]
+
+        //parse args
+        let argResults = ParseList(index,"(",")",",")
+        if (argResults == null) {
+            throw new TCError("Expected arguments following action name",0,actionNameInitIndex,index)
+        }
+        //move to end of args
+        index = argResults[0]
+
+        //parse tags
+        let tagResults = ParseTags(index,AD.ValidRepeatActions[actionNameResults[1]]?.Tags)
+        let tags
+        if (tagResults) {
+            index = tagResults[0]
+            tags = tagResults[1]
+        }
+
+        //parse closing bracket
+        if (GetNextCharacters(index,1) != ")") {
+            throw new TCError("Repeat action never closed",0,actionInitIndex,index)
+        }
+
+        //move to closing bracket
+        index += GetWhitespaceAmount(index) + 1
+
+        return [index,new RepeatForToken(variables,argResults[1],tags)]
+    }
+    //not a repeat statement
+    else {
+        return null
+    }
+
+    return null
+}
+
 //= Brackets =\\
 class BracketToken extends Token {
     constructor(type: "open" | "close") {
@@ -1928,6 +2102,9 @@ function DoTheThing(): void {
         //try if
         if (results == null) { results = ParseIf(CharIndex) }
 
+        //try repeat
+        if (results == null) { results = ParseRepeat(CharIndex) }
+
         //try action
         if (results == null) { results = ParseAction(CharIndex) }
 
@@ -1965,8 +2142,8 @@ function DoTheThing(): void {
         }
     }
 
-    //if current line is an if statement
-    if (CurrentLine[0] instanceof IfToken) {
+    //parse opening bracket for if and repeat
+    if (CurrentLine[0] instanceof IfToken || CurrentLine[0] instanceof RepeatToken) {
         //parse opening bracket
         if (GetNextCharacters(CharIndex,1) == "{") {
             //push current line (since brackets are always treated as their own line)
@@ -1978,7 +2155,7 @@ function DoTheThing(): void {
             //push new line with bracket
             PushLineAsIs()
         } else {
-            throw new TCError("If statement missing opening bracket", 0, GetLineStart(CharIndex), GetLineEnd(CharIndex))
+            throw new TCError(`${CurrentLine[0] instanceof IfToken ? "If" : "Repeat"} statement missing opening bracket`, 0, GetLineStart(CharIndex), GetLineEnd(CharIndex))
         }
 
         return

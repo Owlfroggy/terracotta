@@ -54,8 +54,21 @@ export let ValidSetVarVectorActions: Dict<Action> = {}
 export let ValidSetVarPotionActions: Dict<Action> = {}
 export let ValidSetVarSoundActions: Dict<Action> = {}
 
+export let ValidRepeatActions: Dict<Action> = {}
+
 //name overrides
 //key: dimaondfire id, value: func name in terracotta
+
+//repeat
+const RepeatActionOverrides = {
+    "Adjacent": "AdjacentBlocks",
+    "Path": "Path",
+    "Grid": "Grid",
+    "ForEach": "List",
+    "Sphere": "Sphere",
+    " Range ": "Range",
+    "ForEachEntry": "Dict"
+}
 
 //players
 const PlayerActionOverrides = {
@@ -420,6 +433,10 @@ for (const action of ACTION_DUMP.actions) {
             overrides = GameCompActionOverrides
             validActions = ValidGameCompActions
             break
+        case "REPEAT":
+            overrides = RepeatActionOverrides
+            validActions = ValidRepeatActions
+            break
         case "SET VARIABLE":
             overrides = SetVarActionOverrides
             validActions = 
@@ -439,6 +456,7 @@ for (const action of ACTION_DUMP.actions) {
                 //console.log("Unassigned SET VARIABLE action:",action.name)
                 continue
             }
+            break
     }
 
     //special logic for select
