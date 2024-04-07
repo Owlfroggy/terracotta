@@ -70,17 +70,17 @@ export var GenericTargetDomains = {
 export var GameDomain = new Domain("game",AD.ValidGameActions,AD.ValidGameCompActions,AD.ValidGameGameValues)
 
 export var TypeDomains = {
-    "str": new Domain("str",AD.ValidSetVarStringActions,{},{}),
-    "num": new Domain("num",AD.ValidSetVarNumActions,{},{}),
-    "vec": new Domain("vec",AD.ValidSetVarVectorActions,{},{}),
-    "loc": new Domain("loc",AD.ValidSetVarLocActions,{},{}),
-    "pot": new Domain("pot",AD.ValidSetVarPotionActions,{},{}),
-    "var": new Domain("var",AD.ValidSetVarVarActions,{},{}),
-    "snd": new Domain("snd",AD.ValidSetVarSoundActions,{},{}),
-    "txt": new Domain("txt",AD.ValidSetVarTextActions,{},{}),
-    "item": new Domain("item",AD.ValidSetVarItemActions,{},{}),
-    "list": new Domain("list",AD.ValidSetVarListActions,{},{}),
-    "dict": new Domain("dict",AD.ValidSetVarDictActions,{},{})
+    "str": new Domain("str",AD.ValidSetVarStringActions,AD.ValidSetVarStringConds,{}),
+    "num": new Domain("num",AD.ValidSetVarNumActions,AD.ValidSetVarNumConds,{}),
+    "vec": new Domain("vec",AD.ValidSetVarVectorActions,AD.ValidSetVarVectorConds,{}),
+    "loc": new Domain("loc",AD.ValidSetVarLocActions,AD.ValidSetVarLocConds,{}),
+    "pot": new Domain("pot",AD.ValidSetVarPotionActions,AD.ValidSetVarPotionConds,{}),
+    "var": new Domain("var",AD.ValidSetVarVarActions,AD.ValidSetVarVarConds,{}),
+    "snd": new Domain("snd",AD.ValidSetVarSoundActions,AD.ValidSetVarSoundConds,{}),
+    "txt": new Domain("txt",AD.ValidSetVarTextActions,AD.ValidSetVarTextConds,{}),
+    "item": new Domain("item",AD.ValidSetVarItemActions,AD.ValidSetVarItemConds,{}),
+    "list": new Domain("list",AD.ValidSetVarListActions,AD.ValidSetVarListConds,{}),
+    "dict": new Domain("dict",AD.ValidSetVarDictActions,AD.ValidSetVarDictConds,{})
 }
 
 //DomainsList except it has generic target domains instead of normal target domains

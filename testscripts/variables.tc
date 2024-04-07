@@ -1,38 +1,30 @@
-FUNCTION SpeedLimit;
+FUNCTION UseItem;
+PARAM item: item;
 
-# select all players who are sprinting
-select PlayersByCondition player ? IsSprinting;
-filter ByCondition not player ? IsInGameMode{Game Mode = Spectator};
+line removeCount = 0;
 
-repeat (10) {
-    selection:SendMessage("&cslow dowb");
+
+## item behavior ##
+
+#root beer
+if (item ? HasTag(line item, "id", "root_beer")) {
+    default:Heal(5);
+    allPlayers:PlaySound(snd["Witch Drink"],default.EyeLocation);
+    line removeCount = 1;
 }
 
-global PunishmentActive = 1;
-line speeders = game.SelectionTargetUUIDs;
-
-#keep punishing speeders until someone stops it
-while (global PunishmentActive == 1) {
-    #ForEachInSelection when
-    for line uuid in ( List(line speeders) ) {
-        select PlayersByName(line uuid);
-
-        #civilian casualties are inevitable but it is a sacrifice that must be made
-        game:CreateExplosion(
-            selection.Location,
-            4
-        );
+#cat (infinite use)
+if (item ? HasTag(line item, "id", "cat")) {
+    default:SetItemCooldown(line item,4);
+    default:Heal(1);
+    repeat (10) {
+        allPlayers:PlaySound(snd["Cat Ambient",default.EyeLocation]);
     }
-
-    wait(1);
 }
 
-#let speeders know they've been freed
-select PlayersByName(line speeders);
-selection:SendMessage("&ayou have been bestowed mercy");
+## consume item ##
 
-
-#literally does nothing but i need to make sure repeat foerver works
-repeat Forever {
-    break;
+if (num ? GreaterThan(line removeCount,0)) { #please dont do comparisons this way
+    line item = item:SetStackSize(line item, item:GetStackSize(line item) - 1);
+    default:SetItemInSlot(default.HeldSlot, line item);
 }

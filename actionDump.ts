@@ -54,6 +54,19 @@ export let ValidSetVarVectorActions: Dict<Action> = {}
 export let ValidSetVarPotionActions: Dict<Action> = {}
 export let ValidSetVarSoundActions: Dict<Action> = {}
 
+export let ValidSetVarVarConds: Dict<Action> = {}
+export let ValidSetVarNumConds: Dict<Action> = {}
+export let ValidSetVarStringConds: Dict<Action> = {}
+export let ValidSetVarTextConds: Dict<Action> = {}
+export let ValidSetVarLocConds: Dict<Action> = {}
+export let ValidSetVarItemConds: Dict<Action> = {}
+export let ValidSetVarListConds: Dict<Action> = {}
+export let ValidSetVarDictConds: Dict<Action> = {}
+export let ValidSetVarParticleConds: Dict<Action> = {}
+export let ValidSetVarVectorConds: Dict<Action> = {}
+export let ValidSetVarPotionConds: Dict<Action> = {}
+export let ValidSetVarSoundConds: Dict<Action> = {}
+
 export let ValidRepeatActions: Dict<Action> = {}
 
 //name overrides
@@ -96,6 +109,45 @@ const EntityCompActionOverrides = {
 }
 
 //set var
+const SetVarCondActionOverrides = {
+    //var
+    "=": "Equals",
+    "!=": "DoesNotEqual",
+    "InRange": "IsInRange",
+    "VarExists": "Exists",
+    "VarIsType": "IsType",
+
+    //num
+    ">": "GreaterThan",
+    ">=": "GreaterThanOrEqualTo",
+    "<": "LessThan",
+    "<=": "LessThanOrEqualTo",
+
+    //str
+    "StringMatches": "Matches",
+    "Contains": "Contains",
+    "StartsWith": "StartsWith",
+    "EndsWith": "EndsWith",
+
+    //loc
+    "LocIsNear": "IsNear",
+
+    //item
+    "ItemEquals": "Equals",
+    "ItemIsBlock": "IsBlock",
+    "BlockIsSolid": "IsSolid",
+    "ItemHasTag": "HasTag",
+    "ItemHasEnchantment": "HasEnchantment",
+
+    //list
+    "ListContains": "Contains",
+    "ListValueEq": "ValueEquals",
+
+    //dict
+    "HasKey": "HasKey",
+    "DictValueEquals": "ValueEquals"
+}
+
 const SetVarActionOverrides = {
     //var domain
     "PurgeVars": "PurgeMatching",
@@ -347,6 +399,20 @@ const SetVarVectorActions = ["Vector","VectorBetween","GetVectorComp","SetVector
 const SetVarPotionActions = ["GetPotionType","SetPotionType","GetPotionAmp","SetPotionAmp","GetPotionDur","SetPotionDur"]
 const SetVarSoundActions = ["GetSoundType","SetSoundType","GetSoundVariant","SetSoundVariant","GetCustomSound","SetCustomSound","GetSoundPitch","SetSoundPitch","GetSoundVolume","SetSoundVolume"]
 
+const SetVarVarConds = ["=","!="," InRange ","VarExists","VarIsType"]
+const SetVarNumConds = [">=",">","<=","<"]
+const SetVarStringConds = ["StringMatches","Contains","StartsWith","EndsWith",]
+const SetVarTextConds: Array<string> = []
+const SetVarLocConds = ["LocIsNear"]
+const SetVarItemConds = ["ItemEquals","ItemIsBlock","BlockIsSolid","ItemHasTag","ItemHasEnchant"]
+const SetVarListConds = ["ListContains","ListValueEq"]
+const SetVarDictConds = ["DictHasKey","DictValueEquals"]
+const SetVarParticleConds: Array<string> = []
+const SetVarVectorConds: Array<string> = []
+const SetVarPotionConds: Array<string> = []
+const SetVarSoundConds: Array<string> = []
+    
+
 //all targeted gvs that work with players but not entities
 //why isnt this in the action dump akjdfhgnbadm,nfvlkjhdfh
 //df game value names
@@ -436,6 +502,26 @@ for (const action of ACTION_DUMP.actions) {
         case "REPEAT":
             overrides = RepeatActionOverrides
             validActions = ValidRepeatActions
+            break
+        case "IF VARIABLE":
+            overrides = SetVarCondActionOverrides
+            validActions = 
+                SetVarVarConds.includes(action.name) ? ValidSetVarVarConds :
+                SetVarNumConds.includes(action.name) ? ValidSetVarNumConds :
+                SetVarStringConds.includes(action.name) ? ValidSetVarStringConds :
+                SetVarTextConds.includes(action.name) ? ValidSetVarTextConds :
+                SetVarLocConds.includes(action.name) ? ValidSetVarLocConds :
+                SetVarItemConds.includes(action.name) ? ValidSetVarItemConds :
+                SetVarListConds.includes(action.name) ? ValidSetVarListConds :
+                SetVarDictConds.includes(action.name) ? ValidSetVarDictConds :
+                SetVarParticleConds.includes(action.name) ? ValidSetVarParticleConds :
+                SetVarVectorConds.includes(action.name) ? ValidSetVarVectorConds :
+                SetVarPotionConds.includes(action.name) ? ValidSetVarPotionConds :
+                SetVarSoundConds.includes(action.name) ? ValidSetVarSoundConds : null
+            if (validActions == null) {
+                //console.log("Unassigned IF VARIABLE action:",action.name)
+                continue
+            }
             break
         case "SET VARIABLE":
             overrides = SetVarActionOverrides

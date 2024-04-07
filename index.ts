@@ -1634,6 +1634,9 @@ function ParseExpression(
                 results = ParseExpression(index + GetWhitespaceAmount(index) + 1, [")"])
             }
 
+            //try action
+            if (results == null) { results = ParseAction(index, true, features.includes("genericTargetComparisons")) }
+
             //try string
             if (results == null) { results = ParseString(index, "\"") }
 
@@ -1660,9 +1663,6 @@ function ParseExpression(
 
             //try item
             if (results == null) { results = ParseItem(index) }
-
-            //try action
-            if (results == null) { results = ParseAction(index, true, features.includes("genericTargetComparisons")) }
 
             //try function
             if (results == null) { 
