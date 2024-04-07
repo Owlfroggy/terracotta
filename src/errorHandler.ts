@@ -1,7 +1,6 @@
-import { SCRIPT_CONTENTS } from "./index"
 import { GetLineStart, GetLineEnd, GetLineFromIndex, GetWhitespaceAmount, COLOR } from "./characterUtils"
 
-export function PrintError(e: TCError) {
+export function PrintError(e: TCError, SCRIPT_CONTENTS) {
     if (e instanceof TCError) {
         let lineStart = GetLineStart(e.CharStart)
         let lineEnd = GetLineEnd(e.CharStart)

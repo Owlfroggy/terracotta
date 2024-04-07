@@ -1,0 +1,3 @@
+PLAYER_EVENT dingus;
+
+default:SendMessage("Hello world!");

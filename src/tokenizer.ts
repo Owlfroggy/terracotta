@@ -5,15 +5,15 @@
 
 import { Domain, DomainList, TargetDomain, GenericDomains, GenericTargetDomains } from "./domains"
 import { PrintError, TCError } from "./errorHandler"
+import { print } from "./main"
 import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil, GetCharacterAtIndex } from "./characterUtils"
 import * as AD from "./actionDump"
 
 export { }
-const FILE_PATH = "testscripts/variables.tc"
 
-export const SCRIPT_CONTENTS = await Bun.file(FILE_PATH).text()
 
 //Current index in the file that the parser is looking at
+export var SCRIPT_CONTENTS: string
 var CharIndex = -1
 var Running = true
 
@@ -26,11 +26,6 @@ const VALID_TYPES = ["str","num","vec","loc","pot","var","snd","any","txt","item
 const VALID_PARAM_MODIFIERS = ["plural","optional"]
 
 //==========[ helper functions ]=========\\
-
-//none of this console.log bullshit! i mean do you seriously expect me to type that whole thing out every singel time i wanna print something!?!?!? at least its better than java but still
-function print (...data: any[]) {
-    console.log(...data)
-}
 
 //returned number will be index of closing char
 //ERR1 = string was not closed
@@ -126,18 +121,18 @@ function ApplyResults(results: [number, ...any]) {
 
 //==========[ tokens ]=========\\
 
-class Token {
+export class Token {
 
 }
 
-class ExprOperatorToken extends Token {
+export class ExprOperatorToken extends Token {
     Operator: string
 }
 
 //==========[ Parser ]=========\\
 
 //= Variables =\\
-class VariableToken extends Token {
+export class VariableToken extends Token {
     constructor(scope: String, name: String, type: string) {
         super()
         if (scope == "global") { scope = "game" }
@@ -220,7 +215,7 @@ function ParseVariable(index): [number, VariableToken] | null {
 }
 //= String =\\
 
-class StringToken extends Token {
+export class StringToken extends Token {
     constructor(value: string) {
         super()
         this.String = value
@@ -241,7 +236,7 @@ function ParseString(index: number, openingChar: string, closingChar: string = o
 }
 
 //= Number =\\
-class NumberToken extends Token {
+export class NumberToken extends Token {
     constructor(value: string) {
         super()
         this.Number = value
@@ -321,7 +316,7 @@ function ParseNumber(index: number): [number, NumberToken] | null {
 }
 
 //= Vectors =\\
-class VectorToken extends Token {
+export class VectorToken extends Token {
     constructor(x: ExpressionToken, y: ExpressionToken, z: ExpressionToken) {
         super()
         this.X = x
@@ -411,7 +406,7 @@ function ParseText(index: number): [number, TextToken] | null {
 }
 
 //= Sound =\\
-class SoundToken extends Token {
+export class SoundToken extends Token {
     constructor(id: ExpressionToken, volume: ExpressionToken | null, pitch: ExpressionToken | null, variant: ExpressionToken | null) {
         super()
         this.SoundId = id
@@ -463,7 +458,7 @@ function ParseSound(index: number): [number, SoundToken] | null {
 
 
 //= Locations =\\
-class LocationToken extends Token {
+export class LocationToken extends Token {
     constructor(x: ExpressionToken, y: ExpressionToken, z: ExpressionToken, pitch: ExpressionToken | null = null, yaw: ExpressionToken | null = null) {
         super()
         this.X = x
@@ -526,7 +521,7 @@ function ParseLocation(index: number): [number, LocationToken] | null {
 }
 
 //= Potions =\\
-class PotionToken extends Token {
+export class PotionToken extends Token {
     constructor(pot: ExpressionToken, amp: ExpressionToken | null, dur: ExpressionToken | null) {
         super()
         this.Potion = pot
@@ -620,7 +615,7 @@ function ParseItem(index: number): [number, ItemToken] | null {
 }
 
 //= List/Dictionary Indexer =\\
-class IndexerToken extends Token {
+export class IndexerToken extends Token {
     constructor(index: ExpressionToken) {
         super()
         this.Index = index
@@ -651,7 +646,7 @@ const ValidAssignmentOperators = ["=", "+=", "-=", "*=", "/=", "%="]
 const ValidMathOperators = ["+", "-", "*", "/", "^", "%"]
 const ValidComparisonOperators = ["==", "!=", "<", ">", "<=", ">="]
 
-class OperatorToken extends Token {
+export class OperatorToken extends Token {
     constructor(operator: string) {
         super()
         this.Operator = operator
@@ -716,7 +711,7 @@ function ParseOperator(index: number, operatorType: "assignment" | "math" | "com
 }
 
 //= Dictionary =\\
-class DictionaryToken extends Token {
+export class DictionaryToken extends Token {
     constructor(keys: Array<ExpressionToken>, values: Array<ExpressionToken>) {
         super()
         this.Keys = keys
@@ -783,7 +778,7 @@ function ParseDictionary(index, openingChar: string, closingChar: string, sepera
 }
 
 //= ListToken =\\
-class ListToken extends Token {
+export class ListToken extends Token {
     constructor(items: Array<ExpressionToken>) {
         super()
         this.Items = items
@@ -847,7 +842,7 @@ const ValidWaitUnits = {
     "m": "Minutes"
 }
 
-class ControlBlockToken extends Token {
+export class ControlBlockToken extends Token {
     constructor(action: string, params: ListToken | null = null, tags: Dict<ActionTag> | null = null) {
         super()
         this.Action = action
@@ -915,7 +910,7 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
 }
 
 //= If statements!!! =\\
-class ElseToken extends Token {
+export class ElseToken extends Token {
     Else = "Else"
 }
 
@@ -930,7 +925,7 @@ function ParseElse(index: number): [number, ElseToken] | null {
     return null
 }
 
-class IfToken extends Token {
+export class IfToken extends Token {
     constructor(condition: ExpressionToken) {
         super()
         this.Condition = condition
@@ -965,9 +960,9 @@ function ParseIf(index: number): [number, IfToken] | null {
 }
 
 //= Repeat =\\
-class RepeatToken extends Token {}
+export class RepeatToken extends Token {}
 
-class RepeatMultipleToken extends RepeatToken {
+export class RepeatMultipleToken extends RepeatToken {
     constructor(amount: ExpressionToken) {
         super()
         this.Amount = amount
@@ -975,11 +970,11 @@ class RepeatMultipleToken extends RepeatToken {
     Amount: ExpressionToken
 }
 
-class RepeatForeverToken extends RepeatToken {
+export class RepeatForeverToken extends RepeatToken {
     Amount = "Forever"
 }
 
-class RepeatForToken extends RepeatToken {
+export class RepeatForToken extends RepeatToken {
     constructor(variables: Array<VariableToken>, args: ListToken, tags: Dict<ActionTag>) {
         super()
         this.Variables = variables
@@ -992,7 +987,7 @@ class RepeatForToken extends RepeatToken {
     Variables: Array<VariableToken>
 }
 
-class RepeatWhileToken extends RepeatToken {
+export class RepeatWhileToken extends RepeatToken {
     constructor(condition: ExpressionToken) {
         super()
         this.Condition = condition
@@ -1139,7 +1134,7 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
 }
 
 //= Brackets =\\
-class BracketToken extends Token {
+export class BracketToken extends Token {
     constructor(type: "open" | "close") {
         super()
         this.Type = type
@@ -1149,7 +1144,7 @@ class BracketToken extends Token {
 }
 
 //= Action =\\
-class ActionTag {
+export class ActionTag {
     constructor(name: string, value: string, variable: VariableToken | null = null) {
         this.Name = name
         this.Value = value
@@ -1161,7 +1156,7 @@ class ActionTag {
     Variable: VariableToken | null
 }
 
-class ActionToken extends Token {
+export class ActionToken extends Token {
     constructor(domain: string, action: string, params: ListToken | null = null, isComparison: boolean = false, tags: Dict<ActionTag> = {}, not: boolean | undefined) {
         super()
         this.DomainId = domain
@@ -1393,7 +1388,7 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
 }
 
 //= Call function/start process =\\
-class CallToken extends Token {
+export class CallToken extends Token {
     constructor(type: "function" | "process", name: string, args: ListToken | null, tags: Dict<ActionTag> | null) {
         super()
         this.Type = type
@@ -1470,18 +1465,8 @@ function ParseCall(index: number): [number, CallToken] | null {
     return [index, new CallToken(mode,name,args,tags)]
 }
 
-//= Identifier ==\\
-class IdentifierToken extends Token {
-    constructor(identifier: string) {
-        super()
-        this.Identifier = identifier
-    }
-
-    Identifier: string
-}
-
 //= Targets =\\
-class TargetToken extends Token {
+export class TargetToken extends Token {
     constructor(target: string) {
         super()
         this.Target = target
@@ -1509,7 +1494,7 @@ function ParseTarget(index: number): [number, TargetToken] | null {
 //======== SPECIAL CODE ITEMS ========\\
 
 //= Game Values =\\
-class GameValueToken extends Token {
+export class GameValueToken extends Token {
     constructor(gameValue: string, target: string | null) {
         super()
         this.Value = gameValue
@@ -1582,7 +1567,7 @@ function ParseGameValue(index: number): [number, Token] | null {
 }
 
 //= Expressions =\\
-class ExpressionToken extends Token {
+export class ExpressionToken extends Token {
     constructor(symbols: Array<any>) {
         super()
         this.Expression = symbols
@@ -1758,10 +1743,10 @@ function ParseExpression(
     return null
 }
 
-//= Metadata Headers ==\\
-class MetadataToken extends Token {} //base class for all metadata thingies
+//= Headers ==\\
+export class HeaderToken extends Token {} //base class for all header thingies
 
-class KeywordMetadataToken extends MetadataToken {
+export class KeywordHeaderToken extends HeaderToken {
     constructor(keyword: string) {
         super()
         this.Keyword = keyword
@@ -1769,23 +1754,23 @@ class KeywordMetadataToken extends MetadataToken {
     Keyword: string
 }
 
-const VALID_METADATA_KEYWORDS = [
+const VALID_HEADER_KEYWORDS = [
     "LAGSLAYER_CANCEL"
 ]
 
-function ParseKeywordMetadataToken(index): [number, KeywordMetadataToken] | null {
+function ParseKeywordHeaderToken(index): [number, KeywordHeaderToken] | null {
     index += GetWhitespaceAmount(index) + 1
     let identifierResults = GetIdentifier(index)
-    if (VALID_METADATA_KEYWORDS.includes(identifierResults[1])) {
+    if (VALID_HEADER_KEYWORDS.includes(identifierResults[1])) {
         //if valid keyword
-        return [identifierResults[0],new KeywordMetadataToken(identifierResults[1])]
+        return [identifierResults[0],new KeywordHeaderToken(identifierResults[1])]
     } else {
         return null
     }
 }
 
 //functiosn and processes also use this
-class EventMetadataToken extends MetadataToken {
+export class EventHeaderToken extends HeaderToken {
     constructor(codeblock: string, event: string) {
         super()
         this.Codeblock = codeblock
@@ -1796,19 +1781,19 @@ class EventMetadataToken extends MetadataToken {
     Event: string
 }
 
-function ParseEventMetadata(index: number): [number, EventMetadataToken] | null {
+function ParseEventHeader(index: number): [number, EventHeaderToken] | null {
     index += GetWhitespaceAmount(index) + 1
     
-    //make sure its the right metadata typre
+    //make sure its the right header typre
     let identifierResults = GetIdentifier(index)
     if (identifierResults == null || !AD.ValidLineStarters[identifierResults[1]]) { return null }
     index = identifierResults[0]
 
     let nameResults = GetComplexName(index)
-    return [nameResults[0], new EventMetadataToken(identifierResults[1],nameResults[1])]
+    return [nameResults[0], new EventHeaderToken(identifierResults[1],nameResults[1])]
 }
 
-class ParamMetadataToken extends MetadataToken {
+export class ParamHeaderToken extends HeaderToken {
     constructor(name: string, type: string, plural: boolean, optional: boolean, defaultValue: ExpressionToken | null) {
         super()
         this.Name = name
@@ -1824,11 +1809,11 @@ class ParamMetadataToken extends MetadataToken {
     DefaultValue: ExpressionToken | null
 }
 
-function ParseParamMetadata(index: number): [number, ParamMetadataToken] | null {
+function ParseParamHeader(index: number): [number, ParamHeaderToken] | null {
     index += GetWhitespaceAmount(index) + 1
     let initIndex = index //used for errors
     
-    //make sure its the right metadata typre
+    //make sure its the right header typre
     let identifierResults = GetIdentifier(index)
     if (identifierResults == null || identifierResults[1] != "PARAM") { return null }
     index = identifierResults[0]
@@ -1839,7 +1824,7 @@ function ParseParamMetadata(index: number): [number, ParamMetadataToken] | null 
 
     //if next character isn't a ':' then finish param parsing now
     if (GetNextCharacters(index,1) != ":") {
-        return [index, new ParamMetadataToken(nameResults[1],"any",false,false,null)]
+        return [index, new ParamHeaderToken(nameResults[1],"any",false,false,null)]
     }
 
     //move to :
@@ -1920,11 +1905,11 @@ function ParseParamMetadata(index: number): [number, ParamMetadataToken] | null 
         throw new TCError("Optional parameter must have default value",0,initIndex,GetLineEnd(initIndex)-1)
     }
 
-    return [index, new ParamMetadataToken(nameResults[1],type,modifiers.includes("plural"),modifiers.includes("optional"),defaultValue)]
+    return [index, new ParamHeaderToken(nameResults[1],type,modifiers.includes("plural"),modifiers.includes("optional"),defaultValue)]
 }
 
 //= Selections ==\\
-class SelectActionToken extends Token {
+export class SelectActionToken extends Token {
     constructor(action: string, args: ListToken | null = null, tags: Dict<ActionTag> | null = null, conditionExpr: ExpressionToken | null = null, conditionNot: boolean = false) {
         super()
         this.Action = action
@@ -2003,7 +1988,7 @@ function ParseSelectAction(index): [number, SelectActionToken] | null {
 }
 
 let symbols = "!@#$%^&*(){}[]-:;\"'~`=/*-+|\\/,.<>".split("")
-let InMetadataParsingStage = true
+let InHeaderParsingStage = true
 
 //push current line to line list even if theres no semicolon
 //will NOT move the index
@@ -2082,15 +2067,15 @@ function DoTheThing(): void {
     if (CurrentLine.length == 0) {
         let results
 
-        //metadata
-        if (InMetadataParsingStage) {
-            //top event metadata e.g. 'PLAYER_EVENT LeftClick'
-            if (results == null) { results = ParseEventMetadata(CharIndex) }
+        //headers
+        if (InHeaderParsingStage) {
+            //top event header e.g. 'PLAYER_EVENT LeftClick'
+            if (results == null) { results = ParseEventHeader(CharIndex) }
 
-            //param metadata
-            if (results == null) { results = ParseParamMetadata(CharIndex) }
+            //params
+            if (results == null) { results = ParseParamHeader(CharIndex) }
 
-            if (results == null) { results = ParseKeywordMetadataToken(CharIndex) }
+            if (results == null) { results = ParseKeywordHeaderToken(CharIndex) }
         }
 
         //try select
@@ -2132,9 +2117,9 @@ function DoTheThing(): void {
         }
 
         if (results != null) {
-            //if any token other than metadata is found, stop allowing metadata
-            if (!(results[1] instanceof MetadataToken)) {
-                InMetadataParsingStage = false
+            //if any token other than header is found, stop allowing headers
+            if (!(results[1] instanceof HeaderToken)) {
+                InHeaderParsingStage = false
             }
 
             ApplyResults(results)
@@ -2207,18 +2192,24 @@ function DoTheThing(): void {
 }
 
 //==========[ other code ]=========\\
-let WasErrorThrown = false
 
-while (Running) {
-    try {
-        DoTheThing()
-    } catch (e) {
-        PrintError(e)
-        WasErrorThrown = true
-        break
-    }
+export class TokenizerResults {
+    Lines: Array<Array<Token>>
 }
 
-if (!WasErrorThrown) {
-    console.log(JSON.stringify(Lines, null, "  "))
+export function Tokenize(script: string): TokenizerResults {
+    CharIndex = -1
+    Running = true
+    Lines = []
+    CurrentLine = []
+    SCRIPT_CONTENTS = script
+
+    while (Running) {
+        DoTheThing()
+    }
+
+    let results = new TokenizerResults()
+    results.Lines = Lines
+
+    return results
 }

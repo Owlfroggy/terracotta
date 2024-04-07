@@ -1,4 +1,4 @@
-import { SCRIPT_CONTENTS } from ".";
+import { SCRIPT_CONTENTS } from "./tokenizer";
 
 export const COLOR = {
     Red: "\x1b[31m",
