@@ -3,6 +3,7 @@ import { VALID_VAR_SCCOPES } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList } from "./domains"
 import * as fflate from "fflate"
+import { TCError } from "./errorHandler"
 
 const VAR_HEADER = `.tc.`
 
@@ -10,32 +11,39 @@ let tempVarCounter = 0
 
 //abstract base class for all code items
 class CodeItem {
-    constructor(type: string) {
+    constructor(type: string,meta: [number,number] | null) {
         this.itemtype = type
+        if (meta) {
+            this.CharStart = meta[0]
+            this.CharEnd = meta[1]
+        }
     }
+
+    CharStart: number = -1
+    CharEnd: number = -1
 
     itemtype: string
 }
 
 class NumberItem extends CodeItem {
-    constructor(value: string){
-        super("num")
+    constructor(meta,value: string){
+        super("num",meta)
         this.Value = value
     }
     Value: string
 }
 
 class StringItem extends CodeItem {
-    constructor(value: string){
-        super("str")
+    constructor(meta,value: string){
+        super("str",meta)
         this.Value = value
     }
     Value: string
 }
 
 class VariableItem extends CodeItem {
-    constructor(scope: "unsaved" | "local" | "saved" | "line", name: string, type: string) {
-        super("var")
+    constructor(meta,scope: "unsaved" | "local" | "saved" | "line", name: string, type: string) {
+        super("var",meta)
         this.Name = name
         this.Scope = scope
         this.compilerType = type
@@ -70,13 +78,13 @@ class ActionBlock extends CodeBlock {
 //takes in a Token from the parser and converts it to a CodeItem
 function ToItem(token: Token): CodeItem {
     if (token instanceof NumberToken) {
-        return new NumberItem(token.Number)
+        return new NumberItem([token.CharStart,token.CharEnd],token.Number)
     }
     else if (token instanceof StringToken) {
-        return new StringItem(token.String)
+        return new StringItem([token.CharStart,token.CharEnd],token.String)
     }
     else if (token instanceof VariableToken) {
-        return new VariableItem(VALID_VAR_SCCOPES[token.Scope],token.Name,token.Type)
+        return new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCCOPES[token.Scope],token.Name,token.Type)
     }
 
     throw new Error("Could not convert token to item")
@@ -90,7 +98,7 @@ const OPERATIONS = {
                 //if either thing is a variable
                 if (left instanceof VariableItem || right instanceof VariableItem) {
                     tempVarCounter++
-                    let returnvar = new VariableItem("line",`${VAR_HEADER}temp${tempVarCounter}`,"num")
+                    let returnvar = new VariableItem(null,"line",`${VAR_HEADER}temp${tempVarCounter}`,"num")
                     let code = new ActionBlock("set_var","+",[returnvar,left,right])
                     return [[code],returnvar]
                 }
@@ -99,11 +107,11 @@ const OPERATIONS = {
                 let rightnum = Number(left.Value)
                 //if both numbers are numerical then just add them together
                 if (!Number.isNaN(leftnum) && !Number.isNaN(rightnum)) {
-                    return [[], new NumberItem(String(leftnum + rightnum))]
+                    return [[], new NumberItem(null,String(leftnum + rightnum))]
                 }
                 //otherwise at least one of them is %mathing so just do that
                 else {
-                    return [[], new NumberItem(`%math(${left.Value}+${right.Value})`)]
+                    return [[], new NumberItem(null,`%math(${left.Value}+${right.Value})`)]
                 }
             }
         }
@@ -143,7 +151,6 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
             let typeright = right instanceof VariableItem ? right.compilerType : right.itemtype
 
             let result
-
 
             // add and subtract \\
             if ( OrderOfOperations[pass] == "addAndSubtract" && (item.Operator == "+" || item.Operator == "-") ) {

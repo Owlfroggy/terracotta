@@ -28,7 +28,7 @@ var CurrentLine: Array<Token> = []
 //returned number will be index of closing char
 //ERR1 = string was not closed
 function GetString(index: number, openingChar: string, closingChar: string = openingChar): [number, string] | null {
-    let initIndex = index
+    let initIndex = index + GetWhitespaceAmount(index) + 1
 
     //if not a string, return
     if (GetNextCharacters(index, 1) != openingChar) { return null }
@@ -46,7 +46,7 @@ function GetString(index: number, openingChar: string, closingChar: string = ope
         if (SCRIPT_CONTENTS[index + 1] == "\\") {
             //dont escape newline if a string is unclosed and ends on \
             if (SCRIPT_CONTENTS[index + 2] == "\n") {
-                throw new TCError("String was never closed", 1, initIndex + GetWhitespaceAmount(initIndex) + 1, index + 1)
+                throw new TCError("String was never closed", 1, initIndex, index + 1)
             }
 
             if (SCRIPT_CONTENTS[index + 2] == "n") {
@@ -65,10 +65,10 @@ function GetString(index: number, openingChar: string, closingChar: string = ope
         }
         //if chunk stopped due to newline
         else if (SCRIPT_CONTENTS[index + 1] == "\n") {
-            throw new TCError("String was never closed", 1, initIndex + GetWhitespaceAmount(initIndex) + 1, index)
+            throw new TCError("String was never closed", 1, initIndex, index)
         }
     }
-    throw new TCError("String was never closed", 1, initIndex + GetWhitespaceAmount(initIndex) + 1, index)
+    throw new TCError("String was never closed", 1, initIndex, index)
 }
 
 //function for names that can either be an identifier or contents of []
@@ -120,15 +120,23 @@ function ApplyResults(results: [number, ...any]) {
 //==========[ tokens ]=========\\
 
 export class Token {
+    constructor(metadata: [number, number]) {
+        this.CharStart = metadata[0]
+        this.CharEnd = metadata[1]
+    }
 
+    CharStart: number
+    CharEnd: number
+
+    itemtype: string
 }
 
 //==========[ Parser ]=========\\
 
 //= Variables =\\
 export class VariableToken extends Token {
-    constructor(scope: string, name: string, type: string) {
-        super()
+    constructor(meta,scope: string, name: string, type: string) {
+        super(meta)
         this.Scope = scope
         this.Name = name
         this.Type = type
@@ -199,13 +207,13 @@ function ParseVariable(index): [number, VariableToken] | null {
         type = typeResults[1]
     }
 
-    return [index, new VariableToken(scopeKeyword, nameResults[1], type)]
+    return [index, new VariableToken([initIndex,index],scopeKeyword, nameResults[1], type)]
 }
 //= String =\\
 
 export class StringToken extends Token {
-    constructor(value: string) {
-        super()
+    constructor(meta,value: string) {
+        super(meta)
         this.String = value
     }
 
@@ -219,7 +227,7 @@ function ParseString(index: number, openingChar: string, closingChar: string = o
     let results
     results = GetString(index, openingChar, closingChar)
     if (results) {
-        return [results[0], new StringToken(results[1])]
+        return [results[0], new StringToken([index + GetWhitespaceAmount(index) + 1,results[0]],results[1])]
     }
 
     return null
@@ -227,8 +235,8 @@ function ParseString(index: number, openingChar: string, closingChar: string = o
 
 //= Number =\\
 export class NumberToken extends Token {
-    constructor(value: string) {
-        super()
+    constructor(meta,value: string) {
+        super(meta)
         this.Number = value
     }
     Number: string
@@ -240,7 +248,7 @@ export class NumberToken extends Token {
 //ERR2 = multiple decimal points
 //returned number will be index of final character of the number
 function ParseNumber(index: number): [number, NumberToken] | null {
-    let initIndex = index
+    let initIndex = index + GetWhitespaceAmount(index) + 1
 
     let decimalFound = false
     let forceToBeNumber = false
@@ -304,13 +312,13 @@ function ParseNumber(index: number): [number, NumberToken] | null {
     //remove trailing decimal if nothing's after it
     if (string[string.length - 1] == ".") { string = string.substring(0, string.length - 1) }
 
-    return [index - 1, new NumberToken(string)]
+    return [index - 1, new NumberToken([initIndex,index - 1],string)]
 }
 
 //= Vectors =\\
 export class VectorToken extends Token {
-    constructor(x: ExpressionToken, y: ExpressionToken, z: ExpressionToken) {
-        super()
+    constructor(meta,x: ExpressionToken, y: ExpressionToken, z: ExpressionToken) {
+        super(meta)
         this.X = x
         this.Y = y
         this.Z = z
@@ -364,13 +372,13 @@ function ParseVector(index: number): [number, VectorToken] | null {
     }
 
     //successful vector creation
-    return [argResults[0], new VectorToken(args[0], args[1], args[2])]
+    return [argResults[0], new VectorToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2])]
 }
 
 //= Minimessage Text =\\
 class TextToken extends Token {
-    constructor(text: string) {
-        super()
+    constructor(meta,text: string) {
+        super(meta)
         this.Text = text
     }
     Text: string
@@ -398,13 +406,13 @@ function ParseText(index: number): [number, TextToken] | null {
         throw new TCError("Expected string following 'txt' keyword", 1, keywordInitIndex, index)
     }
 
-    return [stringResults[0], new TextToken(stringResults[1])]
+    return [stringResults[0], new TextToken([keywordInitIndex,stringResults[0]],stringResults[1])]
 }
 
 //= Sound =\\
 export class SoundToken extends Token {
-    constructor(id: ExpressionToken, volume: ExpressionToken | null, pitch: ExpressionToken | null, variant: ExpressionToken | null) {
-        super()
+    constructor(meta,id: ExpressionToken, volume: ExpressionToken | null, pitch: ExpressionToken | null, variant: ExpressionToken | null) {
+        super(meta)
         this.SoundId = id
         this.Volume = volume
         this.Pitch = pitch
@@ -451,14 +459,14 @@ function ParseSound(index: number): [number, SoundToken] | null {
     }
 
     //successful location creation
-    return [argResults[0], new SoundToken(args[0], args[1], args[2], args[3])]
+    return [argResults[0], new SoundToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], args[3])]
 }
 
 
 //= Locations =\\
 export class LocationToken extends Token {
-    constructor(x: ExpressionToken, y: ExpressionToken, z: ExpressionToken, pitch: ExpressionToken | null = null, yaw: ExpressionToken | null = null) {
-        super()
+    constructor(meta,x: ExpressionToken, y: ExpressionToken, z: ExpressionToken, pitch: ExpressionToken | null = null, yaw: ExpressionToken | null = null) {
+        super(meta)
         this.X = x
         this.Y = y
         this.Z = z
@@ -517,13 +525,13 @@ function ParseLocation(index: number): [number, LocationToken] | null {
     }
 
     //successful location creation
-    return [argResults[0], new LocationToken(args[0], args[1], args[2], args[3], args[4])]
+    return [argResults[0], new LocationToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], args[3], args[4])]
 }
 
 //= Potions =\\
 export class PotionToken extends Token {
-    constructor(pot: ExpressionToken, amp: ExpressionToken | null, dur: ExpressionToken | null) {
-        super()
+    constructor(meta,pot: ExpressionToken, amp: ExpressionToken | null, dur: ExpressionToken | null) {
+        super(meta)
         this.Potion = pot
         this.Amplifier = amp
         this.Duration = dur
@@ -556,13 +564,13 @@ function ParsePotion(index): [number, PotionToken] | null {
     }
     let args = argResults[1].Items
 
-    return [argResults[0],new PotionToken(args[0],args[1],args[2])]
+    return [argResults[0],new PotionToken([keywordInitIndex,argResults[0]],args[0],args[1],args[2])]
 }
 
 //= Items =\\
 class ItemToken extends Token {
-    constructor(id: ExpressionToken, count: ExpressionToken | null = null, nbt: ExpressionToken | undefined, library: ExpressionToken | undefined) {
-        super()
+    constructor(meta,id: ExpressionToken, count: ExpressionToken | null = null, nbt: ExpressionToken | undefined, library: ExpressionToken | undefined) {
+        super(meta)
         this.Id = id
         this.Count = count
         this.Nbt = nbt
@@ -609,19 +617,19 @@ function ParseItem(index: number): [number, ItemToken] | null {
 
     //basic item
     if (identifierResults[1] == "item") {
-        return [argResults[0], new ItemToken(args[0], args[1], args[3], undefined)]
+        return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[0], args[1], args[3], undefined)]
         //library item
     } else if (identifierResults[1] == "litem") {
-        return [argResults[0], new ItemToken(args[1],args[2],undefined,args[0])]
+        return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[1],args[2],undefined,args[0])]
     }
 
-    return [argResults[0],new ItemToken(args[0],args[1],args[2],args[3])]
+    return [argResults[0],new ItemToken([keywordInitIndex,argResults[0]],args[0],args[1],args[2],args[3])]
 }
 
 //= List/Dictionary Indexer =\\
 export class IndexerToken extends Token {
-    constructor(index: ExpressionToken) {
-        super()
+    constructor(meta,index: ExpressionToken) {
+        super(meta)
         this.Index = index
     }
 
@@ -642,13 +650,13 @@ function ParseIndexer(index: number): [number, IndexerToken] | null {
         throw new TCError("Expected index value for indexer",0,initIndex, initIndex)
     }
 
-    return [expressionResults[0],new IndexerToken(expressionResults[1])]
+    return [expressionResults[0],new IndexerToken([initIndex,expressionResults[0]],expressionResults[1])]
 }
 
 //= Operators =\\
 export class OperatorToken extends Token {
-    constructor(operator: string) {
-        super()
+    constructor(meta,operator: string) {
+        super(meta)
         this.Operator = operator
     }
 
@@ -703,7 +711,7 @@ function ParseOperator(index: number, operatorType: "assignment" | "math" | "com
         let operatorString = GetNextCharacters(index, length)
 
         if (validOperators.includes(operatorString)) {
-            return [index + length, new OperatorToken(operatorString)]
+            return [index + length, new OperatorToken([index + 1,index+length],operatorString)]
         }
     }
 
@@ -712,8 +720,8 @@ function ParseOperator(index: number, operatorType: "assignment" | "math" | "com
 
 //= Dictionary =\\
 export class DictionaryToken extends Token {
-    constructor(keys: Array<ExpressionToken>, values: Array<ExpressionToken>) {
-        super()
+    constructor(meta,keys: Array<ExpressionToken>, values: Array<ExpressionToken>) {
+        super(meta)
         this.Keys = keys
         this.Values = values
     }
@@ -776,13 +784,13 @@ function ParseDictionary(index, openingChar: string, closingChar: string, sepera
         throw new TCError("Dictionary was never closed", 1, initIndex + 1, GetLineEnd(index) - 1)
     }
 
-    return [index, new DictionaryToken(keys,values)]
+    return [index, new DictionaryToken([initIndex,index],keys,values)]
 }
 
 //= ListToken =\\
 export class ListToken extends Token {
-    constructor(items: Array<ExpressionToken>) {
-        super()
+    constructor(meta,items: Array<ExpressionToken>) {
+        super(meta)
         this.Items = items
     }
     Items: ExpressionToken[]
@@ -830,7 +838,7 @@ function ParseList(index, openingChar: string, closingChar: string, seperatingCh
         throw new TCError("List was never closed", 1, initIndex + 1, GetLineEnd(index) - 1)
     }
 
-    return [index, new ListToken(items)]
+    return [index, new ListToken([initIndex,index],items)]
 }
 
 //= Control =\\
@@ -838,8 +846,8 @@ function ParseList(index, openingChar: string, closingChar: string, seperatingCh
 
 
 export class ControlBlockToken extends Token {
-    constructor(action: string, params: ListToken | null = null, tags: Dict<ActionTag> | null = null) {
-        super()
+    constructor(meta,action: string, params: ListToken | null = null, tags: Dict<ActionTag> | null = null) {
+        super(meta)
         this.Action = action
         this.Params = params
         this.Tags = tags
@@ -860,20 +868,18 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
         return null
     }
 
-    index = identifierResults[0]
-
     //return action based on what keyword was used
     if (identifierResults[1] == "break") {
-        return [index, new ControlBlockToken("StopRepeat")]
+        return [index, new ControlBlockToken([initIndex,index],"StopRepeat")]
     } 
     else if (identifierResults[1] == "continue") {
-        return [index, new ControlBlockToken("Skip")]
+        return [index, new ControlBlockToken([initIndex,index],"Skip")]
     }
     else if (identifierResults[1] == "endthread") {
-        return [index, new ControlBlockToken("End")]
+        return [index, new ControlBlockToken([initIndex,index],"End")]
     }
     else if (identifierResults[1] == "return") {
-        return [index, new ControlBlockToken("Return")]
+        return [index, new ControlBlockToken([initIndex,index],"Return")]
     }
     else if (identifierResults[1] == "returnmult") {
         //parse number for how many times to return
@@ -882,7 +888,7 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
             throw new TCError("Expected number following 'returnmult'",0,initIndex,index)
         }
 
-        return [expressionResults[0], new ControlBlockToken("ReturnNTimes",new ListToken([expressionResults[1]]))]
+        return [expressionResults[0], new ControlBlockToken([initIndex,expressionResults[0]],"ReturnNTimes",new ListToken([index,expressionResults[0]],[expressionResults[1]]))]
     }
     else if (identifierResults[1] == "wait") {
         let listResults = ParseList(index,"(",")",",")
@@ -898,7 +904,7 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
             tags = tagResults[1]
         }
 
-        return [index, new ControlBlockToken("Wait",listResults[1],tags)]
+        return [index, new ControlBlockToken([initIndex,index],"Wait",listResults[1],tags)]
     }   
 
     return null
@@ -906,6 +912,10 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
 
 //= If statements!!! =\\
 export class ElseToken extends Token {
+    constructor(meta) {
+        super(meta)
+    }
+
     Else = "Else"
 }
 
@@ -914,15 +924,15 @@ function ParseElse(index: number): [number, ElseToken] | null {
     let identifierResults = GetIdentifier(index)
 
     if (identifierResults != null && identifierResults[1] == "else") {
-        return [identifierResults[0], new ElseToken()]
+        return [identifierResults[0], new ElseToken([index,identifierResults[0]])]
     }
 
     return null
 }
 
 export class IfToken extends Token {
-    constructor(condition: ExpressionToken) {
-        super()
+    constructor(meta,condition: ExpressionToken) {
+        super(meta)
         this.Condition = condition
     }
     Condition: ExpressionToken
@@ -951,27 +961,34 @@ function ParseIf(index: number): [number, IfToken] | null {
         throw new TCError("Expected condition following 'if'",0,initIndex,identifierResults[0])
     }
     
-    return [expressionResults[0],new IfToken(expressionResults[1])]
+    return [expressionResults[0],new IfToken([initIndex,expressionResults[0]],expressionResults[1])]
 }
 
 //= Repeat =\\
-export class RepeatToken extends Token {}
+export class RepeatToken extends Token {
+    constructor(meta) {
+        super(meta)
+    }
+}
 
 export class RepeatMultipleToken extends RepeatToken {
-    constructor(amount: ExpressionToken) {
-        super()
+    constructor(meta,amount: ExpressionToken) {
+        super(meta)
         this.Amount = amount
     }
     Amount: ExpressionToken
 }
 
 export class RepeatForeverToken extends RepeatToken {
+    constructor(meta) {
+        super(meta)
+    }
     Amount = "Forever"
 }
 
 export class RepeatForToken extends RepeatToken {
-    constructor(variables: Array<VariableToken>, args: ListToken, tags: Dict<ActionTag>) {
-        super()
+    constructor(meta,variables: Array<VariableToken>, args: ListToken, tags: Dict<ActionTag>) {
+        super(meta)
         this.Variables = variables
         this.Arguments = args
         this.Tags = tags
@@ -983,8 +1000,8 @@ export class RepeatForToken extends RepeatToken {
 }
 
 export class RepeatWhileToken extends RepeatToken {
-    constructor(condition: ExpressionToken) {
-        super()
+    constructor(meta,condition: ExpressionToken) {
+        super(meta)
         this.Condition = condition
     }
 
@@ -1002,7 +1019,7 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
         //repeat Forever
         let foreverResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
         if (foreverResults[1] == "Forever") {
-            return [foreverResults[0], new RepeatForeverToken()]
+            return [foreverResults[0], new RepeatForeverToken([initIndex,foreverResults[0]])]
         }
 
         //repeat (n)
@@ -1018,7 +1035,7 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
         }
 
         //success
-        return [expressionResults[0],new RepeatMultipleToken(expressionResults[1])]
+        return [expressionResults[0],new RepeatMultipleToken([initIndex,expressionResults[0]],expressionResults[1])]
     }
     //while
     else if (keywordResults[1] == "while") {
@@ -1035,7 +1052,7 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
         }
 
         //success
-        return [expressionResults[0],new RepeatWhileToken(expressionResults[1])]
+        return [expressionResults[0],new RepeatWhileToken([initIndex,expressionResults[0]],expressionResults[1])]
     }
     //for
     else if (keywordResults[1] == "for") {
@@ -1118,7 +1135,7 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
         //move to closing bracket
         index += GetWhitespaceAmount(index) + 1
 
-        return [index,new RepeatForToken(variables,argResults[1],tags)]
+        return [index,new RepeatForToken([initIndex,index],variables,argResults[1],tags)]
     }
     //not a repeat statement
     else {
@@ -1130,8 +1147,8 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
 
 //= Brackets =\\
 export class BracketToken extends Token {
-    constructor(type: "open" | "close") {
-        super()
+    constructor(meta,type: "open" | "close") {
+        super(meta)
         this.Type = type
     }
 
@@ -1152,8 +1169,8 @@ export class ActionTag {
 }
 
 export class ActionToken extends Token {
-    constructor(domain: string, action: string, params: ListToken | null = null, isComparison: boolean = false, tags: Dict<ActionTag> = {}, not: boolean | undefined) {
-        super()
+    constructor(meta,domain: string, action: string, params: ListToken | null = null, isComparison: boolean = false, tags: Dict<ActionTag> = {}, not: boolean | undefined) {
+        super(meta)
         this.DomainId = domain
         this.Action = action
         this.Params = params
@@ -1363,13 +1380,14 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
     index = actionResults[0]
 
     //parse params
+    let listInitIndex = index + GetWhitespaceAmount(index) + 1
     let paramResults = ParseList(index, "(", ")", ",")
     let params: ListToken
     if (paramResults) {
         index = paramResults[0]
         params = paramResults[1]
     } else {
-        params = new ListToken([])
+        params = new ListToken([listInitIndex,-1],[])
     }
 
     let tagResults = ParseTags(index,actions[actionResults[1]]!.Tags)
@@ -1379,13 +1397,13 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
         index = tagResults[0]
     }
 
-    return [index, new ActionToken(domain.Identifier, actionResults[1], params, isComparison, tags!, not)]
+    return [index, new ActionToken([initIndex,index],domain.Identifier, actionResults[1], params, isComparison, tags!, not)]
 }
 
 //= Call function/start process =\\
 export class CallToken extends Token {
-    constructor(type: "function" | "process", name: string, args: ListToken | null, tags: Dict<ActionTag> | null) {
-        super()
+    constructor(meta,type: "function" | "process", name: string, args: ListToken | null, tags: Dict<ActionTag> | null) {
+        super(meta)
         this.Type = type
         this.Name = name
         this.Arguments = args
@@ -1457,13 +1475,13 @@ function ParseCall(index: number): [number, CallToken] | null {
         }
     }
 
-    return [index, new CallToken(mode,name,args,tags)]
+    return [index, new CallToken([initIndex,index],mode,name,args,tags)]
 }
 
 //= Targets =\\
 export class TargetToken extends Token {
-    constructor(target: string) {
-        super()
+    constructor(meta,target: string) {
+        super(meta)
         this.Target = target
     }
 
@@ -1477,7 +1495,7 @@ function ParseTarget(index: number): [number, TargetToken] | null {
     if (targetResults == null) { return null }
 
     if (VALID_TARGETS.includes(targetResults[1])) {
-        return [targetResults[0], new TargetToken(targetResults[1])]
+        return [targetResults[0], new TargetToken([0,0],targetResults[1])]
     }
 
     return null
@@ -1488,8 +1506,8 @@ function ParseTarget(index: number): [number, TargetToken] | null {
 
 //= Game Values =\\
 export class GameValueToken extends Token {
-    constructor(gameValue: string, target: string | null) {
-        super()
+    constructor(meta,gameValue: string, target: string | null) {
+        super(meta)
         this.Value = gameValue
         this.Target = target
     }
@@ -1499,11 +1517,11 @@ export class GameValueToken extends Token {
 }
 
 function ParseGameValue(index: number): [number, Token] | null {
-    index += GetWhitespaceAmount(index)
+    index += GetWhitespaceAmount(index) + 1
     let initIndex = index
 
     //= parse domain =\\
-    let domainResults = GetIdentifier(index + 1)
+    let domainResults = GetIdentifier(index)
     if (domainResults == null) { return null }
 
     let domain = DomainList[domainResults[1]]
@@ -1556,13 +1574,13 @@ function ParseGameValue(index: number): [number, Token] | null {
     //move to the end of the action name
     index = valueResults[0]
 
-    return [index, new GameValueToken(valueResults[1], domain.Identifier)]
+    return [index, new GameValueToken([initIndex,index],valueResults[1], domain.Identifier)]
 }
 
 //= Expressions =\\
 export class ExpressionToken extends Token {
-    constructor(symbols: Array<any>) {
-        super()
+    constructor(meta,symbols: Array<any>) {
+        super(meta)
         this.Expression = symbols
     }
 
@@ -1592,14 +1610,14 @@ function ParseExpression(
     let expressionSymbols: Array<any> = []
     let comparisonFound = false
 
-    let initIndex = index
+    let initIndex = index + GetWhitespaceAmount(index) + 1
     index += GetWhitespaceAmount(index)
     while (!terminateAt.includes(GetNextCharacters(index, 1)) && index + GetWhitespaceAmount(index) + 1 < SCRIPT_CONTENTS.length) {
         let valueInitIndex = index
 
         //= ERROR: expression isnt closed
         if (GetNextCharacters(index, 1) == ";" || (GetNextCharacters(index, 1) == "" && !terminateAt.includes(";"))) {
-            throw new TCError("Expression was never closed", 1, initIndex + GetWhitespaceAmount(initIndex) + 1, index)
+            throw new TCError("Expression was never closed", 1, initIndex, index)
         }
 
         let results: [number, Token] | null = null
@@ -1665,7 +1683,7 @@ function ParseExpression(
                 let operatorResults = ParseOperator(index, "math")
                 if (operatorResults != null) {
                     if (expressionSymbols.length == 0) {
-                        throw new TCError("Expressions can't start with operators", 4, initIndex + GetWhitespaceAmount(initIndex) + 1, initIndex + GetWhitespaceAmount(initIndex) + 1)
+                        throw new TCError("Expressions can't start with operators", 4, initIndex, initIndex)
                     } else {
                         throw new TCError("Expected value or expression following operator", 5, index + GetWhitespaceAmount(index) + 1, index + GetWhitespaceAmount(index) + 1)
                     }
@@ -1730,18 +1748,22 @@ function ParseExpression(
     }
 
     if (expressionSymbols.length > 0) {
-        return [index, new ExpressionToken(expressionSymbols)]
+        return [index, new ExpressionToken([initIndex,index],expressionSymbols)]
     }
 
     return null
 }
 
 //= Headers ==\\
-export class HeaderToken extends Token {} //base class for all header thingies
+export class HeaderToken extends Token {
+    constructor(meta) {
+        super(meta)
+    }
+} //base class for all header thingies
 
 export class KeywordHeaderToken extends HeaderToken {
-    constructor(keyword: string) {
-        super()
+    constructor(meta,keyword: string) {
+        super(meta)
         this.Keyword = keyword
     }
     Keyword: string
@@ -1752,7 +1774,7 @@ function ParseKeywordHeaderToken(index): [number, KeywordHeaderToken] | null {
     let identifierResults = GetIdentifier(index)
     if (VALID_HEADER_KEYWORDS.includes(identifierResults[1])) {
         //if valid keyword
-        return [identifierResults[0],new KeywordHeaderToken(identifierResults[1])]
+        return [identifierResults[0],new KeywordHeaderToken([index,identifierResults[0]],identifierResults[1])]
     } else {
         return null
     }
@@ -1760,8 +1782,8 @@ function ParseKeywordHeaderToken(index): [number, KeywordHeaderToken] | null {
 
 //functiosn and processes also use this
 export class EventHeaderToken extends HeaderToken {
-    constructor(codeblock: string, event: string) {
-        super()
+    constructor(meta,codeblock: string, event: string) {
+        super(meta,)
         this.Codeblock = codeblock
         this.Event = event
     }
@@ -1772,6 +1794,7 @@ export class EventHeaderToken extends HeaderToken {
 
 function ParseEventHeader(index: number): [number, EventHeaderToken] | null {
     index += GetWhitespaceAmount(index) + 1
+    let initIndex = index
     
     //make sure its the right header typre
     let identifierResults = GetIdentifier(index)
@@ -1779,12 +1802,12 @@ function ParseEventHeader(index: number): [number, EventHeaderToken] | null {
     index = identifierResults[0]
 
     let nameResults = GetComplexName(index)
-    return [nameResults[0], new EventHeaderToken(identifierResults[1],nameResults[1])]
+    return [nameResults[0], new EventHeaderToken([initIndex,index],identifierResults[1],nameResults[1])]
 }
 
 export class ParamHeaderToken extends HeaderToken {
-    constructor(name: string, type: string, plural: boolean, optional: boolean, defaultValue: ExpressionToken | null) {
-        super()
+    constructor(meta,name: string, type: string, plural: boolean, optional: boolean, defaultValue: ExpressionToken | null) {
+        super(meta)
         this.Name = name
         this.Type = type
         this.Plural = plural
@@ -1800,7 +1823,7 @@ export class ParamHeaderToken extends HeaderToken {
 
 function ParseParamHeader(index: number): [number, ParamHeaderToken] | null {
     index += GetWhitespaceAmount(index) + 1
-    let initIndex = index //used for errors
+    let initIndex = index
     
     //make sure its the right header typre
     let identifierResults = GetIdentifier(index)
@@ -1813,7 +1836,7 @@ function ParseParamHeader(index: number): [number, ParamHeaderToken] | null {
 
     //if next character isn't a ':' then finish param parsing now
     if (GetNextCharacters(index,1) != ":") {
-        return [index, new ParamHeaderToken(nameResults[1],"any",false,false,null)]
+        return [index, new ParamHeaderToken([initIndex,index],nameResults[1],"any",false,false,null)]
     }
 
     //move to :
@@ -1894,13 +1917,13 @@ function ParseParamHeader(index: number): [number, ParamHeaderToken] | null {
         throw new TCError("Optional parameter must have default value",0,initIndex,GetLineEnd(initIndex)-1)
     }
 
-    return [index, new ParamHeaderToken(nameResults[1],type,modifiers.includes("plural"),modifiers.includes("optional"),defaultValue)]
+    return [index, new ParamHeaderToken([initIndex,index],nameResults[1],type,modifiers.includes("plural"),modifiers.includes("optional"),defaultValue)]
 }
 
 //= Selections ==\\
 export class SelectActionToken extends Token {
-    constructor(action: string, args: ListToken | null = null, tags: Dict<ActionTag> | null = null, conditionExpr: ExpressionToken | null = null, conditionNot: boolean = false) {
-        super()
+    constructor(meta,action: string, args: ListToken | null = null, tags: Dict<ActionTag> | null = null, conditionExpr: ExpressionToken | null = null, conditionNot: boolean = false) {
+        super(meta)
         this.Action = action
         this.Arguments = args
         this.Tags = tags
@@ -1954,7 +1977,7 @@ function ParseSelectAction(index): [number, SelectActionToken] | null {
         }
         index = expressionResults[0]
 
-        return [expressionResults[0], new SelectActionToken(actionResults[1],null,null,expressionResults[1])]
+        return [expressionResults[0], new SelectActionToken([initIndex,expressionResults[0]],actionResults[1],null,null,expressionResults[1])]
     } else {
         //parse arguments
         let argResults = ParseList(index, "(", ")", ",")
@@ -1972,7 +1995,7 @@ function ParseSelectAction(index): [number, SelectActionToken] | null {
             tags = tagResults[1]
         }
 
-        return [index, new SelectActionToken(actionResults[1],null,args,tags)]
+        return [index, new SelectActionToken([initIndex,index],actionResults[1],null,args,tags)]
     }
 }
 
@@ -2041,7 +2064,7 @@ function DoTheThing(): void {
             //parse opening bracket
             if (GetNextCharacters(CharIndex,1) == "{") {
                 CharIndex += GetWhitespaceAmount(CharIndex) + 1
-                CurrentLine.push(new BracketToken("open"))
+                CurrentLine.push(new BracketToken([CharIndex,CharIndex],"open"))
                 //brackets are always their own lines
                 PushLineAsIs()
             } else {
@@ -2095,12 +2118,12 @@ function DoTheThing(): void {
         if (GetNextCharacters(CharIndex, 1) == "}") {
             //push current line (since closing bracket shoudl always be treated as its own line)
             PushLineAsIs()
-            //add closing bracket to new line
-            CurrentLine.push(new BracketToken("close"))
-            //push closing bracket line
-            PushLineAsIs()
             //move char index to closing bracket
             CharIndex += GetWhitespaceAmount(CharIndex) + 1
+            //add closing bracket to new line
+            CurrentLine.push(new BracketToken([CharIndex,CharIndex],"close"))
+            //push closing bracket line
+            PushLineAsIs()
 
             return
         }
@@ -2122,10 +2145,10 @@ function DoTheThing(): void {
         if (GetNextCharacters(CharIndex,1) == "{") {
             //push current line (since brackets are always treated as their own line)
             PushLineAsIs()
-            //add bracket to new line
-            CurrentLine.push(new BracketToken("open"))
             //move to bracket
             CharIndex += GetWhitespaceAmount(CharIndex) + 1
+            //add bracket to new line
+            CurrentLine.push(new BracketToken([CharIndex,CharIndex],"open"))
             //push new line with bracket
             PushLineAsIs()
         } else {
