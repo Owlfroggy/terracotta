@@ -125,10 +125,6 @@ export class Token {
 
 }
 
-export class ExprOperatorToken extends Token {
-    Operator: string
-}
-
 //==========[ Parser ]=========\\
 
 //= Variables =\\
@@ -144,6 +140,8 @@ export class VariableToken extends Token {
     Scope: String
     Name: String
     Type: string
+
+    itemtype = "var"
 }
 
 const VALID_VAR_SCCOPES = {
@@ -222,6 +220,8 @@ export class StringToken extends Token {
     }
 
     String: string
+
+    itemtype = "str"
 }
 
 //litearlly just GetString but it returns a string token
@@ -242,6 +242,8 @@ export class NumberToken extends Token {
         this.Number = value
     }
     Number: string
+
+    itemtype = "num"
 }
 
 //ERR1 = invalid character found
@@ -327,6 +329,8 @@ export class VectorToken extends Token {
     X: ExpressionToken
     Y: ExpressionToken
     Z: ExpressionToken
+
+    itemtype = "vec"
 }
 
 //ERR1 = missing arguments
@@ -380,6 +384,8 @@ class TextToken extends Token {
         this.Text = text
     }
     Text: string
+
+    itemtype = "txt"
 }
 
 //ERR1 = missing string
@@ -419,6 +425,8 @@ export class SoundToken extends Token {
     Variant: ExpressionToken | null
     Volume: ExpressionToken | null
     Pitch: ExpressionToken | null
+
+    itemtype = "snd"
 }
 
 function ParseSound(index: number): [number, SoundToken] | null {
@@ -473,6 +481,8 @@ export class LocationToken extends Token {
     Z: ExpressionToken
     Pitch: ExpressionToken | null
     Yaw: ExpressionToken | null
+
+    itemtype = "loc"
 }
 
 //ERR1 = missing arguments
@@ -532,6 +542,8 @@ export class PotionToken extends Token {
     Potion: ExpressionToken
     Amplifier: ExpressionToken | null
     Duration: ExpressionToken | null
+
+    itemtype = "pot"
 }
 
 function ParsePotion(index): [number, PotionToken] | null {
@@ -579,6 +591,8 @@ class ItemToken extends Token {
     Nbt: ExpressionToken | undefined
 
     Mode: "basic" | "library"
+
+    itemtype = "item"
 }
 
 //BASIC ITEM SYNTAX: item [id,count,nbt]
@@ -720,6 +734,8 @@ export class DictionaryToken extends Token {
 
     Keys: Array<ExpressionToken>
     Values: Array<ExpressionToken>
+
+    itemtype = "dict"
 }
 
 function ParseDictionary(index, openingChar: string, closingChar: string, seperatingChar: string, assignmentChar: string): [number, DictionaryToken] | null {
@@ -783,7 +799,9 @@ export class ListToken extends Token {
         super()
         this.Items = items
     }
-    Items: Array<ExpressionToken>
+    Items: ExpressionToken[]
+
+    itemtype = "list"
 }
 
 //ERR1 = list was never closed
@@ -1573,7 +1591,7 @@ export class ExpressionToken extends Token {
         this.Expression = symbols
     }
 
-    Expression: Array<ExprOperatorToken | StringToken>
+    Expression: Array<Token>
 }
 
 //ERR1 = expression never closed
