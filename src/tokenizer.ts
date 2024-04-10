@@ -10,7 +10,7 @@ import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetN
 import * as AD from "./actionDump"
 import { UnzipPassThrough } from "fflate"
 
-export { }
+import {VALID_TYPES, VALID_PARAM_MODIFIERS, VALID_VAR_SCCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_TARGETS, VALID_HEADER_KEYWORDS} from "./constants"
 
 
 //Current index in the file that the parser is looking at
@@ -22,9 +22,6 @@ var Lines: Array<Array<Token>> = []
 var CurrentLine: Array<Token> = []
 
 //==========[ constants ]=========\\
-
-const VALID_TYPES = ["str","num","vec","loc","pot","var","snd","any","txt","item","list","dict"]
-const VALID_PARAM_MODIFIERS = ["plural","optional"]
 
 //==========[ helper functions ]=========\\
 
@@ -142,13 +139,6 @@ export class VariableToken extends Token {
     Type: string
 
     itemtype = "var"
-}
-
-export const VALID_VAR_SCCOPES = {
-    "global": "unsaved",
-    "saved": "saved",
-    "local": "local",
-    "line": "line"
 }
 
 //returned number will be closing ] or final character of identifier
@@ -656,10 +646,6 @@ function ParseIndexer(index: number): [number, IndexerToken] | null {
 }
 
 //= Operators =\\
-const ValidAssignmentOperators = ["=", "+=", "-=", "*=", "/=", "%="]
-const ValidMathOperators = ["+", "-", "*", "/", "^", "%"]
-const ValidComparisonOperators = ["==", "!=", "<", ">", "<=", ">="]
-
 export class OperatorToken extends Token {
     constructor(operator: string) {
         super()
@@ -671,21 +657,21 @@ export class OperatorToken extends Token {
 
 //create lists of lengths of all operators, one entry per length
 const AssignmentOperatorsLengths: Array<number> = []
-for (const v of ValidAssignmentOperators) {
+for (const v of VALID_ASSIGNMENT_OPERATORS) {
     if (!AssignmentOperatorsLengths.includes(v.length)) {
         AssignmentOperatorsLengths.push(v.length)
     }
 }
 
 const MathOperatorsLengths: Array<number> = []
-for (const v of ValidMathOperators) {
+for (const v of VALID_MATH_OPERATORS) {
     if (!MathOperatorsLengths.includes(v.length)) {
         MathOperatorsLengths.push(v.length)
     }
 }
 
 const ComparisonOperatorsLengths: Array<number> = []
-for (const v of ValidComparisonOperators) {
+for (const v of VALID_COMPARISON_OPERATORS) {
     if (!ComparisonOperatorsLengths.includes(v.length)) {
         ComparisonOperatorsLengths.push(v.length)
     }
@@ -699,15 +685,15 @@ function ParseOperator(index: number, operatorType: "assignment" | "math" | "com
     let lengthList
     switch (operatorType) {
         case "assignment":
-            validOperators = ValidAssignmentOperators
+            validOperators = VALID_ASSIGNMENT_OPERATORS
             lengthList = AssignmentOperatorsLengths
             break
         case "math":
-            validOperators = ValidMathOperators
+            validOperators = VALID_MATH_OPERATORS
             lengthList = MathOperatorsLengths
             break
         case "comparison":
-            validOperators = ValidComparisonOperators
+            validOperators = VALID_COMPARISON_OPERATORS
             lengthList = ComparisonOperatorsLengths
             break
     }
@@ -849,16 +835,7 @@ function ParseList(index, openingChar: string, closingChar: string, seperatingCh
 
 //= Control =\\
 //break, skip, endthread, return, returnmult, wait
-const ValidControlKeywords = ["break","continue","return","returnmult","wait","endthread"]
-const ValidWaitUnits = {
-    "ticks": "Ticks",
-    "seconds": "Seconds",
-    "minutes": "Minutes",
 
-    "t": "Ticks",
-    "s": "Seconds",
-    "m": "Minutes"
-}
 
 export class ControlBlockToken extends Token {
     constructor(action: string, params: ListToken | null = null, tags: Dict<ActionTag> | null = null) {
@@ -879,7 +856,7 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
 
     //get keyword
     let identifierResults = GetIdentifier(index)
-    if (identifierResults != null && !ValidControlKeywords.includes(identifierResults[1])) {
+    if (identifierResults != null && !VALID_CONTROL_KEYWORDS.includes(identifierResults[1])) {
         return null
     }
 
@@ -1493,15 +1470,13 @@ export class TargetToken extends Token {
     Target: string
 }
 
-const ValidTargets = ["default", "defaultEntity", "selection", "selectionEntity", "killer", "killerEntity", "damager", "damagerEntity", "victim", "victimEntity", "shooter", "shooterEntity", "lastEntity", "projectile"]
-
 function ParseTarget(index: number): [number, TargetToken] | null {
     index += GetWhitespaceAmount(index) + 1
 
     let targetResults = GetIdentifier(index)
     if (targetResults == null) { return null }
 
-    if (ValidTargets.includes(targetResults[1])) {
+    if (VALID_TARGETS.includes(targetResults[1])) {
         return [targetResults[0], new TargetToken(targetResults[1])]
     }
 
@@ -1771,10 +1746,6 @@ export class KeywordHeaderToken extends HeaderToken {
     }
     Keyword: string
 }
-
-const VALID_HEADER_KEYWORDS = [
-    "LAGSLAYER_CANCEL"
-]
 
 function ParseKeywordHeaderToken(index): [number, KeywordHeaderToken] | null {
     index += GetWhitespaceAmount(index) + 1
@@ -2181,7 +2152,7 @@ function DoTheThing(): void {
             let operation = CurrentLine[1].Operator
             //<variable> =
             //must be followed by an expression
-            if (ValidAssignmentOperators.includes(operation)) {
+            if (VALID_ASSIGNMENT_OPERATORS.includes(operation)) {
                 //parse expression
                 let expressionResults = ParseExpression(CharIndex, [";"], false)
                 if (expressionResults) {

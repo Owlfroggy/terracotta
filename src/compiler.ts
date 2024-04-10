@@ -1,8 +1,8 @@
-import { ActionToken, ExpressionToken, NumberToken, OperatorToken, StringToken, Token, VariableToken, VALID_VAR_SCCOPES } from "./tokenizer"
+import { ActionToken, ExpressionToken, NumberToken, OperatorToken, StringToken, Token, VariableToken } from "./tokenizer"
+import { VALID_VAR_SCCOPES } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList } from "./domains"
 import * as fflate from "fflate"
-import { TCError } from "./errorHandler"
 
 const VAR_HEADER = `.tc.`
 
@@ -76,7 +76,6 @@ function ToItem(token: Token): CodeItem {
         return new StringItem(token.String)
     }
     else if (token instanceof VariableToken) {
-        print("convert",VALID_VAR_SCCOPES[token.Scope],token.Scope)
         return new VariableItem(VALID_VAR_SCCOPES[token.Scope],token.Name,token.Type)
     }
 
@@ -145,7 +144,6 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
 
             let result
 
-            print(left)
 
             // add and subtract \\
             if ( OrderOfOperations[pass] == "addAndSubtract" && (item.Operator == "+" || item.Operator == "-") ) {
@@ -233,7 +231,6 @@ export function JSONize(code: Array<CodeBlock>): string {
                 }
                 //variable
                 else if (item instanceof VariableItem) {
-                    print(item.Scope)
                     chest.push({
                         "item": {
                             "id": "var",
