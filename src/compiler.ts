@@ -152,6 +152,11 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
 
             let result
 
+            //error for unsupported operation
+            if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][item.Operator] == undefined || OPERATIONS[typeleft][item.Operator][typeright] == undefined) {
+                throw new TCError(`${typeleft} cannot ${item.Operator} with ${typeright}`,0,item.CharStart,item.CharEnd)
+            }
+
             // add and subtract \\
             if ( OrderOfOperations[pass] == "addAndSubtract" && (item.Operator == "+" || item.Operator == "-") ) {
                 result = OPERATIONS[typeleft][item.Operator][typeright](left, right)
