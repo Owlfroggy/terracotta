@@ -1,8 +1,12 @@
-import { ActionToken, ExpressionToken, NumberToken, OperatorToken, StringToken, Token } from "./tokenizer"
+import { ActionToken, ExpressionToken, NumberToken, OperatorToken, StringToken, Token, VariableToken, VALID_VAR_SCCOPES } from "./tokenizer"
 import { print } from "./main"
 import { Domain, DomainList } from "./domains"
 import * as fflate from "fflate"
 import { TCError } from "./errorHandler"
+
+const VAR_HEADER = `.tc.`
+
+let tempVarCounter = 0
 
 //abstract base class for all code items
 class CodeItem {
@@ -29,6 +33,18 @@ class StringItem extends CodeItem {
     Value: string
 }
 
+class VariableItem extends CodeItem {
+    constructor(scope: "unsaved" | "local" | "saved" | "line", name: string, type: string) {
+        super("var")
+        this.Name = name
+        this.Scope = scope
+        this.compilerType = type
+    }
+    Name: string
+    Scope: "unsaved" | "local" | "saved" | "line"
+    compilerType: string
+}
+
 
 class CodeTag {}
 
@@ -38,6 +54,7 @@ class CodeBlock {
     }
     Block: string
 }
+
 class ActionBlock extends CodeBlock {
     constructor(block: string, action: string, args: Array<CodeItem> = [], tags: Array<CodeTag> = []) {
         super(block)
@@ -58,6 +75,10 @@ function ToItem(token: Token): CodeItem {
     else if (token instanceof StringToken) {
         return new StringItem(token.String)
     }
+    else if (token instanceof VariableToken) {
+        print("convert",VALID_VAR_SCCOPES[token.Scope],token.Scope)
+        return new VariableItem(VALID_VAR_SCCOPES[token.Scope],token.Name,token.Type)
+    }
 
     throw new Error("Could not convert token to item")
 }
@@ -66,10 +87,17 @@ function ToItem(token: Token): CodeItem {
 const OPERATIONS = {
     num: {
         "+": {
-            num: function(left: NumberItem, right: NumberItem): [CodeBlock[],CodeItem] {
+            num: function(left, right, tvinit: number): [CodeBlock[],CodeItem] {
+                //if either thing is a variable
+                if (left instanceof VariableItem || right instanceof VariableItem) {
+                    tempVarCounter++
+                    let returnvar = new VariableItem("line",`${VAR_HEADER}temp${tempVarCounter}`,"num")
+                    let code = new ActionBlock("set_var","+",[returnvar,left,right])
+                    return [[code],returnvar]
+                }
+
                 let leftnum = Number(left.Value)
                 let rightnum = Number(left.Value)
-
                 //if both numbers are numerical then just add them together
                 if (!Number.isNaN(leftnum) && !Number.isNaN(rightnum)) {
                     return [[], new NumberItem(String(leftnum + rightnum))]
@@ -112,11 +140,16 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
             //@ts-ignore
             let right: CodeItem = expression[i+1]
 
+            let typeleft = left instanceof VariableItem ? left.compilerType : left.itemtype
+            let typeright = right instanceof VariableItem ? right.compilerType : right.itemtype
+
             let result
+
+            print(left)
 
             // add and subtract \\
             if ( OrderOfOperations[pass] == "addAndSubtract" && (item.Operator == "+" || item.Operator == "-") ) {
-                result = OPERATIONS[left.itemtype][item.Operator][right.itemtype](left, right)
+                result = OPERATIONS[typeleft][item.Operator][typeright](left, right)
             }
             
             code.push(...result[0])
@@ -197,7 +230,22 @@ export function JSONize(code: Array<CodeBlock>): string {
                         },
                         "slot": chest.length
                     })
-                } else {
+                }
+                //variable
+                else if (item instanceof VariableItem) {
+                    print(item.Scope)
+                    chest.push({
+                        "item": {
+                            "id": "var",
+                            "data": {
+                                "name": item.Name,
+                                "scope": item.Scope
+                            }
+                        },
+                        "slot": chest.length
+                    })
+                } 
+                else {
                     throw new Error(`Failed to convert item of type '${item.itemtype}' to JSON`)
                 }
             }

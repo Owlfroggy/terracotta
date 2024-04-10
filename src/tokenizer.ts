@@ -8,6 +8,7 @@ import { PrintError, TCError } from "./errorHandler"
 import { print } from "./main"
 import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil, GetCharacterAtIndex } from "./characterUtils"
 import * as AD from "./actionDump"
+import { UnzipPassThrough } from "fflate"
 
 export { }
 
@@ -129,24 +130,23 @@ export class Token {
 
 //= Variables =\\
 export class VariableToken extends Token {
-    constructor(scope: String, name: String, type: string) {
+    constructor(scope: string, name: string, type: string) {
         super()
-        if (scope == "global") { scope = "game" }
         this.Scope = scope
         this.Name = name
         this.Type = type
     }
 
-    Scope: String
-    Name: String
+    Scope: string
+    Name: string
     Type: string
 
     itemtype = "var"
 }
 
-const VALID_VAR_SCCOPES = {
-    "global": "game",
-    "saved": "save",
+export const VALID_VAR_SCCOPES = {
+    "global": "unsaved",
+    "saved": "saved",
     "local": "local",
     "line": "line"
 }
@@ -185,7 +185,7 @@ function ParseVariable(index): [number, VariableToken] | null {
 
     index = nameResults[0]
 
-    let type = "any"
+    let type = "num"
     //if theres a : after the variable, parse its type
     if (GetNextCharacters(index,1) == ":") {
         //move to :

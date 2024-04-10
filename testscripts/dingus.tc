@@ -1,1 +1,1 @@
-default:SendMessage("Hello world!");
+default:SendMessage("Hello world!",257 + global balls, saved greg);
