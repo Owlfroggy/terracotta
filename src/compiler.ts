@@ -95,8 +95,24 @@ const OPERATIONS = {
     num: {
         "+": {
             num: function(left, right, tvinit: number): [CodeBlock[],CodeItem] {
-                //if either thing is a variable
+                //if at least one thing is a variable
                 if (left instanceof VariableItem || right instanceof VariableItem) {
+                    let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
+                    let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
+
+                    //%conditions where %math is supported
+                    if (leftIsLine && rightIsLine) {
+                        return [[],new NumberItem([left.CharStart,right.CharEnd],`%math(%var(${left.Name})+%var(${right.Name}))`)]
+                    }
+                    else if (leftIsLine) {
+                        return [[],new NumberItem([left.CharStart,right.CharEnd],`%math(%var(${left.Name})+${right.Value})`)]
+                    }
+                    else if (rightIsLine) {
+                        return [[],new NumberItem([left.CharStart,right.CharEnd],`%math(${left.Value}+%var(${right.Name}))`)]
+                    }
+
+                    //otherwise use set var
+
                     tempVarCounter++
                     let returnvar = new VariableItem(null,"line",`${VAR_HEADER}temp${tempVarCounter}`,"num")
                     let code = new ActionBlock("set_var","+",[returnvar,left,right])
