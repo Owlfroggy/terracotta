@@ -91,51 +91,84 @@ function ToItem(token: Token): CodeItem {
 }
 
 //operations
+function OPR_NumOnNum(left, right, opr: string, blockopr: string): [CodeBlock[],CodeItem] {
+    //if at least one thing is a variable
+    if (left instanceof VariableItem || right instanceof VariableItem) {
+        let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
+        let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
+
+        //%conditions where %math is supported
+        if (leftIsLine && rightIsLine) {
+            return [[], new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}%var(${right.Name}))`)]
+        }
+        else if (leftIsLine) {
+            return [[], new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}${right.Value})`)]
+        }
+        else if (rightIsLine) {
+            return [[], new NumberItem([left.CharStart, right.CharEnd], `%math(${left.Value}${opr}%var(${right.Name}))`)]
+        }
+
+        //otherwise use set var
+
+        tempVarCounter++
+        let returnvar = new VariableItem(null, "line", `${VAR_HEADER}temp${tempVarCounter}`, "num")
+        let code = new ActionBlock("set_var", blockopr, [returnvar, left, right])
+        return [[code], returnvar]
+    }
+
+    let leftnum = Number(left.Value)
+    let rightnum = Number(right.Value)
+    //if both numbers are numerical then just add them together
+    if (!Number.isNaN(leftnum) && !Number.isNaN(rightnum)) {
+        let val = 
+            (opr == "+") ? (leftnum + rightnum) :
+            (opr == "-") ? (leftnum - rightnum) :
+            (opr == "*") ? (leftnum * rightnum) :
+            (opr == "/") ? (leftnum / rightnum) :
+            (opr == "%") ? (leftnum % rightnum) :
+            "OPERATION ERROR"
+        return [[], new NumberItem(null, String(val))]
+    }
+    //otherwise at least one of them is %mathing so just do that
+    else {
+        return [[], new NumberItem(null, `%math(${left.Value}${opr}${right.Value})`)]
+    }
+}
+
 const OPERATIONS = {
     num: {
         "+": {
-            num: function(left, right, tvinit: number): [CodeBlock[],CodeItem] {
-                //if at least one thing is a variable
-                if (left instanceof VariableItem || right instanceof VariableItem) {
-                    let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
-                    let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
-
-                    //%conditions where %math is supported
-                    if (leftIsLine && rightIsLine) {
-                        return [[],new NumberItem([left.CharStart,right.CharEnd],`%math(%var(${left.Name})+%var(${right.Name}))`)]
-                    }
-                    else if (leftIsLine) {
-                        return [[],new NumberItem([left.CharStart,right.CharEnd],`%math(%var(${left.Name})+${right.Value})`)]
-                    }
-                    else if (rightIsLine) {
-                        return [[],new NumberItem([left.CharStart,right.CharEnd],`%math(${left.Value}+%var(${right.Name}))`)]
-                    }
-
-                    //otherwise use set var
-
-                    tempVarCounter++
-                    let returnvar = new VariableItem(null,"line",`${VAR_HEADER}temp${tempVarCounter}`,"num")
-                    let code = new ActionBlock("set_var","+",[returnvar,left,right])
-                    return [[code],returnvar]
-                }
-
-                let leftnum = Number(left.Value)
-                let rightnum = Number(left.Value)
-                //if both numbers are numerical then just add them together
-                if (!Number.isNaN(leftnum) && !Number.isNaN(rightnum)) {
-                    return [[], new NumberItem(null,String(leftnum + rightnum))]
-                }
-                //otherwise at least one of them is %mathing so just do that
-                else {
-                    return [[], new NumberItem(null,`%math(${left.Value}+${right.Value})`)]
-                }
+            num: function(left, right): [CodeBlock[],CodeItem] {
+                return OPR_NumOnNum(left,right,"+","+")
             }
-        }
+        },
+        "-": {
+            num: function(left, right): [CodeBlock[],CodeItem] {
+                return OPR_NumOnNum(left,right,"-","-")
+            }
+        },
+        "*": {
+            num: function(left, right): [CodeBlock[],CodeItem] {
+                return OPR_NumOnNum(left,right,"*","x")
+            }
+        },
+        "/": {
+            num: function(left, right): [CodeBlock[],CodeItem] {
+                return OPR_NumOnNum(left,right,"/","/")
+            }
+        },
+        // not possible until i do code tags
+        // "%": {
+        //     num: function(left, right): [CodeBlock[],CodeItem] {
+        //         return OPR_NumOnNum(left,right,"%","%")
+        //     }
+        // }
     }
 }
 
 const OrderOfOperations = [
-    "addAndSubtract"
+    ["*","/","%"],
+    ["+","-"]
 ]
 
 function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
@@ -151,39 +184,42 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
         }
     }
 
-    let pass = 0
 
-    let i = 0;
-    while (i < expression.length) {
-        let item = expression[i]
+    for (let pass = 0; pass < OrderOfOperations.length; pass++) {
+        let i = 0;
+        while (i < expression.length) {
+            let item = expression[i]
 
-        if (item instanceof OperatorToken) {
-            //@ts-ignore
-            let left: CodeItem = expression[i-1]
-            //@ts-ignore
-            let right: CodeItem = expression[i+1]
+            if (item instanceof OperatorToken) {
+                //@ts-ignore
+                let left: CodeItem = expression[i - 1]
+                //@ts-ignore
+                let right: CodeItem = expression[i + 1]
 
-            let typeleft = left instanceof VariableItem ? left.compilerType : left.itemtype
-            let typeright = right instanceof VariableItem ? right.compilerType : right.itemtype
+                let typeleft = left instanceof VariableItem ? left.compilerType : left.itemtype
+                let typeright = right instanceof VariableItem ? right.compilerType : right.itemtype
 
-            let result
+                let result
 
-            //error for unsupported operation
-            if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][item.Operator] == undefined || OPERATIONS[typeleft][item.Operator][typeright] == undefined) {
-                throw new TCError(`${typeleft} cannot ${item.Operator} with ${typeright}`,0,item.CharStart,item.CharEnd)
+                //error for unsupported operation
+                if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][item.Operator] == undefined || OPERATIONS[typeleft][item.Operator][typeright] == undefined) {
+                    throw new TCError(`${typeleft} cannot ${item.Operator} with ${typeright}`, 0, item.CharStart, item.CharEnd)
+                }
+
+                // add and subtract \\
+                if (OrderOfOperations[pass].includes(item.Operator)) {
+                    result = OPERATIONS[typeleft][item.Operator][typeright](left, right)
+                }
+
+                if (result) {
+                    code.push(...result[0])
+                    expression[i - 1] = result[1]
+                    expression.splice(i, 2)
+                    i--
+                }
             }
-
-            // add and subtract \\
-            if ( OrderOfOperations[pass] == "addAndSubtract" && (item.Operator == "+" || item.Operator == "-") ) {
-                result = OPERATIONS[typeleft][item.Operator][typeright](left, right)
-            }
-            
-            code.push(...result[0])
-            expression[i-1] = result[1]
-            expression.splice(i,2)
-            i--
+            i++
         }
-        i++
     }
 
     if (expression.length > 1) {
