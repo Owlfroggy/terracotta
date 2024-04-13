@@ -251,7 +251,6 @@ function OPR_StringAdd(left, right): [CodeBlock[],CodeItem] {
 
         //otherwise use set var
 
-        tempVarCounter++
         let returnvar = NewTempVar("str")
         let code = new ActionBlock("set_var", "String", [returnvar, left, right])
         return [[code], returnvar]
@@ -298,7 +297,6 @@ const OPERATIONS = {
         },
         "*": {
             num: function(left, right): [CodeBlock[], CodeItem] {
-                tempVarCounter++
                 let returnvar = NewTempVar("str")
                 let code = new ActionBlock("set_var","RepeatString",[returnvar,left,right])
 
