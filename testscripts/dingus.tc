@@ -1,1 +1,1 @@
-default:SendMessage(91 % global Two);
+default:Teleport(loc[global Three + 12,49 + 2,15]);

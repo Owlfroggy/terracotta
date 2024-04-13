@@ -1,11 +1,12 @@
-import { ActionToken, ExpressionToken, NumberToken, OperatorToken, StringToken, Token, VariableToken } from "./tokenizer"
-import { VALID_VAR_SCCOPES } from "./constants"
+import { ActionToken, ExpressionToken, LocationToken, NumberToken, OperatorToken, StringToken, Token, VariableToken } from "./tokenizer"
+import { VALID_VAR_SCCOPES, VALID_TYPES } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList } from "./domains"
 import * as fflate from "fflate"
 import { TCError } from "./errorHandler"
+import { Action } from "./actionDump"
 
-const VAR_HEADER = `.tc.`
+const VAR_HEADER = `@__TC_`
 
 let tempVarCounter = 0
 
@@ -44,6 +45,11 @@ class StringItem extends CodeItem {
 class VariableItem extends CodeItem {
     constructor(meta,scope: "unsaved" | "local" | "saved" | "line", name: string, type: string) {
         super("var",meta)
+
+        if (!VALID_TYPES.includes(type)) {
+            throw Error("Attempted to create variable of invalid type "+type)
+        }
+
         this.Name = name
         this.Scope = scope
         this.compilerType = type
@@ -53,8 +59,38 @@ class VariableItem extends CodeItem {
     compilerType: string
 }
 
+class LocationItem extends CodeItem {
+    constructor(meta, x: number, y: number, z: number, pitch: number, yaw: number) {
+        super("loc",meta)
+        this.X = x
+        this.Y = y
+        this.Z = z
+        this.Pitch = pitch
+        this.Yaw = yaw
+    }
+    X: number
+    Y: number
+    Z: number
+    Pitch: number
+    Yaw: number
+}
 
-class CodeTag {}
+
+class TagItem extends CodeItem {
+    constructor(meta,tag: string, option: string, block: string, action: string, variable: VariableItem | null = null) {
+        super("tag",meta)
+        this.Tag = tag
+        this.Option = option
+        this.Block = block
+        this.Action = action
+        this.Variable = variable
+    }
+    Tag: string
+    Option: string
+    Block: string
+    Action: string
+    Variable: VariableItem | null
+}
 
 class CodeBlock {
     constructor(block: string) {
@@ -64,7 +100,7 @@ class CodeBlock {
 }
 
 class ActionBlock extends CodeBlock {
-    constructor(block: string, action: string, args: Array<CodeItem> = [], tags: Array<CodeTag> = []) {
+    constructor(block: string, action: string, args: Array<CodeItem> = [], tags: Array<TagItem> = []) {
         super(block)
         this.Action = action
         this.Arguments = args
@@ -72,19 +108,76 @@ class ActionBlock extends CodeBlock {
     }
     Action: string
     Arguments: Array<CodeItem>
-    Tags: Array<CodeTag>
+    Tags: Array<TagItem>
+}
+
+function NewTempVar(type: string): VariableItem {
+    tempVarCounter++
+    return new VariableItem(null, "line", `${VAR_HEADER}REG_${tempVarCounter}`, type)
+}
+
+function GetType(item: CodeItem) {
+    if (item instanceof VariableItem) {
+        return item.compilerType
+    } else {
+        return item.itemtype
+    }
 }
 
 //takes in a Token from the parser and converts it to a CodeItem
-function ToItem(token: Token): CodeItem {
+//codeBlock[] is the code generated to create the item and should generally be pushed right after this function is called
+function ToItem(token: Token): [CodeBlock[],CodeItem] {
+    let code: CodeBlock[] = []
+
     if (token instanceof NumberToken) {
-        return new NumberItem([token.CharStart,token.CharEnd],token.Number)
+        return [code,new NumberItem([token.CharStart,token.CharEnd],token.Number)]
     }
     else if (token instanceof StringToken) {
-        return new StringItem([token.CharStart,token.CharEnd],token.String)
+        return [code,new StringItem([token.CharStart,token.CharEnd],token.String)]
     }
     else if (token instanceof VariableToken) {
-        return new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCCOPES[token.Scope],token.Name,token.Type)
+        return [code,new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCCOPES[token.Scope],token.Name,token.Type)]
+    } 
+    else if (token instanceof LocationToken) {
+        let components: Dict<any> = {}
+
+        let resultIsVariable = false
+
+        for (const component of ["X","Y","Z","Pitch","Yaw"]) {
+            //default for pitch and yaw
+            if (token[component] == null && (component == "Pitch" || component == "Yaw")) {
+                components[component] = new NumberItem([],"0")
+                continue
+            }
+
+            let solved = SolveExpression(token[component])
+            //if code was required to generate this component
+            if (solved[0].length > 0) {
+                code.push(...solved[0])
+                resultIsVariable = true
+            }
+            //if this component is %mathing
+            if (solved[1] instanceof NumberItem && Number.isNaN(Number(solved[1].Value))) {
+                resultIsVariable = true
+            }
+
+            let resultType = GetType(solved[1])
+            if (resultType != "num") {
+                throw new TCError(`Expected num for ${component}, got ${resultType}`,0,token[component].CharStart,token[component].CharEnd)
+            }
+
+            components[component] = solved[1]
+        }
+
+        if (resultIsVariable) {
+            let returnVar = NewTempVar("loc")
+            code.push(
+                new ActionBlock("set_var","SetAllCoords",[returnVar,components.X,components.Y,components.Z,components.Pitch,components.Yaw],[new TagItem([],"Coordinate Type","Plot coordinate","set_var","SetAllCoords")])
+            )
+            return [code,returnVar]
+        } else {
+            return [code,new LocationItem([token.CharStart,token.CharEnd],components.X.Value,components.Y.Value,components.Z.Value,components.Pitch.Value,components.Yaw.Value)]
+        }
     }
 
     throw new Error("Could not convert token to item")
@@ -110,8 +203,8 @@ function OPR_NumOnNum(left, right, opr: string, blockopr: string): [CodeBlock[],
 
         //otherwise use set var
 
-        tempVarCounter++
-        let returnvar = new VariableItem(null, "line", `${VAR_HEADER}temp${tempVarCounter}`, "num")
+
+        let returnvar = NewTempVar("num")
         let code = new ActionBlock("set_var", blockopr, [returnvar, left, right])
         return [[code], returnvar]
     }
@@ -135,12 +228,46 @@ function OPR_NumOnNum(left, right, opr: string, blockopr: string): [CodeBlock[],
     }
 }
 
+function OPR_StringAdd(left, right): [CodeBlock[],CodeItem] {
+    //if either left or right is a variable
+    //or if either left or right aren't strings
+    if (
+        (left instanceof VariableItem || !(left instanceof StringItem)) || 
+        (right instanceof VariableItem || !(right instanceof StringItem))
+    ) {
+        let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
+        let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
+
+        //%conditions where %var is supported
+        if (leftIsLine && rightIsLine) {
+            return [[], new StringItem([left.CharStart, right.CharEnd], `%var(${left.Name})%var(${right.Name})`)]
+        }
+        else if (leftIsLine && right instanceof StringItem) {
+            return [[], new StringItem([left.CharStart, right.CharEnd], `%var(${left.Name})${right.Value}`)]
+        }
+        else if (left instanceof StringItem && rightIsLine) {
+            return [[], new StringItem([left.CharStart, right.CharEnd], `${left.Value}%var(${right.Name})`)]
+        }
+
+        //otherwise use set var
+
+        tempVarCounter++
+        let returnvar = NewTempVar("str")
+        let code = new ActionBlock("set_var", "String", [returnvar, left, right])
+        return [[code], returnvar]
+    }
+
+    //otherwise just combine the two values
+    return [[], new StringItem(null, `${left.Value}${right.Value}`)]
+}
+
 const OPERATIONS = {
     num: {
         "+": {
             num: function(left, right): [CodeBlock[],CodeItem] {
                 return OPR_NumOnNum(left,right,"+","+")
-            }
+            },
+            str: OPR_StringAdd
         },
         "-": {
             num: function(left, right): [CodeBlock[],CodeItem] {
@@ -163,6 +290,21 @@ const OPERATIONS = {
         //         return OPR_NumOnNum(left,right,"%","%")
         //     }
         // }
+    },
+    str: {
+        "+": {
+            str: OPR_StringAdd,
+            num: OPR_StringAdd
+        },
+        "*": {
+            num: function(left, right): [CodeBlock[], CodeItem] {
+                tempVarCounter++
+                let returnvar = NewTempVar("str")
+                let code = new ActionBlock("set_var","RepeatString",[returnvar,left,right])
+
+                return [[code],returnvar]
+            }
+        }
     }
 }
 
@@ -180,7 +322,9 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
         if (token instanceof OperatorToken) {
             expression.push(token)
         } else {
-            expression.push(ToItem(token))
+            let toItemResults = ToItem(token)
+            code.push(...toItemResults[0])
+            expression.push(toItemResults[1])
         }
     }
 
@@ -203,11 +347,11 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
 
                 // add and subtract \\
                 if (OrderOfOperations[pass].includes(item.Operator)) {
-                //error for unsupported operation
-                if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][item.Operator] == undefined || OPERATIONS[typeleft][item.Operator][typeright] == undefined) {
-                    throw new TCError(`${typeleft} cannot ${item.Operator} with ${typeright}`, 0, item.CharStart, item.CharEnd)
-                }
-
+                    //error for unsupported operation
+                    if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][item.Operator] == undefined || OPERATIONS[typeleft][item.Operator][typeright] == undefined) {
+                        throw new TCError(`${typeleft} cannot ${item.Operator} with ${typeright}`, 0, item.CharStart, item.CharEnd)
+                    }
+                    
                     result = OPERATIONS[typeleft][item.Operator][typeright](left, right)
                 }
 
@@ -305,10 +449,60 @@ export function JSONize(code: Array<CodeBlock>): string {
                         },
                         "slot": chest.length
                     })
-                } 
+                }
+                //location
+                else if (item instanceof LocationItem) {
+                    chest.push({
+                        "item": {
+                            "id": "loc",
+                            "data": {
+                                "isBlock": false,
+                                "loc": {
+                                    "x": item.X,
+                                    "y": item.Y,
+                                    "z": item.Z,
+                                    "pitch": item.Pitch,
+                                    "yaw": item.Yaw
+                                }
+                            }
+                        },
+                        "slot": chest.length
+                    })
+                }
                 else {
                     throw new Error(`Failed to convert item of type '${item.itemtype}' to JSON`)
                 }
+            }
+
+            //convert tags
+            let i = 26
+            for (const item of block.Tags) {
+                //main tag data
+                let tag = {
+                    "item": {
+                        "id": "bl_tag",
+                        "data": {
+                            "tag": item.Tag,
+                            "option": item.Option,
+                            "block": item.Block,
+                            "action": item.Action,
+                        }
+                    },
+                    "slot": i
+                }
+                //variable
+                if (item.Variable) {
+                    tag["variable"] = {
+                        "id": "var",
+                        "data": {
+                            "name": item.Variable.Name,
+                            "scope": item.Variable.Scope
+                        }
+                    }
+                }
+
+                chest.push(tag)
+                i--
             }
 
             blocks.push({
