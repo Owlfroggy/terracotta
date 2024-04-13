@@ -1,1 +1,12 @@
-default:Teleport(loc[global Three + 12,49 + 2,15]);
+saved Nine = 9;
+global Ten = 10;
+line TwentyOne = 21;
+line Fifty = 50;
+local Two = 1;
+
+local Two += 1;
+
+local Balls = "100";
+local Balls: str *= 10;
+
+default:SendMessage(saved Nine + global Ten);
