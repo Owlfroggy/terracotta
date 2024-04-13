@@ -1,10 +1,9 @@
-import { ActionToken, ExpressionToken, LocationToken, NumberToken, OperatorToken, StringToken, Token, VariableToken } from "./tokenizer"
-import { VALID_VAR_SCCOPES, VALID_TYPES } from "./constants"
+import { ActionToken, EventHeaderToken, ExpressionToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, StringToken, Token, VariableToken } from "./tokenizer"
+import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList } from "./domains"
 import * as fflate from "fflate"
 import { TCError } from "./errorHandler"
-import { Action } from "./actionDump"
 
 const VAR_HEADER = `@__TC_`
 
@@ -92,11 +91,55 @@ class TagItem extends CodeItem {
     Variable: VariableItem | null
 }
 
+class ParamItem extends CodeItem {
+    constructor(meta,name: string,type: string,plural: boolean, optional: boolean, defualtValue: CodeItem | null = null) {
+        super("param",meta)
+        this.Name = name
+        this.Type = type
+        this.Plural = plural
+        this.Optional = optional
+        this.DefaultValue = defualtValue
+    }
+    Name: string
+    Type: string
+    Plural: boolean
+    Optional: boolean
+    DefaultValue: CodeItem | null
+}
+
 class CodeBlock {
     constructor(block: string) {
         this.Block = block
     }
     Block: string
+}
+
+class EventBlock extends CodeBlock {
+    constructor(type: "ENTITY_EVENT" | "PLAYER_EVENT", event: string,lsCancel: boolean) {
+        super(type)
+        this.Event = event
+        this.LSCancel = lsCancel
+    }
+    Event: string
+    LSCancel: boolean
+}
+
+class FunctionBlock extends CodeBlock {
+    constructor(name: string, params: ParamItem[]) {
+        super("FUNCTION")
+        this.Name = name
+        this.Parameters = params
+    }
+    Name: string
+    Parameters: ParamItem[]
+}
+
+class ProcessBlock extends CodeBlock {
+    constructor(name: string) {
+        super("PROCESS")
+        this.Name = name
+    }
+    Name: string
 }
 
 class ActionBlock extends CodeBlock {
@@ -158,6 +201,10 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
             }
             //if this component is %mathing
             if (solved[1] instanceof NumberItem && Number.isNaN(Number(solved[1].Value))) {
+                resultIsVariable = true
+            }
+            //if this component is a variable
+            if (solved[1] instanceof VariableItem) {
                 resultIsVariable = true
             }
 
@@ -379,7 +426,83 @@ export class CompileResults {
 export function Compile(lines: Array<Array<Token>>): CompileResults {
     var CodeLine: Array<CodeBlock> = []
 
+    let headerMode = true
+    let headerData: Dict<any> = {
+        codeblock: null,
+        lsCancel: false,
+        params: []
+    }
+    let existingParams: string[] = []
+
     for (let line of lines) {
+        //headers
+        if (headerMode) {
+            let header = line[0]
+            if (header instanceof EventHeaderToken) {
+                //if an event has already been declared
+                if (headerData.codeblock) {
+                    throw new TCError("Code line type has already been delcared",0,line[0].CharStart,line[0].CharEnd)
+                }
+                
+                headerData.codeblock = header
+            }
+            else if (header instanceof KeywordHeaderToken) {
+                switch (header.Keyword) {
+                    case "LAGSLAYER_CANCEL":
+                        headerData.lsCancel = header
+                        break
+                }
+            }
+            else if (header instanceof ParamHeaderToken) {
+                //solve default value
+                let results = header.DefaultValue != null ? SolveExpression(header.DefaultValue) : null
+                //error if default value requires code
+                if (results && results[0].length > 0) {
+                    throw new TCError("Default value must be a compile-time constant",0,header.DefaultValue?.CharStart!,header.DefaultValue?.CharEnd!)
+                }
+
+                //error if a param by this name already exists
+                if (existingParams.includes(header.Name)) {
+                    throw new TCError(`Duplicate parameter '${header.Name}'`,0,header.CharStart,header.CharEnd)
+                }
+
+                //record that a param by this name exists
+                existingParams.push(header.Name)
+
+                //error for type mis-match
+                if (header.Type != "any" && results && results![1].itemtype != header.Type) {
+                    throw new TCError(`Default value (${results![1].itemtype}) does not match parameter type (${header.Type})`,0,header.DefaultValue!.CharStart,header.DefaultValue!.CharEnd)
+                }
+
+                headerData.params.push(
+                    new ParamItem([header.CharStart,header.CharEnd],header.Name,header.Type,header.Plural,header.Optional,results ? results[1] : null)
+                )
+            }
+            
+            //done with headers, apply them
+            else {
+                let block
+                if (headerData.codeblock.Codeblock == "PLAYER_EVENT" || headerData.codeblock.Codeblock == "ENTITY_EVENT") {
+                    block = new EventBlock(headerData.codeblock.Codeblock,headerData.codeblock.Event,headerData.lsCancel == false ? false : true)
+                }
+                else if (headerData.codeblock.Codeblock == "FUNCTION") {
+                    block = new FunctionBlock(headerData.codeblock.Event,headerData.params)
+                }
+                else if (headerData.codeblock.Codeblock == "PROCESS") {
+                    block = new ProcessBlock(headerData.codeblock.Event)
+                }
+
+                //error if applying params to something thats not a function
+                if (headerData.codeblock.Codeblock != "FUNCTION" && headerData.params.length > 0) {
+                    throw new TCError("Only functions can have parameters",0,headerData.params[0].CharStart,headerData.params[0].CharEnd)
+                }
+
+                CodeLine.push(block)
+
+                headerMode = false
+            }
+        }
+
         //action
         if (line[0] instanceof ActionToken) {
             let action = line[0]
@@ -450,6 +573,52 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 }
 
 //convert code to df template JSON
+function JSONizeItem(item: CodeItem) {
+    if (item instanceof NumberItem) {
+        return {
+            "id": "num",
+            "data": {
+                "name": item.Value
+            }
+        }
+    }
+    else if (item instanceof StringItem) {
+        return {
+            "id": "txt",
+            "data": {
+                "name": item.Value
+            }
+        }
+    }
+    else if (item instanceof VariableItem) {
+        return {
+            "id": "var",
+            "data": {
+                "name": item.Name,
+                "scope": item.Scope
+            }
+        }
+    }
+    else if (item instanceof LocationItem) {
+        return {
+            "id": "loc",
+            "data": {
+                "isBlock": false,
+                "loc": {
+                    "x": item.X,
+                    "y": item.Y,
+                    "z": item.Z,
+                    "pitch": item.Pitch,
+                    "yaw": item.Yaw
+                }
+            }
+        }
+    }
+    else {
+        throw new Error(`Failed to convert item of type '${item.itemtype}' to JSON`)
+    }
+}
+
 export function JSONize(code: Array<CodeBlock>): string {
     let blocks: Array<Object> = []
     for (let block of code) {
@@ -457,65 +626,10 @@ export function JSONize(code: Array<CodeBlock>): string {
             let chest: any[] = []
             //convert items
             for (const item of block.Arguments) {
-                //number
-                if (item instanceof NumberItem) {
-                    chest.push({
-                        "item": {
-                            "id": "num",
-                            "data": {
-                                "name": item.Value
-                            }
-                        },
-                        "slot": chest.length
-                    })
-                }
-                //string
-                else if (item instanceof StringItem) {
-                    chest.push({
-                        "item": {
-                            "id": "txt",
-                            "data": {
-                                "name": item.Value
-                            }
-                        },
-                        "slot": chest.length
-                    })
-                }
-                //variable
-                else if (item instanceof VariableItem) {
-                    chest.push({
-                        "item": {
-                            "id": "var",
-                            "data": {
-                                "name": item.Name,
-                                "scope": item.Scope
-                            }
-                        },
-                        "slot": chest.length
-                    })
-                }
-                //location
-                else if (item instanceof LocationItem) {
-                    chest.push({
-                        "item": {
-                            "id": "loc",
-                            "data": {
-                                "isBlock": false,
-                                "loc": {
-                                    "x": item.X,
-                                    "y": item.Y,
-                                    "z": item.Z,
-                                    "pitch": item.Pitch,
-                                    "yaw": item.Yaw
-                                }
-                            }
-                        },
-                        "slot": chest.length
-                    })
-                }
-                else {
-                    throw new Error(`Failed to convert item of type '${item.itemtype}' to JSON`)
-                }
+                chest.push({
+                    "item": JSONizeItem(item),
+                    "slot": chest.length
+                })
             }
 
             //convert tags
@@ -536,13 +650,7 @@ export function JSONize(code: Array<CodeBlock>): string {
                 }
                 //variable
                 if (item.Variable) {
-                    tag["variable"] = {
-                        "id": "var",
-                        "data": {
-                            "name": item.Variable.Name,
-                            "scope": item.Variable.Scope
-                        }
-                    }
+                    tag["variable"] = JSONizeItem(item.Variable)
                 }
 
                 chest.push(tag)
@@ -555,6 +663,69 @@ export function JSONize(code: Array<CodeBlock>): string {
                 "args": {"items": chest},
                 "action": block.Action
             })
+        }
+        else if (block instanceof EventBlock) {
+            blocks.push({
+                "id": "block",
+                "block": block.Block == "PLAYER_EVENT" ? "event" : "entity_event",
+                "args": {
+                    "items": []
+                },
+                "action": block.Event,
+                "attribute": block.LSCancel ? "LS-CANCEL" : undefined
+            })
+        }
+        else if (block instanceof FunctionBlock) {
+            let params: any[] = []
+            for (const param of block.Parameters) {
+                params.push({
+                    "item": {
+                        "id": "pn_el",
+                        "data": {
+                            "name": param.Name,
+                            "type": TC_TYPE_TO_DF_TYPE[param.Type],
+                            "default_value": param.DefaultValue != null ? JSONizeItem(param.DefaultValue) : undefined,
+                            "plural": param.Plural,
+                            "optional": param.Optional
+                        }
+                    },
+                    "slot": params.length
+                })
+            }
+            blocks.push({
+                "id": "block",
+                "block": "func",
+                "args": {
+                    "items": params
+                },
+                "data": block.Name
+            })
+        }
+        else if (block instanceof ProcessBlock) {
+            blocks.push({
+                "id": "block",
+                "block": "process",
+                "args": {
+                    "items": [
+                        {
+                            "item": {
+                                "id": "bl_tag",
+                                "data": {
+                                    "option": "False",
+                                    "tag": "Is Hidden",
+                                    "action": "dynamic",
+                                    "block": "process"
+                                }
+                            },
+                            "slot": 26
+                        }
+                    ]
+                },
+                "data": block.Name
+            })
+        }
+        else {
+            throw new Error("Failed to convert block to JSON")
         }
     }
 
