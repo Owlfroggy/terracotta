@@ -481,12 +481,13 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             
             //done with headers, apply them
             else {
+                if (headerData.codeblock) {
                 let block
                 if (headerData.codeblock.Codeblock == "PLAYER_EVENT" || headerData.codeblock.Codeblock == "ENTITY_EVENT") {
-                    block = new EventBlock(headerData.codeblock.Codeblock,headerData.codeblock.Event,headerData.lsCancel == false ? false : true)
+                        block = new EventBlock(headerData.codeblock.Codeblock, headerData.codeblock.Event, headerData.lsCancel == false ? false : true)
                 }
                 else if (headerData.codeblock.Codeblock == "FUNCTION") {
-                    block = new FunctionBlock(headerData.codeblock.Event,headerData.params)
+                        block = new FunctionBlock(headerData.codeblock.Event, headerData.params)
                 }
                 else if (headerData.codeblock.Codeblock == "PROCESS") {
                     block = new ProcessBlock(headerData.codeblock.Event)
@@ -494,10 +495,13 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
                 //error if applying params to something thats not a function
                 if (headerData.codeblock.Codeblock != "FUNCTION" && headerData.params.length > 0) {
-                    throw new TCError("Only functions can have parameters",0,headerData.params[0].CharStart,headerData.params[0].CharEnd)
+                        throw new TCError("Only functions can have parameters", 0, headerData.params[0].CharStart, headerData.params[0].CharEnd)
                 }
 
                 CodeLine.push(block)
+                } else {
+                    throw new TCError("File is neither a function, process, or event.",0,-1,-1)
+                }
 
                 headerMode = false
             }
