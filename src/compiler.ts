@@ -101,10 +101,10 @@ function OPR_NumOnNum(left, right, opr: string, blockopr: string): [CodeBlock[],
         if (leftIsLine && rightIsLine) {
             return [[], new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}%var(${right.Name}))`)]
         }
-        else if (leftIsLine) {
+        else if (leftIsLine && right instanceof NumberItem) {
             return [[], new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}${right.Value})`)]
         }
-        else if (rightIsLine) {
+        else if (left instanceof NumberItem && rightIsLine) {
             return [[], new NumberItem([left.CharStart, right.CharEnd], `%math(${left.Value}${opr}%var(${right.Name}))`)]
         }
 
