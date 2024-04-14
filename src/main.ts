@@ -12,7 +12,7 @@ export function print (...data: any[]) {
     console.log(...data,)
 }
 
-async function Main() {
+async function Main() { 
     //tokenize
     let FILE_PATH = "testscripts/dingus.tc"
     let script = await Bun.file(FILE_PATH).text()

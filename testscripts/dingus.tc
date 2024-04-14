@@ -1,12 +1,3 @@
-FUNCTION GetTag;
-PARAM return: var;
+FUNCTION awesome;
 
-saved [%uuid rankTag]: str;
-saved [%uuid level]: num;
-
-line return = saved [%uuid rankTag] + "&7[&e" + saved [%uuid level] + "&7]";
-
-line balls = saved [%uuid rankTag]: num + 5;
-
-__printvartype saved [%uuid rankTag];
-__printvartype line balls;
+default:SendMessage("awesome vector"){Alignment Mode = line dingus ? Centered};

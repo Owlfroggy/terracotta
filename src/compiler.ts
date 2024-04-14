@@ -593,8 +593,23 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 args.push(expressionResults[1])
             }
 
+            //tags
+            let tags: TagItem[] = []
+            for (let [name, tag] of Object.entries(line[0].Tags)) {
+                tags.push(new TagItem(
+                    [-1,-1],
+                    name,
+                    tag!.Value,
+                    domain.CodeBlock!,
+                    domain.Actions[action.Action]?.DFName!,
+                    //@ts-ignore SHUT UP I KNOW WHAT MY CODE DOES!!!!!!! GRRRRR
+                    tag?.Variable ? ToItem(tag.Variable)[1] : null
+                ))
+            }
+            //for (let v of line[0].Tags?)
+
             //push action
-            CodeLine.push(new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args))
+            CodeLine.push(new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags))
         }
         //variable thingies
         else if (line[0] instanceof VariableToken) {
@@ -748,7 +763,7 @@ export function JSONize(code: Array<CodeBlock>): string {
                 }
                 //variable
                 if (item.Variable) {
-                    tag["variable"] = JSONizeItem(item.Variable)
+                    tag.item.data["variable"] = JSONizeItem(item.Variable)
                 }
 
                 chest.push(tag)
