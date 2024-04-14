@@ -1,19 +1,12 @@
-FUNCTION awesome;
-PARAM dingus: num;
-PARAM asdf: optional loc = loc[50 + 100,50,0];
-PARAM [the meaning of the life the universe and everything]: optional str = "42";
-PARAM target: plural loc;
+FUNCTION GetTag;
+PARAM return: var;
 
-saved Nine = 9;
-global Ten = 10;
-line TwentyOne = 21;
-line Fifty = 50;
-local Two = 1;
+saved [%uuid rankTag]: str;
+saved [%uuid level]: num;
 
-local Two += 1;
+line return = saved [%uuid rankTag] + "&7[&e" + saved [%uuid level] + "&7]";
 
-local Balls = "100";
-local Balls: str *= 10;
+line balls = saved [%uuid rankTag]: num + 5;
 
-default:SendMessage(saved Nine + global Ten);
-default:Teleport(line asdf)
+__printvartype saved [%uuid rankTag];
+__printvartype line balls;

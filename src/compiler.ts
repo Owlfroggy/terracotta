@@ -1,4 +1,4 @@
-import { ActionToken, EventHeaderToken, ExpressionToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, StringToken, Token, VariableToken } from "./tokenizer"
+import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, StringToken, Token, VariableToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList } from "./domains"
@@ -8,6 +8,73 @@ import { TCError } from "./errorHandler"
 const VAR_HEADER = `@__TC_`
 
 let tempVarCounter = 0
+//==========[ variable type tracking ]=========\\
+class Context {
+    VariableTypes = {
+        unsaved: {},
+        local: {},
+        saved: {},
+        line: {}
+    }
+
+    //true for the base level context at the bottom of the stack
+    //prevents the pop function from working on this context
+    IsBase = false
+}
+
+//context to actually read var types and stuff from
+var CurrentContext = new Context()
+CurrentContext.IsBase = true
+
+var BaseContext = new Context()
+BaseContext.IsBase = true
+BaseContext.VariableTypes.local["balls"] = "num"
+
+var ContextStack: Context[] = []
+
+PushContext(BaseContext)
+
+function PushContext(context: Context) {
+    ContextStack.push(context)
+    for (let [scope, list] of Object.entries(context.VariableTypes)) {
+        for (let [name, type] of Object.entries(list)) {
+            CurrentContext.VariableTypes[scope][name] = type
+        }
+    }
+}
+
+function PopContext() {
+    let poppedContext = ContextStack.pop() as Context
+    for (let [scope, list] of Object.entries(poppedContext.VariableTypes)) {
+        for (let [name, type] of Object.entries(list)) {
+            let lowerValue = ContextStack[ContextStack.length-1].VariableTypes[scope][name]
+            if (lowerValue) {
+                CurrentContext.VariableTypes[scope][name] = lowerValue
+            } else {
+                delete CurrentContext.VariableTypes[scope][name]
+            }
+        }
+    }
+}
+
+function SetVarType(variable: VariableToken | VariableItem | ["unsaved" | "local" | "saved" | "line",string], type: string) {
+    if (variable instanceof VariableToken) {
+        ContextStack[ContextStack.length-1].VariableTypes[VALID_VAR_SCCOPES[variable.Scope]][variable.Name] = type
+        CurrentContext.VariableTypes[VALID_VAR_SCCOPES[variable.Scope]][variable.Name] = type
+    } else if (variable instanceof VariableItem ) {
+        ContextStack[ContextStack.length-1].VariableTypes[variable.Scope][variable.Name] = type
+        CurrentContext.VariableTypes[variable.Scope][variable.Name] = type
+    } else {
+        ContextStack[ContextStack.length-1].VariableTypes[variable[0]][variable[1]] = type
+        CurrentContext.VariableTypes[variable[0]][variable[1]] = type
+    }
+}
+
+let test = new Context()
+test.VariableTypes.local["balls"] = "num"
+
+PushContext(test)
+PopContext()
 
 //abstract base class for all code items
 class CodeItem {
@@ -42,20 +109,16 @@ class StringItem extends CodeItem {
 }
 
 class VariableItem extends CodeItem {
-    constructor(meta,scope: "unsaved" | "local" | "saved" | "line", name: string, type: string) {
+    constructor(meta,scope: "unsaved" | "local" | "saved" | "line", name: string, storedType: string | null = null) {
         super("var",meta)
-
-        if (!VALID_TYPES.includes(type)) {
-            throw Error("Attempted to create variable of invalid type "+type)
-        }
 
         this.Name = name
         this.Scope = scope
-        this.compilerType = type
+        this.StoredType = storedType
     }
     Name: string
     Scope: "unsaved" | "local" | "saved" | "line"
-    compilerType: string
+    StoredType: string | null
 }
 
 class LocationItem extends CodeItem {
@@ -156,12 +219,18 @@ class ActionBlock extends CodeBlock {
 
 function NewTempVar(type: string): VariableItem {
     tempVarCounter++
-    return new VariableItem(null, "line", `${VAR_HEADER}REG_${tempVarCounter}`, type)
+    let varitem = new VariableItem(null, "line", `${VAR_HEADER}REG_${tempVarCounter}`)
+    SetVarType(varitem,type)
+    return varitem
 }
 
 function GetType(item: CodeItem) {
     if (item instanceof VariableItem) {
-        return item.compilerType
+        if (item.StoredType) {
+            return item.StoredType
+        } else {
+            return CurrentContext.VariableTypes[item.Scope][item.Name] || "num"
+        }
     } else {
         return item.itemtype
     }
@@ -179,7 +248,7 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
         return [code,new StringItem([token.CharStart,token.CharEnd],token.String)]
     }
     else if (token instanceof VariableToken) {
-        return [code,new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCCOPES[token.Scope],token.Name,token.Type)]
+        return [code,new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCCOPES[token.Scope],token.Name, token.Type)]
     } 
     else if (token instanceof LocationToken) {
         let components: Dict<any> = {}
@@ -474,6 +543,11 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                     throw new TCError(`Default value (${results![1].itemtype}) does not match parameter type (${header.Type})`,0,header.DefaultValue!.CharStart,header.DefaultValue!.CharEnd)
                 }
 
+                //automatically cast var for this line var
+                if (!(header.Type == "any" || header.Type == "var")) {
+                    SetVarType(["line",header.Name],header.Type)
+                }
+
                 headerData.params.push(
                     new ParamItem([header.CharStart,header.CharEnd],header.Name,header.Type,header.Plural,header.Optional,results ? results[1] : null)
                 )
@@ -482,23 +556,23 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             //done with headers, apply them
             else {
                 if (headerData.codeblock) {
-                let block
-                if (headerData.codeblock.Codeblock == "PLAYER_EVENT" || headerData.codeblock.Codeblock == "ENTITY_EVENT") {
+                    let block
+                    if (headerData.codeblock.Codeblock == "PLAYER_EVENT" || headerData.codeblock.Codeblock == "ENTITY_EVENT") {
                         block = new EventBlock(headerData.codeblock.Codeblock, headerData.codeblock.Event, headerData.lsCancel == false ? false : true)
-                }
-                else if (headerData.codeblock.Codeblock == "FUNCTION") {
+                    }
+                    else if (headerData.codeblock.Codeblock == "FUNCTION") {
                         block = new FunctionBlock(headerData.codeblock.Event, headerData.params)
-                }
-                else if (headerData.codeblock.Codeblock == "PROCESS") {
-                    block = new ProcessBlock(headerData.codeblock.Event)
-                }
+                    }
+                    else if (headerData.codeblock.Codeblock == "PROCESS") {
+                        block = new ProcessBlock(headerData.codeblock.Event)
+                    }
 
-                //error if applying params to something thats not a function
-                if (headerData.codeblock.Codeblock != "FUNCTION" && headerData.params.length > 0) {
+                    //error if applying params to something thats not a function
+                    if (headerData.codeblock.Codeblock != "FUNCTION" && headerData.params.length > 0) {
                         throw new TCError("Only functions can have parameters", 0, headerData.params[0].CharStart, headerData.params[0].CharEnd)
-                }
+                    }
 
-                CodeLine.push(block)
+                    CodeLine.push(block)
                 } else {
                     throw new TCError("File is neither a function, process, or event.",0,-1,-1)
                 }
@@ -524,8 +598,16 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         }
         //variable thingies
         else if (line[0] instanceof VariableToken) {
+            if (line[0].Type) { SetVarType(line[0],line[0].Type) }
+            //variable all on its own
+            if (line.length == 1) {
+                //throw error for variable thats not assigning type
+                if (line[0].Type == undefined) {
+                    throw new TCError(`Expected type assignment or operator following variable`,0,line[0].CharStart,line[0].CharEnd)
+                }
+            }
             //assignment
-            if (line[1] instanceof OperatorToken) {
+            else if (line[1] instanceof OperatorToken) {
                 // convert left and right to code items
                 let left = ToItem(line[0])[1]
                 let rightResults = SolveExpression(line[2] as ExpressionToken)
@@ -534,14 +616,22 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                     CodeLine.push(...rightResults[0])
                 }
                 let right = rightResults[1]
-                
+
+                let typeleft = GetType(left)
+                let typeright = GetType(right)
 
                 if (line[1].Operator == "=") { 
+                    if (line[0].Type) {
+                        if (typeleft != typeright) {
+                            throw new TCError(`Attempted to set variable explicitly typed as ${typeleft} to ${typeright}`,0,line[0].CharStart,line[2].CharEnd)
+                        }
+                    } else {
+                        //automatically set type to whatevers on the right if no type is provided
+                        SetVarType(line[0],GetType(right))
+                    }
                     CodeLine.push(new ActionBlock("set_var","=",[left,right]))
                 } else {
                     //incremental things idk what to call them
-                    let typeleft = GetType(left)
-                    let typeright = GetType(right)
 
                     let opr = 
                         line[1].Operator == "+=" ? "+" :
@@ -567,6 +657,10 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                     )
                 }
             }
+        }
+        //debug print variable
+        else if (line[0] instanceof DebugPrintVarTypeToken) {
+            console.log(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CurrentContext.VariableTypes[VALID_VAR_SCCOPES[line[0].Variable.Scope]][line[0].Variable.Name]}`)
         }
     }
 

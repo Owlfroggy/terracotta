@@ -2,6 +2,10 @@ import * as Tokenizer from "./tokenizer"
 import * as ErrorHandler from "./errorHandler"
 import * as Compiler from "./compiler"
 
+export const DEBUG_MODE = {
+    enableDebugFunctions: true
+}
+
 //function for spamming debug print statements
 //its faster to type and i can search and destroy them after im done debugging without having to worry about nuking actually important log messages
 export function print (...data: any[]) {

@@ -5,7 +5,7 @@
 
 import { Domain, DomainList, TargetDomain, GenericDomains, GenericTargetDomains } from "./domains"
 import { PrintError, TCError } from "./errorHandler"
-import { print } from "./main"
+import { DEBUG_MODE, print } from "./main"
 import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil, GetCharacterAtIndex } from "./characterUtils"
 import * as AD from "./actionDump"
 import { UnzipPassThrough } from "fflate"
@@ -135,7 +135,7 @@ export class Token {
 
 //= Variables =\\
 export class VariableToken extends Token {
-    constructor(meta,scope: string, name: string, type: string) {
+    constructor(meta,scope: string, name: string, type: string | null) {
         super(meta)
         this.Scope = scope
         this.Name = name
@@ -144,7 +144,7 @@ export class VariableToken extends Token {
 
     Scope: string
     Name: string
-    Type: string
+    Type: string | null
 
     itemtype = "var"
 }
@@ -183,7 +183,7 @@ function ParseVariable(index): [number, VariableToken] | null {
 
     index = nameResults[0]
 
-    let type = "num"
+    let type: string | null = null
     //if theres a : after the variable, parse its type
     if (GetNextCharacters(index,1) == ":") {
         //move to :
@@ -1999,6 +1999,35 @@ function ParseSelectAction(index): [number, SelectActionToken] | null {
     }
 }
 
+
+//======== DEBUG THINGIES ========\\
+export class DebugPrintVarTypeToken extends Token {
+    constructor(meta,variable: VariableToken) {
+        super(meta)
+        this.Variable = variable
+    }
+    Variable: VariableToken
+}
+
+function ParseDebugPrintVarType(index: number): [number,DebugPrintVarTypeToken] | null {
+    index += GetWhitespaceAmount(index) + 1
+    let initIndex = index
+    
+    let identifierResults = GetIdentifier(index)
+    if (!identifierResults || identifierResults[1] != "__printvartype") { return null }
+    index = identifierResults[0]
+
+    let variableResults = ParseVariable(index)
+    if (!variableResults) {
+        throw new TCError("No variable provided",0,initIndex,identifierResults[0])
+    }
+
+    return [variableResults[0], new DebugPrintVarTypeToken([initIndex,variableResults[0]],variableResults[1])]
+}
+
+//======== OTHER STUFF ========\\
+
+
 let symbols = "!@#$%^&*(){}[]-:;\"'~`=/*-+|\\/,.<>".split("")
 let InHeaderParsingStage = true
 
@@ -2088,6 +2117,11 @@ function DoTheThing(): void {
             if (results == null) { results = ParseParamHeader(CharIndex) }
 
             if (results == null) { results = ParseKeywordHeaderToken(CharIndex) }
+        }
+
+        //debug
+        if (DEBUG_MODE.enableDebugFunctions) {
+            if (results == null) { results = ParseDebugPrintVarType(CharIndex) }
         }
 
         //try select
@@ -2202,8 +2236,6 @@ function DoTheThing(): void {
     console.log("Current indx:", CharIndex)
     throw new TCError("Something's definitely wrong here (fallback error)", 0, CharIndex, CharIndex)
 }
-
-//==========[ other code ]=========\\
 
 export class TokenizerResults {
     Lines: Array<Array<Token>>
