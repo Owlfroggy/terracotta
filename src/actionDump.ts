@@ -70,6 +70,9 @@ export let ValidSetVarSoundConds: Dict<Action> = {}
 export let ValidRepeatActions: Dict<Action> = {}
 
 export let ValidSounds: string[] = []
+
+//key: diamondfire id, value: tc type
+export let GameValueTypes: Dict<string> = {}
 //name overrides
 //key: dimaondfire id, value: func name in terracotta
 
@@ -601,9 +604,22 @@ for (let [tcName, action] of Object.entries(ValidEntityCompActions)) {
 // }
 
 //convert game values
+let gvTypeMap = {
+    NUMBER: "num",
+    LOCATION: "loc",
+    VECTOR: "vec",
+    ITEM: "item",
+    LIST: "list",
+    COMPONENT: "txt",
+    TEXT: "str"
+}
+let dingus: string[] = []
 for (const value of ACTION_DUMP.gameValues) {
     let name = value.icon.name.replace(/ /g,"")
     if (GameValueOverrides[value.icon.name]) {name = GameValueOverrides[value.icon.name]}
+
+    GameValueTypes[value.icon.name] = gvTypeMap[value.icon.returnType]
+    if (!gvTypeMap[value.icon.returnType]) { throw new Error(`Game value type '${value.icon.returnType}' is not mapped to any tc type`) }
 
     //plot game values
     if (value.category == "Event Values" || value.category == "Plot Values") {

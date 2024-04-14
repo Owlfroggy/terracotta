@@ -1,7 +1,7 @@
-import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, SoundToken, StringToken, Token, VariableToken, VectorToken } from "./tokenizer"
+import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, SoundToken, StringToken, Token, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE } from "./constants"
 import { print } from "./main"
-import { Domain, DomainList } from "./domains"
+import { Domain, DomainList, TargetDomains } from "./domains"
 import * as fflate from "fflate"
 import { TCError } from "./errorHandler"
 import * as AD from "./actionDump"
@@ -166,6 +166,17 @@ class SoundItem extends CodeItem {
     Variant: string | null
 }
 
+class GameValueItem extends CodeItem {
+    constructor(meta,value,target) {
+        super("gval",meta)
+        this.Value = value
+        this.Target = target
+    }
+
+    Value: string
+    Target: string
+}
+
 class TagItem extends CodeItem {
     constructor(meta,tag: string, option: string, block: string, action: string, variable: VariableItem | null = null) {
         super("tag",meta)
@@ -253,7 +264,9 @@ function NewTempVar(type: string): VariableItem {
 }
 
 function GetType(item: CodeItem) {
-    if (item instanceof VariableItem) {
+    if (item instanceof GameValueItem) {
+        return AD.GameValueTypes[item.Value]
+    } else if (item instanceof VariableItem) {
         if (item.StoredType) {
             return item.StoredType
         } else {
@@ -366,6 +379,7 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
         } else {
             return [code, new VectorItem([token.CharStart,token.CharEnd],components.X.Value,components.Y.Value,components.Z.Value)]
         }
+    //sound
     } else if (token instanceof SoundToken) {
         let components: Dict<any> = {}
 
@@ -433,6 +447,12 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
         }
 
         return [code,latestItem]
+    }
+    else if (token instanceof GameValueToken) {
+        return [code, new GameValueItem([token.CharStart,token.CharEnd],
+            DomainList[token.Target as string]!.Values[token.Value],
+            token.Target == "game" ? "Default" : TargetDomains[token.Target!].Target
+        )]
     }
 
     console.log(token)
@@ -983,6 +1003,15 @@ function JSONizeItem(item: CodeItem) {
                 "sound": item.SoundId ? item.SoundId : undefined,
                 "variant": item.Variant ? item.Variant : undefined,
                 "key": item.CustomKey ? item.CustomKey : undefined
+            }
+        }
+    }
+    else if (item instanceof GameValueItem) {
+        return {
+            "id": "g_val",
+            "data": {
+                "type": item.Value,
+                "target": item.Target
             }
         }
     }

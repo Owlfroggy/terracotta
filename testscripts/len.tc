@@ -1,0 +1,4 @@
+FUNCTION awesome;
+
+vec:Len(line dingus, vec[1,5,10]);
+default:SendMessage(line dingus);

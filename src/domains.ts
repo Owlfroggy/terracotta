@@ -66,31 +66,31 @@ export class TargetDomain extends Domain {
 
 export var TargetDomains = { //this feels like a sin
     //players
-    selection: new TargetDomain("selection","selection","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
-    default: new TargetDomain("default","default","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
-    killer: new TargetDomain("killer","killer","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
-    damager: new TargetDomain("damager","damager","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
-    shooter: new TargetDomain("shooter","shooter","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
-    victim: new TargetDomain("victim","victim","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
-    allPlayers: new TargetDomain("allPlayers","allPlayers","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,{},false,"player_action"),
+    selection: new TargetDomain("selection","Selection","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
+    default: new TargetDomain("default","Default","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
+    killer: new TargetDomain("killer","Killer","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
+    damager: new TargetDomain("damager","Damager","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
+    shooter: new TargetDomain("shooter","Shooter","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
+    victim: new TargetDomain("victim","Victim","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,false,"player_action"),
+    allPlayers: new TargetDomain("allPlayers","AllPlayers","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,{},false,"player_action"),
 
     //entities
-    selectionEntities: new TargetDomain("selectionEntity","selection","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
-    defaultEntity: new TargetDomain("defaultEntity","default","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
-    killerEntity: new TargetDomain("killerEntity","killer","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
-    damagerEntity: new TargetDomain("damagerEntity","damager","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
-    shooterEntity: new TargetDomain("shooterEntity","shooter","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
-    victimEntity: new TargetDomain("victimEntity","victim","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
-    allEntities: new TargetDomain("allEntities","allEntities","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,{},false,"entity_action"),
-    allMobs: new TargetDomain("allMobs","allMobs","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,{},false,"entity_action"),
-    projectile: new TargetDomain("projectile","projectile","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
-    lastSpawnedEntity: new TargetDomain("lastSpawnedEntity","lastSpawnedEntity","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
+    selectionEntities: new TargetDomain("selectionEntity","Selection","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
+    defaultEntity: new TargetDomain("defaultEntity","Default","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
+    killerEntity: new TargetDomain("killerEntity","Killer","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
+    damagerEntity: new TargetDomain("damagerEntity","Damager","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
+    shooterEntity: new TargetDomain("shooterEntity","Shooter","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
+    victimEntity: new TargetDomain("victimEntity","Victim","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
+    allEntities: new TargetDomain("allEntities","AllEntities","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,{},false,"entity_action"),
+    allMobs: new TargetDomain("allMobs","AllMobs","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,{},false,"entity_action"),
+    projectile: new TargetDomain("projectile","Projectile","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
+    lastSpawnedEntity: new TargetDomain("lastSpawnedEntity","LastEntity","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,false,"entity_action"),
 }
 
 //versions of target domains but generalized to just "player" and "entity"
 export var GenericTargetDomains = {
-    player: new TargetDomain("player","default","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,true),
-    entity: new TargetDomain("entity","default","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,true),
+    player: new TargetDomain("player","Default","player",AD.ValidPlayerActions,AD.ValidPlayerCompActions,AD.ValidPlayerGameValues,true),
+    entity: new TargetDomain("entity","Default","entity",AD.ValidEntityActions,AD.ValidEntityCompActions,AD.ValidEntityGameValues,true),
 }
 
 export var GameDomain = new Domain("game",AD.ValidGameActions,AD.ValidGameCompActions,AD.ValidGameGameValues,false,"game_action")
