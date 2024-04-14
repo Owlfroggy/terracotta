@@ -458,7 +458,7 @@ function ParseSound(index: number): [number, SoundToken] | null {
         throw new TCError("Sound is missing ID", 2, keywordInitIndex, argResults[0])
     }
 
-    //successful location creation
+    //successful sound creation
     return [argResults[0], new SoundToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], args[3])]
 }
 
