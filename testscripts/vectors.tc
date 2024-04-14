@@ -1,0 +1,81 @@
+FUNCTION awesome;
+
+line seperator = "-----------------";
+
+line One = 1;
+global Two = 2;
+
+default:SendMessage("§a",line seperator,"Vector test script",line seperator){Alignment Mode = Centered};
+
+default:SendMessage(line seperator,"Item Compilation",line seperator){Alignment Mode = Centered};
+
+default:SendMessage("Constant (code item): vec[1,2,3] =", vec[1,2,3]);
+
+#should be 2 5 2
+default:SendMessage("Compiled with %math: vec[1 + line One, 5, 2] =",vec[1 + line One, 5, 2]);
+
+#should be 3 5 2
+default:SendMessage("Compiled with code blocks: vec[1 + global Two, 5, 2] = ",vec[1 + global Two, 5, 2]);
+
+
+
+default:SendMessage(line seperator,"Addition",line seperator){Alignment Mode = Centered};
+
+
+
+#shold be 1 6 4
+default:SendMessage("expr: (vec[1,1,1] + vec[0,5,3]) = ",vec[1,1,1] + vec[0,5,3]);
+
+#shold be 1 6 4
+default:SendMessage("expr: (vec[1,0 + global Two,1] + vec[0,5 - line One,3]) = ",vec[1,0 + global Two,1] + vec[0,5 - line One,3]);
+
+
+
+default:SendMessage(line seperator,"Subtraction",line seperator){Alignment Mode = Centered};
+
+#should be 8 6 4
+default:SendMessage("expr: (vec[9, 8, 7] - vec[1, 2, 3]) =",vec[9, 8, 7] - vec[1, 2, 3]);
+
+
+default:SendMessage(line seperator,"Multiplication",line seperator){Alignment Mode = Centered};
+
+#should be 2 4 8
+default:SendMessage("expr: (vec[1, 2, 4] * 2) =",vec[1, 2, 4] * 2);
+
+#should be 3 4 4
+default:SendMessage("expr: (vec[1, 2, 4] * vec[3,2,1]) =",vec[1, 2, 4] * vec[3,2,1]);
+
+#should be 2 4 4
+default:SendMessage("expr: (vec[line One, 2, 4] * vec[global Two,2,1]) =",vec[line One, 2, 4] * vec[global Two,2,1]);
+
+line very_cool_vector = vec[8,4,2];
+#should be 8 4 2
+default:SendMessage("expr: (vec[2,2,2] * line very_cool_vector) =",vec[2,2,2] * line very_cool_vector);
+
+default:SendMessage(line seperator,"Division",line seperator){Alignment Mode = Centered};
+
+#should be 2 1.333333 1
+default:SendMessage("expr: (vec[8,4,2] / vec[4,3,2]) =",vec[8,4,2] / vec[4,3,2]);
+
+#should be 4 2 1
+default:SendMessage("expr: (vec[8,4,2] / 2) =",vec[8,4,2] / 2);
+
+
+line vecTens = vec[10,10,10];
+line vec321 = vec[3,2,1];
+default:SendMessage("expr: (line vecTens / line vec321) =",line vecTens / line vec321);
+
+default:SendMessage("expr: (line vecTens / vec[2,4,8]) =",line vecTens / vec[2,4,8]);
+
+default:SendMessage("expr: (vec[line One, 2, 3] * vec[0, 1, 0]) =",vec[line One, 2, 3] * vec[0, 1, 0]);
+
+
+default:SendMessage(line seperator,"LOC + VEC",line seperator){Alignment Mode = Centered};
+
+default:SendMessage("expr: (loc[0,50,0] + vec[1,2,3]) =",loc[0,50,0] + vec[1,2,3]);
+
+default:Teleport;
+default:Teleport;
+
+#should result in loc[3,54,7]
+default:SendMessage("expr: (loc[1,50,1] + vec[line One,2,3] * vec[global Two, global Two, global Two]) =",loc[1,50,1] + vec[line One,2,3] * vec[global Two, global Two, global Two]);

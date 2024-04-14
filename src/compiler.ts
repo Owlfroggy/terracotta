@@ -1,4 +1,4 @@
-import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, StringToken, Token, VariableToken } from "./tokenizer"
+import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, StringToken, Token, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList } from "./domains"
@@ -137,6 +137,17 @@ class LocationItem extends CodeItem {
     Yaw: number
 }
 
+class VectorItem extends CodeItem {
+    constructor(meta, x: number, y: number, z: number) {
+        super("vec",meta)
+        this.X = x
+        this.Y = y
+        this.Z = z
+    }
+    X: number
+    Y: number
+    Z: number
+}
 
 class TagItem extends CodeItem {
     constructor(meta,tag: string, option: string, block: string, action: string, variable: VariableItem | null = null) {
@@ -240,6 +251,30 @@ function GetType(item: CodeItem) {
 //codeBlock[] is the code generated to create the item and should generally be pushed right after this function is called
 function ToItem(token: Token): [CodeBlock[],CodeItem] {
     let code: CodeBlock[] = []
+    let resultIsVariable = false
+
+    function solveNumberArg(expr: ExpressionToken,paramName: string): [CodeBlock[],CodeItem] {
+        let solved = SolveExpression(expr)
+        //if code was required to generate this component
+        if (solved[0].length > 0) {
+            code.push(...solved[0])
+            resultIsVariable = true
+        }
+        //if this component is %mathing
+        if (solved[1] instanceof NumberItem && Number.isNaN(Number(solved[1].Value))) {
+            resultIsVariable = true
+        }
+        //if this component is a variable
+        if (solved[1] instanceof VariableItem) {
+            resultIsVariable = true
+        }
+
+        let resultType = GetType(solved[1])
+        if (resultType != "num") {
+            throw new TCError(`Expected num for ${paramName}, got ${resultType}`,0,expr.CharStart,expr.CharEnd)
+        }
+        return solved
+    }
 
     if (token instanceof NumberToken) {
         return [code,new NumberItem([token.CharStart,token.CharEnd],token.Number)]
@@ -250,10 +285,9 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
     else if (token instanceof VariableToken) {
         return [code,new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCCOPES[token.Scope],token.Name, token.Type)]
     } 
+    //location
     else if (token instanceof LocationToken) {
         let components: Dict<any> = {}
-
-        let resultIsVariable = false
 
         for (const component of ["X","Y","Z","Pitch","Yaw"]) {
             //default for pitch and yaw
@@ -262,26 +296,7 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
                 continue
             }
 
-            let solved = SolveExpression(token[component])
-            //if code was required to generate this component
-            if (solved[0].length > 0) {
-                code.push(...solved[0])
-                resultIsVariable = true
-            }
-            //if this component is %mathing
-            if (solved[1] instanceof NumberItem && Number.isNaN(Number(solved[1].Value))) {
-                resultIsVariable = true
-            }
-            //if this component is a variable
-            if (solved[1] instanceof VariableItem) {
-                resultIsVariable = true
-            }
-
-            let resultType = GetType(solved[1])
-            if (resultType != "num") {
-                throw new TCError(`Expected num for ${component}, got ${resultType}`,0,token[component].CharStart,token[component].CharEnd)
-            }
-
+            let solved = solveNumberArg(token[component],component)
             components[component] = solved[1]
         }
 
@@ -293,6 +308,24 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
             return [code,returnVar]
         } else {
             return [code,new LocationItem([token.CharStart,token.CharEnd],components.X.Value,components.Y.Value,components.Z.Value,components.Pitch.Value,components.Yaw.Value)]
+        }
+    //vector
+    } else if (token instanceof VectorToken) {
+        let components: Dict<any> = {}
+        
+        for (const component of ["X","Y","Z"]) {
+            let solved = solveNumberArg(token[component],component)
+            components[component] = solved[1]
+        }
+
+        if (resultIsVariable) {
+            let returnVar = NewTempVar("vec")
+            code.push(
+                new ActionBlock("set_var","Vector",[returnVar,components.X,components.Y,components.Z])
+            )
+            return [code,returnVar]
+        } else {
+            return [code, new VectorItem([token.CharStart,token.CharEnd],components.X.Value,components.Y.Value,components.Z.Value)]
         }
     }
 
@@ -377,6 +410,56 @@ function OPR_StringAdd(left, right): [CodeBlock[],CodeItem] {
     return [[], new StringItem(null, `${left.Value}${right.Value}`)]
 }
 
+function OPR_VecMultVec(left, right, opr: string): [CodeBlock[], CodeItem] {
+    let components: Dict<any> = {}
+    let code: CodeBlock[] = []
+    for (const component of ["X","Y","Z"]) {
+        //remember to exclude 1!!
+
+        //get the component of left vector
+        let leftCompVar: VariableItem | NumberItem
+        //if left vector is a variabl;e
+        if (left instanceof VariableItem) {
+            leftCompVar = NewTempVar("num")
+            code.push(
+                new ActionBlock("set_var","GetVectorComp",[leftCompVar,left],[new TagItem([],"Component",component,"set_var","GetVectorComp")])
+            )
+        //if left vector is a constant
+        } else {
+            leftCompVar = new NumberItem([],left[component])
+        }
+
+        //get the component of right vector
+        let rightCompVar: VariableItem | NumberItem
+        //if right vector is a variabl;e
+        if (right instanceof VariableItem) {
+            rightCompVar = NewTempVar("num")
+            code.push(
+                new ActionBlock("set_var","GetVectorComp",[rightCompVar,right],[new TagItem([],"Component",component,"set_var","GetVectorComp")])
+            )
+        //if right vector is a constant
+        } else {
+            rightCompVar = new NumberItem([],right[component])
+        }
+
+
+        //multiply them together
+        let multiplyResults = OPERATIONS.num[opr].num(leftCompVar,rightCompVar)
+        //push any code generated by multiplication
+        if (multiplyResults[0]) { code.push(...multiplyResults[0]) }
+
+        components[component] = multiplyResults[1]
+    }
+
+    let returnVar = NewTempVar("vec")
+    //set vec block
+    code.push(
+        new ActionBlock("set_var","Vector",[returnVar,components.X,components.Y,components.Z])
+    )
+
+    return [code,returnVar]
+}
+
 const OPERATIONS = {
     num: {
         "+": {
@@ -418,6 +501,54 @@ const OPERATIONS = {
                 let code = new ActionBlock("set_var","RepeatString",[returnvar,left,right])
 
                 return [[code],returnvar]
+            }
+        }
+    },
+    loc: {
+        "+": {
+            vec: function(left, right): [CodeBlock[], CodeItem] {
+                let returnVar = NewTempVar("loc")
+                let code = new ActionBlock("set_var","ShiftOnVector",[returnVar,left,right],[new TagItem([],"Add Location Rotation","False","set_var","ShiftOnVector")])
+
+                return [[code],returnVar]
+            }
+        }
+    },
+    vec: {
+        "+": {
+            vec: function(left, right): [CodeBlock[], CodeItem] {
+                let returnVar = NewTempVar("vec")
+                let code = new ActionBlock("set_var","AddVectors",[returnVar,left,right])
+
+                return [[code], returnVar]
+            }
+        },
+        "-": {
+            vec: function(left, right): [CodeBlock[], CodeItem] {
+                let returnVar = NewTempVar("vec")
+                let code = new ActionBlock("set_var","SubtractVectors",[returnVar,left,right])
+
+                return [[code], returnVar]
+            }
+        },
+        "*": {
+            num: function(left, right): [CodeBlock[], CodeItem] {
+                let returnVar = NewTempVar("vec")
+                let code = new ActionBlock("set_var","MultiplyVector",[returnVar,left,right])
+
+                return [[code], returnVar]
+            },
+            vec: function(left, right): [CodeBlock[], CodeItem] {
+                return OPR_VecMultVec(left,right,"*")
+            }
+        },
+        "/": {
+            num: function(left, right): [CodeBlock[],CodeItem] {
+                right = new VectorItem(right.meta,right.Value,right.Value,right.Value)
+                return OPR_VecMultVec(left,right,"/")
+            },
+            vec: function(left, right): [CodeBlock[], CodeItem] {
+                return OPR_VecMultVec(left,right,"/")
             }
         }
     }
@@ -724,6 +855,16 @@ function JSONizeItem(item: CodeItem) {
                     "pitch": item.Pitch,
                     "yaw": item.Yaw
                 }
+            }
+        }
+    }
+    else if (item instanceof VectorItem) {
+        return {
+            "id": "vec",
+            "data": {
+                "x": item.X,
+                "y": item.Y,
+                "z": item.Z
             }
         }
     }

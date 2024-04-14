@@ -1,3 +1,0 @@
-FUNCTION awesome;
-
-default:SendMessage("awesome vector"){Alignment Mode = line dingus ? Centered};
