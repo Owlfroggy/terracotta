@@ -27,7 +27,7 @@ var CurrentLine: Array<Token> = []
 
 //returned number will be index of closing char
 //ERR1 = string was not closed
-function GetString(index: number, openingChar: string, closingChar: string = openingChar): [number, string] | null {
+function GetString(index: number, openingChar: string, closingChar: string = openingChar, features: Array<"ampersandConversion"> = []): [number, string] | null {
     let initIndex = index + GetWhitespaceAmount(index) + 1
 
     //if not a string, return
@@ -38,7 +38,7 @@ function GetString(index: number, openingChar: string, closingChar: string = ope
 
     let string = ""
     while (index < SCRIPT_CONTENTS.length - 1) {
-        let nextChunk = GetCharactersUntil(index + 1, ["\n", "\\", closingChar], true)[1]
+        let nextChunk = GetCharactersUntil(index + 1, ["\n", "\\", "&", closingChar], true)[1]
         string += nextChunk
         index += nextChunk.length
 
@@ -58,6 +58,13 @@ function GetString(index: number, openingChar: string, closingChar: string = ope
             }
 
             index += 2
+        }
+        //if chunk stopped due to &
+        else if (SCRIPT_CONTENTS[index + 1] == "&") {
+            //insert § if that's enabled
+            string += features.includes("ampersandConversion") ? "\u00A7" : "&"
+
+            index++
         }
         //if chunk stopped due to closing char
         else if (SCRIPT_CONTENTS[index + 1] == closingChar) {
@@ -225,7 +232,7 @@ export class StringToken extends Token {
 //litearlly just GetString but it returns a string token
 function ParseString(index: number, openingChar: string, closingChar: string = openingChar): [number, StringToken] | null {
     let results
-    results = GetString(index, openingChar, closingChar)
+    results = GetString(index, openingChar, closingChar,["ampersandConversion"])
     if (results) {
         return [results[0], new StringToken([index + GetWhitespaceAmount(index) + 1,results[0]],results[1])]
     }

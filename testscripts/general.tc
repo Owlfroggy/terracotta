@@ -1,0 +1,3 @@
+FUNCTION awesome;
+
+default:SendMessage("&aHello world! &7(\& also mars)");
