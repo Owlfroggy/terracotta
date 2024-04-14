@@ -690,14 +690,21 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
     let expression: (Token | CodeItem)[] = []
 
     //convert expression tokens to code items
+    let i = 0;
     for (const token of exprToken.Expression) {
         if (token instanceof OperatorToken) {
             expression.push(token)
+        } else if (token instanceof ExpressionToken) {
+            //solve sub expression
+            let results = SolveExpression(token)
+            code.push(...results[0])
+            expression[i] = results[1]
         } else {
             let toItemResults = ToItem(token)
             code.push(...toItemResults[0])
             expression.push(toItemResults[1])
         }
+        i++
     }
 
 
