@@ -411,18 +411,21 @@ function ParseText(index: number): [number, TextToken] | null {
 
 //= Sound =\\
 export class SoundToken extends Token {
-    constructor(meta,id: ExpressionToken, volume: ExpressionToken | null, pitch: ExpressionToken | null, variant: ExpressionToken | null) {
+    constructor(meta,id: ExpressionToken, volume: ExpressionToken | null, pitch: ExpressionToken | null, variant: ExpressionToken | null, isCustom: boolean) {
         super(meta)
         this.SoundId = id
         this.Volume = volume
         this.Pitch = pitch
         this.Variant = variant
+        this.IsCustom = isCustom
     }
 
     SoundId: ExpressionToken
     Variant: ExpressionToken | null
     Volume: ExpressionToken | null
     Pitch: ExpressionToken | null
+
+    IsCustom: boolean
 
     itemtype = "snd"
 }
@@ -435,7 +438,10 @@ function ParseSound(index: number): [number, SoundToken] | null {
     let identifierResults = GetIdentifier(index)
 
     //if no snd keyword, this is not a sound
-    if (identifierResults == null || identifierResults[1] != "snd") { return null }
+    if (identifierResults == null || !(identifierResults[1] == "snd" || identifierResults[1] == "csnd")) { return null }
+
+    let isCustom = identifierResults[1] == "csnd"
+
 
     //move to end of snd keyword
     index = identifierResults[0]
@@ -459,7 +465,7 @@ function ParseSound(index: number): [number, SoundToken] | null {
     }
 
     //successful sound creation
-    return [argResults[0], new SoundToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], args[3])]
+    return [argResults[0], new SoundToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], args[3],isCustom)]
 }
 
 

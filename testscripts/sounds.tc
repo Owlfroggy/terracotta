@@ -1,0 +1,17 @@
+FUNCTION awesome;
+
+global dingus = 1;
+global string = "Axolotl Death";
+global variant = "death2";
+
+#normal sound
+default:PlaySound(snd["Axolotl Attack"]);
+
+#sound with variant and also math
+default:PlaySound(snd["Axolotl Attack",1 + 1,1,"attack1"]);
+
+#custom key
+default:PlaySound(csnd["minecraft:entity.axolotl.attack",global dingus, global dingus]);
+
+#everything vars
+default:PlaySound(snd[global string, global dingus, global dingus, global variant]);

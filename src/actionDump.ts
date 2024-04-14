@@ -69,6 +69,7 @@ export let ValidSetVarSoundConds: Dict<Action> = {}
 
 export let ValidRepeatActions: Dict<Action> = {}
 
+export let ValidSounds: string[] = []
 //name overrides
 //key: dimaondfire id, value: func name in terracotta
 
@@ -615,4 +616,9 @@ for (const value of ACTION_DUMP.gameValues) {
             ValidEntityGameValues[name] = value.icon.name
         }
     }
+}
+
+//make list of valid sounds
+for (const sound of ACTION_DUMP.sounds) {
+    ValidSounds.push(sound.icon.name)
 }

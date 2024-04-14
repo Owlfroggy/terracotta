@@ -1,9 +1,10 @@
-import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, StringToken, Token, VariableToken, VectorToken } from "./tokenizer"
+import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, SoundToken, StringToken, Token, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList } from "./domains"
 import * as fflate from "fflate"
 import { TCError } from "./errorHandler"
+import * as AD from "./actionDump"
 
 const VAR_HEADER = `@__TC_`
 
@@ -149,6 +150,22 @@ class VectorItem extends CodeItem {
     Z: number
 }
 
+class SoundItem extends CodeItem {
+    constructor(meta,soundId: string | null, customKey: string | null, volume: number, pitch: number, variant: string | null = null) {
+        super("snd",meta)
+        this.SoundId = soundId
+        this.CustomKey = customKey
+        this.Volume = volume
+        this.Pitch = pitch
+        this.Variant = variant
+    }
+    SoundId: string | null
+    CustomKey: string | null
+    Volume: number
+    Pitch: number
+    Variant: string | null
+}
+
 class TagItem extends CodeItem {
     constructor(meta,tag: string, option: string, block: string, action: string, variable: VariableItem | null = null) {
         super("tag",meta)
@@ -247,31 +264,52 @@ function GetType(item: CodeItem) {
     }
 }
 
+const ITEM_PARAM_DEFAULTS = {
+    loc: {
+        Pitch: new NumberItem([],"0"),
+        Yaw: new NumberItem([],"0")
+    },
+    snd: {
+        Volume: new NumberItem([],"1"),
+        Pitch: new NumberItem([],"1"),
+        Variant: null
+    }
+}
 //takes in a Token from the parser and converts it to a CodeItem
 //codeBlock[] is the code generated to create the item and should generally be pushed right after this function is called
 function ToItem(token: Token): [CodeBlock[],CodeItem] {
     let code: CodeBlock[] = []
-    let resultIsVariable = false
+    let variableComponents: string[] = []
 
-    function solveNumberArg(expr: ExpressionToken,paramName: string): [CodeBlock[],CodeItem] {
+    function solveArg(expr: ExpressionToken,paramName: string,type: string): [CodeBlock[],CodeItem] {
         let solved = SolveExpression(expr)
         //if code was required to generate this component
         if (solved[0].length > 0) {
             code.push(...solved[0])
-            resultIsVariable = true
-        }
-        //if this component is %mathing
-        if (solved[1] instanceof NumberItem && Number.isNaN(Number(solved[1].Value))) {
-            resultIsVariable = true
+            variableComponents.push(paramName)
         }
         //if this component is a variable
         if (solved[1] instanceof VariableItem) {
-            resultIsVariable = true
+            variableComponents.push(paramName)
         }
 
+
+        //if this component is a %mathing number
+        if (type == "num" && solved[1] instanceof NumberItem && Number.isNaN(Number(solved[1].Value))) {
+            variableComponents.push(paramName)
+        }
+
+        //if this string is doing %var
+        //% to detect strings doing %var() feels really hacky and is probably gonna break 
+        //but as of right now there aren't any sounds with % in the name so i do not care
+        if (type == "str" && solved[1] instanceof StringItem && solved[1].Value.includes("%")) {
+            variableComponents.push(paramName)
+        }
+
+
         let resultType = GetType(solved[1])
-        if (resultType != "num") {
-            throw new TCError(`Expected num for ${paramName}, got ${resultType}`,0,expr.CharStart,expr.CharEnd)
+        if (resultType != type) {
+            throw new TCError(`Expected ${type} for ${paramName}, got ${resultType}`,0,expr.CharStart,expr.CharEnd)
         }
         return solved
     }
@@ -290,17 +328,18 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
         let components: Dict<any> = {}
 
         for (const component of ["X","Y","Z","Pitch","Yaw"]) {
-            //default for pitch and yaw
-            if (token[component] == null && (component == "Pitch" || component == "Yaw")) {
-                components[component] = new NumberItem([],"0")
+            //defaults
+            let defaultValue = ITEM_PARAM_DEFAULTS.loc[component]
+            if (defaultValue !== undefined && !token[component]) { 
+                components[component] = defaultValue
                 continue
             }
 
-            let solved = solveNumberArg(token[component],component)
+            let solved = solveArg(token[component],component,"num")
             components[component] = solved[1]
         }
 
-        if (resultIsVariable) {
+        if (variableComponents.length > 0) {
             let returnVar = NewTempVar("loc")
             code.push(
                 new ActionBlock("set_var","SetAllCoords",[returnVar,components.X,components.Y,components.Z,components.Pitch,components.Yaw],[new TagItem([],"Coordinate Type","Plot coordinate","set_var","SetAllCoords")])
@@ -314,11 +353,11 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
         let components: Dict<any> = {}
         
         for (const component of ["X","Y","Z"]) {
-            let solved = solveNumberArg(token[component],component)
+            let solved = solveArg(token[component],component,"num")
             components[component] = solved[1]
         }
 
-        if (resultIsVariable) {
+        if (variableComponents.length > 0) {
             let returnVar = NewTempVar("vec")
             code.push(
                 new ActionBlock("set_var","Vector",[returnVar,components.X,components.Y,components.Z])
@@ -327,6 +366,73 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
         } else {
             return [code, new VectorItem([token.CharStart,token.CharEnd],components.X.Value,components.Y.Value,components.Z.Value)]
         }
+    } else if (token instanceof SoundToken) {
+        let components: Dict<any> = {}
+
+        for (const component of ["SoundId","Volume","Pitch","Variant"]) {
+            //defaults
+            let defaultValue = ITEM_PARAM_DEFAULTS.snd[component]
+            if (defaultValue !== undefined && !token[component]) { 
+                components[component] = defaultValue
+                continue
+            }
+
+            let solved = solveArg(token[component],component,(component == "SoundId" || component == "Variant") ? "str" : "num")
+            components[component] = solved[1]
+        }
+
+        //error for trying to apply key to custom sound
+        if (token.IsCustom && components.Variant) {
+            throw new TCError(`Custom sounds cannot specify variant`,0,token.CharStart,token.CharEnd)
+        }
+
+        let item = new SoundItem([token.CharStart,token.CharEnd],null,null,1,1)
+        let tempVar = NewTempVar("snd")
+        let latestItem: SoundItem | VariableItem = item
+
+        //i totally dont need to be repeating code here but im lazy
+
+        //if sound id needs to be set with code
+        if (variableComponents.includes("SoundId")) {
+            code.push(
+                token.IsCustom ? new ActionBlock("set_var","SetCustomSound",[tempVar,latestItem,components.SoundId]) :
+                new ActionBlock("set_var","SetSoundType",[tempVar,latestItem,components.SoundId])
+            )
+            latestItem = tempVar
+            item[token.IsCustom ? "CustomKey" : "SoundId"] = "Pling"
+        } else {
+            //error for invalid sound id
+            if (!token.IsCustom && !AD.ValidSounds.includes(components.SoundId.Value)) {
+                throw new TCError(`Invalid sound type '${components.SoundId.Value}'`,0,token.SoundId.CharStart,token.SoundId.CharEnd)
+            }
+            item[token.IsCustom ? "CustomKey" : "SoundId"] = components.SoundId.Value
+        }
+
+        //if pitch needs to be set with code
+        if (variableComponents.includes("Pitch")) {
+            code.push(new ActionBlock("set_var","SetSoundPitch",[tempVar,latestItem,components.Pitch]))
+            latestItem = tempVar
+        } else {
+            item.Pitch = Number(components.Pitch.Value)
+        }
+
+        //if volume needs to be set with code
+        if (variableComponents.includes("Volume")) {
+            code.push(new ActionBlock("set_var","SetSoundVolume",[tempVar,latestItem,components.Volume]))
+            latestItem = tempVar
+        } else {
+            item.Volume = Number(components.Volume.Value)
+        }
+
+        //if variant needs to be set with code
+        if (variableComponents.includes("Variant")) {
+            code.push(new ActionBlock("set_var","SetSoundVariant",[tempVar,latestItem,components.Variant]))
+            latestItem = tempVar
+        } else if (components.Variant) {
+            item.Variant = components.Variant.Value
+        }
+
+        return [code,latestItem]
     }
 
     console.log(token)
@@ -865,6 +971,18 @@ function JSONizeItem(item: CodeItem) {
                 "x": item.X,
                 "y": item.Y,
                 "z": item.Z
+            }
+        }
+    }
+    else if (item instanceof SoundItem) {
+        return {
+            "id": "snd",
+            "data": {
+                "pitch": item.Pitch,
+                "vol": item.Volume,
+                "sound": item.SoundId ? item.SoundId : undefined,
+                "variant": item.Variant ? item.Variant : undefined,
+                "key": item.CustomKey ? item.CustomKey : undefined
             }
         }
     }
