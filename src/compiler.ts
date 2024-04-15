@@ -761,7 +761,8 @@ const OPERATIONS = {
             num: function(left, right): [CodeBlock[],CodeItem] {
                 return OPR_NumOnNum(left,right,"+","+")
             },
-            str: OPR_StringAdd
+            str: OPR_StringAdd,
+            txt: OPR_TextAdd
         },
         "-": {
             num: function(left, right): [CodeBlock[],CodeItem] {
@@ -806,7 +807,8 @@ const OPERATIONS = {
                 let code = new ActionBlock("set_var","ShiftOnVector",[returnVar,left,right],[new TagItem([],"Add Location Rotation","False","set_var","ShiftOnVector")])
 
                 return [[code],returnVar]
-            }
+            },
+            txt: OPR_TextAdd
         }
     },
     vec: {
@@ -816,7 +818,8 @@ const OPERATIONS = {
                 let code = new ActionBlock("set_var","AddVectors",[returnVar,left,right])
 
                 return [[code], returnVar]
-            }
+            },
+            txt: OPR_TextAdd
         },
         "-": {
             vec: function(left, right): [CodeBlock[], CodeItem] {
@@ -824,7 +827,7 @@ const OPERATIONS = {
                 let code = new ActionBlock("set_var","SubtractVectors",[returnVar,left,right])
 
                 return [[code], returnVar]
-            }
+            },
         },
         "*": {
             num: function(left, right): [CodeBlock[], CodeItem] {
@@ -845,6 +848,31 @@ const OPERATIONS = {
             vec: function(left, right): [CodeBlock[], CodeItem] {
                 return OPR_VecMultVec(left,right,"/")
             }
+        }
+    },
+    pot: {
+        "+": {
+            txt: OPR_TextAdd
+        }
+    },
+    par: {
+        "+": {
+            txt: OPR_TextAdd
+        }
+    },
+    list: {
+        "+": {
+            txt: OPR_TextAdd
+        }
+    },
+    dict: {
+        "+": {
+            txt: OPR_TextAdd
+        }
+    },
+    item: {
+        "+": {
+            txt: OPR_TextAdd
         }
     },
     txt: {
