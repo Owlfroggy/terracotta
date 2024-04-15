@@ -383,7 +383,7 @@ function ParseVector(index: number): [number, VectorToken] | null {
 }
 
 //= Minimessage Text =\\
-class TextToken extends Token {
+export class TextToken extends Token {
     constructor(meta,text: string) {
         super(meta)
         this.Text = text

@@ -1,13 +1,13 @@
 FUNCTION awesome;
 
-line One = 1;
+line balls = 5;
+line thing_with_color_codes = "&coh nooooo";
 
-#please dont do this
-global Three = (((((((((3)))))))));
+global ksjdhfg = txt"<rainbow><font:alt>Hello world</font>!" + " " + line balls + " " + line thing_with_color_codes;
+default:SendMessage(global ksjdhfg);
 
-default:SendMessage(
-    #should be 7 8 7
-    "expr: (vec[line One,2,line One] + vec[3,global Three,3] * 2) =",vec[line One,2,line One] + vec[3,global Three,3] * 2,"\n",
-    #should be 8 10 8
-    "expr: ((vec[line One,2,line One] + vec[3,global Three,3]) * 2)) =",(vec[line One,2,line One] + vec[3,global Three,3]) * 2
-){Alignment Mode = Centered};
+default:SendMessage(txt"<#88ffaa>AWESME VECTOR:" + "&r" + vec[1,33,7]);
+
+#next feature will be actions in expressions i swear trust me please help me im going insane why did i think any of this was a good idea     i think i see why every other df compiler failed
+txt:GetExpression(global result, global ksjdhfg);
+default:SendMessage("Expreson!",global result);

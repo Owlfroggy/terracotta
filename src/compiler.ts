@@ -1,4 +1,4 @@
-import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, SoundToken, StringToken, Token, VariableToken, VectorToken } from "./tokenizer"
+import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomains } from "./domains"
@@ -182,6 +182,15 @@ class SoundItem extends CodeItem {
     Volume: number
     Pitch: number
     Variant: string | null
+}
+
+class TextItem extends CodeItem {
+    constructor(meta,value: string) {
+        super("txt",meta)
+        this.Value = value
+    }
+
+    Value: string
 }
 
 class GameValueItem extends CodeItem {
@@ -466,11 +475,16 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
 
         return [code,latestItem]
     }
+    //game value
     else if (token instanceof GameValueToken) {
         return [code, new GameValueItem([token.CharStart,token.CharEnd],
             DomainList[token.Target as string]!.Values[token.Value],
             token.Target == "game" ? "Default" : TargetDomains[token.Target!].Target
         )]
+    }
+    //styled text
+    else if (token instanceof TextToken) {
+        return [code, new TextItem([token.CharStart,token.CharEnd],token.Text)]
     }
 
     console.log(token)
@@ -551,7 +565,39 @@ function OPR_StringAdd(left, right): [CodeBlock[],CodeItem] {
     }
 
     //otherwise just combine the two values
-    return [[], new StringItem(null, `${left.Value}${right.Value}`)]
+    return [[], new StringItem([left.CharStart,left.CharEnd], `${left.Value}${right.Value}`)]
+}
+
+function OPR_TextAdd(left, right): [CodeBlock[],CodeItem] {
+    //if either left or right is a variable
+    //or if either left or right aren't strings
+    if (
+        (left instanceof VariableItem || !(left instanceof TextItem || left instanceof StringItem)) || 
+        (right instanceof VariableItem || !(right instanceof TextItem || right instanceof StringItem))
+    ) {
+        let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
+        let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
+
+        //%conditions where %var is supported
+        if (leftIsLine && rightIsLine) {
+            return [[], new TextItem([left.CharStart, right.CharEnd], `%var(${left.Name})%var(${right.Name})`)]
+        }
+        else if (leftIsLine && right instanceof TextItem) {
+            return [[], new TextItem([left.CharStart, right.CharEnd], `%var(${left.Name})${right.Value}`)]
+        }
+        else if (left instanceof TextItem && rightIsLine) {
+            return [[], new TextItem([left.CharStart, right.CharEnd], `${left.Value}%var(${right.Name})`)]
+        }
+
+        //otherwise use set var
+
+        let returnvar = NewTempVar("txt")
+        let code = new ActionBlock("set_var", "StyledText", [returnvar, left, right])
+        return [[code], returnvar]
+    }
+
+    //otherwise just combine the two values
+    return [[], new TextItem([left.CharStart,left.CharEnd], `${left.Value}${right.Value}`)]
 }
 
 function OPR_VecMultVec(left, right, opr: string): [CodeBlock[], CodeItem] {
@@ -694,6 +740,20 @@ const OPERATIONS = {
             vec: function(left, right): [CodeBlock[], CodeItem] {
                 return OPR_VecMultVec(left,right,"/")
             }
+        }
+    },
+    txt: {
+        "+": {
+            num: OPR_TextAdd,
+            str: OPR_TextAdd,
+            txt: OPR_TextAdd,
+            loc: OPR_TextAdd,
+            vec: OPR_TextAdd,
+            pot: OPR_TextAdd,
+            par: OPR_TextAdd,
+            list: OPR_TextAdd,
+            dict: OPR_TextAdd,
+            item: OPR_TextAdd
         }
     }
 }
@@ -1031,6 +1091,14 @@ function JSONizeItem(item: CodeItem) {
             }
         }
     }
+    else if (item instanceof TextItem) {
+        return {
+            "id": "comp",
+            "data": {
+                "name": item.Value
+            }
+        }
+    }
     else if (item instanceof GameValueItem) {
         return {
             "id": "g_val",
@@ -1041,6 +1109,7 @@ function JSONizeItem(item: CodeItem) {
         }
     }
     else {
+        print(item)
         throw new Error(`Failed to convert item of type '${item.itemtype}' to JSON`)
     }
 }
