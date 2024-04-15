@@ -1,21 +1,24 @@
 FUNCTION awesome;
 
-global dingus: pot;
+global DINGUS = 5;
 
-repeat Forever {
-    #dingus should still be a potion
-    __printvartype global dingus;
-
-    global dingus: str;
-
-    #dingus now be a string inside the forever{}
-    __printvartype global dingus;
-
-    repeat Forever {
-        #dingus should still be a string even in a deeper context
-        __printvartype global dingus;
-    }
+#without getting variable
+repeat (2) {
+    default:SendMessage("semicolo ;-;");
 }
 
-#dingus should be a potion again since we're out of the repeat context
-__printvartype global dingus;
+#with getting variable
+repeat line i to (2) {
+    default:SendMessage(line i);
+}
+
+#just variable as the repeat count
+repeat (global DINGUS) {
+    default:SendMessage("this message will repeat 5 times");
+}
+
+#variables as both
+repeat line i to (global DINGUS) {
+    __printvartype line i;
+    default:SendMessage(line i + (default.Location + txt" <= 5"));
+}

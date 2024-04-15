@@ -985,11 +985,13 @@ export class RepeatToken extends Token {
 }
 
 export class RepeatMultipleToken extends RepeatToken {
-    constructor(meta,amount: ExpressionToken) {
+    constructor(meta,amount: ExpressionToken,variable: VariableToken | null) {
         super(meta)
         this.Amount = amount
+        this.Variable = variable
     }
     Amount: ExpressionToken
+    Variable: VariableToken | null
 }
 
 export class RepeatForeverToken extends RepeatToken {
@@ -1034,27 +1036,44 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
         if (foreverResults[1] == "Forever") {
             return [foreverResults[0], new RepeatForeverToken([initIndex,foreverResults[0]])]
         }
+        //anything below this is for repeat multiple
 
-        //repeat (n)
+        //variable
+        let variableResults = ParseVariable(index)
+        if (variableResults) {
+            index = variableResults[0]
+            //make sure theres a 'to'
+            let toResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
+            if (!toResults || toResults[1] != "to") {
+                throw new TCError("Expected 'to' following 'repeat <var>'",0,initIndex,index)
+            }
+            index = toResults[0]
+        }
+
+        //(n)
         if (GetNextCharacters(index,1) != "(") {
-            throw new TCError("Expected expression wrapped in parentheses or 'Forever' following 'repeat'",0,initIndex,keywordResults[0])
+            if (variableResults) {
+                throw new TCError("Expected '(amount)' following 'to'",0,initIndex,index)
+            } else {
+                throw new TCError("Expected variable, '(amount)', or 'Forever' following 'repeat'",0,initIndex,index)
+            }
         }
         index += GetWhitespaceAmount(index) + 1
 
         //expression
         let expressionResults = ParseExpression(index,[")"],true)
         if (expressionResults == null) {
-            throw new TCError("Expected amount following 'repeat'",0,initIndex,keywordResults[0])
+            throw new TCError("Expected an actual expression",0,initIndex,index+1)
         }
 
         //success
-        return [expressionResults[0],new RepeatMultipleToken([initIndex,expressionResults[0]],expressionResults[1])]
+        return [expressionResults[0],new RepeatMultipleToken([initIndex,expressionResults[0]],expressionResults[1],variableResults ? variableResults[1] : null)]
     }
     //while
     else if (keywordResults[1] == "while") {
         //make sure theres a (
         if (GetNextCharacters(index,1) != "(") {
-            throw new TCError("Expected condoition wrapped in parentheses following 'while'",0,initIndex,keywordResults[0])
+            throw new TCError("Expected condition wrapped in parentheses following 'while'",0,initIndex,keywordResults[0])
         }
         index += GetWhitespaceAmount(index) + 1
 
