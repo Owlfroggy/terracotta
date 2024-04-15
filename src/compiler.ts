@@ -789,7 +789,8 @@ const OPERATIONS = {
     str: {
         "+": {
             str: OPR_StringAdd,
-            num: OPR_StringAdd
+            num: OPR_StringAdd,
+            txt: OPR_TextAdd
         },
         "*": {
             num: function(left, right): [CodeBlock[], CodeItem] {
