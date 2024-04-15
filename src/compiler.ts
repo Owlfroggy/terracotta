@@ -77,6 +77,24 @@ test.VariableTypes.local["balls"] = "num"
 PushContext(test)
 PopContext()
 
+//fill in missing tags with their default values
+function FillMissingTags(codeblockIdentifier: string, actionName: string, tags: TagItem[]) {
+    let existingTags: string[] = [] //df name
+    for (let v of tags) {
+        existingTags.push(v.Tag)
+    }
+
+    for (let [tag, value] of Object.entries(AD.DFActionMap[codeblockIdentifier]![actionName]!.TagDefaults)) {
+        //if this tag was specified
+        if (existingTags.includes(tag)) {continue}
+        
+        //otherwise fill in default value
+        tags.push(new TagItem([],tag,value!,codeblockIdentifier,actionName))
+    }
+
+    return tags
+}
+
 //abstract base class for all code items
 class CodeItem {
     constructor(type: string,meta: [number,number] | null) {
@@ -245,11 +263,11 @@ class ProcessBlock extends CodeBlock {
 }
 
 class ActionBlock extends CodeBlock {
-    constructor(block: string, action: string, args: Array<CodeItem> = [], tags: Array<TagItem> = []) {
+    constructor(block: string, action: string, args: Array<CodeItem> = [], tags: TagItem[] = []) {
         super(block)
         this.Action = action
         this.Arguments = args
-        this.Tags = tags
+        this.Tags = FillMissingTags(block,action,tags)
     }
     Action: string
     Arguments: Array<CodeItem>

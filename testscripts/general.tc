@@ -10,4 +10,4 @@ default:SendMessage(
     "expr: (vec[line One,2,line One] + vec[3,global Three,3] * 2) =",vec[line One,2,line One] + vec[3,global Three,3] * 2,"\n",
     #should be 8 10 8
     "expr: ((vec[line One,2,line One] + vec[3,global Three,3]) * 2)) =",(vec[line One,2,line One] + vec[3,global Three,3]) * 2
-);
+){Alignment Mode = Centered};

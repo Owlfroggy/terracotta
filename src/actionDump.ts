@@ -3,15 +3,17 @@
 const ACTION_DUMP = await Bun.file("actiondump.json").json()
 
 export class Action {
-    constructor(tcName: string, dfName: string, tags: Dict<Array<string>>){
+    constructor(tcName: string, dfName: string, tags: Dict<Array<string>>, tagDefaults: Dict<string>){
         this.TCName = tcName
         this.DFName = dfName
         this.Tags = tags
+        this.TagDefaults = tagDefaults
     }
 
     DFName: string
     TCName: string
     Tags: Dict<Array<string>>
+    TagDefaults: Dict<string>
 }
 
 //key: terracotta name, value: diamondfire id
@@ -70,6 +72,13 @@ export let ValidSetVarSoundConds: Dict<Action> = {}
 export let ValidRepeatActions: Dict<Action> = {}
 
 export let ValidSounds: string[] = []
+
+//key: all uppercase name with spaces used in action dump and signs (e.g. "PLAYER ACTION")
+//value: identifier used in compilation (e.g. "player_action")
+export let CodeblockIdentifiers = {}
+
+//uses df identifiers for code blocks and df names for actions
+export let DFActionMap: Dict<Dict<Action>> = {}
 
 //key: diamondfire id, value: tc type
 export let GameValueTypes: Dict<string> = {}
@@ -459,6 +468,15 @@ function getTags(actionData): Dict<Array<string>> {
     return actionJson
 }
 
+function getTagDefaults(actionData): Dict<string> {
+    let data = {}
+    for (const tag of actionData.tags) {
+        data[tag.name] = tag.defaultOption
+    }
+
+    return data
+}
+
 function codeifyName(name: string): string {
     //convert characters following spaces to uppercase
     for (let i = 0; i < name.length; i++) {
@@ -470,6 +488,12 @@ function codeifyName(name: string): string {
     name = name.replace(/ /g,"")
 
     return name
+}
+
+//codeblock identifiers
+for (const block of ACTION_DUMP.codeblocks) {
+    CodeblockIdentifiers[block.name] = block.identifier
+    DFActionMap[block.identifier] = {}
 }
 
 //convert code blocks
@@ -549,12 +573,16 @@ for (const action of ACTION_DUMP.actions) {
             break
     }
 
+    let actionObject
+
     //special logic for select
     if (action.codeblockName == "SELECT OBJECT") {
         if (CreateSelectionOverrides[action.name]) {
-            ValidCreateSelectActions[CreateSelectionOverrides[action.name]] = new Action(CreateSelectionOverrides[action.name],action.name,getTags(action))
+            actionObject = new Action(CreateSelectionOverrides[action.name],action.name,getTags(action),getTagDefaults(action))
+            ValidCreateSelectActions[CreateSelectionOverrides[action.name]] = actionObject
         } else if (FilterSelectionOverrides[action.name]) {
-            ValidFilterSelectActions[FilterSelectionOverrides[action.name]] = new Action(FilterSelectionOverrides[action.name],action.name,getTags(action))
+            actionObject = new Action(FilterSelectionOverrides[action.name],action.name,getTags(action),getTagDefaults(action))
+            ValidFilterSelectActions[FilterSelectionOverrides[action.name]] = actionObject
         }
     } 
     //logic for everything else
@@ -573,8 +601,12 @@ for (const action of ACTION_DUMP.actions) {
             name = overrides[action.name]
         }
 
-        validActions[name] = new Action(name,action.name,getTags(action))
+        actionObject = new Action(name,action.name,getTags(action),getTagDefaults(action))
+        validActions[name] = actionObject
     }
+
+    //print(action)
+    DFActionMap[CodeblockIdentifiers[action.codeblockName]]![action.name] = actionObject
 }
 
 //= valid selection conditions =\\
@@ -582,7 +614,7 @@ for (const action of ACTION_DUMP.actions) {
 for (let [tcName, action] of Object.entries(ValidPlayerCompActions)) {
     if (ValidEntityCompActions[tcName]) {
         //if this is one of the things thats in both if entity and if player, specify this as the player version
-        ValidSelectionPlayerComparisons[tcName] = new Action(tcName,"P"+action?.DFName,action?.Tags!)
+        ValidSelectionPlayerComparisons[tcName] = new Action(tcName,"P"+action?.DFName,action?.Tags!,action?.TagDefaults!)
     } else {
         ValidSelectionPlayerComparisons[tcName] = action
     }
@@ -592,7 +624,7 @@ for (let [tcName, action] of Object.entries(ValidPlayerCompActions)) {
 for (let [tcName, action] of Object.entries(ValidEntityCompActions)) {
     if (ValidPlayerCompActions[tcName]) {
         //if this is one of the things thats in both if entity and if player, specify this as the entity version
-        ValidSelectionEntityComparisons[tcName] = new Action(tcName,"E"+action?.DFName,action?.Tags!)
+        ValidSelectionEntityComparisons[tcName] = new Action(tcName,"E"+action?.DFName,action?.Tags!,action?.TagDefaults!)
     } else {
         ValidSelectionEntityComparisons[tcName] = action
     }
