@@ -14,7 +14,7 @@ export function print (...data: any[]) {
 
 async function Main() { 
     //tokenize
-    let FILE_PATH = "testscripts/potions.tc"
+    let FILE_PATH = "testscripts/repeat.tc"
     let script = await Bun.file(FILE_PATH).text()
     let tokenResults: Tokenizer.TokenizerResults
 
@@ -48,8 +48,8 @@ async function Main() {
 
     console.log("Copied to clipboard")
 
-    //console.log("CODE LINES!!!")
-    //console.log(JSON.stringify(tokenResults!.Lines, null, "  "))
+    // console.log("CODE LINES!!!")
+    // console.log(JSON.stringify(tokenResults!.Lines, null, "  "))
 }
 
 await Main()

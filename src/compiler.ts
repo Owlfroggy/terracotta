@@ -1,4 +1,4 @@
-import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
+import { ActionToken, BracketToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomains } from "./domains"
@@ -21,15 +21,29 @@ class Context {
     //true for the base level context at the bottom of the stack
     //prevents the pop function from working on this context
     IsBase = false
+
+    BracketType: "none" | "repeat" | "if" = "none"
+
+    //does nothing if bracket type == none
+    //if bracket type == "if" | "repeat" then an opening bracket is required on the line after
+    //the context is pushed. this var keeps track of whether or not that has happened
+    OpeningBracketResolved = false
+
+    //should be null if bracket type == "none"
+    //token that caused this new context
+    CreatorToken: IfToken | RepeatToken | null = null
 }
 
-//context to actually read var types and stuff from
-var CurrentContext = new Context()
-CurrentContext.IsBase = true
+//context to actually read var types from
+var CombinedVarContext = new Context()
+CombinedVarContext.IsBase = true
 
 var BaseContext = new Context()
 BaseContext.IsBase = true
 BaseContext.VariableTypes.local["balls"] = "num"
+
+//context at the top of the stack
+var HighestContext = BaseContext
 
 var ContextStack: Context[] = []
 
@@ -37,22 +51,28 @@ PushContext(BaseContext)
 
 function PushContext(context: Context) {
     ContextStack.push(context)
+    HighestContext = context
+
+    //update var types
     for (let [scope, list] of Object.entries(context.VariableTypes)) {
         for (let [name, type] of Object.entries(list)) {
-            CurrentContext.VariableTypes[scope][name] = type
+            CombinedVarContext.VariableTypes[scope][name] = type
         }
     }
 }
 
 function PopContext() {
     let poppedContext = ContextStack.pop() as Context
+    HighestContext = ContextStack[ContextStack.length - 1]
+
+    //update var types
     for (let [scope, list] of Object.entries(poppedContext.VariableTypes)) {
         for (let [name, type] of Object.entries(list)) {
             let lowerValue = ContextStack[ContextStack.length-1].VariableTypes[scope][name]
             if (lowerValue) {
-                CurrentContext.VariableTypes[scope][name] = lowerValue
+                CombinedVarContext.VariableTypes[scope][name] = lowerValue
             } else {
-                delete CurrentContext.VariableTypes[scope][name]
+                delete CombinedVarContext.VariableTypes[scope][name]
             }
         }
     }
@@ -61,13 +81,13 @@ function PopContext() {
 function SetVarType(variable: VariableToken | VariableItem | ["unsaved" | "local" | "saved" | "line",string], type: string) {
     if (variable instanceof VariableToken) {
         ContextStack[ContextStack.length-1].VariableTypes[VALID_VAR_SCCOPES[variable.Scope]][variable.Name] = type
-        CurrentContext.VariableTypes[VALID_VAR_SCCOPES[variable.Scope]][variable.Name] = type
+        CombinedVarContext.VariableTypes[VALID_VAR_SCCOPES[variable.Scope]][variable.Name] = type
     } else if (variable instanceof VariableItem ) {
         ContextStack[ContextStack.length-1].VariableTypes[variable.Scope][variable.Name] = type
-        CurrentContext.VariableTypes[variable.Scope][variable.Name] = type
+        CombinedVarContext.VariableTypes[variable.Scope][variable.Name] = type
     } else {
         ContextStack[ContextStack.length-1].VariableTypes[variable[0]][variable[1]] = type
-        CurrentContext.VariableTypes[variable[0]][variable[1]] = type
+        CombinedVarContext.VariableTypes[variable[0]][variable[1]] = type
     }
 }
 
@@ -295,6 +315,16 @@ class ActionBlock extends CodeBlock {
     Tags: Array<TagItem>
 }
 
+class BracketBlock extends CodeBlock {
+    constructor(direction: "open" | "close", type: "repeat" | "if") {
+        super("BRACKET")
+        this.Direction = direction
+        this.Type = type
+    }
+    Direction: "open" | "close"
+    Type: "repeat" | "if"
+}
+
 function NewTempVar(type: string): VariableItem {
     tempVarCounter++
     let varitem = new VariableItem(null, "line", `${VAR_HEADER}REG_${tempVarCounter}`)
@@ -309,7 +339,7 @@ function GetType(item: CodeItem) {
         if (item.StoredType) {
             return item.StoredType
         } else {
-            return CurrentContext.VariableTypes[item.Scope][item.Name] || "num"
+            return CombinedVarContext.VariableTypes[item.Scope][item.Name] || "num"
         }
     } else {
         return item.itemtype
@@ -920,7 +950,9 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
     }
     let existingParams: string[] = []
 
+    let i = -1
     for (let line of lines) {
+        i++
         //headers
         if (headerMode) {
             let header = line[0]
@@ -998,6 +1030,28 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             }
         }
 
+        //opening bracket
+        if (HighestContext.BracketType != "none" && HighestContext.OpeningBracketResolved == false) {
+            if (line[0] instanceof BracketToken && line[0].Type == "open") {
+                CodeLine.push(new BracketBlock("open",HighestContext.BracketType))
+                HighestContext.OpeningBracketResolved = true
+                continue
+            }
+            throw new TCError(`Expected opening bracket following ${HighestContext.BracketType} statement`,0,lines[i-1][0].CharStart,lines[i-1][0].CharEnd)
+        }
+
+        //closing bracket
+        if (line[0] instanceof BracketToken && line[0].Type == "close") {
+            //if there is no opening counterpart, throw error
+            if (HighestContext.BracketType == "none") {
+                throw new TCError(`Closing bracket has no opening counterpart`,0,line[0].CharStart,line[0].CharEnd)
+            }
+
+            CodeLine.push(new BracketBlock("close",HighestContext.BracketType))
+
+            PopContext()
+        }
+
         //action
         if (line[0] instanceof ActionToken) {
             let action = line[0]
@@ -1027,6 +1081,19 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
             //push action
             CodeLine.push(new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags))
+        }
+        //repeat
+        else if (line[0] instanceof RepeatToken) {
+            let newContext = new Context()
+            newContext.BracketType = "repeat"
+            newContext.CreatorToken = line[0]
+            PushContext(newContext)
+
+            if (line[0] instanceof RepeatForeverToken) {
+                CodeLine.push(
+                    new ActionBlock("repeat","Forever",[],[])
+                )
+            }
         }
         //variable thingies
         else if (line[0] instanceof VariableToken) {
@@ -1092,8 +1159,13 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         }
         //debug print variable
         else if (line[0] instanceof DebugPrintVarTypeToken) {
-            console.log(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CurrentContext.VariableTypes[VALID_VAR_SCCOPES[line[0].Variable.Scope]][line[0].Variable.Name]}`)
+            console.log(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CombinedVarContext.VariableTypes[VALID_VAR_SCCOPES[line[0].Variable.Scope]][line[0].Variable.Name]}`)
         }
+    }
+
+    //error if there are unclosed brackets
+    if (ContextStack.length > 1) {
+        throw new TCError(`${HighestContext.BracketType == "if" ? "If" : "Repeat"} statement never closed`,0,HighestContext.CreatorToken?.CharStart!,HighestContext.CreatorToken?.CharEnd!)
     }
 
     let results = new CompileResults()
@@ -1194,7 +1266,7 @@ function JSONizeItem(item: CodeItem) {
         }
     }
     else {
-        print(item)
+        console.log(item)
         throw new Error(`Failed to convert item of type '${item.itemtype}' to JSON`)
     }
 }
@@ -1304,7 +1376,15 @@ export function JSONize(code: Array<CodeBlock>): string {
                 "data": block.Name
             })
         }
+        else if (block instanceof BracketBlock) {
+            blocks.push({
+                "id": "bracket",
+                "direct": block.Direction,
+                "type": block.Type == "if" ? "norm" : block.Type
+            })
+        }
         else {
+            console.log(block)
             throw new Error("Failed to convert block to JSON")
         }
     }

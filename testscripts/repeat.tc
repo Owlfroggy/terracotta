@@ -1,0 +1,21 @@
+FUNCTION awesome;
+
+global dingus: pot;
+
+repeat Forever {
+    #dingus should still be a potion
+    __printvartype global dingus;
+
+    global dingus: str;
+
+    #dingus now be a string inside the forever{}
+    __printvartype global dingus;
+
+    repeat Forever {
+        #dingus should still be a string even in a deeper context
+        __printvartype global dingus;
+    }
+}
+
+#dingus should be a potion again since we're out of the repeat context
+__printvartype global dingus;
