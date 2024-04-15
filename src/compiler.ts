@@ -1,4 +1,4 @@
-import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
+import { ActionToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomains } from "./domains"
@@ -193,6 +193,18 @@ class TextItem extends CodeItem {
     Value: string
 }
 
+class PotionItem extends CodeItem {
+    constructor(meta,potion: string, amplifier: number, duration: number) {
+        super("pot",meta)
+        this.Potion = potion
+        this.Amplifier = amplifier
+        this.Duration = duration
+    }
+    Potion: string
+    Amplifier: number
+    Duration: number
+}
+
 class GameValueItem extends CodeItem {
     constructor(meta,value,target) {
         super("gval",meta)
@@ -313,8 +325,13 @@ const ITEM_PARAM_DEFAULTS = {
         Volume: new NumberItem([],"1"),
         Pitch: new NumberItem([],"1"),
         Variant: null
+    },
+    pot: {
+        Amplifier: new NumberItem([],"1"),
+        Duration: new NumberItem([],"1000000")
     }
 }
+
 //takes in a Token from the parser and converts it to a CodeItem
 //codeBlock[] is the code generated to create the item and should generally be pushed right after this function is called
 function ToItem(token: Token): [CodeBlock[],CodeItem] {
@@ -486,7 +503,65 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
     else if (token instanceof TextToken) {
         return [code, new TextItem([token.CharStart,token.CharEnd],token.Text)]
     }
+    //potion
+    else if (token instanceof PotionToken) {
+        let components: Dict<any> = {}
 
+        //error for missing potion type
+        if (!token.Potion) {
+            throw new TCError(`Potion effect must specify a type (str)`,0,token.CharStart,token.CharEnd)
+        }
+
+        for (const component of ["Potion","Amplifier","Duration"]) {
+            //defaults
+            let defaultValue = ITEM_PARAM_DEFAULTS.pot[component]
+            if (defaultValue !== undefined && !token[component]) { 
+                components[component] = defaultValue
+                continue
+            }
+
+            let solved = solveArg(token[component],component,component == "Potion" ? "str" : "num")
+            components[component] = solved[1]
+        }
+        
+        let item = new PotionItem([token.CharStart,token.CharEnd],"Absorption",0,0)
+        let tempVar = NewTempVar("pot")
+        let latestItem: PotionItem | VariableItem = item
+
+        //if potion type needs to be set with code
+        if (variableComponents.includes("Potion")) {
+            code.push(
+                new ActionBlock("set_var","SetPotionType",[tempVar,latestItem,components.Potion])
+            )
+            latestItem = tempVar
+        } else {
+            item.Potion = components.Potion.Value
+        }
+
+        //if amp needs to be set with code
+        if (variableComponents.includes("Amplifier")) {
+            code.push(
+                new ActionBlock("set_var","SetPotionAmp",[tempVar,latestItem,components.Amplifier])
+            )
+            latestItem = tempVar
+        } else {
+            //potion item data uses ids starting at 0 for some reason so when amplifier is compiled
+            //into an item the provided value has to be bumped down by 1
+            item.Amplifier = components.Amplifier.Value - 1
+        }
+
+        //if dur needs to be set with code
+        if (variableComponents.includes("Duration")) {
+            code.push(
+                new ActionBlock("set_var","SetPotionDur",[tempVar,latestItem,components.Duration])
+            )
+        } else {
+            item.Duration = components.Duration.Value
+        }
+        
+        return [code,latestItem]
+    }
+    
     console.log(token)
     throw new Error("Could not convert token to item")
 }
@@ -1096,6 +1171,16 @@ function JSONizeItem(item: CodeItem) {
             "id": "comp",
             "data": {
                 "name": item.Value
+            }
+        }
+    }
+    else if (item instanceof PotionItem) {
+        return {
+            "id": "pot",
+            "data": {
+                "pot": item.Potion,
+                "dur": item.Duration,
+                "amp": item.Amplifier
             }
         }
     }

@@ -1,0 +1,15 @@
+FUNCTION awesome;
+
+global POT = "Speed";
+global AMP = 5;
+line DUR = 60 * 20; #1 minute
+
+#all variables
+default:GivePotionEffect(pot[global POT,global AMP,line DUR]);
+
+#defaults
+default:GivePotionEffect(pot["Absorption"]);
+
+#make sure amplifier compiles into item correctly
+default:GivePotionEffect(pot["Jump Boost",-2]);
+default:GivePotionEffect(pot["Instant Health",3]);
