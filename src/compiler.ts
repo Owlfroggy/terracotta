@@ -1,7 +1,7 @@
-import { ActionToken, BracketToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, KeywordHeaderToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
-import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE } from "./constants"
+import { ActionTag, ActionToken, BracketToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
+import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE, VALID_COMPARISON_OPERATORS } from "./constants"
 import { print } from "./main"
-import { Domain, DomainList, TargetDomains } from "./domains"
+import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
 import * as fflate from "fflate"
 import { TCError } from "./errorHandler"
 import * as AD from "./actionDump"
@@ -304,15 +304,25 @@ class ProcessBlock extends CodeBlock {
 }
 
 class ActionBlock extends CodeBlock {
-    constructor(block: string, action: string, args: Array<CodeItem> = [], tags: TagItem[] = []) {
+    constructor(block: string, action: string, args: Array<CodeItem> = [], tags: TagItem[] = [], target: string | null = null) {
         super(block)
         this.Action = action
         this.Arguments = args
         this.Tags = FillMissingTags(block,action,tags)
+        this.Target = target
     }
     Action: string
     Arguments: Array<CodeItem>
     Tags: Array<TagItem>
+    Target: string | null = null
+}
+
+class IfActionBlock extends ActionBlock {
+    constructor(block: string, action: string, args: Array<CodeItem>, tags: TagItem[], not: boolean) {
+        super(block,action,args,tags)
+        this.Not = not
+    }
+    Not: boolean
 }
 
 class BracketBlock extends CodeBlock {
@@ -398,7 +408,7 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
         if (resultType != type) {
             throw new TCError(`Expected ${type} for ${paramName}, got ${resultType}`,0,expr.CharStart,expr.CharEnd)
         }
-        return solved
+        return [solved[0],solved[1]]
     }
 
     if (token instanceof NumberToken) {
@@ -894,12 +904,47 @@ const OPERATIONS = {
 
 const OrderOfOperations = [
     ["*","/","%"],
-    ["+","-"]
+    ["+","-"],
+    ["==", "!=", "<", ">", "<=", ">="],
 ]
 
 function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
     let code: CodeBlock[] = []
     let expression: (Token | CodeItem)[] = []
+
+    //special case for action if statements
+    if (exprToken.Expression.length == 1 && exprToken.Expression[0] instanceof ActionToken && exprToken.Expression[0].Type == "comparison") {
+        let action = exprToken.Expression[0] as ActionToken
+        let domain = DomainList[action.DomainId]
+
+        let codeblock = "if_var"
+        if (domain instanceof TargetDomain) {
+            codeblock = domain.ActionType == "player" ? "if_player" : "if_entity"
+        }
+        else if (domain?.Identifier == "game") {
+            codeblock = "if_game"
+        }
+
+        let args
+        if (action.Params) {
+            let argResults = SolveArgs(action.Params)
+            code.push(...argResults[0])
+            args = argResults[1]
+        }
+
+        let tags
+        if (action.Tags) {
+            let tagResults = SolveTags(action.Tags, codeblock, domain?.Comparisons[action.Action]?.DFName!)
+            code.push(...tagResults[0])
+            tags = tagResults[1]
+        }
+
+        code.push(
+            new IfActionBlock(codeblock, domain?.Comparisons[action.Action]?.DFName!, args, tags, exprToken.Not)
+        )
+
+        return [code,expression[0]]
+    }
 
     //convert expression tokens to code items
     let i = 0;
@@ -919,7 +964,9 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
         i++
     }
 
+    let ifAction: IfActionBlock | null = null
 
+    //normal expression
     for (let pass = 0; pass < OrderOfOperations.length; pass++) {
         let i = 0;
         while (i < expression.length) {
@@ -934,34 +981,73 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
                 let typeleft = GetType(left)
                 let typeright = GetType(right)
 
-                let result
-
-                if (OrderOfOperations[pass].includes(item.Operator)) {
-                    //error for unsupported operation
-                    if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][item.Operator] == undefined || OPERATIONS[typeleft][item.Operator][typeright] == undefined) {
-                        throw new TCError(`${typeleft} cannot ${item.Operator} with ${typeright}`, 0, item.CharStart, item.CharEnd)
-                    }
-                    
-                    result = OPERATIONS[typeleft][item.Operator][typeright](left, right)
+                //comparison operators
+                if (VALID_COMPARISON_OPERATORS.includes(item.Operator)) {
+                    ifAction = new IfActionBlock("if_var", item.Operator == "==" ? "=" : item.Operator, [left, right], [], exprToken.Not)
                 }
+                //normal operators
+                else {
+                    let result
 
-                if (result) {
-                    code.push(...result[0])
-                    expression[i - 1] = result[1]
-                    expression.splice(i, 2)
-                    i--
+                    if (OrderOfOperations[pass].includes(item.Operator)) {
+                        //error for unsupported operation
+                        if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][item.Operator] == undefined || OPERATIONS[typeleft][item.Operator][typeright] == undefined) {
+                            throw new TCError(`${typeleft} cannot ${item.Operator} with ${typeright}`, 0, item.CharStart, item.CharEnd)
+                        }
+
+                        result = OPERATIONS[typeleft][item.Operator][typeright](left, right)
+                    }
+
+                    if (result) {
+                        code.push(...result[0])
+                        expression[i - 1] = result[1]
+                        expression.splice(i, 2)
+                        i--
+                    }
                 }
             }
             i++
         }
     }
 
-    if (expression.length > 1) {
+    if (ifAction) {
+        code.push(ifAction)
+    }
+    else if (expression.length > 1) {
         throw new Error("Failed to condense expression")
     }
 
     //@ts-ignore
     return [code, expression[0]]
+}
+
+function SolveArgs(list: ListToken): [CodeBlock[], CodeItem[]] {
+    let code: CodeBlock[] = []
+    let args: CodeItem[] = []
+    for (let v of list.Items!) {
+        let expressionResults = SolveExpression(v)
+        code.push(...expressionResults[0])
+        args.push(expressionResults[1])
+    }
+
+    return [code,args]
+}
+
+function SolveTags(dict: Dict<ActionTag>, codeblock: string, actionDFName: string): [CodeBlock[],TagItem[]] {
+    let tags: TagItem[] = []
+    for (let [name, tag] of Object.entries(dict)) {
+        tags.push(new TagItem(
+            [-1,-1],
+            name,
+            tag!.Value,
+            codeblock,
+            actionDFName,
+            //@ts-ignore SHUT UP I KNOW WHAT MY CODE DOES!!!!!!! GRRRRR
+            tag?.Variable ? ToItem(tag.Variable)[1] : null
+        ))
+    }
+
+    return [[],tags]
 }
 
 export class CompileResults {
@@ -1086,30 +1172,33 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             let action = line[0]
             let domain: Domain = DomainList[action.DomainId]!
             
-            let args: CodeItem[] = []
-            for (let v of line[0].Params?.Items!) {
-                let expressionResults = SolveExpression(v)
-                CodeLine.push(...expressionResults[0])
-                args.push(expressionResults[1])
+            let args
+            if (action.Params) {
+                let argResults = SolveArgs(action.Params)
+                CodeLine.push(...argResults[0])
+                args = argResults[1]
             }
 
             //tags
-            let tags: TagItem[] = []
-            for (let [name, tag] of Object.entries(line[0].Tags)) {
-                tags.push(new TagItem(
-                    [-1,-1],
-                    name,
-                    tag!.Value,
-                    domain.CodeBlock!,
-                    domain.Actions[action.Action]?.DFName!,
-                    //@ts-ignore SHUT UP I KNOW WHAT MY CODE DOES!!!!!!! GRRRRR
-                    tag?.Variable ? ToItem(tag.Variable)[1] : null
-                ))
+            let tags
+            if (action.Tags) {
+                let tagResults = SolveTags(action.Tags,domain.CodeBlock!,domain.Actions[action.Action]?.DFName!)
+                CodeLine.push(...tagResults[0])
+                tags = tagResults[1]
             }
-            //for (let v of line[0].Tags?)
 
             //push action
             CodeLine.push(new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags))
+        }
+        //if
+        else if (line[0] instanceof IfToken) {
+            let newContext = new Context()
+            newContext.BracketType = "if"
+            newContext.CreatorToken = line[0]
+            PushContext(newContext)
+
+            let expressionResults = SolveExpression(line[0].Condition)
+            CodeLine.push(...expressionResults[0])
         }
         //repeat
         else if (line[0] instanceof RepeatToken) {
@@ -1366,7 +1455,8 @@ export function JSONize(code: Array<CodeBlock>): string {
                 "id": "block",
                 "block": block.Block,
                 "args": {"items": chest},
-                "action": block.Action
+                "action": block.Action,
+                "attribute": block instanceof IfActionBlock && block.Not ? "NOT" : undefined
             })
         }
         else if (block instanceof EventBlock) {

@@ -904,6 +904,7 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
         return [expressionResults[0], new ControlBlockToken([initIndex,expressionResults[0]],"ReturnNTimes",new ListToken([index,expressionResults[0]],[expressionResults[1]]))]
     }
     else if (identifierResults[1] == "wait") {
+        index = identifierResults[0]
         let listResults = ParseList(index,"(",")",",")
         if (listResults == null) {
             throw new TCError("Expected arguments following 'wait'",0,initIndex,index)
@@ -1341,13 +1342,13 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
 
     let not: boolean | undefined = undefined
     //= parse not =\\
-    if (allowComparisons) {
-        let notResults = GetIdentifier(index + 1)
-        if (notResults[1] == "not") {
-            not = true
-            index = notResults[0] + GetWhitespaceAmount(notResults[0])
-        }
-    }
+    // if (allowComparisons) {
+    //     let notResults = GetIdentifier(index + 1)
+    //     if (notResults[1] == "not") {
+    //         not = true
+    //         index = notResults[0] + GetWhitespaceAmount(notResults[0])
+    //     }
+    // }
 
     //= parse domain =\\
     let domainResults = GetIdentifier(index + 1)
@@ -1611,11 +1612,13 @@ function ParseGameValue(index: number): [number, Token] | null {
 
 //= Expressions =\\
 export class ExpressionToken extends Token {
-    constructor(meta,symbols: Array<any>) {
+    constructor(meta,symbols: Array<any>,not: boolean) {
         super(meta)
         this.Expression = symbols
+        this.Not = not
     }
 
+    Not: boolean
     Expression: Array<Token>
 }
 
@@ -1641,8 +1644,20 @@ function ParseExpression(
 
     let expressionSymbols: Array<any> = []
     let comparisonFound = false
+    let not = false
 
     let initIndex = index + GetWhitespaceAmount(index) + 1
+
+    //not parsing
+    if (features.includes("comparisons")) {
+        let identifierResults = GetIdentifier(initIndex)
+        if (identifierResults[1] == "not") {
+            index = identifierResults[0]
+            not = true
+        }
+    }
+
+
     index += GetWhitespaceAmount(index)
     while (!terminateAt.includes(GetNextCharacters(index, 1)) && index + GetWhitespaceAmount(index) + 1 < SCRIPT_CONTENTS.length) {
         let valueInitIndex = index
@@ -1780,7 +1795,7 @@ function ParseExpression(
     }
 
     if (expressionSymbols.length > 0) {
-        return [index, new ExpressionToken([initIndex,index],expressionSymbols)]
+        return [index, new ExpressionToken([initIndex,index],expressionSymbols,not)]
     }
 
     return null

@@ -1,0 +1,40 @@
+PLAYER_EVENT Move;
+selection:SendMessage("balls");
+
+#very cursed way to do and
+if (not game.CPUUsage < saved config_maxCPU + 3) { if (game.PlayerCount > 10) {
+    allPlayers:SendMessage("&c" + txt"ALRIGHT EVERYBODY OUT <green>unless you're a"+"&e"+txt" duck<white>....");
+    allPlayers:Kick;
+}}
+
+#just found out you can do this
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+global dingus = 10;
+
+global jkdfg = -.1;
+
+if (not global dingus + 2 / global jkdfg * default.CurrentHealth <= 10) {
+    if (1 < 2) {
+        default:SendMessage("akdjhgf");
+    }
+    default:SendMessage(global dingus);
+}
+
+if (not default ? IsInGameMode{Game Mode = Survival}) {
+    default:SendMessage("hi owl");
+}
+
+if (defaultEntity ? HasCustomTag("literal god")) {
+    default:SendMessage("how the hell are you an entity");
+}
+
+if (game ? HasPlayer("MrAwesomeOwl")) {
+    default:SendMessage("MRAWESOMEOWL IS IN THE GMEA@!!!!!!");
+}
+
+#make sure tag defaults work
+
+if (str ? EndsWith("dinguals","ls")) {
+    default:SendMessage("ls reference relajlkst,mad fc");
+}

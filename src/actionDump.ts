@@ -118,7 +118,7 @@ const EntityActionOverrides = {
     "DispRotAxisAngle": "SetDisplayRotationFromAxisAngle"
 }
 const EntityCompActionOverrides = {
-    "HasPlayer": "HasPlayer"
+    
 }
 
 //set var
@@ -382,7 +382,9 @@ const FilterSelectionOverrides = {
 const GameActionOverrides = {
     "LaunchProj": "LaunchProjectile"
 }
-const GameCompActionOverrides = {}
+const GameCompActionOverrides = {
+    "HasPlayer": "HasPlayer"
+}
 
 //game values
 const GameValueOverrides = {

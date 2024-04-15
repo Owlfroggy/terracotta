@@ -14,7 +14,7 @@ export function print (...data: any[]) {
 
 async function Main() { 
     //tokenize
-    let FILE_PATH = "testscripts/repeat.tc"
+    let FILE_PATH = "testscripts/if.tc"
     let script = await Bun.file(FILE_PATH).text()
     let tokenResults: Tokenizer.TokenizerResults
 
@@ -24,6 +24,9 @@ async function Main() {
         ErrorHandler.PrintError(e,script)
         return
     }
+
+    // console.log("CODE LINES!!!")
+    // console.log(JSON.stringify(tokenResults!.Lines, null, "  "))
 
     let compiledResults: Compiler.CompileResults
     try {
@@ -47,9 +50,6 @@ async function Main() {
     proc.stdin.write('/dfgive '+itemstring); proc.stdin.end();
 
     console.log("Copied to clipboard")
-
-    // console.log("CODE LINES!!!")
-    // console.log(JSON.stringify(tokenResults!.Lines, null, "  "))
 }
 
 await Main()
