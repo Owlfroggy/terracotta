@@ -821,6 +821,22 @@ const OPERATIONS = {
                 return [[code],returnVar]
             },
             txt: OPR_TextAdd
+        },
+        "-": {
+            vec: function(left, right): [CodeBlock[], CodeItem] {
+                let code: CodeBlock[] = []
+                let returnVar = NewTempVar("loc")
+
+                //multiply vector by -1
+                let vecResults = OPERATIONS.vec["*"].num(right,new NumberItem([],"-1"))
+                if (vecResults[0]) {code.push(...vecResults[0])}
+
+                code.push(
+                    new ActionBlock("set_var","ShiftOnVector",[returnVar,left,vecResults[1]],[new TagItem([],"Add Location Rotation","False","set_var","ShiftOnVector")])
+                )
+
+                return [code,returnVar]
+            },
         }
     },
     vec: {
