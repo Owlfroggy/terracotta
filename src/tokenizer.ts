@@ -1202,13 +1202,12 @@ export class ActionTag {
 }
 
 export class ActionToken extends Token {
-    constructor(meta,domain: string, action: string, params: ListToken | null = null, isComparison: boolean = false, tags: Dict<ActionTag> = {}, not: boolean | undefined) {
+    constructor(meta,domain: string, action: string, params: ListToken | null = null, isComparison: boolean = false, tags: Dict<ActionTag> = {}) {
         super(meta)
         this.DomainId = domain
         this.Action = action
         this.Params = params
         this.Tags = tags
-        this.Not = not
         if (isComparison) { this.Type = "comparison" }
     }
 
@@ -1216,7 +1215,6 @@ export class ActionToken extends Token {
     Tags: Dict<ActionTag>
     DomainId: string
     Action: string
-    Not: boolean | undefined
     Type: "comparison" | "action" = "action"
 }
 
@@ -1340,16 +1338,6 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
     index += GetWhitespaceAmount(index)
     let initIndex = index
 
-    let not: boolean | undefined = undefined
-    //= parse not =\\
-    // if (allowComparisons) {
-    //     let notResults = GetIdentifier(index + 1)
-    //     if (notResults[1] == "not") {
-    //         not = true
-    //         index = notResults[0] + GetWhitespaceAmount(notResults[0])
-    //     }
-    // }
-
     //= parse domain =\\
     let domainResults = GetIdentifier(index + 1)
     if (domainResults == null) { return null }
@@ -1375,10 +1363,6 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
     if (accessor == "?") {
         isComparison = true
         actions = domain.Comparisons
-    }
-    //return null if not was used on a normal action
-    else if (not == true) {
-        return null
     }
 
     //move to the accessor
@@ -1430,7 +1414,7 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
         index = tagResults[0]
     }
 
-    return [index, new ActionToken([initIndex,index],domain.Identifier, actionResults[1], params, isComparison, tags!, not)]
+    return [index, new ActionToken([initIndex,index],domain.Identifier, actionResults[1], params, isComparison, tags!)]
 }
 
 //= Call function/start process =\\
