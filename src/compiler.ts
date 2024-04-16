@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
+import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE, VALID_COMPARISON_OPERATORS } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
@@ -328,6 +328,12 @@ class IfActionBlock extends ActionBlock {
         this.Not = not
     }
     Not: boolean
+}
+
+class ElseBlock extends CodeBlock {
+    constructor() {
+        super("else")
+    }
 }
 
 class BracketBlock extends CodeBlock {
@@ -1242,6 +1248,15 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             let expressionResults = SolveExpression(line[0].Condition)
             CodeLine.push(...expressionResults[0])
         }
+        //else
+        else if (line[0] instanceof ElseToken) {
+            let newContext = new Context()
+            newContext.BracketType = "if"
+            newContext.CreatorToken = line[0]
+            PushContext(newContext)
+
+            CodeLine.push(new ElseBlock())
+        }
         //repeat
         else if (line[0] instanceof RepeatToken) {
             let newContext = new Context()
@@ -1567,6 +1582,12 @@ export function JSONize(code: Array<CodeBlock>): string {
                 "id": "bracket",
                 "direct": block.Direction,
                 "type": block.Type == "if" ? "norm" : block.Type
+            })
+        }
+        else if (block instanceof ElseBlock) {
+            blocks.push({
+                "id": "block",
+                "block": "else"
             })
         }
         else {

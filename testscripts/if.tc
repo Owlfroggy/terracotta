@@ -17,6 +17,8 @@ global jkdfg = -.1;
 if (not global dingus + 2 / global jkdfg * default.CurrentHealth <= 10) {
     if (1 < 2) {
         default:SendMessage("akdjhgf");
+    } else {
+        default:SendMessage("stoui");
     }
     default:SendMessage(global dingus);
 }
