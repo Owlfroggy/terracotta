@@ -107,7 +107,9 @@ const PlayerActionOverrides = {
     "AdventureMode": "SetToAdventureMode",
     "SpectatorMode": "SetToSpectatorMode",
     "CreativeMode": "SetToCreativeMode",
-    "SurvivalMode": "SetToSurvivalMode"
+    "SurvivalMode": "SetToSurvivalMode",
+    "ActionBar": "SendActionBar",
+    "SendTitle": "SendTitle"
 }
 const PlayerCompActionOverrides = {}
 
