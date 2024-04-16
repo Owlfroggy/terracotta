@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
+import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE, VALID_COMPARISON_OPERATORS } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
@@ -100,6 +100,10 @@ PopContext()
 
 //fill in missing tags with their default values
 function FillMissingTags(codeblockIdentifier: string, actionName: string, tags: TagItem[]) {
+    if (!AD.DFActionMap[codeblockIdentifier]![actionName]) {
+        return tags
+    }
+
     let existingTags: string[] = [] //df name
     for (let v of tags) {
         existingTags.push(v.Tag)
@@ -1206,6 +1210,27 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
             //push action
             CodeLine.push(new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags,domain instanceof TargetDomain ? domain.Target : null))
+        }
+        //control
+        else if (line[0] instanceof ControlBlockToken) {
+            let action = line[0]
+            let args
+            if (action.Params) {
+                let argResults = SolveArgs(action.Params)
+                CodeLine.push(...argResults[0])
+                args = argResults[1]
+            }
+
+            //tags
+            let tags
+            if (action.Tags) {
+                let tagResults = SolveTags(action.Tags,"control",action.Action)
+                CodeLine.push(...tagResults[0])
+                tags = tagResults[1]
+            }
+
+            //push action
+            CodeLine.push(new ActionBlock("control",action.Action,args,tags))
         }
         //if
         else if (line[0] instanceof IfToken) {

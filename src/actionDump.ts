@@ -575,6 +575,10 @@ for (const action of ACTION_DUMP.actions) {
                 continue
             }
             break
+        case "CONTROL":
+            //only do this so that control blocks get added to DFActionMap
+            overrides = {}
+            validActions = {}
     }
 
     let actionObject
