@@ -4,9 +4,16 @@ line balls = 5;
 line thing_with_color_codes = "&coh nooooo";
 
 global ksjdhfg = txt"<rainbow><font:alt>Hello world</font>!" + " " + line balls + " " + line thing_with_color_codes;
-default:SendMessage(global ksjdhfg);
+allPlayers:SendMessage(global ksjdhfg);
 
-default:SendMessage(txt"<#88ffaa>AWESME VECTOR:" + "&r" + vec[1,33,7]);
+#this is how the dinosaurs died
+if (selection ? HasPlotPermission{Permission = Developer}) {
+    line yes: str;
+    allPlayers:SendMessage("womp womp");
+    allMobs:Remove;
+}
+
+selection:SendMessage(txt"<#88ffaa>AWESME VECTOR:" + "&r" + vec[1,33,7]);
 
 #next feature will be actions in expressions i swear trust me please help me im going insane why did i think any of this was a good idea     i think i see why every other df compiler failed
 txt:GetExpression(global result, global ksjdhfg);

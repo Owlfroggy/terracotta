@@ -38,3 +38,5 @@ if (game ? HasPlayer("MrAwesomeOwl")) {
 if (str ? EndsWith("dinguals","ls")) {
     default:SendMessage("ls reference relajlkst,mad fc");
 }
+
+allPlayers:SendMessage("A NEW AGE OF DIAMONDFIER@!!!!!!!");

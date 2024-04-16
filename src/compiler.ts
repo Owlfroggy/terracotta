@@ -5,6 +5,7 @@ import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
 import * as fflate from "fflate"
 import { TCError } from "./errorHandler"
 import * as AD from "./actionDump"
+import { isMainThread } from "bun"
 
 const VAR_HEADER = `@__TC_`
 
@@ -318,8 +319,8 @@ class ActionBlock extends CodeBlock {
 }
 
 class IfActionBlock extends ActionBlock {
-    constructor(block: string, action: string, args: Array<CodeItem>, tags: TagItem[], not: boolean) {
-        super(block,action,args,tags)
+    constructor(block: string, action: string, args: Array<CodeItem>, tags: TagItem[], target: string | null, not: boolean) {
+        super(block,action,args,tags,target)
         this.Not = not
     }
     Not: boolean
@@ -940,7 +941,7 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
         }
 
         code.push(
-            new IfActionBlock(codeblock, domain?.Comparisons[action.Action]?.DFName!, args, tags, exprToken.Not)
+            new IfActionBlock(codeblock, domain?.Comparisons[action.Action]?.DFName!, args, tags, domain instanceof TargetDomain ? domain.Target : null, exprToken.Not)
         )
 
         return [code,expression[0]]
@@ -983,7 +984,7 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
 
                 //comparison operators
                 if (VALID_COMPARISON_OPERATORS.includes(item.Operator)) {
-                    ifAction = new IfActionBlock("if_var", item.Operator == "==" ? "=" : item.Operator, [left, right], [], exprToken.Not)
+                    ifAction = new IfActionBlock("if_var", item.Operator == "==" ? "=" : item.Operator, [left, right], [], null, exprToken.Not)
                 }
                 //normal operators
                 else {
@@ -1188,7 +1189,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             }
 
             //push action
-            CodeLine.push(new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags))
+            CodeLine.push(new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags,domain instanceof TargetDomain ? domain.Target : null))
         }
         //if
         else if (line[0] instanceof IfToken) {
@@ -1456,6 +1457,7 @@ export function JSONize(code: Array<CodeBlock>): string {
                 "block": block.Block,
                 "args": {"items": chest},
                 "action": block.Action,
+                "target": block.Target ? block.Target : undefined,
                 "attribute": block instanceof IfActionBlock && block.Not ? "NOT" : undefined
             })
         }
