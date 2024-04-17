@@ -117,7 +117,10 @@ const PlayerCompActionOverrides = {}
 const EntityActionOverrides = {
     "SetBaby": "SetIsBaby",
     "TDisplaySeeThru": "SetTextDisplaySeeThrough",
-    "DispRotAxisAngle": "SetDisplayRotationFromAxisAngle"
+    "DispRotAxisAngle": "SetDisplayRotationFromAxisAngle",
+    "SetCustomTag": "SetTag",
+    "GetCustomTag": "GetTag",
+    "GetAllEntityTags": "GetAllTags"
 }
 const EntityCompActionOverrides = {
     
