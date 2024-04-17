@@ -3,17 +3,21 @@
 const ACTION_DUMP = await Bun.file("actiondump.json").json()
 
 export class Action {
-    constructor(tcName: string, dfName: string, tags: Dict<Array<string>>, tagDefaults: Dict<string>){
+    constructor(tcName: string, dfName: string, tags: Dict<Array<string>>, tagDefaults: Dict<string>, returnType: string | null){
         this.TCName = tcName
         this.DFName = dfName
         this.Tags = tags
         this.TagDefaults = tagDefaults
+        this.ReturnType = returnType
     }
 
     DFName: string
     TCName: string
     Tags: Dict<Array<string>>
     TagDefaults: Dict<string>
+
+    //this is NOT RELIABLE! use the function in compilier if you actually want to know return type of an action
+    ReturnType: string | null
 }
 
 //key: terracotta name, value: diamondfire id
@@ -398,6 +402,86 @@ const GameValueOverrides = {
     "Z-Coordinate": "Z"
 }
 
+//SOME ACTIONS JUST DON'T SAY THEIR RETURN TYPES
+//AND NOW I HAVE TO DO THEM MANUALL;Y!!!! AAAAAAAAAAAAAAAAAAHAJKGHADLGJDHFGN,AMDFAD asjkm 
+//its 6:01 pm rn lets see how long this takes
+//6:21. not that long but its still 20 minutes of my life im never getting back
+const ReturnTypeOverrides = {
+    set_var: {
+        "String": "str",
+        "TranslateColors": "str",
+        "StyledText": "txt",
+        "SetCoord": "loc",
+        "SetAllCoords": "loc",
+        "ShiftOnAxis": "loc",
+        "ShiftAllAxis": "loc",
+        "ShiftInDirection": "loc",
+        "ShiftAllDirections": "loc",
+        "ShiftToward": "loc",
+        "ShiftOnVector": "loc",
+        "ShiftRotation": "loc",
+        "SetItemType": "item",
+        " SetItemName ": "item",
+        " SetItemLore ": "item",
+        "SetItemAmount": "item",
+        "SetItemDurability": "item",
+        "SetItemBreakability": "item",
+        " SetItemEnchants ": "item",
+        "AddItemEnchant": "item",
+        "RemItemEnchant": "item",
+        "ClearEnchants": "item",
+        "SetHeadTexture": "item",
+        "SetBookText": "item",
+        "SetItemTag": "item",
+        "RemoveItemTag": "item",
+        "ClearItemTag": "item",
+        "SetModelData": "item",
+        "SetItemEffects": "item",
+        "SetItemFlags": "item",
+        "SetCanPlaceOn": "item",
+        "SetCanDestroy": "item",
+        "SetLodestoneLoc": "item",
+        "SetArmorTrim": "item",
+        "SetItemColor": "item",
+        "AddItemAttribute": "item",
+        "SetMapTexture": "item",
+        "CreateList": "list",
+        "AppendValue": "list",
+        "AppendList": "list",
+        "SetListValue": "list",
+        "InsertListValue": "list",
+        "RemoveListValue": "list",
+        "RemoveListIndex": "list",
+        "SetDictValue": "dict",
+        "RemoveDictEntry": "dict",
+        "ClearDict": "dict",
+        "AppendDict": "dict",
+        "SortDict": "dict",
+        "SetParticleType": "par",
+        "SetParticleAmount": "par",
+        "SetParticleSprd": "par",
+        "SetParticleSize": "par",
+        "SetParticleMat": "par",
+        "SetParticleColor": "par",
+        "SetParticleMotion": "par",
+        "SetParticleRoll": "par",
+        "VectorBetween": "vec",
+        "SetVectorComp": "vec",
+        "SetVectorLength": "vec",
+        "SetPotionType": "pot",
+        "SetPotionAmp": "pot",
+        "SetPotionDur": "pot",
+        "SetSoundType": "snd",
+        "SetSoundVariant": "snd",
+        "SetCustomSound": "snd",
+        "SetSoundPitch": "snd",
+        "SetSoundVolume": "snd",
+        "RGBColor": "str",
+        "HSBColor": "str",
+        "HSLColor": "str"
+    }
+}
+
 //set var actions
 const SetVarVarActions = [
     //stuff in var category
@@ -431,6 +515,18 @@ const SetVarParticleConds: Array<string> = []
 const SetVarVectorConds: Array<string> = []
 const SetVarPotionConds: Array<string> = []
 const SetVarSoundConds: Array<string> = []
+
+//convert game values
+const ReturnTypeMap = {
+    NUMBER: "num",
+    LOCATION: "loc",
+    VECTOR: "vec",
+    ITEM: "item",
+    LIST: "list",
+    COMPONENT: "txt",
+    TEXT: "str",
+    DICT: "dict"
+}
     
 
 //all targeted gvs that work with players but not entities
@@ -502,6 +598,11 @@ for (const block of ACTION_DUMP.codeblocks) {
     CodeblockIdentifiers[block.name] = block.identifier
     DFActionMap[block.identifier] = {}
 }
+
+//multi return blocks that have been accounted for in terracotta
+//this way if a new one pops up in an action dump there can be a warning
+//so i dont pull a stoopid and miss it
+const seenMultiReturnBlocks = [" GetSignText ", " GetBookText ","GetItemType","GetBlockType","ContainerLock"]
 
 //convert code blocks
 for (const action of ACTION_DUMP.actions) {
@@ -586,16 +687,26 @@ for (const action of ACTION_DUMP.actions) {
 
     let actionObject
 
+    let returnType: string | null = null
+    if (action.icon.returnValues && action.icon.returnValues.length > 0) {
+        if (action.icon.returnValues.length > 1 && !seenMultiReturnBlocks.includes(action.name)) {
+            console.log("New multi-return block: ",action)
+        }
+        
+        returnType = ReturnTypeMap[action.icon.returnValues[0].type]
+    }
+
     //special logic for select
     if (action.codeblockName == "SELECT OBJECT") {
         if (CreateSelectionOverrides[action.name]) {
-            actionObject = new Action(CreateSelectionOverrides[action.name],action.name,getTags(action),getTagDefaults(action))
+            actionObject = new Action(CreateSelectionOverrides[action.name],action.name,getTags(action),getTagDefaults(action),returnType)
             ValidCreateSelectActions[CreateSelectionOverrides[action.name]] = actionObject
         } else if (FilterSelectionOverrides[action.name]) {
-            actionObject = new Action(FilterSelectionOverrides[action.name],action.name,getTags(action),getTagDefaults(action))
+            actionObject = new Action(FilterSelectionOverrides[action.name],action.name,getTags(action),getTagDefaults(action),returnType)
             ValidFilterSelectActions[FilterSelectionOverrides[action.name]] = actionObject
         }
     } 
+
     //logic for everything else
     else {
         //if this is not a supported code block, skip it
@@ -612,11 +723,10 @@ for (const action of ACTION_DUMP.actions) {
             name = overrides[action.name]
         }
 
-        actionObject = new Action(name,action.name,getTags(action),getTagDefaults(action))
+        actionObject = new Action(name,action.name,getTags(action),getTagDefaults(action),returnType)
         validActions[name] = actionObject
     }
 
-    //print(action)
     DFActionMap[CodeblockIdentifiers[action.codeblockName]]![action.name] = actionObject
 }
 
@@ -625,17 +735,17 @@ for (const action of ACTION_DUMP.actions) {
 for (let [tcName, action] of Object.entries(ValidPlayerCompActions)) {
     if (ValidEntityCompActions[tcName]) {
         //if this is one of the things thats in both if entity and if player, specify this as the player version
-        ValidSelectionPlayerComparisons[tcName] = new Action(tcName,"P"+action?.DFName,action?.Tags!,action?.TagDefaults!)
+        ValidSelectionPlayerComparisons[tcName] = new Action(tcName,"P"+action?.DFName,action?.Tags!,action?.TagDefaults!,null)
     } else {
         ValidSelectionPlayerComparisons[tcName] = action
     }
 }
 
-//if player
+//if entity
 for (let [tcName, action] of Object.entries(ValidEntityCompActions)) {
     if (ValidPlayerCompActions[tcName]) {
         //if this is one of the things thats in both if entity and if player, specify this as the entity version
-        ValidSelectionEntityComparisons[tcName] = new Action(tcName,"E"+action?.DFName,action?.Tags!,action?.TagDefaults!)
+        ValidSelectionEntityComparisons[tcName] = new Action(tcName,"E"+action?.DFName,action?.Tags!,action?.TagDefaults!,null)
     } else {
         ValidSelectionEntityComparisons[tcName] = action
     }
@@ -646,23 +756,13 @@ for (let [tcName, action] of Object.entries(ValidEntityCompActions)) {
 //     console.log(k,"  :  |"+v?.DFName+"|")
 // }
 
-//convert game values
-let gvTypeMap = {
-    NUMBER: "num",
-    LOCATION: "loc",
-    VECTOR: "vec",
-    ITEM: "item",
-    LIST: "list",
-    COMPONENT: "txt",
-    TEXT: "str"
-}
 let dingus: string[] = []
 for (const value of ACTION_DUMP.gameValues) {
     let name = value.icon.name.replace(/ /g,"")
     if (GameValueOverrides[value.icon.name]) {name = GameValueOverrides[value.icon.name]}
 
-    GameValueTypes[value.icon.name] = gvTypeMap[value.icon.returnType]
-    if (!gvTypeMap[value.icon.returnType]) { throw new Error(`Game value type '${value.icon.returnType}' is not mapped to any tc type`) }
+    GameValueTypes[value.icon.name] = ReturnTypeMap[value.icon.returnType]
+    if (!ReturnTypeMap[value.icon.returnType]) { throw new Error(`Game value type '${value.icon.returnType}' is not mapped to any tc type`) }
 
     //plot game values
     if (value.category == "Event Values" || value.category == "Plot Values") {

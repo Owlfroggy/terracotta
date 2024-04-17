@@ -1340,11 +1340,11 @@ function ParseTags(index, validTags): [number,Dict<ActionTag>] | null {
 //ERR9 = missing ? after tag value variable
 
 function ParseAction(index: number, allowComparisons: boolean = false, genericTargetComparisons: boolean = false): [number, ActionToken] | null {
-    index += GetWhitespaceAmount(index)
+    index += GetWhitespaceAmount(index) + 1
     let initIndex = index
 
     //= parse domain =\\
-    let domainResults = GetIdentifier(index + 1)
+    let domainResults = GetIdentifier(index)
     if (domainResults == null) { return null }
 
     let validDomains = genericTargetComparisons ? GenericTargetDomains : DomainList

@@ -1,0 +1,9 @@
+FUNCTION awesome;
+
+
+item:GetBookText(global dingus);
+__printvartype global dingus;
+
+defaultEntity:GetAllTags(global dingus);
+
+__printvartype global dingus;

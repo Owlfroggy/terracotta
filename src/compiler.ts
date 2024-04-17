@@ -120,6 +120,48 @@ function FillMissingTags(codeblockIdentifier: string, actionName: string, tags: 
     return tags
 }
 
+function GetReturnType(action: ActionBlock): string | null {
+    function getValueOfTag(tag: string): string | null {
+        for (const v of action.Tags) {
+            if (v.Tag == tag) {
+                return v.Option
+            }
+        }
+        return null
+    }
+
+    //special cases where diamondfire decided to be quirky and have multiple return types
+    if (action.Block == "set_var") {
+        switch (action.Action) {
+            case " GetSignText ":
+                return getValueOfTag("Sign Line") == "All lines" ? "list" : "txt"
+            case " GetBookText ":
+                //check if number in args list
+                for (const v of action.Arguments) {
+                    if (v instanceof NumberItem) {
+                        return "txt"
+                    }
+                }
+                return "list"
+            case "GetItemType":
+                return getValueOfTag("Return Value Type") == "Item" ? "item" : "str"
+            case "GetBlockType":
+                return getValueOfTag("Return Value Type") == "Item" ? "item" : "str"
+            case "ContainerLock":
+                //the only thing you're realistically gonna do if its a number is check if its 0
+                //but with a string you might actually do stuff with that
+                //so just mark this action as str and hope for the best
+                return "str"
+        }
+    }
+
+    if (AD.DFActionMap[action.Block] && AD.DFActionMap[action.Block]![action.Action]) {
+        return AD.DFActionMap[action.Block]![action.Action]?.ReturnType!
+    } else {
+        return null
+    }
+}
+
 //abstract base class for all code items
 class CodeItem {
     constructor(type: string,meta: [number,number] | null) {
@@ -1214,8 +1256,22 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 tags = tagResults[1]
             }
 
+            let actionBlock = new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags,domain instanceof TargetDomain ? domain.Target : null)
+
+            //if this action has a return type, mark variable as that type
+            let returnType = GetReturnType(actionBlock)
+            if (returnType) {
+                //there must be a variable in slot 1
+                //check for variable token to make sure temp var doesnt count
+                if (!(line[0].Params && line[0].Params.Items[0] && line[0].Params.Items[0].Expression[0] instanceof VariableToken && line[0].Params.Items[0].Expression.length == 1)) {
+                    throw new TCError(`First argument must be a variable`,0,line[0].CharStart,line[0].CharEnd)
+                }
+
+                SetVarType(args[0],returnType)
+            }
+
             //push action
-            CodeLine.push(new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags,domain instanceof TargetDomain ? domain.Target : null))
+            CodeLine.push(actionBlock)
         }
         //control
         else if (line[0] instanceof ControlBlockToken) {
