@@ -200,7 +200,7 @@ const SetVarActionOverrides = {
     " RoundNumber ": "Round",
     "-=": "Decrement",
     "Cosine": "Cos",
-    "ParseNumber": "ParseNumber",
+    "ParseNumber": "Parse",
     "Exponent": "Exponent",
     "ClampNumber": "Clamp",
 
@@ -228,14 +228,14 @@ const SetVarActionOverrides = {
     "GetCenterLoc": "GetCenter",
     "AlignLoc": "Align",
     "FaceLocation": "FaceLocation",
-    "SetAllCoords": "SetCoords",
+    "SetAllCoords": "SetAllCoordinates",
     "ShiftInDirection": "ShiftInDirection",
     "Distance": "GetDistance",
     "GetDirection": "GetDirection",
-    "GetCoord": "GetCoord",
+    "GetCoord": "GetCoordinate",
     "RandomLoc": "Random",
     " SetDirection ": "SetDirection",
-    "SetCoord": "SetCoord",
+    "SetCoord": "SetCoordinate",
     "ShiftToward": "ShiftToward",
     "ShiftAllDirections": "ShiftAllDirections",
 
@@ -279,7 +279,7 @@ const SetVarActionOverrides = {
     "PopListValue": "Pop",
     "ListLength": "Len",
     "ReverseList": "Reverse",
-    "DedupList": "RemoveDuplicateElements",
+    "DedupList": "RemoveDuplicates",
     "RemoveListIndex": "Remove",
     "FlattenList": "Flatten",
     "SetListValue": "Set",
@@ -302,7 +302,7 @@ const SetVarActionOverrides = {
     "GetDictValues": "GetValues",
     "GetDictKeys": "GetKeys",
     "AppendDict": "AppendDictionary",
-    "Remove": "RemoveDictEntry",
+    "RemoveDictEntry": "Remove",
     "GetDictValue": "Get",
     
     //par domain
@@ -695,6 +695,12 @@ for (const action of ACTION_DUMP.actions) {
         
         returnType = ReturnTypeMap[action.icon.returnValues[0].type]
     }
+
+    //return type overrides
+    if (ReturnTypeOverrides[CodeblockIdentifiers[action.codeblockName]] && ReturnTypeOverrides[CodeblockIdentifiers[action.codeblockName]][action.name]) {
+        returnType = ReturnTypeOverrides[CodeblockIdentifiers[action.codeblockName]][action.name]
+    }
+
 
     //special logic for select
     if (action.codeblockName == "SELECT OBJECT") {
