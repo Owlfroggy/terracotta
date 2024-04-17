@@ -681,7 +681,7 @@ function OPR_NumOnNum(left, right, opr: string, blockopr: string): [CodeBlock[],
 
 
         let returnvar = NewTempVar("num")
-        let code = new ActionBlock("set_var", blockopr, [returnvar, left, right])
+        let code = new ActionBlock("set_var", blockopr, [returnvar, left, right],blockopr == "%" ? [new TagItem([],"Remainder Mode","Modulo","set_var","%")] : [] )
         return [[code], returnvar]
     }
 
@@ -842,12 +842,24 @@ const OPERATIONS = {
                 return OPR_NumOnNum(left,right,"/","/")
             }
         },
-        // not possible until i do code tags
-        // "%": {
-        //     num: function(left, right): [CodeBlock[],CodeItem] {
-        //         return OPR_NumOnNum(left,right,"%","%")
-        //     }
-        // }
+        "%": {
+            num: function(left, right): [CodeBlock[],CodeItem] {
+                return OPR_NumOnNum(left,right,"%","%")
+            }
+        },
+        "^": {
+            num: function(left, right): [CodeBlock[],CodeItem] {
+                //if both sides are just constant numbers
+                if (!isNaN(left.Value) && !isNaN(right.Value)) {
+                    return [[],new NumberItem([left.CharStart,left.CharEnd],String(Number(left.Value) ** Number(right.Value)) )]
+                }
+
+                let returnVar = NewTempVar("num")
+                let code = new ActionBlock("set_var","Exponent",[returnVar,left,right])
+
+                return [[code],returnVar]
+            }
+        }
     },
     str: {
         "+": {
@@ -972,6 +984,7 @@ const OPERATIONS = {
 }
 
 const OrderOfOperations = [
+    ["^"],
     ["*","/","%"],
     ["+","-"],
     ["==", "!=", "<", ">", "<=", ">="],
@@ -1269,7 +1282,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
                 SetVarType(args[0],returnType)
             }
-
+            
             //push action
             CodeLine.push(actionBlock)
         }

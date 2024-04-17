@@ -7,3 +7,6 @@ __printvartype global dingus;
 defaultEntity:GetAllTags(global dingus);
 
 __printvartype global dingus;
+
+global Yes = 4;
+default:SendMessage(2 ^ global Yes, 2 ^ 5);
