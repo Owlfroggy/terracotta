@@ -1594,7 +1594,39 @@ function ParseGameValue(index: number): [number, Token] | null {
     return [index, new GameValueToken([initIndex,index],valueResults[1], domain.Identifier)]
 }
 
+//= Type override thingy =\\
+//this is ONLY USED IN EXPRESSIONS!
+//this is not used for variables, they do their own type parsing
+export class TypeOverrideToken extends Token {
+    constructor(meta,type: string) {
+        super(meta)
+        this.Type = type
+    }
+    Type: string
+}
+
+function ParseTypeOverride(index: number): [number, TypeOverrideToken] | null {
+    //parse colon
+    if (GetNextCharacters(index,1) != ":") { return null }
+    //move to colon
+    index += GetWhitespaceAmount(index) + 1
+    let initIndex = index
+    
+    //move to start of type
+    index += GetWhitespaceAmount(index) + 1
+
+    //parse type
+    let typeResults = GetIdentifier(index)
+    if (typeResults[1] == "") {throw new TCError("Expected type following ':'",0,initIndex,initIndex)}
+
+    //error for invalid type
+    if (!VALID_TYPES.includes(typeResults[1])) { throw new TCError(`Invalid type '${typeResults[1]}'`,0,index,typeResults[0])}
+
+    return [typeResults[0],new TypeOverrideToken([initIndex,typeResults[0]],typeResults[1])]
+}
+
 //= Expressions =\\
+
 export class ExpressionToken extends Token {
     constructor(meta,symbols: Array<any>,not: boolean) {
         super(meta)
@@ -1729,9 +1761,11 @@ function ParseExpression(
                 }
             }
         }
-        //otherwise, parse for operator 
+        //otherwise, parse for operator or type override
         else {
-            results = ParseOperator(index, "math")
+            if (results == null) { results = ParseTypeOverride(index) }
+
+            if (results == null) { results = ParseOperator(index, "math") }
 
             //indexer thingy
             if (results == null) { results = ParseIndexer(index) }

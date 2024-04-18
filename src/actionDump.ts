@@ -525,7 +525,8 @@ const ReturnTypeMap = {
     LIST: "list",
     COMPONENT: "txt",
     TEXT: "str",
-    DICT: "dict"
+    DICT: "dict",
+    ANY_TYPE: "any"
 }
     
 
@@ -693,7 +694,7 @@ for (const action of ACTION_DUMP.actions) {
             console.log("New multi-return block: ",action)
         }
         
-        returnType = ReturnTypeMap[action.icon.returnValues[0].type]
+        returnType = "any"//ReturnTypeMap[action.icon.returnValues[0].type]
     }
 
     //return type overrides

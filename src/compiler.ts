@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
+import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE, VALID_COMPARISON_OPERATORS } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
@@ -120,7 +120,8 @@ function FillMissingTags(codeblockIdentifier: string, actionName: string, tags: 
     return tags
 }
 
-function GetReturnType(action: ActionBlock): string | null {
+//if raw is true, skip any special case logic
+function GetReturnType(action: ActionBlock, raw: boolean = false): string | null {
     function getValueOfTag(tag: string): string | null {
         for (const v of action.Tags) {
             if (v.Tag == tag) {
@@ -131,27 +132,29 @@ function GetReturnType(action: ActionBlock): string | null {
     }
 
     //special cases where diamondfire decided to be quirky and have multiple return types
-    if (action.Block == "set_var") {
-        switch (action.Action) {
-            case " GetSignText ":
-                return getValueOfTag("Sign Line") == "All lines" ? "list" : "txt"
-            case " GetBookText ":
-                //check if number in args list
-                for (const v of action.Arguments) {
-                    if (v instanceof NumberItem) {
-                        return "txt"
+    if (!raw) {
+        if (action.Block == "set_var") {
+            switch (action.Action) {
+                case " GetSignText ":
+                    return getValueOfTag("Sign Line") == "All lines" ? "list" : "txt"
+                case " GetBookText ":
+                    //check if number in args list
+                    for (const v of action.Arguments) {
+                        if (GetType(v) == "num") {
+                            return "txt"
+                        }
                     }
-                }
-                return "list"
-            case "GetItemType":
-                return getValueOfTag("Return Value Type") == "Item" ? "item" : "str"
-            case "GetBlockType":
-                return getValueOfTag("Return Value Type") == "Item" ? "item" : "str"
-            case "ContainerLock":
-                //the only thing you're realistically gonna do if its a number is check if its 0
-                //but with a string you might actually do stuff with that
-                //so just mark this action as str and hope for the best
-                return "str"
+                    return "list"
+                case "GetItemType":
+                    return getValueOfTag("Return Value Type") == "Item" ? "item" : "str"
+                case "GetBlockType":
+                    return getValueOfTag("Return Value Type") == "Item" ? "item" : "str"
+                case "ContainerLock":
+                    //the only thing you're realistically gonna do if its a number is check if its 0
+                    //but with a string you might actually do stuff with that
+                    //so just mark this action as str and hope for the best
+                    return "str"
+            }
         }
     }
 
@@ -1118,6 +1121,8 @@ const OrderOfOperations = [
 function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
     let code: CodeBlock[] = []
     let expression: (Token | CodeItem)[] = []
+    //if an index is present as a key in here, item conversion will skip it
+    let skipIndexes: Dict<boolean> = {}
 
     //special case for action if statements
     if (exprToken.Expression.length == 1 && exprToken.Expression[0] instanceof ActionToken && exprToken.Expression[0].Type == "comparison") {
@@ -1154,9 +1159,16 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
     }
 
     //convert expression tokens to code items
-    let i = 0;
+    let i = -1;
     for (const token of exprToken.Expression) {
-        if (token instanceof OperatorToken) {
+        i++
+        if (skipIndexes[i]) {continue}
+
+        //type override token in a place type override tokens should not be
+        if (token instanceof TypeOverrideToken) {
+            throw new TCError("Type override must immediately follow an action or variable",0,token.CharStart,token.CharEnd)
+        }
+        else if (token instanceof OperatorToken) {
             expression.push(token)
         } else if (token instanceof ExpressionToken) {
             //solve sub expression
@@ -1191,9 +1203,29 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
             let actionBlock = new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags,domain instanceof TargetDomain ? domain.Target : null)
 
             let returnType = GetReturnType(actionBlock)
+            let rawReturnType = GetReturnType(actionBlock,true)
+
+            //if next token is char override
+            let typeOverrideToken = exprToken.Expression[i+1]
+            if (typeOverrideToken instanceof TypeOverrideToken) {
+                //error for trying to specify an action that returns null
+                if (!returnType) {
+                    throw new TCError(`'${token.Action}' cannot have its type specified because it never returns a value`,0,typeOverrideToken.CharStart,typeOverrideToken.CharEnd)
+                }
+                //error for trying to specify an action that only returns one type as the type that it doesnt return
+                if (rawReturnType != "any" && typeOverrideToken.Type != returnType) { 
+                    throw new TCError(`'${token.Action}' cannot have its type specified as ${typeOverrideToken.Type} because it always returns ${returnType}`,0,typeOverrideToken.CharStart,typeOverrideToken.CharEnd)
+                }
+
+                returnType = typeOverrideToken.Type
+                skipIndexes[i+1] = true
+            }
+
             //if this action doesn't have a return type, throw error
             if (!returnType) {
                 throw new TCError("Only actions which return a value can be used in expressions",0,token.CharStart,token.CharEnd)
+            } else if (returnType == "any") {
+                throw new TCError("Expected return type must be manually specified to use this action in expressions (e.g. action(): str)",0,token.CharStart,token.CharEnd)
             }
 
             SetVarType(tempVar,returnType)
@@ -1207,7 +1239,6 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
             code.push(...toItemResults[0])
             expression.push(toItemResults[1])
         }
-        i++
     }
 
     let ifAction: IfActionBlock | null = null

@@ -19,6 +19,9 @@ global gameStats = {
     "expression" + local asdf * 20 = local Nine + 10
 };
 
-dict:Get(line dingus, global gameStats,"27");
+#default:SendMessage(num:Round(0.6993): num);
 
-default:SendMessage(line dingus);
+default:SendMessage(dict:Get(global gameStats,"expression" + local asdf * 20): num + 10 - 8);
+
+local askfdjgh: txt = item:GetBookText(item["written_book"],global dingus: num);
+__printvartype local askfdjgh;
