@@ -1,12 +1,31 @@
 FUNCTION awesome;
 
+line awesome = num:Round(0.7798);
+default:SendMessage("in line set var action results!!!",num:Random(1,10));
+
+#you can technically items like potions like this
+
+line amp = 5;
+line dur = 20 * 20; #20 seconds
+line eff = "Absorption";
+#i really dont recommend doing it this way because its ugly and it creates way too many temp vars but technically it works
+default:GivePotionEffect(
+    pot:SetAmplifier(
+        pot:SetDuration(
+            pot:SetType(pot["Speed"], line eff), line dur
+        ), line amp
+    )
+);
+default:GivePotionEffect(pot["Slowness",255,20]);
+
+wait(1){Time Unit = Seconds};
+
+default:SendMessage("your eye level:",loc:GetCoordinate(default.EyeLocation){Coordinate = Y});
+default:EnableBlockModification();
+default:GiveItems(item:SetStackSize(item:SetMaterial("water_bucket"),10)); #item compilation isnt a thing yet :(
+
+#make sure types are handled correctly (this will error if type isnt defined as vector)
+default:SetVelocity(vec:Set(0,50,0) + vec[100.05,0,0.05]);
 
 item:GetBookText(global dingus);
 __printvartype global dingus;
-
-defaultEntity:GetAllTags(global dingus);
-
-__printvartype global dingus;
-
-global Yes = 4;
-default:SendMessage(2 ^ global Yes, 2 ^ 5);

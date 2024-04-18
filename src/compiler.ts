@@ -1038,6 +1038,45 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
             let results = SolveExpression(token)
             code.push(...results[0])
             expression[i] = results[1]
+        } else if (token instanceof ActionToken) {
+            //convert action token to code block
+            let action = token
+            let domain: Domain = DomainList[action.DomainId]!
+            
+            //arguments
+            //a temporary variable is automatically inserted as the first chest slot to get the returned value of the function
+            let tempVar = NewTempVar("num")//num is just a placeholder type and is reassigned after return type is gotten
+            
+            let args: CodeItem[] = [tempVar] 
+            if (action.Params) {
+                let argResults = SolveArgs(action.Params)
+                code.push(...argResults[0])
+                args.push(...argResults[1])
+            }
+
+            //tags
+            let tags
+            if (action.Tags) {
+                let tagResults = SolveTags(action.Tags,domain.CodeBlock!,domain.Actions[action.Action]?.DFName!)
+                code.push(...tagResults[0])
+                tags = tagResults[1]
+            }
+
+            
+            let actionBlock = new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags,domain instanceof TargetDomain ? domain.Target : null)
+
+            let returnType = GetReturnType(actionBlock)
+            //if this action doesn't have a return type, throw error
+            if (!returnType) {
+                throw new TCError("Only actions which return a value can be used in expressions",0,token.CharStart,token.CharEnd)
+            }
+
+            SetVarType(tempVar,returnType)
+
+            //add the action to the code line
+            code.push(actionBlock)
+            //add the temporary variable containing the action's result to the expression in place of the action
+            expression.push(tempVar)
         } else {
             let toItemResults = ToItem(token)
             code.push(...toItemResults[0])
