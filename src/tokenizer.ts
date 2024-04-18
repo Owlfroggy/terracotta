@@ -881,7 +881,6 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
         return null
     }
 
-    print(identifierResults[1])
     //return action based on what keyword was used
     if (identifierResults[1] == "break") {
         return [identifierResults[0], new ControlBlockToken([initIndex,index],"StopRepeat")]
@@ -896,15 +895,11 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
         return [identifierResults[0], new ControlBlockToken([initIndex,index],"Return")]
     }
     else if (identifierResults[1] == "returnmult") {
-        print("SKJH")
         //parse number for how many times to return
         let expressionResults = ParseExpression(identifierResults[0],[";"],false)
-        print("POST EXPR")
         if (expressionResults == null) {
             throw new TCError("Expected number following 'returnmult'",0,initIndex,index)
         }
-
-        print(SCRIPT_CONTENTS[expressionResults[0]])
 
         return [expressionResults[0], new ControlBlockToken([initIndex,expressionResults[0]],"ReturnNTimes",new ListToken([index,expressionResults[0]],[expressionResults[1]]))]
     }
