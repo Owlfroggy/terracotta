@@ -1,20 +1,20 @@
 FUNCTION awesome;
 
-line balls = 5;
-line thing_with_color_codes = "&coh nooooo";
-
-global ksjdhfg = txt"<rainbow><font:alt>Hello world</font>!" + " " + line balls + " " + line thing_with_color_codes;
-allPlayers:SendMessage(global ksjdhfg);
-
-#this is how the dinosaurs died
-if (selection ? HasPlotPermission{Permission = Developer}) {
-    line yes: str;
-    allPlayers:SendMessage("womp womp");
-    allMobs:Remove;
+if (var ? IsType(saved dingus){Variable Type = String}) {
+    default:SendMessage("saved var \"dingus\" has type string");
 }
 
-selection:SendMessage(txt"<#88ffaa>AWESME VECTOR:" + "&r" + vec[1,33,7]);
+#multiple values of the same type (should result in num)
+if (var ? Equals(saved dingus, 1,2,3,4,5,6)) {}
 
-#next feature will be actions in expressions i swear trust me please help me im going insane why did i think any of this was a good idea     i think i see why every other df compiler failed
-txt:GetExpression(global result, global ksjdhfg);
-default:SendMessage("Expreson!",global result);
+#multiple values of different types (should result in undefined)
+if (var ? Equals(saved dingus, 6, "kjhadg", pot["Speed"])) {}
+
+#single value (should result in str)
+if (saved dingus == "asdf") {}
+
+#no values (should result in undefined)
+if (var ? Equals(saved dingus)) {}
+
+#no variable (should like.. not crash at least)
+if (var ? Equals(53784)) {}

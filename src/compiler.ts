@@ -419,9 +419,9 @@ function NewTempVar(type: string): VariableItem {
     return varitem
 }
 
-function GetType(item: CodeItem) {
+function GetType(item: CodeItem): string {
     if (item instanceof GameValueItem) {
-        return AD.GameValueTypes[item.Value]
+        return AD.GameValueTypes[item.Value] || "any"
     } else if (item instanceof VariableItem) {
         if (item.StoredType) {
             return item.StoredType
@@ -430,6 +430,44 @@ function GetType(item: CodeItem) {
         }
     } else {
         return item.itemtype
+    }
+}
+
+
+//make sure to call this AFTER the new domain is pushed
+function ApplyIfStatementTypeInferences(action: IfActionBlock) {
+    let variable = action.Arguments[0] as VariableItem
+    if (!(variable instanceof VariableItem)) {return}
+
+    switch (action.Action) {
+        case "VarIsType":
+            let option = action.Tags[0].Option
+            SetVarType(variable,
+                option == "Number" ? "num" :
+                option == "String" ? "str" :
+                option == "Styled Text" ? "txt" :
+                option == "Location" ? "loc" :
+                option == "Item" ? "item" :
+                option == "List" ? "list" :
+                option == "Potion effect" ? "pot" :
+                option == "Particle" ? "par" : 
+                option == "Vector" ? "vec" :
+                option == "Dictionary" ? "dict" : "any"
+            )
+            return
+        case "=":
+            let varType: string | undefined = undefined
+            //figure out what type the chest args are
+            for (let i = 1; i < action.Arguments.length; i++) {
+                let type = GetType(action.Arguments[i])
+                if (!varType) {
+                    varType = type
+                } else if (varType != type || type == "any") {
+                    //if the types of values to compare to are mixed then just dont do anything
+                    return null
+                }
+            }
+            SetVarType(variable,varType!)
     }
 }
 
@@ -1525,6 +1563,8 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             if (!(expressionResults[0][expressionResults[0].length - 1] instanceof IfActionBlock)) {
                 throw new TCError("Condition must either be an if action or include a comparison",0,line[0].Condition.CharStart,line[0].Condition.CharEnd)
             }
+
+            ApplyIfStatementTypeInferences(expressionResults[0][expressionResults[0].length - 1] as IfActionBlock)
 
             CodeLine.push(...expressionResults[0])
         }
