@@ -1175,6 +1175,9 @@ export class CompileResults {
     Code: Array<CodeBlock>
 }
 
+//this variable will be 1 for the first line after the closing bracket of an if statement
+var ComingFromIfStatement = 0
+
 export function Compile(lines: Array<Array<Token>>): CompileResults {
     var CodeLine: Array<CodeBlock> = []
 
@@ -1189,6 +1192,9 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
     let i = -1
     for (let line of lines) {
         i++
+
+        if (ComingFromIfStatement > 0) { ComingFromIfStatement-- }
+
         //headers
         if (headerMode) {
             let header = line[0]
@@ -1285,6 +1291,10 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
             CodeLine.push(new BracketBlock("close",HighestContext.BracketType))
 
+            if (HighestContext.CreatorToken instanceof IfToken) {
+                ComingFromIfStatement = 2
+            }
+
             PopContext()
         }
 
@@ -1359,7 +1369,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             if (!(expressionResults[0][expressionResults[0].length - 1] instanceof IfActionBlock)) {
                 throw new TCError("Condition must either be an if action or include a comparison",0,line[0].Condition.CharStart,line[0].Condition.CharEnd)
             }
-            
+
             CodeLine.push(...expressionResults[0])
         }
         //else
@@ -1368,6 +1378,10 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             newContext.BracketType = "if"
             newContext.CreatorToken = line[0]
             PushContext(newContext)
+
+            if (ComingFromIfStatement != 1) {
+                throw new TCError("Else must follow immediately after the closing bracket of an if statement",0,line[0].CharStart,line[0].CharEnd)
+            }
 
             CodeLine.push(new ElseBlock())
         }
