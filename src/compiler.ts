@@ -1354,6 +1354,12 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             PushContext(newContext)
 
             let expressionResults = SolveExpression(line[0].Condition)
+
+            //error if the condition was invalid
+            if (!(expressionResults[0][expressionResults[0].length - 1] instanceof IfActionBlock)) {
+                throw new TCError("Condition must either be an if action or include a comparison",0,line[0].Condition.CharStart,line[0].Condition.CharEnd)
+            }
+            
             CodeLine.push(...expressionResults[0])
         }
         //else
