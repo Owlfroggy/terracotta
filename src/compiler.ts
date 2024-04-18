@@ -734,6 +734,36 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
             return [code,latestItem]
         }
     }
+    //lists
+    else if (token instanceof ListToken) {
+        let returnVar = NewTempVar("list")
+
+        let currentAction = "CreateList"
+        let currentChest: CodeItem[] = [returnVar]
+
+        //max of 27 items in a chest; one slot has to be the variable 
+        //and this number is decremented by one because lists start at 0 in js
+        
+        let i = -1 //curent index in the list token
+        for (let expression of token.Items) {
+            i++
+            let expressionResults = SolveExpression(expression)
+            code.push(...expressionResults[0])
+            currentChest.push(expressionResults[1])
+
+            //if the current action's chest is full, push it and start a new action
+            if (currentChest.length >= 27) {
+                code.push(new ActionBlock("set_var",currentAction,currentChest))
+                currentAction = "AppendValue"
+                currentChest = [returnVar]
+            }
+        }
+
+        //push final creation/append action
+        code.push(new ActionBlock("set_var",currentAction,currentChest))
+
+        return [code, returnVar]
+    }
     
     console.log(token)
     throw new Error("Could not convert token to item")
