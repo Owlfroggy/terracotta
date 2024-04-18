@@ -2,22 +2,25 @@ import * as AD from "./actionDump"
 
 //list of all registered domain ids
 export var DomainList: Dict<Domain> = {}
+//all domains that aren't marked as internal
+export var PublicDomains: Dict<Domain> = {}
 
 export class Domain {
-    constructor(identifier: string, actions: Dict<AD.Action>, comparisons: Dict<AD.Action>, values: Dict<string>,silent: boolean = false,codeBlock: string | null = null) {
+    constructor(identifier: string, actions: Dict<AD.Action>, comparisons: Dict<AD.Action>, values: Dict<string>,internal: boolean = false,codeBlock: string | null = null) {
         this.Identifier = identifier
         this.Comparisons = comparisons
         this.Actions = actions
         this.Values = values
         this.CodeBlock = codeBlock
+        this.Internal = internal
 
         if (Object.entries(values).length == 0) {
             this.SupportsGameValues = false
         }
 
-        if (silent == false) {
-            DomainList[identifier] = this
-        }
+        DomainList[identifier] = this
+
+        if (!internal) {PublicDomains[identifier] = this}
 
         //generate inverses
         for (let [tcName, action] of Object.entries(this.Actions)) {
@@ -45,6 +48,7 @@ export class Domain {
     Comparisons: Dict<AD.Action>
     Values: Dict<string>
     CodeBlock: string | null
+    Internal: boolean //used internally by stuff like generic target comparisons. makes this domain not valid for general use in scripts (for example, player:SendMessage(); is invalid because player domain is set as internal)
 
     //inverse: df name as the key
     ActionsInverse: Dict<AD.Action> = {}

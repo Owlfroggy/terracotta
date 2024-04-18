@@ -22,3 +22,22 @@ repeat line i to (global DINGUS) {
     __printvartype line i;
     default:SendMessage(line i + (default.Location + txt" <= 5"));
 }
+
+while (not player ? NameEquals) {
+    default:SendMessage("&c! FISH DETECTED !");
+    wait(1);
+}
+
+while (entity ? NameEquals("dingus"){Ignore Formatting = True}) {
+
+}
+
+while (game ? BlockEquals) {
+
+}
+
+while (not global DEATHTIMER <= 0 + global SevenHundread) {
+    wait(1);
+}
+
+#player:SendMessage("test");

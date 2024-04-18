@@ -3,7 +3,7 @@
 //may result from smart peoiple looking at my goofy ass code
 
 
-import { Domain, DomainList, TargetDomain, GenericDomains, GenericTargetDomains } from "./domains"
+import { Domain, DomainList, TargetDomain, GenericDomains, GenericTargetDomains, PublicDomains } from "./domains"
 import { PrintError, TCError } from "./errorHandler"
 import { DEBUG_MODE, print } from "./main"
 import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetNextCharacters, GetLineFromIndex, GetLineStart, GetLineEnd, GetWhitespaceAmount, GetCharactersUntil, GetCharacterAtIndex } from "./characterUtils"
@@ -1084,7 +1084,7 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
         index += GetWhitespaceAmount(index) + 1
 
         //expression
-        let expressionResults = ParseExpression(index,[")"],true,["comparisons"])
+        let expressionResults = ParseExpression(index,[")"],true,["comparisons","genericTargetComparisons"])
         if (expressionResults == null) {
             throw new TCError("Expected condition following 'while'",0,initIndex,keywordResults[0])
         }
@@ -1347,7 +1347,7 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
     let domainResults = GetIdentifier(index)
     if (domainResults == null) { return null }
 
-    let validDomains = genericTargetComparisons ? GenericTargetDomains : DomainList
+    let validDomains = genericTargetComparisons ? GenericDomains : PublicDomains
 
     let domain = validDomains[domainResults[1]]
     if (!domain) { return null }
