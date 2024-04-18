@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
+import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE, VALID_COMPARISON_OPERATORS } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
@@ -283,6 +283,16 @@ class GameValueItem extends CodeItem {
     Target: string
 }
 
+class ItemItem extends CodeItem {
+    constructor(meta,id: string,count: number) {
+        super("item",meta)
+        this.Id = id
+        this.Count = count
+    }
+    Id: string
+    Count: number
+}
+
 class TagItem extends CodeItem {
     constructor(meta,tag: string, option: string, block: string, action: string, variable: VariableItem | null = null) {
         super("tag",meta)
@@ -433,6 +443,9 @@ const ITEM_PARAM_DEFAULTS = {
     pot: {
         Amplifier: new NumberItem([],"1"),
         Duration: new NumberItem([],"1000000")
+    },
+    item: {
+        Count: new NumberItem([],"1"),
     }
 }
 
@@ -664,6 +677,62 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
         }
         
         return [code,latestItem]
+    }
+    //items
+    else if (token instanceof ItemToken) {
+        let components: Dict<any> = {}
+        if (token.Mode == "library") {
+            //implement this AFTER the client mod is done
+            throw new TCError("Library items are not implemented yet",0,token.CharStart,token.CharEnd)
+        } else {
+            if (token.Nbt) { throw new TCError("NBT on item constructors is not implemented yet",0,token.Nbt.CharStart,token.Nbt.CharEnd)}
+
+
+            for (const component of ["Id","Count"]) {
+                let defaultValue = ITEM_PARAM_DEFAULTS.item[component]
+                if (defaultValue !== undefined && !token[component]) { 
+                    components[component] = defaultValue
+                    continue
+                }
+
+                let solved = solveArg(token[component],component,component == "Id" ? "str" : "num")
+                components[component] = solved[1]
+            }
+
+            let item = new ItemItem([token.CharStart,token.CharEnd],"minecraft:stone",1)
+            let tempVar = NewTempVar("item")
+            let latestItem: ItemItem | VariableItem = item
+            
+            if (variableComponents.includes("Id")) {
+                code.push(
+                    new ActionBlock("set_var","SetItemType",[tempVar,latestItem,components.Id])
+                )
+                latestItem = tempVar
+            } else {
+                item.Id = components.Id.Value
+            }
+
+            if (variableComponents.includes("Count")) {
+                code.push(
+                    new ActionBlock("set_var","SetItemAmount",[tempVar,latestItem,components.Count])
+                )
+            } else {
+                let val = Number(components.Count.Value)
+                //throw error for stack size being too high
+                if (val > 64) {
+                    throw new TCError("Stack size cannot be greater than 64",0,token.Count?.CharStart!,token.Count?.CharEnd!)
+                }
+
+                //throw error for non-integer stack size
+                if (Math.floor(val) != val) {
+                    throw new TCError("Stack size must be a whole number",0,token.Count?.CharStart!,token.Count?.CharEnd!)
+                }
+
+                item.Count = Number(val)
+            }
+
+            return [code,latestItem]
+        }
     }
     
     console.log(token)
@@ -1624,6 +1693,15 @@ function JSONizeItem(item: CodeItem) {
             "data": {
                 "type": item.Value,
                 "target": item.Target
+            }
+        }
+    }
+    else if (item instanceof ItemItem) {
+        //this is gonna need to heavily overhauled at some point to actually parse nbt
+        return {
+            "id": "item",
+            "data": {
+                "item": `{ Count:${item.Count}b,DF_NBT:3700,id:"${item.Id}"}`
             }
         }
     }

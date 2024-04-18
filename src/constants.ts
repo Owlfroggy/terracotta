@@ -15,6 +15,8 @@ export const TC_TYPE_TO_DF_TYPE = {
     "dict": "dict"
 }
 
+export const ITEM_DF_NBT = 3705
+
 export const VALID_PARAM_MODIFIERS = ["plural","optional"]
 
 export const VALID_VAR_SCCOPES = {

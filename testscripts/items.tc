@@ -1,0 +1,17 @@
+FUNCTION setupItems;
+
+if (global HaveItemsInitilized == 1) { return; }
+global HaveItemsInitilized = 1;
+
+## SWORD ##
+global ITEM_Sword = item["iron_sword",1];
+item:SetName(global ITEM_Sword, "Greg the Sword");
+item:SetBreakability(global ITEM_Sword){Breakability = Unbreakable};
+item:AddEnchant(global ITEM_Sword,"sharpness",5);
+item:SetTag(global ITEM_Sword,"id","Sword");
+
+## APPLE ##
+global ITEM_Apple = item["apple",5];
+item:SetTag(global ITEM_Apple,"id","Apple");
+
+default:GiveItems(global ITEM_Sword, global ITEM_Apple);

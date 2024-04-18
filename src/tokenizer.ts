@@ -581,7 +581,7 @@ function ParsePotion(index): [number, PotionToken] | null {
 }
 
 //= Items =\\
-class ItemToken extends Token {
+export class ItemToken extends Token {
     constructor(meta,id: ExpressionToken, count: ExpressionToken | null = null, nbt: ExpressionToken | undefined, library: ExpressionToken | undefined) {
         super(meta)
         this.Id = id
@@ -630,7 +630,7 @@ function ParseItem(index: number): [number, ItemToken] | null {
 
     //basic item
     if (identifierResults[1] == "item") {
-        return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[0], args[1], args[3], undefined)]
+        return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], undefined)]
         //library item
     } else if (identifierResults[1] == "litem") {
         return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[1],args[2],undefined,args[0])]
