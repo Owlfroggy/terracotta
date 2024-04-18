@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
+import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SoundToken, StringToken, TextToken, Token, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE, VALID_COMPARISON_OPERATORS } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
@@ -761,6 +761,21 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
 
         //push final creation/append action
         code.push(new ActionBlock("set_var",currentAction,currentChest))
+
+        return [code, returnVar]
+    }
+    //dictionaries
+    else if (token instanceof DictionaryToken) {
+        let keyListResults = ToItem(new ListToken([],token.Keys))
+        code.push(...keyListResults[0])
+
+        let valueListResults = ToItem(new ListToken([],token.Values))
+        code.push(...valueListResults[0])
+
+        let returnVar = NewTempVar("dict")
+        code.push(
+            new ActionBlock("set_var","CreateDict",[returnVar,keyListResults[1],valueListResults[1]])
+        )
 
         return [code, returnVar]
     }

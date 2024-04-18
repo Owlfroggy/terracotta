@@ -1,0 +1,24 @@
+FUNCTION awesome;
+
+local asdf = "asdf";
+local Nine = 9;
+
+global gameStats = {
+    "running" = 0, #1 if running
+    "mode" = "deathmatch",
+    "team1Color" = "&c",
+    "team2Color" = "&9",
+    "subdict" = {
+        "true" = "false",
+        "false" = "also false",
+        "maybe" = "true",
+        0 = 2483
+    },
+    pot["Absorption"] = "funny",
+    27 = "twenty seven",
+    "expression" + local asdf * 20 = local Nine + 10
+};
+
+dict:Get(line dingus, global gameStats,"27");
+
+default:SendMessage(line dingus);
