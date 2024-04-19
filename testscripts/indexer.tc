@@ -17,3 +17,11 @@ default:SendMessage(saved [%default unlocks]: list[3]);
 
 #if the square brackets coming directly after the type makes you uncomfortable for some reason
 default:SendMessage((saved [%default unlocks]: list)[3]);
+
+#also works on dictionaries
+global dict = {
+    "yes" = "no",
+    "no" = "ljkhsfv"
+};
+
+default:SendMessage(global dict["no"])

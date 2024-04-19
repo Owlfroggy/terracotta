@@ -1235,13 +1235,11 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
             let tempVar = NewTempVar(returnType)
 
             let referrentType = GetType(referrent)
-            if (referrentType == "list") {
-                code.push(
-                    new ActionBlock("set_var","GetListValue",[tempVar,referrent,expressionResults[1]])
-                )
-                //replace the list variable with the value variable
-                expression[expression.length-1] = tempVar
-            }
+            code.push(
+                new ActionBlock("set_var",referrentType == "list" ? "GetListValue" : "GetDictValue",[tempVar,referrent,expressionResults[1]])
+            )
+            //replace the list variable with the value variable
+            expression[expression.length-1] = tempVar
         } else if (token instanceof ActionToken) {
             //convert action token to code block
             let action = token
