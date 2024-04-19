@@ -1,0 +1,19 @@
+FUNCTION awesome;
+
+### LISTS ###
+
+global numbers = [1,5,29,9024];
+global verycoollist = ["I","AM",pot["Speed"],"!"*100];
+
+#types can be manually specified
+default:SendMessage(global verycoollist[3]: pot);
+
+#types can be left out and are assumed to be numbers by default (just like variables)
+#in this case it works out fine but operations might not work as expected (since they will treat the result as a number)
+default:SendMessage(global verycoollist[3]);
+
+#if you have a variable as unknown type you can specify it as a list in-expression to index it
+default:SendMessage(saved [%default unlocks]: list[3]);
+
+#if the square brackets coming directly after the type makes you uncomfortable for some reason
+default:SendMessage((saved [%default unlocks]: list)[3]);

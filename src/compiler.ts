@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
+import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE, VALID_COMPARISON_OPERATORS } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
@@ -79,7 +79,7 @@ function PopContext() {
     }
 }
 
-function SetVarType(variable: VariableToken | VariableItem | ["unsaved" | "local" | "saved" | "line",string], type: string) {
+function SetVarType(variable: VariableToken | VariableItem | ["unsaved" | "local" | "saved" | "line",string], type: string | undefined) {
     if (variable instanceof VariableToken) {
         ContextStack[ContextStack.length-1].VariableTypes[VALID_VAR_SCCOPES[variable.Scope]][variable.Name] = type
         CombinedVarContext.VariableTypes[VALID_VAR_SCCOPES[variable.Scope]][variable.Name] = type
@@ -412,7 +412,7 @@ class BracketBlock extends CodeBlock {
     Type: "repeat" | "if"
 }
 
-function NewTempVar(type: string): VariableItem {
+function NewTempVar(type: string | undefined): VariableItem {
     tempVarCounter++
     let varitem = new VariableItem(null, "line", `${VAR_HEADER}REG_${tempVarCounter}`)
     SetVarType(varitem,type)
@@ -1196,7 +1196,7 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
         return [code,expression[0]]
     }
 
-    //convert expression tokens to code items
+    //convert expression tokens to code items and solve stuff like actions and indexing
     let i = -1;
     for (const token of exprToken.Expression) {
         i++
@@ -1204,7 +1204,7 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
 
         //type override token in a place type override tokens should not be
         if (token instanceof TypeOverrideToken) {
-            throw new TCError("Type override must immediately follow an action or variable",0,token.CharStart,token.CharEnd)
+            throw new TCError("Type override must immediately follow an action, variable, or index operation",0,token.CharStart,token.CharEnd)
         }
         else if (token instanceof OperatorToken) {
             expression.push(token)
@@ -1213,6 +1213,35 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
             let results = SolveExpression(token)
             code.push(...results[0])
             expression[i] = results[1]
+        } else if (token instanceof IndexerToken) {
+            let referrent = expression[expression.length-1]
+            //error for indexing something thats not even an item
+            if (!(referrent instanceof CodeItem)) {
+                throw new TCError("Indexer must immediately follow a list, dictionary, or variable",0,token.CharStart,token.CharEnd)
+            }
+
+            //solve expression for index to use
+            let expressionResults = SolveExpression(token.Index)
+            code.push(...expressionResults[0])
+
+            //handle provided type override
+            let returnType: string | undefined = undefined
+            let typeOverrideToken = exprToken.Expression[i + 1]
+            if (typeOverrideToken instanceof TypeOverrideToken) {
+                returnType = typeOverrideToken.Type
+                skipIndexes[i + 1] = true
+            }
+
+            let tempVar = NewTempVar(returnType)
+
+            let referrentType = GetType(referrent)
+            if (referrentType == "list") {
+                code.push(
+                    new ActionBlock("set_var","GetListValue",[tempVar,referrent,expressionResults[1]])
+                )
+                //replace the list variable with the value variable
+                expression[expression.length-1] = tempVar
+            }
         } else if (token instanceof ActionToken) {
             //convert action token to code block
             let action = token
