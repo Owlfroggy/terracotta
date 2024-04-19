@@ -1,0 +1,39 @@
+FUNCTION awesome;
+
+global dict = {
+    "awesome key" = "awesome value",
+    "the answer to life, the universe, and everything" = 42
+};
+
+global list = [
+    "seven hundred",
+    700,
+    "DCC",
+    txt"<font:illageralt>e" + [7][1] * [100][1] #DISCLAIMER! please don't do this
+];
+
+for line k, line v in (global dict) {
+    default:SendMessage(line k,"=",line v);
+}
+
+for line v in (global list) {
+    default:SendMessage("list value",line v);
+}
+
+for line l on (Path (loc[1,50,1], loc[25,50,25], [21,67,4], 20){Rotate Location = True}) {
+    default:SendMessage("LOC",line l);
+}
+
+for line n on (Range(1,10,0.5)) {
+    default:SendMessage("iterate over range",line n);
+}
+
+for line message in (["you","cannot","escape","the might of",txt"<rainbow>doggus prime"]) {
+    default:SendMessage(line message);
+}
+
+#HOLY SKJHD FOR EACH IN SELECTION REAL NOT CLICKBAIT????????
+for line uuid in (game.SelectionTargetUUIDs) {
+    #i havent implemented select object yet
+    default:SendMessage(line uuid);
+}

@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
+import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE, VALID_COMPARISON_OPERATORS } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
@@ -1669,6 +1669,50 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 code[code.length-1] = new RepeatWhileActionBlock("While",ifBlock.Arguments,ifBlock.Tags,ifBlock.Not,dfName)
 
                 CodeLine.push(...code)
+            }
+            //repeat on action
+            else if (line[0] instanceof RepeatForActionToken) {
+                let action = line[0]
+                let args = line[0].Variables.map( (token) => ToItem(token)[1] )
+                if (action.Arguments) {
+                    let argResults = SolveArgs(action.Arguments)
+                    CodeLine.push(...argResults[0])
+                    args.push(...argResults[1])
+                }
+
+                //tags
+                let tags
+                if (action.Tags) {
+                    let tagResults = SolveTags(action.Tags,"repeat",action.Action)
+                    CodeLine.push(...tagResults[0])
+                    tags = tagResults[1]
+                }
+
+                //push action
+                CodeLine.push(new ActionBlock("repeat",action.Action,args,tags))
+            }
+            //iterate over list/dictionary
+            else if (line[0] instanceof RepeatForInToken) {
+                let expressionResults = SolveExpression(line[0].IterableExpression)
+                CodeLine.push(...expressionResults[0])
+
+                let iterableType = GetType(expressionResults[1])
+
+                //make sure theres the right amount of variables
+                const variableAmounts = {list: 1, dict: 2}
+                //error for non-iterable type
+                if (!variableAmounts[iterableType]){
+                    throw new TCError(`${iterableType} cannot be iterated over`,0,line[0].IterableExpression.CharStart,line[0].IterableExpression.CharEnd-1)
+                }
+                //error for wrong amount of variables
+                else if (line[0].Variables.length != variableAmounts[iterableType]) {
+                    throw new TCError(`Iterating over ${iterableType} returns ${variableAmounts[iterableType]} ${variableAmounts[iterableType] == 1 ? "variable" : "variables"}, ${line[0].Variables.length} ${line[0].Variables.length == 1 ? "was" : "were"} provided instead.`,0,line[0].Variables[0].CharStart,line[0].Variables[line[0].Variables.length - 1].CharEnd)
+                }
+
+                let variableItems = line[0].Variables.map( (token) => ToItem(token)[1] )
+                CodeLine.push(
+                    new ActionBlock("repeat",iterableType == "list" ? "ForEach" : "ForEachEntry",[...variableItems,expressionResults[1]])
+                )
             }
         }
         //variable thingies

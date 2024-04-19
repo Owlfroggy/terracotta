@@ -1002,17 +1002,29 @@ export class RepeatForeverToken extends RepeatToken {
     Amount = "Forever"
 }
 
-export class RepeatForToken extends RepeatToken {
-    constructor(meta,variables: Array<VariableToken>, args: ListToken, tags: Dict<ActionTag>) {
+export class RepeatForActionToken extends RepeatToken {
+    constructor(meta,variables: Array<VariableToken>, action: string, args: ListToken, tags: Dict<ActionTag>) {
         super(meta)
+        this.Action = action
         this.Variables = variables
         this.Arguments = args
         this.Tags = tags
     }
 
+    Action: string
     Arguments: ListToken
     Tags: Dict<ActionTag>
     Variables: Array<VariableToken>
+}
+
+export class RepeatForInToken extends RepeatToken {
+    constructor(meta,variables: Array<VariableToken>, iterableExpression: ExpressionToken) {
+        super(meta)
+        this.Variables = variables
+        this.IterableExpression = iterableExpression
+    }
+    Variables: Array<VariableToken>
+    IterableExpression: ExpressionToken
 }
 
 export class RepeatWhileToken extends RepeatToken {
@@ -1091,13 +1103,17 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
     else if (keywordResults[1] == "for") {
         let variables: Array<VariableToken> = []
 
-        //accumulate variables until 'in' keyword
+        //in will iterate over a list or dict
+        //on will do an action like on range or adjacent
+        let mode: "in" | "on"
+
+        //accumulate variables until either the 'in' or 'on' keyword
         while (true) { //scary!!
             let variableResults = ParseVariable(index)
             //error for invalid variable
             if (variableResults == null) {
                 let identifierResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
-                throw new TCError(`'${identifierResults[1]}' is not valid variable syntax`,0,initIndex,identifierResults[0])
+                throw new TCError(`Expected variable(s) following 'for'`,0,initIndex,identifierResults[0])
             }
 
             //add to variables list
@@ -1105,17 +1121,18 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
 
             index = variableResults[0]
 
-            //if the 'in' keyword was found
-            let inResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
-            if (inResults[1] == "in") {
-                //move to end of in
-                index = inResults[0]
+            //if keyword was found
+            let keywordResults = GetIdentifier(index + GetWhitespaceAmount(index) + 1)
+            if (keywordResults[1] == "in" || keywordResults[1] == "on") {
+                mode = keywordResults[1]
+                //move to end of keyword
+                index = keywordResults[0]
                 break
             }
 
             //throw error if next character isnt a comma
             if (GetNextCharacters(index,1) != ",") {
-                throw new TCError("Expected comma or 'in'",0,initIndex,index)
+                throw new TCError("Expected comma, 'in', or 'on'",0,initIndex,index)
             }
 
             //move to comma
@@ -1124,51 +1141,70 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
 
         //make sure theres a (
         if (GetNextCharacters(index,1) != "(") {
-            throw new TCError("Expected (",0,initIndex,index)
+            throw new TCError(`Expected '(' following '${mode}'`,0,initIndex,index)
         }
         index += GetWhitespaceAmount(index) + 1
         let actionInitIndex = index
 
-        //parse action name
-        let actionNameInitIndex = index + GetWhitespaceAmount(index) + 1
-        let actionNameResults = GetIdentifier(actionNameInitIndex)
-        //error for missing action name
-        if (actionNameResults[1] == "") {
-            throw new TCError("Missing action name",0,initIndex,actionNameResults[0])
+        let returnToken: RepeatToken
+
+        //iterating over a dictionary
+        if (mode == "in") {
+            //parse expression inside the ()
+            let expressionResults = ParseExpression(index,[")"],true)
+            if (expressionResults == null) {
+                throw new TCError("Expected list or dictionary inside parentheses",0,initIndex,index)
+            }
+
+            index = expressionResults[0]
+            returnToken = new RepeatForInToken([initIndex,expressionResults[0]],variables,expressionResults[1])
+        } 
+        //iterating using a repeat action
+        else if (mode == "on") {
+            //parse action name
+            let actionNameInitIndex = index + GetWhitespaceAmount(index) + 1
+            let actionNameResults = GetIdentifier(actionNameInitIndex)
+            //error for missing action name
+            if (actionNameResults[1] == "") {
+                throw new TCError("Missing action name", 0, initIndex, actionNameResults[0])
+            }
+            //error for invalid action name
+            if (AD.ValidRepeatActions[actionNameResults[1]] == null) {
+                throw new TCError(`Invalid repeat action '${actionNameResults[1]}'`, 0, actionNameInitIndex, actionNameResults[0])
+            }
+
+            //move to end of action name
+            index = actionNameResults[0]
+
+            //parse args
+            let argResults = ParseList(index, "(", ")", ",")
+            if (argResults == null) {
+                throw new TCError("Expected arguments following action name", 0, actionNameInitIndex, index)
+            }
+            //move to end of args
+            index = argResults[0]
+
+            //parse tags
+            let tagResults = ParseTags(index, AD.ValidRepeatActions[actionNameResults[1]]?.Tags)
+            let tags
+            if (tagResults) {
+                index = tagResults[0]
+                tags = tagResults[1]
+            }
+
+            //parse closing bracket
+            if (GetNextCharacters(index, 1) != ")") {
+                throw new TCError("Repeat action never closed", 0, actionInitIndex, index)
+            }
+
+            //move to closing bracket
+            index += GetWhitespaceAmount(index) + 1
+            
+            returnToken = new RepeatForActionToken([initIndex,index],variables,actionNameResults[1],argResults[1],tags)
         }
-        //error for invalid action name
-        if (AD.ValidRepeatActions[actionNameResults[1]] == null) {
-            throw new TCError(`Invalid repeat action '${actionNameResults[1]}'`,0,actionNameInitIndex,actionNameResults[0])
-        }
 
-        //move to end of action name
-        index = actionNameResults[0]
-
-        //parse args
-        let argResults = ParseList(index,"(",")",",")
-        if (argResults == null) {
-            throw new TCError("Expected arguments following action name",0,actionNameInitIndex,index)
-        }
-        //move to end of args
-        index = argResults[0]
-
-        //parse tags
-        let tagResults = ParseTags(index,AD.ValidRepeatActions[actionNameResults[1]]?.Tags)
-        let tags
-        if (tagResults) {
-            index = tagResults[0]
-            tags = tagResults[1]
-        }
-
-        //parse closing bracket
-        if (GetNextCharacters(index,1) != ")") {
-            throw new TCError("Repeat action never closed",0,actionInitIndex,index)
-        }
-
-        //move to closing bracket
-        index += GetWhitespaceAmount(index) + 1
-
-        return [index,new RepeatForToken([initIndex,index],variables,argResults[1],tags)]
+        //return [index,new RepeatForToken([initIndex,index],variables,argResults[1],tags)]
+        return [index,returnToken!]
     }
     //not a repeat statement
     else {

@@ -91,13 +91,11 @@ export let GameValueTypes: Dict<string> = {}
 
 //repeat
 const RepeatActionOverrides = {
-    "Adjacent": "AdjacentBlocks",
+    "Adjacent": "Adjacent",
     "Path": "Path",
     "Grid": "Grid",
-    "ForEach": "List",
     "Sphere": "Sphere",
     " Range ": "Range",
-    "ForEachEntry": "Dict"
 }
 
 //players
