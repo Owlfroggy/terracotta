@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
+import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE, VALID_COMPARISON_OPERATORS } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
@@ -385,9 +385,9 @@ class IfActionBlock extends ActionBlock {
     Not: boolean
 }
 
-class RepeatWhileActionBlock extends ActionBlock {
-    constructor(action: string, args: Array<CodeItem>, tags: TagItem[], not: boolean, subaction: string | null = null) {
-        super("repeat",action,args,tags,null)
+class SubActionBlock extends ActionBlock {
+    constructor(block: string, action: string, args: Array<CodeItem>, tags: TagItem[], not: boolean, subaction: string | null = null) {
+        super(block,action,args,tags,null)
         this.Subaction = subaction
         this.Not = not
     }
@@ -1392,6 +1392,27 @@ function SolveTags(dict: Dict<ActionTag>, codeblock: string, actionDFName: strin
     return [[],tags]
 }
 
+function SolveConditionExpression(expression: ExpressionToken): [CodeBlock[], CodeItem, IfActionBlock] {
+    let expressionResults = SolveExpression(expression)
+
+    let ifBlock = expressionResults[0][expressionResults[0].length - 1] 
+
+    //error if the condition was invalid
+    if (!(ifBlock instanceof IfActionBlock)) {
+        throw new TCError("Condition must either be an if action or include a comparison",0,expression.CharStart,expression.CharEnd)
+    }
+
+    //account for if_entity and if_player having different names sometimes when used as a repeat action
+    let dfName = ifBlock.Action
+    if (ifBlock.Block == "if_entity" || ifBlock.Block == "if_player" || ifBlock.Block == "if_game"){
+        //this line of code makes me regret ever starting this project
+        dfName = AD[ifBlock.Block == "if_entity" ? "ValidDifferentiatedEntityConditions" : ifBlock.Block == "if_player" ? "ValidDifferentiatedPlayerConditions" : "ValidDifferentiatedGameConditions"][AD.DFActionMap[ifBlock.Block]![ifBlock.Action]?.TCName!]?.DFName!
+        ifBlock.Action = dfName
+    }
+
+    return [expressionResults[0], expressionResults[1], ifBlock]
+}
+
 export class CompileResults {
     Code: Array<CodeBlock>
 }
@@ -1646,27 +1667,14 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             }
             //repeat while
             else if (line[0] instanceof RepeatWhileToken) {
-                let expressionResults = SolveExpression(line[0].Condition)
-
-                let ifBlock = expressionResults[0][expressionResults[0].length - 1] 
-
-                //error if the condition was invalid
-                if (!(ifBlock instanceof IfActionBlock)) {
-                    throw new TCError("Condition must either be an if action or include a comparison",0,line[0].Condition.CharStart,line[0].Condition.CharEnd)
-                }
-
-                //account for if_entity and if_player having different names sometimes when used as a repeat action
-                let dfName = ifBlock.Action
-                if (ifBlock.Block == "if_entity" || ifBlock.Block == "if_player"){
-                    //this line of code makes me regret ever starting this project
-                    dfName = AD[ifBlock.Block == "if_entity" ? "ValidSelectionEntityComparisons" : "ValidSelectionPlayerComparisons"][AD.DFActionMap[ifBlock.Block]![ifBlock.Action]?.TCName!]?.DFName!
-                }
-
+                let expressionResults = SolveConditionExpression(line[0].Condition)
                 let code = expressionResults[0]
-                //replace if block returned by expression with repeat block
-                code[code.length-1] = new RepeatWhileActionBlock("While",ifBlock.Arguments,ifBlock.Tags,ifBlock.Not,dfName)
+                let ifBlock = expressionResults[2]
 
-                CodeLine.push(...code)
+                //replace if block returned by expression with repeat block
+                code[code.length-1] = new SubActionBlock("repeat","While",ifBlock.Arguments,ifBlock.Tags,ifBlock.Not,ifBlock.Action)
+
+                CodeLine.push(...expressionResults[0])
             }
             //repeat on action
             else if (line[0] instanceof RepeatForActionToken) {
@@ -1710,6 +1718,56 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 let variableItems = line[0].Variables.map( (token) => ToItem(token)[1] )
                 CodeLine.push(
                     new ActionBlock("repeat",iterableType == "list" ? "ForEach" : "ForEachEntry",[...variableItems,expressionResults[1]])
+                )
+            }
+        }
+        //select
+        else if (line[0] instanceof SelectActionToken) {
+            let args
+            if (line[0].Arguments) {
+                let argResults = SolveArgs(line[0].Arguments)
+                CodeLine.push(...argResults[0])
+                args = argResults[1]
+            }
+
+            let actionDFName = AD.ValidSelectionActions[line[0].Action]?.DFName!
+
+            if (line[0].ConditionExpression) {
+                //tags
+                let tags
+                if (line[0].Tags) {
+                    let tagResults = SolveTags(line[0].Tags, "select_obj", actionDFName)
+                    CodeLine.push(...tagResults[0])
+                    tags = tagResults[1]
+                }
+
+                //solve conditon
+                let expressionResults = SolveConditionExpression(line[0].ConditionExpression)
+                let code = expressionResults[0]
+                let ifBlock = expressionResults[2]
+
+                //error for using entity? with PlayersByCondition or player? with EntitiesByCondition
+                if (actionDFName == "PlayersCond" && ifBlock.Block == "if_entity") {
+                    throw new TCError("Cannot use entity condition to select players",0,line[0].ConditionExpression.CharStart,line[0].ConditionExpression.CharEnd)
+                } else if (actionDFName == "EntitiesCond" && ifBlock.Block == "if_player") {
+                    throw new TCError("Cannot use player condition to select entities",0,line[0].ConditionExpression.CharStart,line[0].ConditionExpression.CharEnd)
+                }
+
+                //replace if block returned by expression with repeat block
+                code[code.length-1] = new SubActionBlock("select_obj",actionDFName,ifBlock.Arguments,ifBlock.Tags,ifBlock.Not,ifBlock.Action)
+
+                CodeLine.push(...expressionResults[0])
+            } else {
+                //tags
+                let tags
+                if (line[0].Tags) {
+                    let tagResults = SolveTags(line[0].Tags, "select_obj", actionDFName)
+                    CodeLine.push(...tagResults[0])
+                    tags = tagResults[1]
+                }
+
+                CodeLine.push(
+                    new ActionBlock("select_obj",actionDFName,args,tags)
                 )
             }
         }
@@ -1942,8 +2000,8 @@ export function JSONize(code: Array<CodeBlock>): string {
                 "args": {"items": chest},
                 "action": block.Action,
                 "target": block.Target ? block.Target : undefined,
-                "attribute": (block instanceof IfActionBlock || block instanceof RepeatWhileActionBlock) && block.Not ? "NOT" : undefined,
-                "subAction": block instanceof RepeatWhileActionBlock && block.Subaction ? block.Subaction : undefined
+                "attribute": (block instanceof IfActionBlock || block instanceof SubActionBlock) && block.Not ? "NOT" : undefined,
+                "subAction": block instanceof SubActionBlock && block.Subaction ? block.Subaction : undefined
             })
         }
         else if (block instanceof EventBlock) {

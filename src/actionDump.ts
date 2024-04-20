@@ -44,8 +44,11 @@ export let ValidGameGameValues: Dict<string> = {}
 export let ValidCreateSelectActions: Dict<Action> = {}
 export let ValidFilterSelectActions: Dict<Action> = {}
 
-export let ValidSelectionEntityComparisons: Dict<Action> = {}
-export let ValidSelectionPlayerComparisons: Dict<Action> = {}
+export let ValidDifferentiatedEntityConditions: Dict<Action> = {}
+export let ValidDifferentiatedPlayerConditions: Dict<Action> = {}
+export let ValidDifferentiatedGameConditions: Dict<Action> = {}
+
+export let ValidSelectionActions: Dict<Action> = {}
 
 export let ValidSetVarVarActions: Dict<Action> = {}
 export let ValidSetVarNumActions: Dict<Action> = {}
@@ -691,7 +694,7 @@ for (const action of ACTION_DUMP.actions) {
         if (action.icon.returnValues.length > 1) {
             returnType = "any"
             if (!seenMultiReturnBlocks.includes(action.name)) {
-            console.log("New multi-return block: ",action)
+                console.log("New multi-return block: ",action)
             }
         }
         
@@ -706,13 +709,17 @@ for (const action of ACTION_DUMP.actions) {
 
     //special logic for select
     if (action.codeblockName == "SELECT OBJECT") {
+        let tcName
         if (CreateSelectionOverrides[action.name]) {
-            actionObject = new Action(CreateSelectionOverrides[action.name],action.name,getTags(action),getTagDefaults(action),returnType)
-            ValidCreateSelectActions[CreateSelectionOverrides[action.name]] = actionObject
+            tcName = CreateSelectionOverrides[action.name]
+            actionObject = new Action(tcName,action.name,getTags(action),getTagDefaults(action),returnType)
+            ValidCreateSelectActions[tcName] = actionObject
         } else if (FilterSelectionOverrides[action.name]) {
-            actionObject = new Action(FilterSelectionOverrides[action.name],action.name,getTags(action),getTagDefaults(action),returnType)
-            ValidFilterSelectActions[FilterSelectionOverrides[action.name]] = actionObject
+            tcName = FilterSelectionOverrides[action.name]
+            actionObject = new Action(tcName,action.name,getTags(action),getTagDefaults(action),returnType)
+            ValidFilterSelectActions[tcName] = actionObject
         }
+        ValidSelectionActions[tcName] = actionObject
     } 
 
     //logic for everything else
@@ -738,24 +745,31 @@ for (const action of ACTION_DUMP.actions) {
     DFActionMap[CodeblockIdentifiers[action.codeblockName]]![action.name] = actionObject
 }
 
-//= valid selection conditions =\\
+//= valid differentiated conditions =\\
 //if player
 for (let [tcName, action] of Object.entries(ValidPlayerCompActions)) {
-    if (ValidEntityCompActions[tcName]) {
-        //if this is one of the things thats in both if entity and if player, specify this as the player version
-        ValidSelectionPlayerComparisons[tcName] = new Action(tcName,"P"+action?.DFName,action?.Tags!,action?.TagDefaults!,null)
+    if (ValidEntityCompActions[tcName] || ValidGameCompActions) {
+        ValidDifferentiatedPlayerConditions[tcName] = new Action(tcName,"P"+action?.DFName,action?.Tags!,action?.TagDefaults!,null)
     } else {
-        ValidSelectionPlayerComparisons[tcName] = action
+        ValidDifferentiatedPlayerConditions[tcName] = action
     }
 }
 
 //if entity
 for (let [tcName, action] of Object.entries(ValidEntityCompActions)) {
-    if (ValidPlayerCompActions[tcName]) {
-        //if this is one of the things thats in both if entity and if player, specify this as the entity version
-        ValidSelectionEntityComparisons[tcName] = new Action(tcName,"E"+action?.DFName,action?.Tags!,action?.TagDefaults!,null)
+    if (ValidPlayerCompActions[tcName] || ValidGameCompActions[tcName]) {
+        ValidDifferentiatedEntityConditions[tcName] = new Action(tcName,"E"+action?.DFName,action?.Tags!,action?.TagDefaults!,null)
     } else {
-        ValidSelectionEntityComparisons[tcName] = action
+        ValidDifferentiatedEntityConditions[tcName] = action
+    }
+}
+
+//if game
+for (let [tcName, action] of Object.entries(ValidGameCompActions)) {
+    if (ValidPlayerCompActions[tcName] || ValidEntityCompActions[tcName]) {
+        ValidDifferentiatedGameConditions[tcName] = new Action(tcName,"G"+action?.DFName,action?.Tags!,action?.TagDefaults!,null)
+    } else {
+        ValidDifferentiatedGameConditions[tcName] = action
     }
 }
 

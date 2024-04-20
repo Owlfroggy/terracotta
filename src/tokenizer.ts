@@ -2096,7 +2096,7 @@ function ParseSelectAction(index): [number, SelectActionToken] | null {
             tags = tagResults[1]
         }
 
-        return [index, new SelectActionToken([initIndex,index],actionResults[1],null,args,tags)]
+        return [index, new SelectActionToken([initIndex,index],actionResults[1],args,tags)]
     }
 }
 
