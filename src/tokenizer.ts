@@ -1531,30 +1531,6 @@ function ParseCall(index: number): [number, CallToken] | null {
     return [index, new CallToken([initIndex,index],mode,name,args,tags)]
 }
 
-//= Targets =\\
-export class TargetToken extends Token {
-    constructor(meta,target: string) {
-        super(meta)
-        this.Target = target
-    }
-
-    Target: string
-}
-
-function ParseTarget(index: number): [number, TargetToken] | null {
-    index += GetWhitespaceAmount(index) + 1
-
-    let targetResults = GetIdentifier(index)
-    if (targetResults == null) { return null }
-
-    if (VALID_TARGETS.includes(targetResults[1])) {
-        return [targetResults[0], new TargetToken([0,0],targetResults[1])]
-    }
-
-    return null
-}
-
-
 //======== SPECIAL CODE ITEMS ========\\
 
 //= Game Values =\\
@@ -2239,9 +2215,6 @@ function DoTheThing(): void {
 
         //try action
         if (results == null) { results = ParseAction(CharIndex) }
-
-        //try target
-        if (results == null) { results = ParseTarget(CharIndex) }
 
         //try variable
         if (results == null) { results = ParseVariable(CharIndex) }
