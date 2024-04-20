@@ -688,11 +688,14 @@ for (const action of ACTION_DUMP.actions) {
 
     let returnType: string | null = null
     if (action.icon.returnValues && action.icon.returnValues.length > 0) {
-        if (action.icon.returnValues.length > 1 && !seenMultiReturnBlocks.includes(action.name)) {
+        if (action.icon.returnValues.length > 1) {
+            returnType = "any"
+            if (!seenMultiReturnBlocks.includes(action.name)) {
             console.log("New multi-return block: ",action)
+            }
         }
         
-        returnType = "any"//ReturnTypeMap[action.icon.returnValues[0].type]
+        returnType = ReturnTypeMap[action.icon.returnValues[0].type]
     }
 
     //return type overrides
