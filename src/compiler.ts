@@ -1860,6 +1860,24 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         throw new TCError(`${HighestContext.BracketType == "if" ? "If" : "Repeat"} statement never closed`,0,HighestContext.CreatorToken?.CharStart!,HighestContext.CreatorToken?.CharEnd!)
     }
 
+    //optimization pass
+    i = -1
+    while (i < CodeLine.length) {
+        i++
+        let block = CodeLine[i]
+
+        //error if chest item count surpasses 27
+        if (block instanceof ActionBlock)  {
+            let args = block.Arguments
+            let tags = block.Tags
+            let combinedChest = [...args,...tags]
+
+            if (combinedChest.length > 27) {
+                throw new TCError("Chest item count cannot surpass than 27 (including tags)",0,args[28 - tags.length - 1].CharStart,args[args.length-1].CharEnd)
+            }
+        }
+    }
+
     let results = new CompileResults()
     results.Code = CodeLine
 

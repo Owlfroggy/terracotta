@@ -1,20 +1,4 @@
 FUNCTION awesome;
 
-if (var ? IsType(saved dingus){Variable Type = String}) {
-    default:SendMessage("saved var \"dingus\" has type string");
-}
-
-#multiple values of the same type (should result in num)
-if (var ? Equals(saved dingus, 1,2,3,4,5,6)) {}
-
-#multiple values of different types (should result in undefined)
-if (var ? Equals(saved dingus, 6, "kjhadg", pot["Speed"])) {}
-
-#single value (should result in str)
-if (saved dingus == "asdf") {}
-
-#no values (should result in undefined)
-if (var ? Equals(saved dingus)) {}
-
-#no variable (should like.. not crash at least)
-if (var ? Equals(53784)) {}
+default:SendMessage(1,2,3,4,5,6,7,8,9,10,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26);
+default:SendMessage("balls");
