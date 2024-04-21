@@ -1,11 +1,12 @@
 FUNCTION awesome;
 
 select AllPlayers;
-select LastSpawnedEntity;
+select LastEntity;
 
 select PlayersByCondition player ? NameEquals("MrAwesomeOwl");
 filter ByCondition entity ? NameEquals("Zombie");
 filter ByCondition game ? BlockEquals(default.EyeLocation,item["Vines"]);
+filter Randomly;
 
 #select PlayersByCondition entity ? NameEquals("Zombie");
 #select EntitiesByCondition player ? NameEquals("MrAwesomeOwl");

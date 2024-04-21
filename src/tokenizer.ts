@@ -10,7 +10,7 @@ import { IsCharacterValidIdentifier, IsCharacterValidNumber, GetIdentifier, GetN
 import * as AD from "./actionDump"
 import { UnzipPassThrough } from "fflate"
 
-import {VALID_TYPES, VALID_PARAM_MODIFIERS, VALID_VAR_SCCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_TARGETS, VALID_HEADER_KEYWORDS} from "./constants"
+import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS} from "./constants"
 
 
 //Current index in the file that the parser is looking at
@@ -168,7 +168,7 @@ function ParseVariable(index): [number, VariableToken] | null {
     let scopeKeyword = keywordResults[1]
 
     //if keyword is a var scope
-    let scope = VALID_VAR_SCCOPES[scopeKeyword]
+    let scope = VALID_VAR_SCOPES[scopeKeyword]
     if (scope == null) { return null }
 
     //move into position to parse variable name
@@ -206,7 +206,7 @@ function ParseVariable(index): [number, VariableToken] | null {
             throw new TCError("Expected type following ':'",0,initIndex,colonIndex)
         }
         //error for invalid type
-        if (!VALID_TYPES.includes(typeResults[1])) {
+        if (!ValueType[typeResults[1]]) {
             throw new TCError(`Invalid type '${typeResults[1]}'`,0,index,typeResults[0])
         }
 
@@ -723,7 +723,7 @@ function ParseOperator(index: number, operatorType: "assignment" | "math" | "com
     for (const length of lengthList) {
         let operatorString = GetNextCharacters(index, length)
 
-        if (validOperators.includes(operatorString)) {
+        if (validOperators.has(operatorString)) {
             return [index + length, new OperatorToken([index + 1,index+length],operatorString)]
         }
     }
@@ -877,7 +877,7 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
 
     //get keyword
     let identifierResults = GetIdentifier(index)
-    if (identifierResults != null && !VALID_CONTROL_KEYWORDS.includes(identifierResults[1])) {
+    if (identifierResults != null && !VALID_CONTROL_KEYWORDS.has(identifierResults[1])) {
         return null
     }
 
@@ -911,7 +911,7 @@ function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
         }
         index = listResults[0]
 
-        let tagResults = ParseTags(index, {"Time Unit":["Ticks", "Seconds", "Minutes"]})
+        let tagResults = ParseTags(index, AD.DFActionMap.control!.Wait!.Tags)
         let tags
         if (tagResults) {
             index = tagResults[0]
@@ -1169,7 +1169,7 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
                 throw new TCError("Missing action name", 0, initIndex, actionNameResults[0])
             }
             //error for invalid action name
-            if (AD.ValidRepeatActions[actionNameResults[1]] == null) {
+            if (AD.TCActionMap.repeat![actionNameResults[1]] == null) {
                 throw new TCError(`Invalid repeat action '${actionNameResults[1]}'`, 0, actionNameInitIndex, actionNameResults[0])
             }
 
@@ -1185,7 +1185,7 @@ function ParseRepeat(index: number): [number, RepeatToken] | null {
             index = argResults[0]
 
             //parse tags
-            let tagResults = ParseTags(index, AD.ValidRepeatActions[actionNameResults[1]]?.Tags)
+            let tagResults = ParseTags(index, AD.TCActionMap.repeat![actionNameResults[1]]!.Tags)
             let tags
             if (tagResults) {
                 index = tagResults[0]
@@ -1254,7 +1254,7 @@ export class ActionToken extends Token {
     Type: "comparison" | "action" = "action"
 }
 
-function ParseTags(index, validTags): [number,Dict<ActionTag>] | null {
+function ParseTags(index, validTags: Dict<AD.Tag>): [number,Dict<ActionTag>] | null {
     let tags = {}
 
     if (GetNextCharacters(index, 1) == "{") {
@@ -1334,7 +1334,7 @@ function ParseTags(index, validTags): [number,Dict<ActionTag>] | null {
                 let tagValue = tagValueResults[1].trim()
 
                 //error if invalid tag value
-                if (!validTags[tagName].includes(tagValue)) {
+                if (!validTags[tagName]!.Options.includes(tagValue)) {
                     throw new TCError(`Invalid tag value: '${tagValue}'`, 8, index, index + tagValue.length - 1)
                 }
 
@@ -1398,7 +1398,7 @@ function ParseAction(index: number, allowComparisons: boolean = false, genericTa
     let actions = domain.Actions
     if (accessor == "?") {
         isComparison = true
-        actions = domain.Comparisons
+        actions = domain.Conditions
     }
 
     //move to the accessor
@@ -1521,7 +1521,7 @@ function ParseCall(index: number): [number, CallToken] | null {
 
     //parse tags
     if (mode == "process") {
-        let tagsResults = ParseTags(index,{"Local Variables":["Don't copy", "Copy", "Share"],"Target Mode":["With current targets", "With current selection", "With no targets", "For each in selection"]})
+        let tagsResults = ParseTags(index,AD.DFActionMap.process!.dynamic!.Tags)
         if (tagsResults) {
             index = tagsResults[0]
             tags = tagsResults[1]
@@ -1583,8 +1583,9 @@ function ParseGameValue(index: number): [number, Token] | null {
             if (domain.SupportsGameValues == false) {
                 //throw special error if this domain doesnt support game values
                 throw new TCError(`Target '${domain.Identifier}' does not support game values`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
-            } else if (domain.ActionType == "entity" && AD.InvalidEntityGameValues.includes(AD.ValidPlayerGameValues[valueResults[1]]!)) {
-                //throw special error if this gv is valid for players but not entities and the target is an entity
+            //} else if (domain.ActionType == "entity" && AD.InvalidEntityGameValues.includes(AD.ValidPlayerGameValues[valueResults[1]]!)) {
+            //throw special error if this gv is valid for players but not entities and the target is an entity
+            } else if (!AD.TCEntityGameValues[valueResults[1]] && domain.ActionType == "entity") {
                 throw new TCError(`Invalid entity game value: '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
             } else {
                 throw new TCError(`Invalid targeted game value: '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
@@ -1593,6 +1594,7 @@ function ParseGameValue(index: number): [number, Token] | null {
         else {
             if (domain.Identifier == "game") {
                 //throw special error for game game values
+                print(valueResults[1],domain.Values)
                 throw new TCError(`Invalid game value: '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
             } else {
                 throw new TCError(`'${domain.Identifier}' does not contain value '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
@@ -1632,7 +1634,7 @@ function ParseTypeOverride(index: number): [number, TypeOverrideToken] | null {
     if (typeResults[1] == "") {throw new TCError("Expected type following ':'",0,initIndex,initIndex)}
 
     //error for invalid type
-    if (!VALID_TYPES.includes(typeResults[1])) { throw new TCError(`Invalid type '${typeResults[1]}'`,0,index,typeResults[0])}
+    if (!ValueType[typeResults[1]]) { throw new TCError(`Invalid type '${typeResults[1]}'`,0,index,typeResults[0])}
 
     return [typeResults[0],new TypeOverrideToken([initIndex,typeResults[0]],typeResults[1])]
 }
@@ -1849,7 +1851,7 @@ export class KeywordHeaderToken extends HeaderToken {
 function ParseKeywordHeaderToken(index): [number, KeywordHeaderToken] | null {
     index += GetWhitespaceAmount(index) + 1
     let identifierResults = GetIdentifier(index)
-    if (VALID_HEADER_KEYWORDS.includes(identifierResults[1])) {
+    if (VALID_HEADER_KEYWORDS.has(identifierResults[1])) {
         //if valid keyword
         return [identifierResults[0],new KeywordHeaderToken([index,identifierResults[0]],identifierResults[1])]
     } else {
@@ -1875,7 +1877,7 @@ function ParseEventHeader(index: number): [number, EventHeaderToken] | null {
     
     //make sure its the right header typre
     let identifierResults = GetIdentifier(index)
-    if (identifierResults == null || !AD.ValidLineStarters[identifierResults[1]]) { return null }
+    if (identifierResults == null || !VALID_LINE_STARTERS.has(identifierResults[1])) { return null }
     index = identifierResults[0]
 
     let nameResults = GetComplexName(index)
@@ -1934,14 +1936,14 @@ function ParseParamHeader(index: number): [number, ParamHeaderToken] | null {
         index = identifierResults[0]
 
         //type has been found
-        if (VALID_TYPES.includes(identifierResults[1])) {
+        if (ValueType[identifierResults[1]]) {
             type = identifierResults[1]
             break
 
         //yet another modifier
         } else {
             //error for invalid modifier
-            if (!VALID_PARAM_MODIFIERS.includes(identifierResults[1])) {
+            if (!VALID_PARAM_MODIFIERS.has(identifierResults[1])) {
                 throw new TCError(`Invalid param modifier: ${identifierResults[1]}`,0,modInitIndex,identifierResults[0])
             }
 
@@ -2036,10 +2038,10 @@ function ParseSelectAction(index): [number, SelectActionToken] | null {
     }
 
     //get action data
-    let actionData = (keyword == "select" ? AD.ValidCreateSelectActions : AD.ValidFilterSelectActions)[action]
+    let actionData = AD.TCActionMap.select_obj![action]!
 
     //error for invalid action
-    if (!actionData) {
+    if (!actionData || !(keyword == "select" ? CREATE_SELECTION_ACTIONS : FILTER_SELECTION_ACTIONS).has(actionData.DFId)) {
         throw new TCError(`Invalid select action: '${action}'`,0,index + GetWhitespaceAmount(index) + 1, actionResults[0])
     }
 
@@ -2283,7 +2285,7 @@ function DoTheThing(): void {
             let operation = CurrentLine[1].Operator
             //<variable> =
             //must be followed by an expression
-            if (VALID_ASSIGNMENT_OPERATORS.includes(operation)) {
+            if (VALID_ASSIGNMENT_OPERATORS.has(operation)) {
                 //parse expression
                 let expressionResults = ParseExpression(CharIndex, [";"], false)
                 if (expressionResults) {

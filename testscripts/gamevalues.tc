@@ -1,4 +1,4 @@
 PLAYER_EVENT LeftClick;
 
 #teleport 5 blocks in where you are looking
-default:Teleport(default.Location + default.Direction * 5);
+default:Teleport(default.Location + default.Direction * vec[1,0,1] * 5){Keep Current Rotation = True, Keep Velocity = True};

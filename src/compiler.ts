@@ -1,5 +1,5 @@
 import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
-import { VALID_VAR_SCCOPES, VALID_TYPES, VALID_LINE_STARTERS, TC_TYPE_TO_DF_TYPE, VALID_COMPARISON_OPERATORS } from "./constants"
+import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP } from "./constants"
 import { print } from "./main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
 import * as fflate from "fflate"
@@ -81,8 +81,8 @@ function PopContext() {
 
 function SetVarType(variable: VariableToken | VariableItem | ["unsaved" | "local" | "saved" | "line",string], type: string | undefined) {
     if (variable instanceof VariableToken) {
-        ContextStack[ContextStack.length-1].VariableTypes[VALID_VAR_SCCOPES[variable.Scope]][variable.Name] = type
-        CombinedVarContext.VariableTypes[VALID_VAR_SCCOPES[variable.Scope]][variable.Name] = type
+        ContextStack[ContextStack.length-1].VariableTypes[VALID_VAR_SCOPES[variable.Scope]][variable.Name] = type
+        CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[variable.Scope]][variable.Name] = type
     } else if (variable instanceof VariableItem ) {
         ContextStack[ContextStack.length-1].VariableTypes[variable.Scope][variable.Name] = type
         CombinedVarContext.VariableTypes[variable.Scope][variable.Name] = type
@@ -92,29 +92,21 @@ function SetVarType(variable: VariableToken | VariableItem | ["unsaved" | "local
     }
 }
 
-let test = new Context()
-test.VariableTypes.local["balls"] = "num"
-
-PushContext(test)
-PopContext()
-
 //fill in missing tags with their default values
-function FillMissingTags(codeblockIdentifier: string, actionName: string, tags: TagItem[]) {
-    if (!AD.DFActionMap[codeblockIdentifier]![actionName]) {
+function FillMissingTags(codeblockIdentifier: string, actionDFName: string, tags: TagItem[]): TagItem[] {
+    if (!AD.DFActionMap[codeblockIdentifier]![actionDFName]) {
         return tags
     }
 
-    let existingTags: string[] = [] //df name
-    for (let v of tags) {
-        existingTags.push(v.Tag)
-    }
+    let existingTags: Dict<boolean> = {} //df name
+    for (let v of tags) { existingTags[v.Tag] = true }
 
-    for (let [tag, value] of Object.entries(AD.DFActionMap[codeblockIdentifier]![actionName]!.TagDefaults)) {
-        //if this tag was specified
-        if (existingTags.includes(tag)) {continue}
+    for (let [tagName, tag] of Object.entries(AD.DFActionMap[codeblockIdentifier]![actionDFName]!.Tags)) {
+        //if this tag was present in the given list
+        if (tagName in existingTags) {continue}
         
         //otherwise fill in default value
-        tags.push(new TagItem([],tag,value!,codeblockIdentifier,actionName))
+        tags.push(new TagItem([],tagName,tag!.Default,codeblockIdentifier,actionDFName))
     }
 
     return tags
@@ -421,7 +413,7 @@ function NewTempVar(type: string | undefined): VariableItem {
 
 function GetType(item: CodeItem): string {
     if (item instanceof GameValueItem) {
-        return AD.GameValueTypes[item.Value] || "any"
+        return AD.DFGameValueMap[item.Value]!.ReturnType || "any"
     } else if (item instanceof VariableItem) {
         if (item.StoredType) {
             return item.StoredType
@@ -536,7 +528,7 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
         return [code,new StringItem([token.CharStart,token.CharEnd],token.String)]
     }
     else if (token instanceof VariableToken) {
-        return [code,new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCCOPES[token.Scope],token.Name, token.Type)]
+        return [code,new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCOPES[token.Scope],token.Name, token.Type)]
     } 
     //location
     else if (token instanceof LocationToken) {
@@ -618,7 +610,7 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
             item[token.IsCustom ? "CustomKey" : "SoundId"] = "Pling"
         } else {
             //error for invalid sound id
-            if (!token.IsCustom && !AD.ValidSounds.includes(components.SoundId.Value)) {
+            if (!token.IsCustom && !AD.Sounds.has(components.SoundId.Value)) {
                 throw new TCError(`Invalid sound type '${components.SoundId.Value}'`,0,token.SoundId.CharStart,token.SoundId.CharEnd)
             }
             item[token.IsCustom ? "CustomKey" : "SoundId"] = components.SoundId.Value
@@ -653,7 +645,8 @@ function ToItem(token: Token): [CodeBlock[],CodeItem] {
     //game value
     else if (token instanceof GameValueToken) {
         return [code, new GameValueItem([token.CharStart,token.CharEnd],
-            DomainList[token.Target as string]!.Values[token.Value],
+            //DomainList[token.Target as string]!.Values[token.Value],
+            AD.TCGameValueMap[token.Value]!.DFId,
             token.Target == "game" ? "Default" : TargetDomains[token.Target!].Target
         )]
     }
@@ -941,9 +934,9 @@ function OPR_VecMultVec(left, right, opr: string): [CodeBlock[], CodeItem] {
         //remember to exclude 1!!
 
         //get the component of left vector
-        let leftCompVar: VariableItem | NumberItem
+        let leftCompVar: VariableItem | NumberItem | GameValueItem
         //if left vector is a variabl;e
-        if (left instanceof VariableItem) {
+        if (left instanceof VariableItem || left instanceof GameValueItem) {
             leftCompVar = NewTempVar("num")
             code.push(
                 new ActionBlock("set_var","GetVectorComp",[leftCompVar,left],[new TagItem([],"Component",component,"set_var","GetVectorComp")])
@@ -954,9 +947,9 @@ function OPR_VecMultVec(left, right, opr: string): [CodeBlock[], CodeItem] {
         }
 
         //get the component of right vector
-        let rightCompVar: VariableItem | NumberItem
-        //if right vector is a variabl;e
-        if (right instanceof VariableItem) {
+        let rightCompVar: VariableItem | NumberItem | GameValueItem
+        //if right vector is a variable
+        if (right instanceof VariableItem || right instanceof GameValueItem) {
             rightCompVar = NewTempVar("num")
             code.push(
                 new ActionBlock("set_var","GetVectorComp",[rightCompVar,right],[new TagItem([],"Component",component,"set_var","GetVectorComp")])
@@ -1165,7 +1158,7 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
     //special case for action if statements
     if (exprToken.Expression.length == 1 && exprToken.Expression[0] instanceof ActionToken && exprToken.Expression[0].Type == "comparison") {
         let action = exprToken.Expression[0] as ActionToken
-        let domain = DomainList[action.DomainId]
+        let domain = DomainList[action.DomainId]!
 
         let codeblock = "if_var"
         if (domain instanceof TargetDomain) {
@@ -1184,13 +1177,13 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
 
         let tags
         if (action.Tags) {
-            let tagResults = SolveTags(action.Tags, codeblock, domain?.Comparisons[action.Action]?.DFName!)
+            let tagResults = SolveTags(action.Tags, codeblock, domain.Conditions[action.Action]!.DFId)
             code.push(...tagResults[0])
             tags = tagResults[1]
         }
 
         code.push(
-            new IfActionBlock(codeblock, domain?.Comparisons[action.Action]?.DFName!, args, tags, domain instanceof TargetDomain ? domain.Target : null, exprToken.Not)
+            new IfActionBlock(codeblock, domain.Conditions[action.Action]!.DFId, args, tags, domain instanceof TargetDomain ? domain.Target : null, exprToken.Not)
         )
 
         return [code,expression[0]]
@@ -1259,13 +1252,13 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
             //tags
             let tags
             if (action.Tags) {
-                let tagResults = SolveTags(action.Tags,domain.CodeBlock!,domain.Actions[action.Action]?.DFName!)
+                let tagResults = SolveTags(action.Tags,domain.ActionCodeblock!,domain.Actions[action.Action]!.DFId)
                 code.push(...tagResults[0])
                 tags = tagResults[1]
             }
 
             
-            let actionBlock = new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags,domain instanceof TargetDomain ? domain.Target : null)
+            let actionBlock = new ActionBlock(domain.ActionCodeblock!,domain.Actions[action.Action]!.DFId,args,tags,domain instanceof TargetDomain ? domain.Target : null)
 
             let returnType = GetReturnType(actionBlock)
             let rawReturnType = GetReturnType(actionBlock,true)
@@ -1324,7 +1317,7 @@ function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
                 let typeright = GetType(right)
 
                 //comparison operators
-                if (VALID_COMPARISON_OPERATORS.includes(item.Operator)) {
+                if (VALID_COMPARISON_OPERATORS.has(item.Operator)) {
                     ifAction = new IfActionBlock("if_var", item.Operator == "==" ? "=" : item.Operator, [left, right], [], null, exprToken.Not)
                 }
                 //normal operators
@@ -1402,13 +1395,9 @@ function SolveConditionExpression(expression: ExpressionToken): [CodeBlock[], Co
         throw new TCError("Condition must either be an if action or include a comparison",0,expression.CharStart,expression.CharEnd)
     }
 
-    //account for if_entity and if_player having different names sometimes when used as a repeat action
-    let dfName = ifBlock.Action
-    if (ifBlock.Block == "if_entity" || ifBlock.Block == "if_player" || ifBlock.Block == "if_game"){
-        //this line of code makes me regret ever starting this project
-        dfName = AD[ifBlock.Block == "if_entity" ? "ValidDifferentiatedEntityConditions" : ifBlock.Block == "if_player" ? "ValidDifferentiatedPlayerConditions" : "ValidDifferentiatedGameConditions"][AD.DFActionMap[ifBlock.Block]![ifBlock.Action]?.TCName!]?.DFName!
-        ifBlock.Action = dfName
-    }
+    //account for if actions that exist on multiple different if blocks having differentiated names
+    let dfName = AD.DifferentiatedDFActionMap[ifBlock.Block]![ifBlock.Action]!.DFId
+    ifBlock.Action = dfName
 
     return [expressionResults[0], expressionResults[1], ifBlock]
 }
@@ -1555,12 +1544,12 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             //tags
             let tags
             if (action.Tags) {
-                let tagResults = SolveTags(action.Tags,domain.CodeBlock!,domain.Actions[action.Action]?.DFName!)
+                let tagResults = SolveTags(action.Tags,domain.ActionCodeblock!,domain.Actions[action.Action]!.DFId)
                 CodeLine.push(...tagResults[0])
                 tags = tagResults[1]
             }
 
-            let actionBlock = new ActionBlock(domain.CodeBlock!,domain.Actions[action.Action]?.DFName!,args,tags,domain instanceof TargetDomain ? domain.Target : null)
+            let actionBlock = new ActionBlock(domain.ActionCodeblock!,domain.Actions[action.Action]!.DFId,args,tags,domain instanceof TargetDomain ? domain.Target : null)
 
             //if this action has a return type, mark variable as that type
             let returnType = GetReturnType(actionBlock)
@@ -1730,7 +1719,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 args = argResults[1]
             }
 
-            let actionDFName = AD.ValidSelectionActions[line[0].Action]?.DFName!
+            let actionDFName = AD.TCActionMap.select_obj![line[0].Action]!.DFId
 
             if (line[0].ConditionExpression) {
                 //tags
@@ -1835,7 +1824,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         }
         //debug print variable
         else if (line[0] instanceof DebugPrintVarTypeToken) {
-            console.log(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CombinedVarContext.VariableTypes[VALID_VAR_SCCOPES[line[0].Variable.Scope]][line[0].Variable.Name]}`)
+            console.log(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[line[0].Variable.Scope]][line[0].Variable.Name]}`)
         }
     }
 
@@ -2023,7 +2012,7 @@ export function JSONize(code: Array<CodeBlock>): string {
                         "id": "pn_el",
                         "data": {
                             "name": param.Name,
-                            "type": TC_TYPE_TO_DF_TYPE[param.Type],
+                            "type": DF_TYPE_MAP[param.Type],
                             "default_value": param.DefaultValue != null ? JSONizeItem(param.DefaultValue) : undefined,
                             "plural": param.Plural,
                             "optional": param.Optional

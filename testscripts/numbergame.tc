@@ -1,4 +1,4 @@
-FUNCTION awesome;
+FUNCTION numbergame;
 
 line i: num = saved [%default number];
 
@@ -12,18 +12,20 @@ repeat Forever {
     default:SendActionBar(txt"The number: <green>" + line i);
 
     if (default ? IsSprinting) {
-        num:Random(line rngResult, 1, 20);
+        line rngResult = num:Random(1, 20);
 
-        #i dont have else yet so just have this get overriden if fish mode
-        txt:ParseExpression(line msg, "<light_purple>" + "!"*line rngResult + "    <white>The number: <rainbow:%var(rainbowIndex)>" + line i + "    <light_purple>" + "!"*line rngResult);
-
+        #fish mode
         if (default ? IsSwimming) {
             #increase the number EVEN FASTER!
             line i += 12345678912345;
 
             default:SetRemainingAir(line rngResult * 30);
 
-            txt:ParseExpression(line msg, "<blue>" + "!"*line rngResult + "    <aqua>FISHMODE!!!!!! <rainbow:%var(rainbowIndex)>" + line i + "    <blue>" + "!"*line rngResult);
+            line msg = txt:ParseExpression("<blue>" + "!"*line rngResult + "    <aqua>FISHMODE!!!!!! <rainbow:%var(rainbowIndex)>" + line i + "    <blue>" + "!"*line rngResult);
+        }
+        #normal sprint mode 
+        else {
+            line msg = txt:ParseExpression("<light_purple>" + "!"*line rngResult + "    <white>The number: <rainbow:%var(rainbowIndex)>" + line i + "    <light_purple>" + "!"*line rngResult);
         }
 
         default:SendActionBar(line msg: txt);
@@ -38,8 +40,8 @@ repeat Forever {
     }
 
     if (line i < 0) {
-        num:Random(line rngResult, 1, 200);
-        txt:ParseExpression(line msg, "<red><obfuscated>" + "!"*line rngResult + "    <reset><dark_red>what have you done... <#FF0000>" + line i + "    <red><obfuscated>" + "!"*line rngResult);
+        line rngResult = num:Random(1, 200);
+        line msg = txt:ParseExpression("<red><obfuscated>" + "!"*line rngResult + "    <reset><dark_red>what have you done... <#FF0000>" + line i + "    <red><obfuscated>" + "!"*line rngResult);
         default:SendActionBar(line msg: txt);
     }
 
@@ -48,15 +50,13 @@ repeat Forever {
     #reset code
     if (default ? IsStandingOnBlock("nether_wart_block")) {
         #launching code
-        loc:Align(line loc, default.Location - vec[0,1,0]);
-        default:LaunchTowardLocation(line loc: loc, -100);
+        default:LaunchTowardLocation(loc:Align(default.Location - vec[0,1,0]), -100);
         default:GivePotionEffect(pot["Slow Falling",1,2 * 20]);
 
         if (line i < 0) {
             default:SendActionBar("&c&lFIRST, FIX YOUR MISTAKES");
             line timeUnit = "Seconds";
-        }
-        if (not line i < 0) {
+        } else {
             line i = 0;
             default:SendMessage("You have been reset");
             default:SendActionBar; #clear action bar

@@ -14,7 +14,7 @@ export function print (...data: any[]) {
 
 async function Main() { 
     //tokenize
-    let FILE_PATH = "testscripts/selection.tc"
+    let FILE_PATH = "testscripts/vectors.tc"
     let script = await Bun.file(FILE_PATH).text()
     let tokenResults: Tokenizer.TokenizerResults
 
