@@ -1,9 +1,10 @@
-import { GetLineStart, GetLineEnd, GetLineFromIndex, GetWhitespaceAmount, COLOR } from "./characterUtils"
+import { CharUtils, COLOR } from "./characterUtils"
 
 export function PrintError(e: TCError, SCRIPT_CONTENTS) {
+    let cu = new CharUtils(SCRIPT_CONTENTS,true)
     if (e instanceof TCError) {
-        let lineStart = GetLineStart(e.CharStart)
-        let lineEnd = GetLineEnd(e.CharStart)
+        let lineStart = cu.GetLineStart(e.CharStart)
+        let lineEnd = cu.GetLineEnd(e.CharStart)
 
         // show the line(s) that had the error        
         function printCodeLine() {
@@ -32,7 +33,7 @@ export function PrintError(e: TCError, SCRIPT_CONTENTS) {
             //print remaining lines
             while (e.CharLoc > lineEnd) {
                 lineStart = lineEnd + 1
-                lineEnd = GetLineEnd(lineStart)
+                lineEnd = cu.GetLineEnd(lineStart)
                 printCodeLine()
             }
         //single line error
@@ -55,7 +56,7 @@ export function PrintError(e: TCError, SCRIPT_CONTENTS) {
         }
         
         //show what the error actually was
-        console.log(`Error at line ${GetLineFromIndex(e.CharStart) + 1}: ${e.message}`)
+        console.log(`Error at line ${cu.GetLineFromIndex(e.CharStart) + 1}: ${e.message}`)
     } else {
         throw e
     }
