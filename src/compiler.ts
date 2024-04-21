@@ -33,6 +33,10 @@ class Context {
     //should be null if bracket type == "none"
     //token that caused this new context
     CreatorToken: IfToken | RepeatToken | null = null
+
+    //code that's inserted after the opening bracket of this context
+    //should be after the context is created but before brackets are parsed or else it wont have an effect
+    HeldPostBracketCode: CodeBlock[] = []
 }
 
 //context to actually read var types from
@@ -200,6 +204,7 @@ class VariableItem extends CodeItem {
     Name: string
     Scope: "unsaved" | "local" | "saved" | "line"
     StoredType: string | null
+    IsTemporary: boolean = false
 }
 
 class LocationItem extends CodeItem {
@@ -407,6 +412,7 @@ class BracketBlock extends CodeBlock {
 function NewTempVar(type: string | undefined): VariableItem {
     tempVarCounter++
     let varitem = new VariableItem(null, "line", `${VAR_HEADER}REG_${tempVarCounter}`)
+    varitem.IsTemporary = true
     SetVarType(varitem,type)
     return varitem
 }
@@ -1508,8 +1514,10 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             if (line[0] instanceof BracketToken && line[0].Type == "open") {
                 CodeLine.push(new BracketBlock("open",HighestContext.BracketType))
                 HighestContext.OpeningBracketResolved = true
+                CodeLine.push(...HighestContext.HeldPostBracketCode)
                 continue
             }
+
             throw new TCError(`Expected opening bracket following ${HighestContext.BracketType} statement`,0,lines[i-1][0].CharStart,lines[i-1][0].CharEnd)
         }
 
@@ -1660,10 +1668,29 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 let code = expressionResults[0]
                 let ifBlock = expressionResults[2]
 
-                //replace if block returned by expression with repeat block
-                code[code.length-1] = new SubActionBlock("repeat","While",ifBlock.Arguments,ifBlock.Tags,ifBlock.Not,ifBlock.Action)
+                //if the values in the if chest require extra code blocks to evaluate, the whole expression must 
+                //be evaluated inside the repeat or else its value won't get updated for each iteration
+                //the idea is to have the whole expression at the start of the repeat, then check the inverse of that condition and if the inverse is true, break
+                if (code.length > 1) {
+                    //add repeat forever
+                    CodeLine.push(new ActionBlock("repeat","Forever",[],[]))
+                    //invert if block
+                    ifBlock.Not = !ifBlock.Not
 
-                CodeLine.push(...expressionResults[0])
+                    code.push(
+                        new BracketBlock("open","if"), //opening bracket after the if
+                        new ActionBlock("control","StopRepeat",[]), //break that actually kills the loop
+                        new BracketBlock("close","if") //closing bracket after the if
+                    )
+
+                    newContext.HeldPostBracketCode = code
+                } 
+                //the entire expression is contained within the if block's chest so the repeat while can just do that
+                else {
+                    //replace if block returned by expression with repeat block
+                    code[code.length-1] = new SubActionBlock("repeat","While",ifBlock.Arguments,ifBlock.Tags,ifBlock.Not,ifBlock.Action)
+                    CodeLine.push(...code)
+                }
             }
             //repeat on action
             else if (line[0] instanceof RepeatForActionToken) {

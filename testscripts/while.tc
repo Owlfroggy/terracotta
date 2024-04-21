@@ -1,0 +1,37 @@
+PLAYER_EVENT Command;
+
+if (not game ? CommandEquals("roll")) { return; }
+
+#this works fine since the whole expression is contained in the 
+line i = 0;
+while (line i + 2 < 10) {
+    line i += 1;
+    default:SendMessage("&a"+line i);
+}
+
+
+global i = 0;
+while (global i + 2 < 10) {
+    global i += 1;
+    default:SendMessage("&c"+global i);
+}
+
+
+while (num:Random(1,10) != 5) {
+    line count += 1;
+}
+default:SendMessage("Final loop ran",line count,"times");
+
+while (default.Y < 50.5) {
+    wait(1){Time Unit = Ticks};
+}
+default:SendMessage("u jumped");
+
+while (game.CPUUsage < 100) {
+    line i += 1000;
+    repeat (line i) {
+        default:SetToSurvivalMode();
+    }
+    wait(1){Time Unit = Ticks};
+}
+default:SendMessage("Lagslayer averted");

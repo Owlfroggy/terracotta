@@ -1583,7 +1583,6 @@ function ParseGameValue(index: number): [number, Token] | null {
             if (domain.SupportsGameValues == false) {
                 //throw special error if this domain doesnt support game values
                 throw new TCError(`Target '${domain.Identifier}' does not support game values`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
-            //} else if (domain.ActionType == "entity" && AD.InvalidEntityGameValues.includes(AD.ValidPlayerGameValues[valueResults[1]]!)) {
             //throw special error if this gv is valid for players but not entities and the target is an entity
             } else if (!AD.TCEntityGameValues[valueResults[1]] && domain.ActionType == "entity") {
                 throw new TCError(`Invalid entity game value: '${valueResults[1]}'`, 2, index + GetWhitespaceAmount(index) + 1, valueResults[0])
