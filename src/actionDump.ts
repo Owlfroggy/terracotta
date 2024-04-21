@@ -210,7 +210,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
 for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
     let value = new GameValue()
     value.DFId = gameValueJson.icon.name
-    value.TCId = CodeifyName(gameValueJson.icon.name)
+    value.TCId = OVERRIDES_JSON.gameValues[gameValueJson.icon.name] || CodeifyName(gameValueJson.icon.name)
     value.ReturnType = ReturnTypeMap[gameValueJson.icon.returnType]
 
     DFGameValueMap[value.DFId] = value
