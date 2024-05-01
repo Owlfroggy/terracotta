@@ -1,4 +1,16 @@
 FUNCTION awesome;
 
-default:SendMessage(1,2,3,4,5,6,7,8,9,10,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26);
-default:SendMessage("balls");
+global dingus = 5;
+global asdf = 100;
+global One = 1;
+local bingus = 20;
+line Nine = 9;
+default:SetToSurvivalMode;
+
+
+global dingus += 10 + global asdf;
+global dingus += 25 + local bingus + global One + global One;
+global dingus += 30;
+
+
+default:SendMessage(global dingus);

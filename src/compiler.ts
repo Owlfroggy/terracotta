@@ -1,6 +1,6 @@
 import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP } from "./constants"
-import { print } from "./main"
+import { DEBUG_MODE, print } from "./main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
 import * as fflate from "fflate"
 import { TCError } from "./errorHandler"
@@ -183,6 +183,10 @@ class NumberItem extends CodeItem {
         this.Value = value
     }
     Value: string
+
+    //if this number is a %math expression, this var represents
+    //a temp var name that this item can safely replace when condensing
+    TempVarEquivalent: string
 }
 
 class StringItem extends CodeItem {
@@ -833,13 +837,18 @@ function OPR_NumOnNum(left, right, opr: string, blockopr: string): [CodeBlock[],
 
         //%conditions where %math is supported
         if (leftIsLine && rightIsLine) {
-            return [[], new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}%var(${right.Name}))`)]
+            let item: NumberItem = new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}%var(${right.Name}))`)
+            return [[], item]
         }
         else if (leftIsLine && right instanceof NumberItem) {
-            return [[], new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}${right.Value})`)]
+            let item: NumberItem = new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}${right.Value})`)
+            if (left.IsTemporary) {item.TempVarEquivalent = left.Name}
+            return [[], item]
         }
         else if (left instanceof NumberItem && rightIsLine) {
-            return [[], new NumberItem([left.CharStart, right.CharEnd], `%math(${left.Value}${opr}%var(${right.Name}))`)]
+            let item = new NumberItem([left.CharStart, right.CharEnd], `%math(${left.Value}${opr}%var(${right.Name}))`)
+            if (left.TempVarEquivalent) {item.TempVarEquivalent = left.TempVarEquivalent}
+            return [[], item]
         }
 
         //otherwise use set var
@@ -1860,20 +1869,134 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         throw new TCError(`${HighestContext.BracketType == "if" ? "If" : "Repeat"} statement never closed`,0,HighestContext.CreatorToken?.CharStart!,HighestContext.CreatorToken?.CharEnd!)
     }
 
-    //optimization pass
-    i = -1
-    while (i < CodeLine.length) {
-        i++
-        let block = CodeLine[i]
+    //optimization passes
+    //the order they appear in the array is the order they will be executed
+    let codeIndex = -1
+    const OptimizationPasses = [
+        // Condense to incrementer \\
+        function(block: CodeBlock, nextBlock: CodeBlock) {
+            //require this block to be action with arguments
+            if (!(block instanceof ActionBlock) || block.Arguments.length < 1) { return }
 
-        //error if chest item count surpasses 27
-        if (block instanceof ActionBlock)  {
+            //require next block to be action block with arguments
+            if (!(nextBlock instanceof ActionBlock) || nextBlock.Arguments.length < 2) { return }
+
+
+            if (block.Action == "+" && nextBlock.Action == "=") {
+                let thisTempVar = block.Arguments[0] as VariableItem
+                let nextTempVar = nextBlock.Arguments[1] as VariableItem
+
+                //require this block and next block to both use the same temp var
+                if (nextTempVar.Name != thisTempVar.Name) { return }
+                
+                //remove temp var from + block
+                block.Arguments.shift()
+
+                //remove = block
+                CodeLine.splice(codeIndex + 1, 1)
+
+                block.Action = "+="
+                codeIndex -= 2
+            } 
+            else if (block.Action == "+" && nextBlock.Action == "+=") {
+                let thisTempVar = block.Arguments[0] as VariableItem
+                let nextTempVar = nextBlock.Arguments[1] as VariableItem
+
+                //require this block and next block to both use the same temp var
+                if (nextBlock.Arguments[1] instanceof NumberItem || nextTempVar.Name != thisTempVar.Name) { return }
+
+                //replace temp var with final var
+                block.Arguments[0] = nextBlock.Arguments[0]
+
+                //move everything after the temp var of next chest into this chest
+                for (let i = 2; i < nextBlock.Arguments.length; i++) {
+                    block.Arguments.push(nextBlock.Arguments[i])
+                }
+
+                //remove += block
+                CodeLine.splice(codeIndex + 1,1)
+
+                block.Action = "+="
+                codeIndex -= 2
+            }
+            else if (block.Action == "+=" && nextBlock.Action == "+=") {
+                //make sure this block and the next block are actually modifying the same variable
+                let thisVar = block.Arguments[0] as VariableItem
+                let nextVar = nextBlock.Arguments[0] as VariableItem
+                if (thisVar.Name != nextVar.Name) {return}
+
+                //move all contents of next chest into this chest
+                for (let i = 1; i < nextBlock.Arguments.length; i++) {
+                    block.Arguments.push(nextBlock.Arguments[i])
+                }
+
+                //remove next block
+                CodeLine.splice(codeIndex + 1, 1)
+
+                codeIndex -= 2
+            }
+        },
+
+
+
+        // Condense incremeter contents (combine constants & line vars) \\
+        function(block: CodeBlock) {
+            //require this block to be action with arguments
+            if (!(block instanceof ActionBlock) || block.Arguments.length < 1) { return }
+            //require this block to be an incremeter action
+            if (block.Action != "+=") { return }
+
+            let total = 0
+            let expressionEntries: string[] = []
+
+            for (let i = block.Arguments.length - 1; i > -1; i--) {
+                let item = block.Arguments[i]
+
+                if (item instanceof NumberItem) {
+                    //if item is a %math expression
+                    if (isNaN(Number(item.Value))) {
+                        expressionEntries.push(item.Value)
+                    }
+                    //if item is a constant number
+                    else {
+                        total += Number(item.Value)
+                    }
+                    block.Arguments.splice(i, 1)
+                    //if item is a line var
+                } else if (item instanceof VariableItem && item.Scope == "line") {
+                    expressionEntries.push(`%var(${item.Name})`)
+                    block.Arguments.splice(i, 1)
+                }
+            }
+
+            //combine expression
+            if (total > 0) { expressionEntries.push(String(total)) }
+            block.Arguments.push(new NumberItem([], `%math(${expressionEntries.join("+")})`))
+        },
+
+
+
+        // Final error checking \\
+        function(block: CodeBlock) {
+            if (!(block instanceof ActionBlock)) { return }
+
             let args = block.Arguments
             let tags = block.Tags
-            let combinedChest = [...args,...tags]
+            let combinedChest = [...args, ...tags]
 
+            //error if chest item count surpasses 27
             if (combinedChest.length > 27) {
-                throw new TCError("Chest item count cannot surpass than 27 (including tags)",0,args[28 - tags.length - 1].CharStart,args[args.length-1].CharEnd)
+                throw new TCError("Chest item count cannot surpass than 27 (including tags)", 0, args[28 - tags.length - 1].CharStart, args[args.length - 1].CharEnd)
+            }
+        }
+    ]
+
+    if (!DEBUG_MODE.disableOptimization) {
+        for (let func of OptimizationPasses) {
+            codeIndex = -1
+            while (codeIndex < CodeLine.length) {
+                codeIndex++
+                func(CodeLine[codeIndex], CodeLine[codeIndex+1])
             }
         }
     }

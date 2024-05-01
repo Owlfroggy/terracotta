@@ -1,9 +1,10 @@
 import * as Tokenizer from "./tokenizer"
-import * as ErrorHandler from "./errorHandler"
+import * as ErrorHandler from "./errorHandler"  
 import * as Compiler from "./compiler"
 
 export const DEBUG_MODE = {
-    enableDebugFunctions: true
+    enableDebugFunctions: true,
+    disableOptimization: true,
 }
 
 //function for spamming debug print statements
@@ -14,7 +15,7 @@ export function print (...data: any[]) {
 
 async function Main() { 
     //tokenize
-    let FILE_PATH = "testscripts/general.tc"
+    let FILE_PATH = "testscripts/general2.tc"
     let script = await Bun.file(FILE_PATH).text()
     let tokenResults: Tokenizer.TokenizerResults
 
