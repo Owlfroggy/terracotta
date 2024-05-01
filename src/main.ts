@@ -4,7 +4,7 @@ import * as Compiler from "./compiler"
 
 export const DEBUG_MODE = {
     enableDebugFunctions: true,
-    disableOptimization: true,
+    disableOptimization: false,
 }
 
 //function for spamming debug print statements

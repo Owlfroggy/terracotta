@@ -838,6 +838,7 @@ function OPR_NumOnNum(left, right, opr: string, blockopr: string): [CodeBlock[],
         //%conditions where %math is supported
         if (leftIsLine && rightIsLine) {
             let item: NumberItem = new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}%var(${right.Name}))`)
+            if (left.IsTemporary) {item.TempVarEquivalent = left.Name}
             return [[], item]
         }
         else if (leftIsLine && right instanceof NumberItem) {
@@ -1883,7 +1884,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
 
             if (block.Action == "+" && nextBlock.Action == "=") {
-                let thisTempVar = block.Arguments[0] as VariableItem
+                let thisTempVar = block.Arguments[0] as VariableItem 
                 let nextTempVar = nextBlock.Arguments[1] as VariableItem
 
                 //require this block and next block to both use the same temp var
@@ -1899,14 +1900,23 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 codeIndex -= 2
             } 
             else if (block.Action == "+" && nextBlock.Action == "+=") {
-                let thisTempVar = block.Arguments[0] as VariableItem
-                let nextTempVar = nextBlock.Arguments[1] as VariableItem
+                let thisTempVar = block.Arguments[0] as VariableItem | NumberItem
+                let nextTempVar = nextBlock.Arguments[1] as VariableItem | NumberItem
+
+                let thisTempVarName = thisTempVar instanceof VariableItem ? thisTempVar.Name : thisTempVar.TempVarEquivalent
+                let nextTempVarName = nextTempVar instanceof VariableItem ? nextTempVar.Name : nextTempVar.TempVarEquivalent
 
                 //require this block and next block to both use the same temp var
-                if (nextBlock.Arguments[1] instanceof NumberItem || nextTempVar.Name != thisTempVar.Name) { return }
+                if (thisTempVarName != nextTempVarName) { return }
 
                 //replace temp var with final var
                 block.Arguments[0] = nextBlock.Arguments[0]
+
+                //if the temp var of the next chest is a %math operation, include that in this new chest
+                if (nextTempVar instanceof NumberItem) {
+                    nextTempVar.TempVarEquivalent = thisTempVarName
+                    block.Arguments.push(nextTempVar)
+                }
 
                 //move everything after the temp var of next chest into this chest
                 for (let i = 2; i < nextBlock.Arguments.length; i++) {
@@ -1974,6 +1984,8 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             block.Arguments.push(new NumberItem([], `%math(${expressionEntries.join("+")})`))
         },
 
+        
+        // REMOVE NOW UNUSED TEMP VARS HERE \\
 
 
         // Final error checking \\
