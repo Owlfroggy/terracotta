@@ -5,7 +5,7 @@ import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
 import * as fflate from "fflate"
 import { TCError } from "./errorHandler"
 import * as AD from "./actionDump"
-import { isMainThread } from "bun"
+import * as TextCode from "./textCodeParser"
 
 const VAR_HEADER = `@__TC_`
 
@@ -1984,9 +1984,28 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             block.Arguments.push(new NumberItem([], `%math(${expressionEntries.join("+")})`))
         },
 
-        
+        //##########################################################################\\
+        //#### NO CODE OPTIMIZATIONS THAT ADD/REMOVE CODEBLOCKS PAST THIS POINT ####\\
+        //##########################################################################\\
+
         // REMOVE NOW UNUSED TEMP VARS HERE \\
 
+        // Clean up %math expressions \\
+        function (block: CodeBlock) {
+            if (!(block instanceof ActionBlock)) { return }
+
+            block.Arguments.forEach(item => {
+                if (!(item instanceof NumberItem)) { return }
+
+                let value = (item as NumberItem).Value
+                let mathExpression
+                try {
+                    mathExpression = TextCode.TokenizeMath(value)
+                    //if this number is %math, flatten it
+                    item.Value = mathExpression.Flatten().Compile()
+                } catch {}
+            });
+        },
 
         // Final error checking \\
         function(block: CodeBlock) {
