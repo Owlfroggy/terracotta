@@ -1522,7 +1522,7 @@ function ParseCall(index: number): [number, CallToken] | null {
 
     //parse tags
     if (mode == "process") {
-        let tagsResults = ParseTags(index,AD.DFActionMap.process!.dynamic!.Tags)
+        let tagsResults = ParseTags(index,AD.DFActionMap.start_process!.dynamic!.Tags)
         if (tagsResults) {
             index = tagsResults[0]
             tags = tagsResults[1]

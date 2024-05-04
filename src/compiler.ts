@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
+import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
 import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP } from "./constants"
 import { DEBUG_MODE, print } from "./main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
@@ -376,6 +376,10 @@ class ActionBlock extends CodeBlock {
     Arguments: Array<CodeItem>
     Tags: Array<TagItem>
     Target: string | null = null
+    
+    //what key to use for action name when compiling to json
+    //most actions use "action", call func and start process use "data"
+    ActionNameField: string = "action"
 }
 
 class IfActionBlock extends ActionBlock {
@@ -1584,6 +1588,32 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             //push action
             CodeLine.push(actionBlock)
         }
+        //call function
+        else if (line[0] instanceof CallToken) {
+            let action = line[0]
+
+            //args
+            let args
+            if (action.Arguments && action.Type == "function") {
+                let argResults = SolveArgs(action.Arguments)
+                CodeLine.push(...argResults[0])
+                args = argResults[1]
+            }
+
+            //tags
+            let tags
+            if (action.Type == "process") {
+                let tagResults = SolveTags(action.Tags || {},"start_process","dynamic")
+                CodeLine.push(...tagResults[0])
+                //missing tags must be filled here since the action block constructor doesnt know about process action being "dynamic"
+                tags = FillMissingTags("start_process","dynamic",tagResults[1])
+            }
+
+            let actionBlock = new ActionBlock(action.Type == "function" ? "call_func" : "start_process",action.Name,args,tags)
+            actionBlock.ActionNameField = "data"
+
+            CodeLine.push(actionBlock)
+        }
         //control
         else if (line[0] instanceof ControlBlockToken) {
             let action = line[0]
@@ -2186,7 +2216,7 @@ export function JSONize(code: Array<CodeBlock>): string {
                 "id": "block",
                 "block": block.Block,
                 "args": {"items": chest},
-                "action": block.Action,
+                [block.ActionNameField]: block.Action,
                 "target": block.Target ? block.Target : undefined,
                 "attribute": (block instanceof IfActionBlock || block instanceof SubActionBlock) && block.Not ? "NOT" : undefined,
                 "subAction": block instanceof SubActionBlock && block.Subaction ? block.Subaction : undefined
