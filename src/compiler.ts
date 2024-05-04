@@ -2035,8 +2035,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 let mathExpression
                 try {
                     mathExpression = TextCode.TokenizeMath(value)
-                    //if this number is %math, flatten it
-                    item.Value = mathExpression.Flatten().Compile()
+                    //item.Value = mathExpression.Flatten().Compile()
                 } catch {}
             });
         },
