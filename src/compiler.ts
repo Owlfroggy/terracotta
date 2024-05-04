@@ -305,12 +305,16 @@ class TagItem extends CodeItem {
         this.Block = block
         this.Action = action
         this.Variable = variable
+        
+        this.ChestSlot = AD.DFActionMap[block]![action]!.Tags[tag]!.ChestSlot
     }
     Tag: string
     Option: string
     Block: string
     Action: string
     Variable: VariableItem | null
+
+    ChestSlot: number
 }
 
 class ParamItem extends CodeItem {
@@ -2201,7 +2205,7 @@ export function JSONize(code: Array<CodeBlock>): string {
                             "action": item.Action,
                         }
                     },
-                    "slot": i
+                    "slot": item.ChestSlot
                 }
                 //variable
                 if (item.Variable) {
