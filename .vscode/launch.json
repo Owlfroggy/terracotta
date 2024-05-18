@@ -4,13 +4,13 @@
     {
       "type": "bun",
       "request": "launch",
-      "name": "Debug Bun",
+      "name": "Compile general.tc",
 
       // The path to a JavaScript or TypeScript file to run.
-      "program": "index.ts",
+      "program": "src/main.ts",
 
       // The arguments to pass to the program, if any.
-      "args": [],
+      "args": ["--compile","--copy","--file","testscripts/general.tc","--cmode","dfgive"],
 
       // The working directory of the program.
       "cwd": "${workspaceFolder}",
