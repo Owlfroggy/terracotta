@@ -58,10 +58,10 @@ async function Main() {
             return
         }
 
-        var jsoned = Compiler.JSONize(compiledResults.Code)
-        var gzipped = Compiler.GZIP(jsoned)
+        let jsoned = Compiler.JSONize(compiledResults.Code)
+        let gzipped = Compiler.GZIP(jsoned)
 
-        var finalOutput: string = ""
+        let finalOutput: string = ""
         switch (values.cmode) {
             case undefined || "gzip":
                 finalOutput = gzipped
