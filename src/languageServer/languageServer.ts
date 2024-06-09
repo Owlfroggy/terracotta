@@ -2,6 +2,7 @@ import * as rpc from "vscode-jsonrpc/node"
 import * as domains from "../util/domains"
 import { CompletionItem, CompletionList, CompletionRegistrationOptions, InitializeResult, MessageType, TextDocumentSyncKind } from "vscode-languageserver";
 import { CodeContext, ContextType, Tokenize } from "../tokenizer/tokenizer";
+import { DocumentTracker } from "./documentTracker";
 
 function generateCompletionMap(entries: (string)[]): CompletionItem[] {
     let result: CompletionItem[] = []
@@ -29,14 +30,15 @@ function getDomainKeywords() {
 }
 
 export function StartServer() {
-    //==========[ create rpc connection ]=========\\
+    //==========[ setup ]=========\\
 
     let connection = rpc.createMessageConnection(
         new rpc.StreamMessageReader(process.stdin),
         new rpc.StreamMessageWriter(process.stdout)
     );
-
     connection.listen()
+
+    let documentTracker = new DocumentTracker(connection)
 
     //==========[ utility functions ]=========\\
 
@@ -60,7 +62,7 @@ export function StartServer() {
     })
 
     connection.onRequest("textDocument/completion", async (param) => {
-        let script = await Bun.file(new URL(param.textDocument.uri)).text()
+        let script = documentTracker.GetFileText(param.textDocument.uri)
         let line = 0
         let index = 0
         for (let i = 0; i < script.length; i++) {
@@ -74,7 +76,7 @@ export function StartServer() {
         }
 
 
-        showText(`EChar: ${index}:'${script[index]} | ${param} | ${script}`)
+        showText(`EChar: ${index}:'${script[index]} | ${JSON.stringify(param)} | "${script}" | ${line}`)
         let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": index}) as CodeContext
         showText(`Char: ${index}:'${script[index]}'\nContext: ${JSON.stringify(context)}`)
 
