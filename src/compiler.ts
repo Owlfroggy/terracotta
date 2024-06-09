@@ -9,93 +9,6 @@ import * as TextCode from "./textCodeParser"
 
 const VAR_HEADER = `@__TC_`
 
-let tempVarCounter = 0
-//==========[ variable type tracking ]=========\\
-class Context {
-    VariableTypes = {
-        unsaved: {},
-        local: {},
-        saved: {},
-        line: {}
-    }
-
-    //true for the base level context at the bottom of the stack
-    //prevents the pop function from working on this context
-    IsBase = false
-
-    BracketType: "none" | "repeat" | "if" = "none"
-
-    //does nothing if bracket type == none
-    //if bracket type == "if" | "repeat" then an opening bracket is required on the line after
-    //the context is pushed. this var keeps track of whether or not that has happened
-    OpeningBracketResolved = false
-
-    //should be null if bracket type == "none"
-    //token that caused this new context
-    CreatorToken: IfToken | RepeatToken | null = null
-
-    //code that's inserted after the opening bracket of this context
-    //should be after the context is created but before brackets are parsed or else it wont have an effect
-    HeldPostBracketCode: CodeBlock[] = []
-}
-
-//context to actually read var types from
-var CombinedVarContext = new Context()
-CombinedVarContext.IsBase = true
-
-var BaseContext = new Context()
-BaseContext.IsBase = true
-BaseContext.VariableTypes.local["balls"] = "num"
-
-//context at the top of the stack
-var HighestContext = BaseContext
-
-var ContextStack: Context[] = []
-
-PushContext(BaseContext)
-
-function PushContext(context: Context) {
-    ContextStack.push(context)
-    HighestContext = context
-
-    //update var types
-    for (let [scope, list] of Object.entries(context.VariableTypes)) {
-        for (let [name, type] of Object.entries(list)) {
-            CombinedVarContext.VariableTypes[scope][name] = type
-        }
-    }
-}
-
-function PopContext() {
-    let poppedContext = ContextStack.pop() as Context
-    HighestContext = ContextStack[ContextStack.length - 1]
-
-    //update var types
-    for (let [scope, list] of Object.entries(poppedContext.VariableTypes)) {
-        for (let [name, type] of Object.entries(list)) {
-            let lowerValue = ContextStack[ContextStack.length-1].VariableTypes[scope][name]
-            if (lowerValue) {
-                CombinedVarContext.VariableTypes[scope][name] = lowerValue
-            } else {
-                delete CombinedVarContext.VariableTypes[scope][name]
-            }
-        }
-    }
-}
-
-function SetVarType(variable: VariableToken | VariableItem | ["unsaved" | "local" | "saved" | "line",string], type: string | undefined) {
-    if (variable instanceof VariableToken) {
-        ContextStack[ContextStack.length-1].VariableTypes[VALID_VAR_SCOPES[variable.Scope]][variable.Name] = type
-        CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[variable.Scope]][variable.Name] = type
-    } else if (variable instanceof VariableItem ) {
-        ContextStack[ContextStack.length-1].VariableTypes[variable.Scope][variable.Name] = type
-        CombinedVarContext.VariableTypes[variable.Scope][variable.Name] = type
-    } else {
-        ContextStack[ContextStack.length-1].VariableTypes[variable[0]][variable[1]] = type
-        CombinedVarContext.VariableTypes[variable[0]][variable[1]] = type
-    }
-}
-
 //fill in missing tags with their default values
 function FillMissingTags(codeblockIdentifier: string, actionDFName: string, tags: TagItem[]): TagItem[] {
     if (!AD.DFActionMap[codeblockIdentifier]![actionDFName]) {
@@ -116,49 +29,8 @@ function FillMissingTags(codeblockIdentifier: string, actionDFName: string, tags
     return tags
 }
 
-//if raw is true, skip any special case logic
-function GetReturnType(action: ActionBlock, raw: boolean = false): string | null {
-    function getValueOfTag(tag: string): string | null {
-        for (const v of action.Tags) {
-            if (v.Tag == tag) {
-                return v.Option
-            }
-        }
-        return null
-    }
-
-    //special cases where diamondfire decided to be quirky and have multiple return types
-    if (!raw) {
-        if (action.Block == "set_var") {
-            switch (action.Action) {
-                case " GetSignText ":
-                    return getValueOfTag("Sign Line") == "All lines" ? "list" : "txt"
-                case " GetBookText ":
-                    //check if number in args list
-                    for (const v of action.Arguments) {
-                        if (GetType(v) == "num") {
-                            return "txt"
-                        }
-                    }
-                    return "list"
-                case "GetItemType":
-                    return getValueOfTag("Return Value Type") == "Item" ? "item" : "str"
-                case "GetBlockType":
-                    return getValueOfTag("Return Value Type") == "Item" ? "item" : "str"
-                case "ContainerLock":
-                    //the only thing you're realistically gonna do if its a number is check if its 0
-                    //but with a string you might actually do stuff with that
-                    //so just mark this action as str and hope for the best
-                    return "str"
-            }
-        }
-    }
-
-    if (AD.DFActionMap[action.Block] && AD.DFActionMap[action.Block]![action.Action]) {
-        return AD.DFActionMap[action.Block]![action.Action]?.ReturnType!
-    } else {
-        return null
-    }
+export class CompileResults {
+    Code: Array<CodeBlock>
 }
 
 //abstract base class for all code items
@@ -421,1020 +293,1150 @@ class BracketBlock extends CodeBlock {
     Type: "repeat" | "if"
 }
 
-function NewTempVar(type: string | undefined): VariableItem {
-    tempVarCounter++
-    let varitem = new VariableItem(null, "line", `${VAR_HEADER}REG_${tempVarCounter}`)
-    varitem.IsTemporary = true
-    SetVarType(varitem,type)
-    return varitem
-}
-
-function GetType(item: CodeItem): string {
-    if (item instanceof GameValueItem) {
-        return AD.DFGameValueMap[item.Value]!.ReturnType || "any"
-    } else if (item instanceof VariableItem) {
-        if (item.StoredType) {
-            return item.StoredType
-        } else {
-            return CombinedVarContext.VariableTypes[item.Scope][item.Name] || "num"
-        }
-    } else {
-        return item.itemtype
+//==========[ variable type tracking ]=========\\
+class Context {
+    VariableTypes = {
+        unsaved: {},
+        local: {},
+        saved: {},
+        line: {}
     }
+
+    //true for the base level context at the bottom of the stack
+    //prevents the pop function from working on this context
+    IsBase = false
+
+    BracketType: "none" | "repeat" | "if" = "none"
+
+    //does nothing if bracket type == none
+    //if bracket type == "if" | "repeat" then an opening bracket is required on the line after
+    //the context is pushed. this var keeps track of whether or not that has happened
+    OpeningBracketResolved = false
+
+    //should be null if bracket type == "none"
+    //token that caused this new context
+    CreatorToken: IfToken | RepeatToken | null = null
+
+    //code that's inserted after the opening bracket of this context
+    //should be after the context is created but before brackets are parsed or else it wont have an effect
+    HeldPostBracketCode: CodeBlock[] = []
 }
 
+export function Compile(lines: Array<Array<Token>>): CompileResults {
+    let tempVarCounter = 0
 
-//make sure to call this AFTER the new domain is pushed
-function ApplyIfStatementTypeInferences(action: IfActionBlock) {
-    let variable = action.Arguments[0] as VariableItem
-    if (!(variable instanceof VariableItem)) {return}
+    //context to actually read var types from
+    var CombinedVarContext = new Context()
+    CombinedVarContext.IsBase = true
 
-    switch (action.Action) {
-        case "VarIsType":
-            let option = action.Tags[0].Option
-            SetVarType(variable,
-                option == "Number" ? "num" :
-                option == "String" ? "str" :
-                option == "Styled Text" ? "txt" :
-                option == "Location" ? "loc" :
-                option == "Item" ? "item" :
-                option == "List" ? "list" :
-                option == "Potion effect" ? "pot" :
-                option == "Particle" ? "par" : 
-                option == "Vector" ? "vec" :
-                option == "Dictionary" ? "dict" : "any"
-            )
-            return
-        case "=":
-            let varType: string | undefined = undefined
-            //figure out what type the chest args are
-            for (let i = 1; i < action.Arguments.length; i++) {
-                let type = GetType(action.Arguments[i])
-                if (!varType) {
-                    varType = type
-                } else if (varType != type || type == "any") {
-                    //if the types of values to compare to are mixed then just dont do anything
-                    return null
+    var BaseContext = new Context()
+    BaseContext.IsBase = true
+    BaseContext.VariableTypes.local["balls"] = "num"
+
+    //context at the top of the stack
+    var HighestContext = BaseContext
+
+    var ContextStack: Context[] = []
+
+    PushContext(BaseContext)
+
+    function PushContext(context: Context) {
+        ContextStack.push(context)
+        HighestContext = context
+
+        //update var types
+        for (let [scope, list] of Object.entries(context.VariableTypes)) {
+            for (let [name, type] of Object.entries(list)) {
+                CombinedVarContext.VariableTypes[scope][name] = type
+            }
+        }
+    }
+
+    function PopContext() {
+        let poppedContext = ContextStack.pop() as Context
+        HighestContext = ContextStack[ContextStack.length - 1]
+
+        //update var types
+        for (let [scope, list] of Object.entries(poppedContext.VariableTypes)) {
+            for (let [name, type] of Object.entries(list)) {
+                let lowerValue = ContextStack[ContextStack.length-1].VariableTypes[scope][name]
+                if (lowerValue) {
+                    CombinedVarContext.VariableTypes[scope][name] = lowerValue
+                } else {
+                    delete CombinedVarContext.VariableTypes[scope][name]
                 }
             }
-            SetVarType(variable,varType!)
-    }
-}
-
-const ITEM_PARAM_DEFAULTS = {
-    loc: {
-        Pitch: new NumberItem([],"0"),
-        Yaw: new NumberItem([],"0")
-    },
-    snd: {
-        Volume: new NumberItem([],"1"),
-        Pitch: new NumberItem([],"1"),
-        Variant: null
-    },
-    pot: {
-        Amplifier: new NumberItem([],"1"),
-        Duration: new NumberItem([],"1000000")
-    },
-    item: {
-        Count: new NumberItem([],"1"),
-    }
-}
-
-//takes in a Token from the parser and converts it to a CodeItem
-//codeBlock[] is the code generated to create the item and should generally be pushed right after this function is called
-function ToItem(token: Token): [CodeBlock[],CodeItem] {
-    let code: CodeBlock[] = []
-    let variableComponents: string[] = []
-
-    function solveArg(expr: ExpressionToken,paramName: string,type: string): [CodeBlock[],CodeItem] {
-        let solved = SolveExpression(expr)
-        //if code was required to generate this component
-        if (solved[0].length > 0) {
-            code.push(...solved[0])
-            variableComponents.push(paramName)
         }
-        //if this component is a variable
-        if (solved[1] instanceof VariableItem) {
-            variableComponents.push(paramName)
-        }
-
-
-        //if this component is a %mathing number
-        if (type == "num" && solved[1] instanceof NumberItem && Number.isNaN(Number(solved[1].Value))) {
-            variableComponents.push(paramName)
-        }
-
-        //if this string is doing %var
-        //% to detect strings doing %var() feels really hacky and is probably gonna break 
-        //but as of right now there aren't any sounds with % in the name so i do not care
-        if (type == "str" && solved[1] instanceof StringItem && solved[1].Value.includes("%")) {
-            variableComponents.push(paramName)
-        }
-
-
-        let resultType = GetType(solved[1])
-        if (resultType != type) {
-            throw new TCError(`Expected ${type} for ${paramName}, got ${resultType}`,0,expr.CharStart,expr.CharEnd)
-        }
-        return [solved[0],solved[1]]
     }
 
-    if (token instanceof NumberToken) {
-        return [code,new NumberItem([token.CharStart,token.CharEnd],token.Number)]
+    function SetVarType(variable: VariableToken | VariableItem | ["unsaved" | "local" | "saved" | "line",string], type: string | undefined) {
+        if (variable instanceof VariableToken) {
+            ContextStack[ContextStack.length-1].VariableTypes[VALID_VAR_SCOPES[variable.Scope]][variable.Name] = type
+            CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[variable.Scope]][variable.Name] = type
+        } else if (variable instanceof VariableItem ) {
+            ContextStack[ContextStack.length-1].VariableTypes[variable.Scope][variable.Name] = type
+            CombinedVarContext.VariableTypes[variable.Scope][variable.Name] = type
+        } else {
+            ContextStack[ContextStack.length-1].VariableTypes[variable[0]][variable[1]] = type
+            CombinedVarContext.VariableTypes[variable[0]][variable[1]] = type
+        }
     }
-    else if (token instanceof StringToken) {
-        return [code,new StringItem([token.CharStart,token.CharEnd],token.String)]
-    }
-    else if (token instanceof VariableToken) {
-        return [code,new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCOPES[token.Scope],token.Name, token.Type)]
-    } 
-    //location
-    else if (token instanceof LocationToken) {
-        let components: Dict<any> = {}
 
-        for (const component of ["X","Y","Z","Pitch","Yaw"]) {
-            //defaults
-            let defaultValue = ITEM_PARAM_DEFAULTS.loc[component]
-            if (defaultValue !== undefined && !token[component]) { 
-                components[component] = defaultValue
-                continue
+    //if raw is true, skip any special case logic
+    function GetReturnType(action: ActionBlock, raw: boolean = false): string | null {
+        function getValueOfTag(tag: string): string | null {
+            for (const v of action.Tags) {
+                if (v.Tag == tag) {
+                    return v.Option
+                }
+            }
+            return null
+        }
+
+        //special cases where diamondfire decided to be quirky and have multiple return types
+        if (!raw) {
+            if (action.Block == "set_var") {
+                switch (action.Action) {
+                    case " GetSignText ":
+                        return getValueOfTag("Sign Line") == "All lines" ? "list" : "txt"
+                    case " GetBookText ":
+                        //check if number in args list
+                        for (const v of action.Arguments) {
+                            if (GetType(v) == "num") {
+                                return "txt"
+                            }
+                        }
+                        return "list"
+                    case "GetItemType":
+                        return getValueOfTag("Return Value Type") == "Item" ? "item" : "str"
+                    case "GetBlockType":
+                        return getValueOfTag("Return Value Type") == "Item" ? "item" : "str"
+                    case "ContainerLock":
+                        //the only thing you're realistically gonna do if its a number is check if its 0
+                        //but with a string you might actually do stuff with that
+                        //so just mark this action as str and hope for the best
+                        return "str"
+                }
+            }
+        }
+
+        if (AD.DFActionMap[action.Block] && AD.DFActionMap[action.Block]![action.Action]) {
+            return AD.DFActionMap[action.Block]![action.Action]?.ReturnType!
+        } else {
+            return null
+        }
+    }
+
+    function NewTempVar(type: string | undefined): VariableItem {
+        tempVarCounter++
+        let varitem = new VariableItem(null, "line", `${VAR_HEADER}REG_${tempVarCounter}`)
+        varitem.IsTemporary = true
+        SetVarType(varitem,type)
+        return varitem
+    }
+
+    function GetType(item: CodeItem): string {
+        if (item instanceof GameValueItem) {
+            return AD.DFGameValueMap[item.Value]!.ReturnType || "any"
+        } else if (item instanceof VariableItem) {
+            if (item.StoredType) {
+                return item.StoredType
+            } else {
+                return CombinedVarContext.VariableTypes[item.Scope][item.Name] || "num"
+            }
+        } else {
+            return item.itemtype
+        }
+    }
+
+
+    //make sure to call this AFTER the new domain is pushed
+    function ApplyIfStatementTypeInferences(action: IfActionBlock) {
+        let variable = action.Arguments[0] as VariableItem
+        if (!(variable instanceof VariableItem)) {return}
+
+        switch (action.Action) {
+            case "VarIsType":
+                let option = action.Tags[0].Option
+                SetVarType(variable,
+                    option == "Number" ? "num" :
+                    option == "String" ? "str" :
+                    option == "Styled Text" ? "txt" :
+                    option == "Location" ? "loc" :
+                    option == "Item" ? "item" :
+                    option == "List" ? "list" :
+                    option == "Potion effect" ? "pot" :
+                    option == "Particle" ? "par" : 
+                    option == "Vector" ? "vec" :
+                    option == "Dictionary" ? "dict" : "any"
+                )
+                return
+            case "=":
+                let varType: string | undefined = undefined
+                //figure out what type the chest args are
+                for (let i = 1; i < action.Arguments.length; i++) {
+                    let type = GetType(action.Arguments[i])
+                    if (!varType) {
+                        varType = type
+                    } else if (varType != type || type == "any") {
+                        //if the types of values to compare to are mixed then just dont do anything
+                        return null
+                    }
+                }
+                SetVarType(variable,varType!)
+        }
+    }
+
+    const ITEM_PARAM_DEFAULTS = {
+        loc: {
+            Pitch: new NumberItem([],"0"),
+            Yaw: new NumberItem([],"0")
+        },
+        snd: {
+            Volume: new NumberItem([],"1"),
+            Pitch: new NumberItem([],"1"),
+            Variant: null
+        },
+        pot: {
+            Amplifier: new NumberItem([],"1"),
+            Duration: new NumberItem([],"1000000")
+        },
+        item: {
+            Count: new NumberItem([],"1"),
+        }
+    }
+
+    //takes in a Token from the parser and converts it to a CodeItem
+    //codeBlock[] is the code generated to create the item and should generally be pushed right after this function is called
+    function ToItem(token: Token): [CodeBlock[],CodeItem] {
+        let code: CodeBlock[] = []
+        let variableComponents: string[] = []
+
+        function solveArg(expr: ExpressionToken,paramName: string,type: string): [CodeBlock[],CodeItem] {
+            let solved = SolveExpression(expr)
+            //if code was required to generate this component
+            if (solved[0].length > 0) {
+                code.push(...solved[0])
+                variableComponents.push(paramName)
+            }
+            //if this component is a variable
+            if (solved[1] instanceof VariableItem) {
+                variableComponents.push(paramName)
             }
 
-            let solved = solveArg(token[component],component,"num")
-            components[component] = solved[1]
-        }
 
-        if (variableComponents.length > 0) {
-            let returnVar = NewTempVar("loc")
-            code.push(
-                new ActionBlock("set_var","SetAllCoords",[returnVar,components.X,components.Y,components.Z,components.Pitch,components.Yaw],[new TagItem([],"Coordinate Type","Plot coordinate","set_var","SetAllCoords")])
-            )
-            return [code,returnVar]
-        } else {
-            return [code,new LocationItem([token.CharStart,token.CharEnd],components.X.Value,components.Y.Value,components.Z.Value,components.Pitch.Value,components.Yaw.Value)]
-        }
-    //vector
-    } else if (token instanceof VectorToken) {
-        let components: Dict<any> = {}
-        
-        for (const component of ["X","Y","Z"]) {
-            let solved = solveArg(token[component],component,"num")
-            components[component] = solved[1]
-        }
-
-        if (variableComponents.length > 0) {
-            let returnVar = NewTempVar("vec")
-            code.push(
-                new ActionBlock("set_var","Vector",[returnVar,components.X,components.Y,components.Z])
-            )
-            return [code,returnVar]
-        } else {
-            return [code, new VectorItem([token.CharStart,token.CharEnd],components.X.Value,components.Y.Value,components.Z.Value)]
-        }
-    //sound
-    } else if (token instanceof SoundToken) {
-        let components: Dict<any> = {}
-
-        for (const component of ["SoundId","Volume","Pitch","Variant"]) {
-            //defaults
-            let defaultValue = ITEM_PARAM_DEFAULTS.snd[component]
-            if (defaultValue !== undefined && !token[component]) { 
-                components[component] = defaultValue
-                continue
+            //if this component is a %mathing number
+            if (type == "num" && solved[1] instanceof NumberItem && Number.isNaN(Number(solved[1].Value))) {
+                variableComponents.push(paramName)
             }
 
-            let solved = solveArg(token[component],component,(component == "SoundId" || component == "Variant") ? "str" : "num")
-            components[component] = solved[1]
-        }
-
-        //error for trying to apply key to custom sound
-        if (token.IsCustom && components.Variant) {
-            throw new TCError(`Custom sounds cannot specify variant`,0,token.CharStart,token.CharEnd)
-        }
-
-        let item = new SoundItem([token.CharStart,token.CharEnd],null,null,1,1)
-        let tempVar = NewTempVar("snd")
-        let latestItem: SoundItem | VariableItem = item
-
-        //i totally dont need to be repeating code here but im lazy
-
-        //if sound id needs to be set with code
-        if (variableComponents.includes("SoundId")) {
-            code.push(
-                token.IsCustom ? new ActionBlock("set_var","SetCustomSound",[tempVar,latestItem,components.SoundId]) :
-                new ActionBlock("set_var","SetSoundType",[tempVar,latestItem,components.SoundId])
-            )
-            latestItem = tempVar
-            item[token.IsCustom ? "CustomKey" : "SoundId"] = "Pling"
-        } else {
-            //error for invalid sound id
-            if (!token.IsCustom && !AD.Sounds.has(components.SoundId.Value)) {
-                throw new TCError(`Invalid sound type '${components.SoundId.Value}'`,0,token.SoundId.CharStart,token.SoundId.CharEnd)
-            }
-            item[token.IsCustom ? "CustomKey" : "SoundId"] = components.SoundId.Value
-        }
-
-        //if pitch needs to be set with code
-        if (variableComponents.includes("Pitch")) {
-            code.push(new ActionBlock("set_var","SetSoundPitch",[tempVar,latestItem,components.Pitch]))
-            latestItem = tempVar
-        } else {
-            item.Pitch = Number(components.Pitch.Value)
-        }
-
-        //if volume needs to be set with code
-        if (variableComponents.includes("Volume")) {
-            code.push(new ActionBlock("set_var","SetSoundVolume",[tempVar,latestItem,components.Volume]))
-            latestItem = tempVar
-        } else {
-            item.Volume = Number(components.Volume.Value)
-        }
-
-        //if variant needs to be set with code
-        if (variableComponents.includes("Variant")) {
-            code.push(new ActionBlock("set_var","SetSoundVariant",[tempVar,latestItem,components.Variant]))
-            latestItem = tempVar
-        } else if (components.Variant) {
-            item.Variant = components.Variant.Value
-        }
-
-        return [code,latestItem]
-    }
-    //game value
-    else if (token instanceof GameValueToken) {
-        return [code, new GameValueItem([token.CharStart,token.CharEnd],
-            //DomainList[token.Target as string]!.Values[token.Value],
-            AD.TCGameValueMap[token.Value]!.DFId,
-            token.Target == "game" ? "Default" : TargetDomains[token.Target!].Target
-        )]
-    }
-    //styled text
-    else if (token instanceof TextToken) {
-        return [code, new TextItem([token.CharStart,token.CharEnd],token.Text)]
-    }
-    //potion
-    else if (token instanceof PotionToken) {
-        let components: Dict<any> = {}
-
-        //error for missing potion type
-        if (!token.Potion) {
-            throw new TCError(`Potion effect must specify a type (str)`,0,token.CharStart,token.CharEnd)
-        }
-
-        for (const component of ["Potion","Amplifier","Duration"]) {
-            //defaults
-            let defaultValue = ITEM_PARAM_DEFAULTS.pot[component]
-            if (defaultValue !== undefined && !token[component]) { 
-                components[component] = defaultValue
-                continue
+            //if this string is doing %var
+            //% to detect strings doing %var() feels really hacky and is probably gonna break 
+            //but as of right now there aren't any sounds with % in the name so i do not care
+            if (type == "str" && solved[1] instanceof StringItem && solved[1].Value.includes("%")) {
+                variableComponents.push(paramName)
             }
 
-            let solved = solveArg(token[component],component,component == "Potion" ? "str" : "num")
-            components[component] = solved[1]
-        }
-        
-        let item = new PotionItem([token.CharStart,token.CharEnd],"Absorption",0,0)
-        let tempVar = NewTempVar("pot")
-        let latestItem: PotionItem | VariableItem = item
 
-        //if potion type needs to be set with code
-        if (variableComponents.includes("Potion")) {
-            code.push(
-                new ActionBlock("set_var","SetPotionType",[tempVar,latestItem,components.Potion])
-            )
-            latestItem = tempVar
-        } else {
-            item.Potion = components.Potion.Value
+            let resultType = GetType(solved[1])
+            if (resultType != type) {
+                throw new TCError(`Expected ${type} for ${paramName}, got ${resultType}`,0,expr.CharStart,expr.CharEnd)
+            }
+            return [solved[0],solved[1]]
         }
 
-        //if amp needs to be set with code
-        if (variableComponents.includes("Amplifier")) {
-            code.push(
-                new ActionBlock("set_var","SetPotionAmp",[tempVar,latestItem,components.Amplifier])
-            )
-            latestItem = tempVar
-        } else {
-            //potion item data uses ids starting at 0 for some reason so when amplifier is compiled
-            //into an item the provided value has to be bumped down by 1
-            item.Amplifier = components.Amplifier.Value - 1
+        if (token instanceof NumberToken) {
+            return [code,new NumberItem([token.CharStart,token.CharEnd],token.Number)]
         }
-
-        //if dur needs to be set with code
-        if (variableComponents.includes("Duration")) {
-            code.push(
-                new ActionBlock("set_var","SetPotionDur",[tempVar,latestItem,components.Duration])
-            )
-        } else {
-            item.Duration = components.Duration.Value
+        else if (token instanceof StringToken) {
+            return [code,new StringItem([token.CharStart,token.CharEnd],token.String)]
         }
-        
-        return [code,latestItem]
-    }
-    //items
-    else if (token instanceof ItemToken) {
-        let components: Dict<any> = {}
-        if (token.Mode == "library") {
-            //implement this AFTER the client mod is done
-            throw new TCError("Library items are not implemented yet",0,token.CharStart,token.CharEnd)
-        } else {
-            if (token.Nbt) { throw new TCError("NBT on item constructors is not implemented yet",0,token.Nbt.CharStart,token.Nbt.CharEnd)}
+        else if (token instanceof VariableToken) {
+            return [code,new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCOPES[token.Scope],token.Name, token.Type)]
+        } 
+        //location
+        else if (token instanceof LocationToken) {
+            let components: Dict<any> = {}
 
-
-            for (const component of ["Id","Count"]) {
-                let defaultValue = ITEM_PARAM_DEFAULTS.item[component]
+            for (const component of ["X","Y","Z","Pitch","Yaw"]) {
+                //defaults
+                let defaultValue = ITEM_PARAM_DEFAULTS.loc[component]
                 if (defaultValue !== undefined && !token[component]) { 
                     components[component] = defaultValue
                     continue
                 }
 
-                let solved = solveArg(token[component],component,component == "Id" ? "str" : "num")
+                let solved = solveArg(token[component],component,"num")
                 components[component] = solved[1]
             }
 
-            let item = new ItemItem([token.CharStart,token.CharEnd],"minecraft:stone",1)
-            let tempVar = NewTempVar("item")
-            let latestItem: ItemItem | VariableItem = item
-            
-            if (variableComponents.includes("Id")) {
+            if (variableComponents.length > 0) {
+                let returnVar = NewTempVar("loc")
                 code.push(
-                    new ActionBlock("set_var","SetItemType",[tempVar,latestItem,components.Id])
+                    new ActionBlock("set_var","SetAllCoords",[returnVar,components.X,components.Y,components.Z,components.Pitch,components.Yaw],[new TagItem([],"Coordinate Type","Plot coordinate","set_var","SetAllCoords")])
                 )
-                latestItem = tempVar
+                return [code,returnVar]
             } else {
-                item.Id = components.Id.Value
+                return [code,new LocationItem([token.CharStart,token.CharEnd],components.X.Value,components.Y.Value,components.Z.Value,components.Pitch.Value,components.Yaw.Value)]
+            }
+        //vector
+        } else if (token instanceof VectorToken) {
+            let components: Dict<any> = {}
+            
+            for (const component of ["X","Y","Z"]) {
+                let solved = solveArg(token[component],component,"num")
+                components[component] = solved[1]
             }
 
-            if (variableComponents.includes("Count")) {
+            if (variableComponents.length > 0) {
+                let returnVar = NewTempVar("vec")
                 code.push(
-                    new ActionBlock("set_var","SetItemAmount",[tempVar,latestItem,components.Count])
+                    new ActionBlock("set_var","Vector",[returnVar,components.X,components.Y,components.Z])
                 )
+                return [code,returnVar]
             } else {
-                let val = Number(components.Count.Value)
-                //throw error for stack size being too high
-                if (val > 64) {
-                    throw new TCError("Stack size cannot be greater than 64",0,token.Count?.CharStart!,token.Count?.CharEnd!)
+                return [code, new VectorItem([token.CharStart,token.CharEnd],components.X.Value,components.Y.Value,components.Z.Value)]
+            }
+        //sound
+        } else if (token instanceof SoundToken) {
+            let components: Dict<any> = {}
+
+            for (const component of ["SoundId","Volume","Pitch","Variant"]) {
+                //defaults
+                let defaultValue = ITEM_PARAM_DEFAULTS.snd[component]
+                if (defaultValue !== undefined && !token[component]) { 
+                    components[component] = defaultValue
+                    continue
                 }
 
-                //throw error for non-integer stack size
-                if (Math.floor(val) != val) {
-                    throw new TCError("Stack size must be a whole number",0,token.Count?.CharStart!,token.Count?.CharEnd!)
-                }
+                let solved = solveArg(token[component],component,(component == "SoundId" || component == "Variant") ? "str" : "num")
+                components[component] = solved[1]
+            }
 
-                item.Count = Number(val)
+            //error for trying to apply key to custom sound
+            if (token.IsCustom && components.Variant) {
+                throw new TCError(`Custom sounds cannot specify variant`,0,token.CharStart,token.CharEnd)
+            }
+
+            let item = new SoundItem([token.CharStart,token.CharEnd],null,null,1,1)
+            let tempVar = NewTempVar("snd")
+            let latestItem: SoundItem | VariableItem = item
+
+            //i totally dont need to be repeating code here but im lazy
+
+            //if sound id needs to be set with code
+            if (variableComponents.includes("SoundId")) {
+                code.push(
+                    token.IsCustom ? new ActionBlock("set_var","SetCustomSound",[tempVar,latestItem,components.SoundId]) :
+                    new ActionBlock("set_var","SetSoundType",[tempVar,latestItem,components.SoundId])
+                )
+                latestItem = tempVar
+                item[token.IsCustom ? "CustomKey" : "SoundId"] = "Pling"
+            } else {
+                //error for invalid sound id
+                if (!token.IsCustom && !AD.Sounds.has(components.SoundId.Value)) {
+                    throw new TCError(`Invalid sound type '${components.SoundId.Value}'`,0,token.SoundId.CharStart,token.SoundId.CharEnd)
+                }
+                item[token.IsCustom ? "CustomKey" : "SoundId"] = components.SoundId.Value
+            }
+
+            //if pitch needs to be set with code
+            if (variableComponents.includes("Pitch")) {
+                code.push(new ActionBlock("set_var","SetSoundPitch",[tempVar,latestItem,components.Pitch]))
+                latestItem = tempVar
+            } else {
+                item.Pitch = Number(components.Pitch.Value)
+            }
+
+            //if volume needs to be set with code
+            if (variableComponents.includes("Volume")) {
+                code.push(new ActionBlock("set_var","SetSoundVolume",[tempVar,latestItem,components.Volume]))
+                latestItem = tempVar
+            } else {
+                item.Volume = Number(components.Volume.Value)
+            }
+
+            //if variant needs to be set with code
+            if (variableComponents.includes("Variant")) {
+                code.push(new ActionBlock("set_var","SetSoundVariant",[tempVar,latestItem,components.Variant]))
+                latestItem = tempVar
+            } else if (components.Variant) {
+                item.Variant = components.Variant.Value
             }
 
             return [code,latestItem]
         }
-    }
-    //lists
-    else if (token instanceof ListToken) {
-        let returnVar = NewTempVar("list")
+        //game value
+        else if (token instanceof GameValueToken) {
+            return [code, new GameValueItem([token.CharStart,token.CharEnd],
+                //DomainList[token.Target as string]!.Values[token.Value],
+                AD.TCGameValueMap[token.Value]!.DFId,
+                token.Target == "game" ? "Default" : TargetDomains[token.Target!].Target
+            )]
+        }
+        //styled text
+        else if (token instanceof TextToken) {
+            return [code, new TextItem([token.CharStart,token.CharEnd],token.Text)]
+        }
+        //potion
+        else if (token instanceof PotionToken) {
+            let components: Dict<any> = {}
 
-        let currentAction = "CreateList"
-        let currentChest: CodeItem[] = [returnVar]
-
-        //max of 27 items in a chest; one slot has to be the variable 
-        //and this number is decremented by one because lists start at 0 in js
-        
-        let i = -1 //curent index in the list token
-        for (let expression of token.Items) {
-            i++
-            let expressionResults = SolveExpression(expression)
-            code.push(...expressionResults[0])
-            currentChest.push(expressionResults[1])
-
-            //if the current action's chest is full, push it and start a new action
-            if (currentChest.length >= 27) {
-                code.push(new ActionBlock("set_var",currentAction,currentChest))
-                currentAction = "AppendValue"
-                currentChest = [returnVar]
+            //error for missing potion type
+            if (!token.Potion) {
+                throw new TCError(`Potion effect must specify a type (str)`,0,token.CharStart,token.CharEnd)
             }
-        }
 
-        //push final creation/append action
-        code.push(new ActionBlock("set_var",currentAction,currentChest))
-
-        return [code, returnVar]
-    }
-    //dictionaries
-    else if (token instanceof DictionaryToken) {
-        let keyListResults = ToItem(new ListToken([],token.Keys))
-        code.push(...keyListResults[0])
-
-        let valueListResults = ToItem(new ListToken([],token.Values))
-        code.push(...valueListResults[0])
-
-        let returnVar = NewTempVar("dict")
-        code.push(
-            new ActionBlock("set_var","CreateDict",[returnVar,keyListResults[1],valueListResults[1]])
-        )
-
-        return [code, returnVar]
-    }
-    
-    console.log(token)
-    throw new Error("Could not convert token to item")
-}
-
-//operations
-function OPR_NumOnNum(left, right, opr: string, blockopr: string): [CodeBlock[],CodeItem] {
-    //if at least one thing is a variable
-    if (left instanceof VariableItem || right instanceof VariableItem) {
-        let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
-        let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
-
-        //%conditions where %math is supported
-        if (leftIsLine && rightIsLine) {
-            let item: NumberItem = new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}%var(${right.Name}))`)
-            if (left.IsTemporary) {item.TempVarEquivalent = left.Name}
-            return [[], item]
-        }
-        else if (leftIsLine && right instanceof NumberItem) {
-            let item: NumberItem = new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}${right.Value})`)
-            if (left.IsTemporary) {item.TempVarEquivalent = left.Name}
-            return [[], item]
-        }
-        else if (left instanceof NumberItem && rightIsLine) {
-            let item = new NumberItem([left.CharStart, right.CharEnd], `%math(${left.Value}${opr}%var(${right.Name}))`)
-            if (left.TempVarEquivalent) {item.TempVarEquivalent = left.TempVarEquivalent}
-            return [[], item]
-        }
-
-        //otherwise use set var
-
-
-        let returnvar = NewTempVar("num")
-        let code = new ActionBlock("set_var", blockopr, [returnvar, left, right],blockopr == "%" ? [new TagItem([],"Remainder Mode","Modulo","set_var","%")] : [] )
-        return [[code], returnvar]
-    }
-
-    let leftnum = Number(left.Value)
-    let rightnum = Number(right.Value)
-    //if both numbers are numerical then just add them together
-    if (!Number.isNaN(leftnum) && !Number.isNaN(rightnum)) {
-        let val = 
-            (opr == "+") ? (leftnum + rightnum) :
-            (opr == "-") ? (leftnum - rightnum) :
-            (opr == "*") ? (leftnum * rightnum) :
-            (opr == "/") ? (leftnum / rightnum) :
-            (opr == "%") ? (leftnum % rightnum) :
-            "OPERATION ERROR"
-        return [[], new NumberItem(null, String(val))]
-    }
-    //otherwise at least one of them is %mathing so just do that
-    else {
-        return [[], new NumberItem(null, `%math(${left.Value}${opr}${right.Value})`)]
-    }
-}
-
-function OPR_StringAdd(left, right): [CodeBlock[],CodeItem] {
-    //if either left or right is a variable
-    //or if either left or right aren't strings
-    if (
-        (left instanceof VariableItem || !(left instanceof StringItem)) || 
-        (right instanceof VariableItem || !(right instanceof StringItem))
-    ) {
-        let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
-        let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
-
-        //%conditions where %var is supported
-        if (leftIsLine && rightIsLine) {
-            return [[], new StringItem([left.CharStart, right.CharEnd], `%var(${left.Name})%var(${right.Name})`)]
-        }
-        else if (leftIsLine && right instanceof StringItem) {
-            return [[], new StringItem([left.CharStart, right.CharEnd], `%var(${left.Name})${right.Value}`)]
-        }
-        else if (left instanceof StringItem && rightIsLine) {
-            return [[], new StringItem([left.CharStart, right.CharEnd], `${left.Value}%var(${right.Name})`)]
-        }
-
-        //otherwise use set var
-
-        let returnvar = NewTempVar("str")
-        let code = new ActionBlock("set_var", "String", [returnvar, left, right])
-        return [[code], returnvar]
-    }
-
-    //otherwise just combine the two values
-    return [[], new StringItem([left.CharStart,left.CharEnd], `${left.Value}${right.Value}`)]
-}
-
-function OPR_TextAdd(left, right): [CodeBlock[],CodeItem] {
-    //if either left or right is a variable
-    //or if either left or right aren't strings
-    if (
-        (left instanceof VariableItem || !(left instanceof TextItem || left instanceof StringItem)) || 
-        (right instanceof VariableItem || !(right instanceof TextItem || right instanceof StringItem))
-    ) {
-        let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
-        let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
-
-        //%conditions where %var is supported
-        if (leftIsLine && rightIsLine) {
-            return [[], new TextItem([left.CharStart, right.CharEnd], `%var(${left.Name})%var(${right.Name})`)]
-        }
-        else if (leftIsLine && right instanceof TextItem) {
-            return [[], new TextItem([left.CharStart, right.CharEnd], `%var(${left.Name})${right.Value}`)]
-        }
-        else if (left instanceof TextItem && rightIsLine) {
-            return [[], new TextItem([left.CharStart, right.CharEnd], `${left.Value}%var(${right.Name})`)]
-        }
-
-        //otherwise use set var
-
-        let returnvar = NewTempVar("txt")
-        let code = new ActionBlock("set_var", "StyledText", [returnvar, left, right])
-        return [[code], returnvar]
-    }
-
-    //otherwise just combine the two values
-    return [[], new TextItem([left.CharStart,left.CharEnd], `${left.Value}${right.Value}`)]
-}
-
-function OPR_VecMultVec(left, right, opr: string): [CodeBlock[], CodeItem] {
-    let components: Dict<any> = {}
-    let code: CodeBlock[] = []
-    for (const component of ["X","Y","Z"]) {
-        //remember to exclude 1!!
-
-        //get the component of left vector
-        let leftCompVar: VariableItem | NumberItem | GameValueItem
-        //if left vector is a variabl;e
-        if (left instanceof VariableItem || left instanceof GameValueItem) {
-            leftCompVar = NewTempVar("num")
-            code.push(
-                new ActionBlock("set_var","GetVectorComp",[leftCompVar,left],[new TagItem([],"Component",component,"set_var","GetVectorComp")])
-            )
-        //if left vector is a constant
-        } else {
-            leftCompVar = new NumberItem([],left[component])
-        }
-
-        //get the component of right vector
-        let rightCompVar: VariableItem | NumberItem | GameValueItem
-        //if right vector is a variable
-        if (right instanceof VariableItem || right instanceof GameValueItem) {
-            rightCompVar = NewTempVar("num")
-            code.push(
-                new ActionBlock("set_var","GetVectorComp",[rightCompVar,right],[new TagItem([],"Component",component,"set_var","GetVectorComp")])
-            )
-        //if right vector is a constant
-        } else {
-            rightCompVar = new NumberItem([],right[component])
-        }
-
-
-        //multiply them together
-        let multiplyResults = OPERATIONS.num[opr].num(leftCompVar,rightCompVar)
-        //push any code generated by multiplication
-        if (multiplyResults[0]) { code.push(...multiplyResults[0]) }
-
-        components[component] = multiplyResults[1]
-    }
-
-    let returnVar = NewTempVar("vec")
-    //set vec block
-    code.push(
-        new ActionBlock("set_var","Vector",[returnVar,components.X,components.Y,components.Z])
-    )
-
-    return [code,returnVar]
-}
-
-const OPERATIONS = {
-    num: {
-        "+": {
-            num: function(left, right): [CodeBlock[],CodeItem] {
-                return OPR_NumOnNum(left,right,"+","+")
-            },
-            str: OPR_StringAdd,
-            txt: OPR_TextAdd
-        },
-        "-": {
-            num: function(left, right): [CodeBlock[],CodeItem] {
-                return OPR_NumOnNum(left,right,"-","-")
-            }
-        },
-        "*": {
-            num: function(left, right): [CodeBlock[],CodeItem] {
-                return OPR_NumOnNum(left,right,"*","x")
-            }
-        },
-        "/": {
-            num: function(left, right): [CodeBlock[],CodeItem] {
-                return OPR_NumOnNum(left,right,"/","/")
-            }
-        },
-        "%": {
-            num: function(left, right): [CodeBlock[],CodeItem] {
-                return OPR_NumOnNum(left,right,"%","%")
-            }
-        },
-        "^": {
-            num: function(left, right): [CodeBlock[],CodeItem] {
-                //if both sides are just constant numbers
-                if (!isNaN(left.Value) && !isNaN(right.Value)) {
-                    return [[],new NumberItem([left.CharStart,left.CharEnd],String(Number(left.Value) ** Number(right.Value)) )]
+            for (const component of ["Potion","Amplifier","Duration"]) {
+                //defaults
+                let defaultValue = ITEM_PARAM_DEFAULTS.pot[component]
+                if (defaultValue !== undefined && !token[component]) { 
+                    components[component] = defaultValue
+                    continue
                 }
 
-                let returnVar = NewTempVar("num")
-                let code = new ActionBlock("set_var","Exponent",[returnVar,left,right])
-
-                return [[code],returnVar]
+                let solved = solveArg(token[component],component,component == "Potion" ? "str" : "num")
+                components[component] = solved[1]
             }
-        }
-    },
-    str: {
-        "+": {
-            str: OPR_StringAdd,
-            num: OPR_StringAdd,
-            txt: OPR_TextAdd
-        },
-        "*": {
-            num: function(left, right): [CodeBlock[], CodeItem] {
-                let returnvar = NewTempVar("str")
-                let code = new ActionBlock("set_var","RepeatString",[returnvar,left,right])
+            
+            let item = new PotionItem([token.CharStart,token.CharEnd],"Absorption",0,0)
+            let tempVar = NewTempVar("pot")
+            let latestItem: PotionItem | VariableItem = item
 
-                return [[code],returnvar]
-            }
-        }
-    },
-    loc: {
-        "+": {
-            vec: function(left, right): [CodeBlock[], CodeItem] {
-                let returnVar = NewTempVar("loc")
-                let code = new ActionBlock("set_var","ShiftOnVector",[returnVar,left,right],[new TagItem([],"Add Location Rotation","False","set_var","ShiftOnVector")])
-
-                return [[code],returnVar]
-            },
-            txt: OPR_TextAdd
-        },
-        "-": {
-            vec: function(left, right): [CodeBlock[], CodeItem] {
-                let code: CodeBlock[] = []
-                let returnVar = NewTempVar("loc")
-
-                //multiply vector by -1
-                let vecResults = OPERATIONS.vec["*"].num(right,new NumberItem([],"-1"))
-                if (vecResults[0]) {code.push(...vecResults[0])}
-
+            //if potion type needs to be set with code
+            if (variableComponents.includes("Potion")) {
                 code.push(
-                    new ActionBlock("set_var","ShiftOnVector",[returnVar,left,vecResults[1]],[new TagItem([],"Add Location Rotation","False","set_var","ShiftOnVector")])
+                    new ActionBlock("set_var","SetPotionType",[tempVar,latestItem,components.Potion])
                 )
-
-                return [code,returnVar]
-            },
-        }
-    },
-    vec: {
-        "+": {
-            vec: function(left, right): [CodeBlock[], CodeItem] {
-                let returnVar = NewTempVar("vec")
-                let code = new ActionBlock("set_var","AddVectors",[returnVar,left,right])
-
-                return [[code], returnVar]
-            },
-            txt: OPR_TextAdd
-        },
-        "-": {
-            vec: function(left, right): [CodeBlock[], CodeItem] {
-                let returnVar = NewTempVar("vec")
-                let code = new ActionBlock("set_var","SubtractVectors",[returnVar,left,right])
-
-                return [[code], returnVar]
-            },
-        },
-        "*": {
-            num: function(left, right): [CodeBlock[], CodeItem] {
-                let returnVar = NewTempVar("vec")
-                let code = new ActionBlock("set_var","MultiplyVector",[returnVar,left,right])
-
-                return [[code], returnVar]
-            },
-            vec: function(left, right): [CodeBlock[], CodeItem] {
-                return OPR_VecMultVec(left,right,"*")
+                latestItem = tempVar
+            } else {
+                item.Potion = components.Potion.Value
             }
-        },
-        "/": {
-            num: function(left, right): [CodeBlock[],CodeItem] {
-                right = new VectorItem(right.meta,right.Value,right.Value,right.Value)
-                return OPR_VecMultVec(left,right,"/")
-            },
-            vec: function(left, right): [CodeBlock[], CodeItem] {
-                return OPR_VecMultVec(left,right,"/")
+
+            //if amp needs to be set with code
+            if (variableComponents.includes("Amplifier")) {
+                code.push(
+                    new ActionBlock("set_var","SetPotionAmp",[tempVar,latestItem,components.Amplifier])
+                )
+                latestItem = tempVar
+            } else {
+                //potion item data uses ids starting at 0 for some reason so when amplifier is compiled
+                //into an item the provided value has to be bumped down by 1
+                item.Amplifier = components.Amplifier.Value - 1
+            }
+
+            //if dur needs to be set with code
+            if (variableComponents.includes("Duration")) {
+                code.push(
+                    new ActionBlock("set_var","SetPotionDur",[tempVar,latestItem,components.Duration])
+                )
+            } else {
+                item.Duration = components.Duration.Value
+            }
+            
+            return [code,latestItem]
+        }
+        //items
+        else if (token instanceof ItemToken) {
+            let components: Dict<any> = {}
+            if (token.Mode == "library") {
+                //implement this AFTER the client mod is done
+                throw new TCError("Library items are not implemented yet",0,token.CharStart,token.CharEnd)
+            } else {
+                if (token.Nbt) { throw new TCError("NBT on item constructors is not implemented yet",0,token.Nbt.CharStart,token.Nbt.CharEnd)}
+
+
+                for (const component of ["Id","Count"]) {
+                    let defaultValue = ITEM_PARAM_DEFAULTS.item[component]
+                    if (defaultValue !== undefined && !token[component]) { 
+                        components[component] = defaultValue
+                        continue
+                    }
+
+                    let solved = solveArg(token[component],component,component == "Id" ? "str" : "num")
+                    components[component] = solved[1]
+                }
+
+                let item = new ItemItem([token.CharStart,token.CharEnd],"minecraft:stone",1)
+                let tempVar = NewTempVar("item")
+                let latestItem: ItemItem | VariableItem = item
+                
+                if (variableComponents.includes("Id")) {
+                    code.push(
+                        new ActionBlock("set_var","SetItemType",[tempVar,latestItem,components.Id])
+                    )
+                    latestItem = tempVar
+                } else {
+                    item.Id = components.Id.Value
+                }
+
+                if (variableComponents.includes("Count")) {
+                    code.push(
+                        new ActionBlock("set_var","SetItemAmount",[tempVar,latestItem,components.Count])
+                    )
+                } else {
+                    let val = Number(components.Count.Value)
+                    //throw error for stack size being too high
+                    if (val > 64) {
+                        throw new TCError("Stack size cannot be greater than 64",0,token.Count?.CharStart!,token.Count?.CharEnd!)
+                    }
+
+                    //throw error for non-integer stack size
+                    if (Math.floor(val) != val) {
+                        throw new TCError("Stack size must be a whole number",0,token.Count?.CharStart!,token.Count?.CharEnd!)
+                    }
+
+                    item.Count = Number(val)
+                }
+
+                return [code,latestItem]
             }
         }
-    },
-    pot: {
-        "+": {
-            txt: OPR_TextAdd
+        //lists
+        else if (token instanceof ListToken) {
+            let returnVar = NewTempVar("list")
+
+            let currentAction = "CreateList"
+            let currentChest: CodeItem[] = [returnVar]
+
+            //max of 27 items in a chest; one slot has to be the variable 
+            //and this number is decremented by one because lists start at 0 in js
+            
+            let i = -1 //curent index in the list token
+            for (let expression of token.Items) {
+                i++
+                let expressionResults = SolveExpression(expression)
+                code.push(...expressionResults[0])
+                currentChest.push(expressionResults[1])
+
+                //if the current action's chest is full, push it and start a new action
+                if (currentChest.length >= 27) {
+                    code.push(new ActionBlock("set_var",currentAction,currentChest))
+                    currentAction = "AppendValue"
+                    currentChest = [returnVar]
+                }
+            }
+
+            //push final creation/append action
+            code.push(new ActionBlock("set_var",currentAction,currentChest))
+
+            return [code, returnVar]
         }
-    },
-    par: {
-        "+": {
-            txt: OPR_TextAdd
+        //dictionaries
+        else if (token instanceof DictionaryToken) {
+            let keyListResults = ToItem(new ListToken([],token.Keys))
+            code.push(...keyListResults[0])
+
+            let valueListResults = ToItem(new ListToken([],token.Values))
+            code.push(...valueListResults[0])
+
+            let returnVar = NewTempVar("dict")
+            code.push(
+                new ActionBlock("set_var","CreateDict",[returnVar,keyListResults[1],valueListResults[1]])
+            )
+
+            return [code, returnVar]
         }
-    },
-    list: {
-        "+": {
-            txt: OPR_TextAdd
+        
+        console.log(token)
+        throw new Error("Could not convert token to item")
+    }
+
+    //operations
+    function OPR_NumOnNum(left, right, opr: string, blockopr: string): [CodeBlock[],CodeItem] {
+        //if at least one thing is a variable
+        if (left instanceof VariableItem || right instanceof VariableItem) {
+            let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
+            let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
+
+            //%conditions where %math is supported
+            if (leftIsLine && rightIsLine) {
+                let item: NumberItem = new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}%var(${right.Name}))`)
+                if (left.IsTemporary) {item.TempVarEquivalent = left.Name}
+                return [[], item]
+            }
+            else if (leftIsLine && right instanceof NumberItem) {
+                let item: NumberItem = new NumberItem([left.CharStart, right.CharEnd], `%math(%var(${left.Name})${opr}${right.Value})`)
+                if (left.IsTemporary) {item.TempVarEquivalent = left.Name}
+                return [[], item]
+            }
+            else if (left instanceof NumberItem && rightIsLine) {
+                let item = new NumberItem([left.CharStart, right.CharEnd], `%math(${left.Value}${opr}%var(${right.Name}))`)
+                if (left.TempVarEquivalent) {item.TempVarEquivalent = left.TempVarEquivalent}
+                return [[], item]
+            }
+
+            //otherwise use set var
+
+
+            let returnvar = NewTempVar("num")
+            let code = new ActionBlock("set_var", blockopr, [returnvar, left, right],blockopr == "%" ? [new TagItem([],"Remainder Mode","Modulo","set_var","%")] : [] )
+            return [[code], returnvar]
         }
-    },
-    dict: {
-        "+": {
-            txt: OPR_TextAdd
+
+        let leftnum = Number(left.Value)
+        let rightnum = Number(right.Value)
+        //if both numbers are numerical then just add them together
+        if (!Number.isNaN(leftnum) && !Number.isNaN(rightnum)) {
+            let val = 
+                (opr == "+") ? (leftnum + rightnum) :
+                (opr == "-") ? (leftnum - rightnum) :
+                (opr == "*") ? (leftnum * rightnum) :
+                (opr == "/") ? (leftnum / rightnum) :
+                (opr == "%") ? (leftnum % rightnum) :
+                "OPERATION ERROR"
+            return [[], new NumberItem(null, String(val))]
         }
-    },
-    item: {
-        "+": {
-            txt: OPR_TextAdd
-        }
-    },
-    txt: {
-        "+": {
-            num: OPR_TextAdd,
-            str: OPR_TextAdd,
-            txt: OPR_TextAdd,
-            loc: OPR_TextAdd,
-            vec: OPR_TextAdd,
-            pot: OPR_TextAdd,
-            par: OPR_TextAdd,
-            list: OPR_TextAdd,
-            dict: OPR_TextAdd,
-            item: OPR_TextAdd
+        //otherwise at least one of them is %mathing so just do that
+        else {
+            return [[], new NumberItem(null, `%math(${left.Value}${opr}${right.Value})`)]
         }
     }
-}
 
-const OrderOfOperations = [
-    ["^"],
-    ["*","/","%"],
-    ["+","-"],
-    ["==", "!=", "<", ">", "<=", ">="],
-]
+    function OPR_StringAdd(left, right): [CodeBlock[],CodeItem] {
+        //if either left or right is a variable
+        //or if either left or right aren't strings
+        if (
+            (left instanceof VariableItem || !(left instanceof StringItem)) || 
+            (right instanceof VariableItem || !(right instanceof StringItem))
+        ) {
+            let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
+            let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
 
-function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
-    let code: CodeBlock[] = []
-    let expression: (Token | CodeItem)[] = []
-    //if an index is present as a key in here, item conversion will skip it
-    let skipIndexes: Dict<boolean> = {}
+            //%conditions where %var is supported
+            if (leftIsLine && rightIsLine) {
+                return [[], new StringItem([left.CharStart, right.CharEnd], `%var(${left.Name})%var(${right.Name})`)]
+            }
+            else if (leftIsLine && right instanceof StringItem) {
+                return [[], new StringItem([left.CharStart, right.CharEnd], `%var(${left.Name})${right.Value}`)]
+            }
+            else if (left instanceof StringItem && rightIsLine) {
+                return [[], new StringItem([left.CharStart, right.CharEnd], `${left.Value}%var(${right.Name})`)]
+            }
 
-    //special case for action if statements
-    if (exprToken.Expression.length == 1 && exprToken.Expression[0] instanceof ActionToken && exprToken.Expression[0].Type == "comparison") {
-        let action = exprToken.Expression[0] as ActionToken
-        let domain = DomainList[action.DomainId]!
+            //otherwise use set var
 
-        let codeblock = "if_var"
-        if (domain instanceof TargetDomain) {
-            codeblock = domain.ActionType == "player" ? "if_player" : "if_entity"
-        }
-        else if (domain?.Identifier == "game") {
-            codeblock = "if_game"
-        }
-
-        let args
-        if (action.Params) {
-            let argResults = SolveArgs(action.Params)
-            code.push(...argResults[0])
-            args = argResults[1]
+            let returnvar = NewTempVar("str")
+            let code = new ActionBlock("set_var", "String", [returnvar, left, right])
+            return [[code], returnvar]
         }
 
-        let tags
-        if (action.Tags) {
-            let tagResults = SolveTags(action.Tags, codeblock, domain.Conditions[action.Action]!.DFId)
-            code.push(...tagResults[0])
-            tags = tagResults[1]
+        //otherwise just combine the two values
+        return [[], new StringItem([left.CharStart,left.CharEnd], `${left.Value}${right.Value}`)]
+    }
+
+    function OPR_TextAdd(left, right): [CodeBlock[],CodeItem] {
+        //if either left or right is a variable
+        //or if either left or right aren't strings
+        if (
+            (left instanceof VariableItem || !(left instanceof TextItem || left instanceof StringItem)) || 
+            (right instanceof VariableItem || !(right instanceof TextItem || right instanceof StringItem))
+        ) {
+            let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
+            let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
+
+            //%conditions where %var is supported
+            if (leftIsLine && rightIsLine) {
+                return [[], new TextItem([left.CharStart, right.CharEnd], `%var(${left.Name})%var(${right.Name})`)]
+            }
+            else if (leftIsLine && right instanceof TextItem) {
+                return [[], new TextItem([left.CharStart, right.CharEnd], `%var(${left.Name})${right.Value}`)]
+            }
+            else if (left instanceof TextItem && rightIsLine) {
+                return [[], new TextItem([left.CharStart, right.CharEnd], `${left.Value}%var(${right.Name})`)]
+            }
+
+            //otherwise use set var
+
+            let returnvar = NewTempVar("txt")
+            let code = new ActionBlock("set_var", "StyledText", [returnvar, left, right])
+            return [[code], returnvar]
         }
 
+        //otherwise just combine the two values
+        return [[], new TextItem([left.CharStart,left.CharEnd], `${left.Value}${right.Value}`)]
+    }
+
+    function OPR_VecMultVec(left, right, opr: string): [CodeBlock[], CodeItem] {
+        let components: Dict<any> = {}
+        let code: CodeBlock[] = []
+        for (const component of ["X","Y","Z"]) {
+            //remember to exclude 1!!
+
+            //get the component of left vector
+            let leftCompVar: VariableItem | NumberItem | GameValueItem
+            //if left vector is a variabl;e
+            if (left instanceof VariableItem || left instanceof GameValueItem) {
+                leftCompVar = NewTempVar("num")
+                code.push(
+                    new ActionBlock("set_var","GetVectorComp",[leftCompVar,left],[new TagItem([],"Component",component,"set_var","GetVectorComp")])
+                )
+            //if left vector is a constant
+            } else {
+                leftCompVar = new NumberItem([],left[component])
+            }
+
+            //get the component of right vector
+            let rightCompVar: VariableItem | NumberItem | GameValueItem
+            //if right vector is a variable
+            if (right instanceof VariableItem || right instanceof GameValueItem) {
+                rightCompVar = NewTempVar("num")
+                code.push(
+                    new ActionBlock("set_var","GetVectorComp",[rightCompVar,right],[new TagItem([],"Component",component,"set_var","GetVectorComp")])
+                )
+            //if right vector is a constant
+            } else {
+                rightCompVar = new NumberItem([],right[component])
+            }
+
+
+            //multiply them together
+            let multiplyResults = OPERATIONS.num[opr].num(leftCompVar,rightCompVar)
+            //push any code generated by multiplication
+            if (multiplyResults[0]) { code.push(...multiplyResults[0]) }
+
+            components[component] = multiplyResults[1]
+        }
+
+        let returnVar = NewTempVar("vec")
+        //set vec block
         code.push(
-            new IfActionBlock(codeblock, domain.Conditions[action.Action]!.DFId, args, tags, domain instanceof TargetDomain ? domain.Target : null, exprToken.Not)
+            new ActionBlock("set_var","Vector",[returnVar,components.X,components.Y,components.Z])
         )
 
-        return [code,expression[0]]
+        return [code,returnVar]
     }
 
-    //convert expression tokens to code items and solve stuff like actions and indexing
-    let i = -1;
-    for (const token of exprToken.Expression) {
-        i++
-        if (skipIndexes[i]) {continue}
+    const OPERATIONS = {
+        num: {
+            "+": {
+                num: function(left, right): [CodeBlock[],CodeItem] {
+                    return OPR_NumOnNum(left,right,"+","+")
+                },
+                str: OPR_StringAdd,
+                txt: OPR_TextAdd
+            },
+            "-": {
+                num: function(left, right): [CodeBlock[],CodeItem] {
+                    return OPR_NumOnNum(left,right,"-","-")
+                }
+            },
+            "*": {
+                num: function(left, right): [CodeBlock[],CodeItem] {
+                    return OPR_NumOnNum(left,right,"*","x")
+                }
+            },
+            "/": {
+                num: function(left, right): [CodeBlock[],CodeItem] {
+                    return OPR_NumOnNum(left,right,"/","/")
+                }
+            },
+            "%": {
+                num: function(left, right): [CodeBlock[],CodeItem] {
+                    return OPR_NumOnNum(left,right,"%","%")
+                }
+            },
+            "^": {
+                num: function(left, right): [CodeBlock[],CodeItem] {
+                    //if both sides are just constant numbers
+                    if (!isNaN(left.Value) && !isNaN(right.Value)) {
+                        return [[],new NumberItem([left.CharStart,left.CharEnd],String(Number(left.Value) ** Number(right.Value)) )]
+                    }
 
-        //type override token in a place type override tokens should not be
-        if (token instanceof TypeOverrideToken) {
-            throw new TCError("Type override must immediately follow an action, variable, or index operation",0,token.CharStart,token.CharEnd)
+                    let returnVar = NewTempVar("num")
+                    let code = new ActionBlock("set_var","Exponent",[returnVar,left,right])
+
+                    return [[code],returnVar]
+                }
+            }
+        },
+        str: {
+            "+": {
+                str: OPR_StringAdd,
+                num: OPR_StringAdd,
+                txt: OPR_TextAdd
+            },
+            "*": {
+                num: function(left, right): [CodeBlock[], CodeItem] {
+                    let returnvar = NewTempVar("str")
+                    let code = new ActionBlock("set_var","RepeatString",[returnvar,left,right])
+
+                    return [[code],returnvar]
+                }
+            }
+        },
+        loc: {
+            "+": {
+                vec: function(left, right): [CodeBlock[], CodeItem] {
+                    let returnVar = NewTempVar("loc")
+                    let code = new ActionBlock("set_var","ShiftOnVector",[returnVar,left,right],[new TagItem([],"Add Location Rotation","False","set_var","ShiftOnVector")])
+
+                    return [[code],returnVar]
+                },
+                txt: OPR_TextAdd
+            },
+            "-": {
+                vec: function(left, right): [CodeBlock[], CodeItem] {
+                    let code: CodeBlock[] = []
+                    let returnVar = NewTempVar("loc")
+
+                    //multiply vector by -1
+                    let vecResults = OPERATIONS.vec["*"].num(right,new NumberItem([],"-1"))
+                    if (vecResults[0]) {code.push(...vecResults[0])}
+
+                    code.push(
+                        new ActionBlock("set_var","ShiftOnVector",[returnVar,left,vecResults[1]],[new TagItem([],"Add Location Rotation","False","set_var","ShiftOnVector")])
+                    )
+
+                    return [code,returnVar]
+                },
+            }
+        },
+        vec: {
+            "+": {
+                vec: function(left, right): [CodeBlock[], CodeItem] {
+                    let returnVar = NewTempVar("vec")
+                    let code = new ActionBlock("set_var","AddVectors",[returnVar,left,right])
+
+                    return [[code], returnVar]
+                },
+                txt: OPR_TextAdd
+            },
+            "-": {
+                vec: function(left, right): [CodeBlock[], CodeItem] {
+                    let returnVar = NewTempVar("vec")
+                    let code = new ActionBlock("set_var","SubtractVectors",[returnVar,left,right])
+
+                    return [[code], returnVar]
+                },
+            },
+            "*": {
+                num: function(left, right): [CodeBlock[], CodeItem] {
+                    let returnVar = NewTempVar("vec")
+                    let code = new ActionBlock("set_var","MultiplyVector",[returnVar,left,right])
+
+                    return [[code], returnVar]
+                },
+                vec: function(left, right): [CodeBlock[], CodeItem] {
+                    return OPR_VecMultVec(left,right,"*")
+                }
+            },
+            "/": {
+                num: function(left, right): [CodeBlock[],CodeItem] {
+                    right = new VectorItem(right.meta,right.Value,right.Value,right.Value)
+                    return OPR_VecMultVec(left,right,"/")
+                },
+                vec: function(left, right): [CodeBlock[], CodeItem] {
+                    return OPR_VecMultVec(left,right,"/")
+                }
+            }
+        },
+        pot: {
+            "+": {
+                txt: OPR_TextAdd
+            }
+        },
+        par: {
+            "+": {
+                txt: OPR_TextAdd
+            }
+        },
+        list: {
+            "+": {
+                txt: OPR_TextAdd
+            }
+        },
+        dict: {
+            "+": {
+                txt: OPR_TextAdd
+            }
+        },
+        item: {
+            "+": {
+                txt: OPR_TextAdd
+            }
+        },
+        txt: {
+            "+": {
+                num: OPR_TextAdd,
+                str: OPR_TextAdd,
+                txt: OPR_TextAdd,
+                loc: OPR_TextAdd,
+                vec: OPR_TextAdd,
+                pot: OPR_TextAdd,
+                par: OPR_TextAdd,
+                list: OPR_TextAdd,
+                dict: OPR_TextAdd,
+                item: OPR_TextAdd
+            }
         }
-        else if (token instanceof OperatorToken) {
-            expression.push(token)
-        } else if (token instanceof ExpressionToken) {
-            //solve sub expression
-            let results = SolveExpression(token)
-            code.push(...results[0])
-            expression[i] = results[1]
-        } else if (token instanceof IndexerToken) {
-            let referrent = expression[expression.length-1]
-            //error for indexing something thats not even an item
-            if (!(referrent instanceof CodeItem)) {
-                throw new TCError("Indexer must immediately follow a list, dictionary, or variable",0,token.CharStart,token.CharEnd)
+    }
+
+    const OrderOfOperations = [
+        ["^"],
+        ["*","/","%"],
+        ["+","-"],
+        ["==", "!=", "<", ">", "<=", ">="],
+    ]
+
+    function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
+        let code: CodeBlock[] = []
+        let expression: (Token | CodeItem)[] = []
+        //if an index is present as a key in here, item conversion will skip it
+        let skipIndexes: Dict<boolean> = {}
+
+        //special case for action if statements
+        if (exprToken.Expression.length == 1 && exprToken.Expression[0] instanceof ActionToken && exprToken.Expression[0].Type == "comparison") {
+            let action = exprToken.Expression[0] as ActionToken
+            let domain = DomainList[action.DomainId]!
+
+            let codeblock = "if_var"
+            if (domain instanceof TargetDomain) {
+                codeblock = domain.ActionType == "player" ? "if_player" : "if_entity"
+            }
+            else if (domain?.Identifier == "game") {
+                codeblock = "if_game"
             }
 
-            //solve expression for index to use
-            let expressionResults = SolveExpression(token.Index)
-            code.push(...expressionResults[0])
-
-            //handle provided type override
-            let returnType: string | undefined = undefined
-            let typeOverrideToken = exprToken.Expression[i + 1]
-            if (typeOverrideToken instanceof TypeOverrideToken) {
-                returnType = typeOverrideToken.Type
-                skipIndexes[i + 1] = true
-            }
-
-            let tempVar = NewTempVar(returnType)
-
-            let referrentType = GetType(referrent)
-            code.push(
-                new ActionBlock("set_var",referrentType == "list" ? "GetListValue" : "GetDictValue",[tempVar,referrent,expressionResults[1]])
-            )
-            //replace the list variable with the value variable
-            expression[expression.length-1] = tempVar
-        } else if (token instanceof ActionToken) {
-            //convert action token to code block
-            let action = token
-            let domain: Domain = DomainList[action.DomainId]!
-            
-            //arguments
-            //a temporary variable is automatically inserted as the first chest slot to get the returned value of the function
-            let tempVar = NewTempVar("num")//num is just a placeholder type and is reassigned after return type is gotten
-            
-            let args: CodeItem[] = [tempVar] 
+            let args
             if (action.Params) {
                 let argResults = SolveArgs(action.Params)
                 code.push(...argResults[0])
-                args.push(...argResults[1])
+                args = argResults[1]
             }
 
-            //tags
             let tags
             if (action.Tags) {
-                let tagResults = SolveTags(action.Tags,domain.ActionCodeblock!,domain.Actions[action.Action]!.DFId)
+                let tagResults = SolveTags(action.Tags, codeblock, domain.Conditions[action.Action]!.DFId)
                 code.push(...tagResults[0])
                 tags = tagResults[1]
             }
 
-            
-            let actionBlock = new ActionBlock(domain.ActionCodeblock!,domain.Actions[action.Action]!.DFId,args,tags,domain instanceof TargetDomain ? domain.Target : null)
+            code.push(
+                new IfActionBlock(codeblock, domain.Conditions[action.Action]!.DFId, args, tags, domain instanceof TargetDomain ? domain.Target : null, exprToken.Not)
+            )
 
-            let returnType = GetReturnType(actionBlock)
-            let rawReturnType = GetReturnType(actionBlock,true)
-
-            //if next token is char override
-            let typeOverrideToken = exprToken.Expression[i+1]
-            if (typeOverrideToken instanceof TypeOverrideToken) {
-                //error for trying to specify an action that returns null
-                if (!returnType) {
-                    throw new TCError(`'${token.Action}' cannot have its type specified because it never returns a value`,0,typeOverrideToken.CharStart,typeOverrideToken.CharEnd)
-                }
-                //error for trying to specify an action that only returns one type as the type that it doesnt return
-                if (rawReturnType != "any" && typeOverrideToken.Type != returnType) { 
-                    throw new TCError(`'${token.Action}' cannot have its type specified as ${typeOverrideToken.Type} because it always returns ${returnType}`,0,typeOverrideToken.CharStart,typeOverrideToken.CharEnd)
-                }
-
-                returnType = typeOverrideToken.Type
-                skipIndexes[i+1] = true
-            }
-
-            //if this action doesn't have a return type, throw error
-            if (!returnType) {
-                throw new TCError("Only actions which return a value can be used in expressions",0,token.CharStart,token.CharEnd)
-            } else if (returnType == "any") {
-                throw new TCError("Expected return type must be manually specified to use this action in expressions (e.g. action(): str)",0,token.CharStart,token.CharEnd)
-            }
-
-            SetVarType(tempVar,returnType)
-
-            //add the action to the code line
-            code.push(actionBlock)
-            //add the temporary variable containing the action's result to the expression in place of the action
-            expression.push(tempVar)
-        } else {
-            let toItemResults = ToItem(token)
-            code.push(...toItemResults[0])
-            expression.push(toItemResults[1])
+            return [code,expression[0]]
         }
-    }
 
-    let ifAction: IfActionBlock | null = null
+        //convert expression tokens to code items and solve stuff like actions and indexing
+        let i = -1;
+        for (const token of exprToken.Expression) {
+            i++
+            if (skipIndexes[i]) {continue}
 
-    //normal expression
-    for (let pass = 0; pass < OrderOfOperations.length; pass++) {
-        let i = 0;
-        while (i < expression.length) {
-            let item = expression[i]
-
-            if (item instanceof OperatorToken) {
-                //@ts-ignore
-                let left: CodeItem = expression[i - 1]
-                //@ts-ignore
-                let right: CodeItem = expression[i + 1]
-
-                let typeleft = GetType(left)
-                let typeright = GetType(right)
-
-                //comparison operators
-                if (VALID_COMPARISON_OPERATORS.has(item.Operator)) {
-                    ifAction = new IfActionBlock("if_var", item.Operator == "==" ? "=" : item.Operator, [left, right], [], null, exprToken.Not)
+            //type override token in a place type override tokens should not be
+            if (token instanceof TypeOverrideToken) {
+                throw new TCError("Type override must immediately follow an action, variable, or index operation",0,token.CharStart,token.CharEnd)
+            }
+            else if (token instanceof OperatorToken) {
+                expression.push(token)
+            } else if (token instanceof ExpressionToken) {
+                //solve sub expression
+                let results = SolveExpression(token)
+                code.push(...results[0])
+                expression[i] = results[1]
+            } else if (token instanceof IndexerToken) {
+                let referrent = expression[expression.length-1]
+                //error for indexing something thats not even an item
+                if (!(referrent instanceof CodeItem)) {
+                    throw new TCError("Indexer must immediately follow a list, dictionary, or variable",0,token.CharStart,token.CharEnd)
                 }
-                //normal operators
-                else {
-                    let result
 
-                    if (OrderOfOperations[pass].includes(item.Operator)) {
-                        //error for unsupported operation
-                        if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][item.Operator] == undefined || OPERATIONS[typeleft][item.Operator][typeright] == undefined) {
-                            throw new TCError(`${typeleft} cannot ${item.Operator} with ${typeright}`, 0, item.CharStart, item.CharEnd)
+                //solve expression for index to use
+                let expressionResults = SolveExpression(token.Index)
+                code.push(...expressionResults[0])
+
+                //handle provided type override
+                let returnType: string | undefined = undefined
+                let typeOverrideToken = exprToken.Expression[i + 1]
+                if (typeOverrideToken instanceof TypeOverrideToken) {
+                    returnType = typeOverrideToken.Type
+                    skipIndexes[i + 1] = true
+                }
+
+                let tempVar = NewTempVar(returnType)
+
+                let referrentType = GetType(referrent)
+                code.push(
+                    new ActionBlock("set_var",referrentType == "list" ? "GetListValue" : "GetDictValue",[tempVar,referrent,expressionResults[1]])
+                )
+                //replace the list variable with the value variable
+                expression[expression.length-1] = tempVar
+            } else if (token instanceof ActionToken) {
+                //convert action token to code block
+                let action = token
+                let domain: Domain = DomainList[action.DomainId]!
+                
+                //arguments
+                //a temporary variable is automatically inserted as the first chest slot to get the returned value of the function
+                let tempVar = NewTempVar("num")//num is just a placeholder type and is reassigned after return type is gotten
+                
+                let args: CodeItem[] = [tempVar] 
+                if (action.Params) {
+                    let argResults = SolveArgs(action.Params)
+                    code.push(...argResults[0])
+                    args.push(...argResults[1])
+                }
+
+                //tags
+                let tags
+                if (action.Tags) {
+                    let tagResults = SolveTags(action.Tags,domain.ActionCodeblock!,domain.Actions[action.Action]!.DFId)
+                    code.push(...tagResults[0])
+                    tags = tagResults[1]
+                }
+
+                
+                let actionBlock = new ActionBlock(domain.ActionCodeblock!,domain.Actions[action.Action]!.DFId,args,tags,domain instanceof TargetDomain ? domain.Target : null)
+
+                let returnType = GetReturnType(actionBlock)
+                let rawReturnType = GetReturnType(actionBlock,true)
+
+                //if next token is char override
+                let typeOverrideToken = exprToken.Expression[i+1]
+                if (typeOverrideToken instanceof TypeOverrideToken) {
+                    //error for trying to specify an action that returns null
+                    if (!returnType) {
+                        throw new TCError(`'${token.Action}' cannot have its type specified because it never returns a value`,0,typeOverrideToken.CharStart,typeOverrideToken.CharEnd)
+                    }
+                    //error for trying to specify an action that only returns one type as the type that it doesnt return
+                    if (rawReturnType != "any" && typeOverrideToken.Type != returnType) { 
+                        throw new TCError(`'${token.Action}' cannot have its type specified as ${typeOverrideToken.Type} because it always returns ${returnType}`,0,typeOverrideToken.CharStart,typeOverrideToken.CharEnd)
+                    }
+
+                    returnType = typeOverrideToken.Type
+                    skipIndexes[i+1] = true
+                }
+
+                //if this action doesn't have a return type, throw error
+                if (!returnType) {
+                    throw new TCError("Only actions which return a value can be used in expressions",0,token.CharStart,token.CharEnd)
+                } else if (returnType == "any") {
+                    throw new TCError("Expected return type must be manually specified to use this action in expressions (e.g. action(): str)",0,token.CharStart,token.CharEnd)
+                }
+
+                SetVarType(tempVar,returnType)
+
+                //add the action to the code line
+                code.push(actionBlock)
+                //add the temporary variable containing the action's result to the expression in place of the action
+                expression.push(tempVar)
+            } else {
+                let toItemResults = ToItem(token)
+                code.push(...toItemResults[0])
+                expression.push(toItemResults[1])
+            }
+        }
+
+        let ifAction: IfActionBlock | null = null
+
+        //normal expression
+        for (let pass = 0; pass < OrderOfOperations.length; pass++) {
+            let i = 0;
+            while (i < expression.length) {
+                let item = expression[i]
+
+                if (item instanceof OperatorToken) {
+                    //@ts-ignore
+                    let left: CodeItem = expression[i - 1]
+                    //@ts-ignore
+                    let right: CodeItem = expression[i + 1]
+
+                    let typeleft = GetType(left)
+                    let typeright = GetType(right)
+
+                    //comparison operators
+                    if (VALID_COMPARISON_OPERATORS.has(item.Operator)) {
+                        ifAction = new IfActionBlock("if_var", item.Operator == "==" ? "=" : item.Operator, [left, right], [], null, exprToken.Not)
+                    }
+                    //normal operators
+                    else {
+                        let result
+
+                        if (OrderOfOperations[pass].includes(item.Operator)) {
+                            //error for unsupported operation
+                            if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][item.Operator] == undefined || OPERATIONS[typeleft][item.Operator][typeright] == undefined) {
+                                throw new TCError(`${typeleft} cannot ${item.Operator} with ${typeright}`, 0, item.CharStart, item.CharEnd)
+                            }
+
+                            result = OPERATIONS[typeleft][item.Operator][typeright](left, right)
                         }
 
-                        result = OPERATIONS[typeleft][item.Operator][typeright](left, right)
-                    }
-
-                    if (result) {
-                        code.push(...result[0])
-                        expression[i - 1] = result[1]
-                        expression.splice(i, 2)
-                        i--
+                        if (result) {
+                            code.push(...result[0])
+                            expression[i - 1] = result[1]
+                            expression.splice(i, 2)
+                            i--
+                        }
                     }
                 }
+                i++
             }
-            i++
         }
+
+        if (ifAction) {
+            code.push(ifAction)
+        }
+        else if (expression.length > 1) {
+            throw new Error("Failed to condense expression")
+        }
+
+        //@ts-ignore
+        return [code, expression[0]]
     }
 
-    if (ifAction) {
-        code.push(ifAction)
-    }
-    else if (expression.length > 1) {
-        throw new Error("Failed to condense expression")
-    }
+    function SolveArgs(list: ListToken): [CodeBlock[], CodeItem[]] {
+        let code: CodeBlock[] = []
+        let args: CodeItem[] = []
+        for (let v of list.Items!) {
+            let expressionResults = SolveExpression(v)
+            code.push(...expressionResults[0])
+            args.push(expressionResults[1])
+        }
 
-    //@ts-ignore
-    return [code, expression[0]]
-}
-
-function SolveArgs(list: ListToken): [CodeBlock[], CodeItem[]] {
-    let code: CodeBlock[] = []
-    let args: CodeItem[] = []
-    for (let v of list.Items!) {
-        let expressionResults = SolveExpression(v)
-        code.push(...expressionResults[0])
-        args.push(expressionResults[1])
+        return [code,args]
     }
 
-    return [code,args]
-}
+    function SolveTags(dict: Dict<ActionTag>, codeblock: string, actionDFName: string): [CodeBlock[],TagItem[]] {
+        let tags: TagItem[] = []
+        for (let [name, tag] of Object.entries(dict)) {
+            tags.push(new TagItem(
+                [-1,-1],
+                name,
+                tag!.Value,
+                codeblock,
+                actionDFName,
+                //@ts-ignore SHUT UP I KNOW WHAT MY CODE DOES!!!!!!! GRRRRR
+                tag?.Variable ? ToItem(tag.Variable)[1] : null
+            ))
+        }
 
-function SolveTags(dict: Dict<ActionTag>, codeblock: string, actionDFName: string): [CodeBlock[],TagItem[]] {
-    let tags: TagItem[] = []
-    for (let [name, tag] of Object.entries(dict)) {
-        tags.push(new TagItem(
-            [-1,-1],
-            name,
-            tag!.Value,
-            codeblock,
-            actionDFName,
-            //@ts-ignore SHUT UP I KNOW WHAT MY CODE DOES!!!!!!! GRRRRR
-            tag?.Variable ? ToItem(tag.Variable)[1] : null
-        ))
+        return [[],tags]
     }
 
-    return [[],tags]
-}
+    function SolveConditionExpression(expression: ExpressionToken): [CodeBlock[], CodeItem, IfActionBlock] {
+        let expressionResults = SolveExpression(expression)
 
-function SolveConditionExpression(expression: ExpressionToken): [CodeBlock[], CodeItem, IfActionBlock] {
-    let expressionResults = SolveExpression(expression)
+        let ifBlock = expressionResults[0][expressionResults[0].length - 1] 
 
-    let ifBlock = expressionResults[0][expressionResults[0].length - 1] 
+        //error if the condition was invalid
+        if (!(ifBlock instanceof IfActionBlock)) {
+            throw new TCError("Condition must either be an if action or include a comparison",0,expression.CharStart,expression.CharEnd)
+        }
 
-    //error if the condition was invalid
-    if (!(ifBlock instanceof IfActionBlock)) {
-        throw new TCError("Condition must either be an if action or include a comparison",0,expression.CharStart,expression.CharEnd)
+        //account for if actions that exist on multiple different if blocks having differentiated names
+        let dfName = AD.DifferentiatedDFActionMap[ifBlock.Block]![ifBlock.Action]!.DFId
+        ifBlock.Action = dfName
+
+        return [expressionResults[0], expressionResults[1], ifBlock]
     }
 
-    //account for if actions that exist on multiple different if blocks having differentiated names
-    let dfName = AD.DifferentiatedDFActionMap[ifBlock.Block]![ifBlock.Action]!.DFId
-    ifBlock.Action = dfName
 
-    return [expressionResults[0], expressionResults[1], ifBlock]
-}
 
-export class CompileResults {
-    Code: Array<CodeBlock>
-}
-
-//this variable will be 1 for the first line after the closing bracket of an if statement
-var ComingFromIfStatement = 0
-
-export function Compile(lines: Array<Array<Token>>): CompileResults {
-    var CodeLine: Array<CodeBlock> = []
+    //this variable will be 1 for the first line after the closing bracket of an if statement
+    let ComingFromIfStatement = 0
+    let CodeLine: Array<CodeBlock> = []
 
     let headerMode = true
     let headerData: Dict<any> = {
