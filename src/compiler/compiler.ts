@@ -1,11 +1,11 @@
-import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "./tokenizer"
-import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP } from "./constants"
-import { DEBUG_MODE, print } from "./main"
-import { Domain, DomainList, TargetDomain, TargetDomains } from "./domains"
+import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer"
+import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP } from "../util/constants"
+import { DEBUG_MODE, print } from "../main"
+import { Domain, DomainList, TargetDomain, TargetDomains } from "../util/domains"
 import * as fflate from "fflate"
-import { TCError } from "./errorHandler"
-import * as AD from "./actionDump"
-import * as TextCode from "./textCodeParser"
+import { TCError } from "../util/errorHandler"
+import * as AD from "../util/actionDump"
+import * as TextCode from "../util/textCodeParser"
 
 const VAR_HEADER = `@__TC_`
 

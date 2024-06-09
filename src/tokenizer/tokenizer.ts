@@ -3,14 +3,14 @@
 //may result from smart peoiple looking at my goofy ass code
 
 
-import { Domain, DomainList, TargetDomain, GenericDomains, GenericTargetDomains, PublicDomains } from "./domains"
-import { PrintError, TCError } from "./errorHandler"
-import { DEBUG_MODE, print } from "./main"
-import { CharUtils } from "./characterUtils"
-import * as AD from "./actionDump"
+import { Domain, DomainList, TargetDomain, GenericDomains, GenericTargetDomains, PublicDomains } from "../util/domains"
+import { PrintError, TCError } from "../util/errorHandler"
+import { DEBUG_MODE, print } from "../main"
+import { CharUtils } from "../util/characterUtils"
+import * as AD from "../util/actionDump"
 import { UnzipPassThrough } from "fflate"
 
-import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS} from "./constants"
+import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS} from "../util/constants"
 
 //==========[ tokens ]=========\\
 export class Token {

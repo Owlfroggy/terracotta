@@ -1,7 +1,7 @@
 import * as rpc from "vscode-jsonrpc/node"
-import * as domains from "./domains"
+import * as domains from "../util/domains"
 import { CompletionItem, CompletionList, CompletionRegistrationOptions, InitializeResult, MessageType, TextDocumentSyncKind } from "vscode-languageserver";
-import { CodeContext, ContextType, Tokenize } from "./tokenizer";
+import { CodeContext, ContextType, Tokenize } from "../tokenizer/tokenizer";
 
 function generateCompletionMap(entries: (string)[]): CompletionItem[] {
     let result: CompletionItem[] = []

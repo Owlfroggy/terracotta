@@ -1,9 +1,9 @@
-import * as Tokenizer from "./tokenizer"
-import * as ErrorHandler from "./errorHandler"  
-import * as Compiler from "./compiler"
+import * as Tokenizer from "./tokenizer/tokenizer"
+import * as ErrorHandler from "./util/errorHandler"  
+import * as Compiler from "./compiler/compiler"
 import { parseArgs } from "@pkgjs/parseargs"
 import * as path from "path"
-import { StartServer } from "./languageServer"
+import { StartServer } from "./languageServer/languageServer"
 const ncp = require("copy-paste")
 
 export const DEBUG_MODE = {

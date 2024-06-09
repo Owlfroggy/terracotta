@@ -1,5 +1,5 @@
 import { CharUtils } from "./characterUtils"
-import { print } from "./main"
+import { print } from "../main"
 
 enum TextCodeType {
     "math" = "math",
