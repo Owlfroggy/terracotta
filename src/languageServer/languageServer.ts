@@ -16,6 +16,7 @@ function generateCompletionMap(entries: (string)[]): CompletionItem[] {
 }
 
 const headerKeywords = generateCompletionMap(["LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM"])
+const genericKeywords = generateCompletionMap(["if","else","repeat","in","to","on","not","while","break","continue","return","returnmult","wait","endthread","select","filter","optional","plural"])
 const variableScopeKeywords = generateCompletionMap(["local","saved","global","line"])
 
 function getDomainKeywords() {
@@ -83,7 +84,7 @@ export function StartServer() {
         let items: any[] = []
         
         if (context.Type == ContextType.General) {
-            items.push(headerKeywords,variableScopeKeywords,getDomainKeywords())
+            items.push(headerKeywords,variableScopeKeywords,genericKeywords,getDomainKeywords())
         }
 
         items = items.flat()
