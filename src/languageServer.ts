@@ -1,5 +1,32 @@
 import * as rpc from "vscode-jsonrpc/node"
-import { CompletionList, CompletionRegistrationOptions, InitializeResult, MessageType, TextDocumentSyncKind } from "vscode-languageserver";
+import * as domains from "./domains"
+import { CompletionItem, CompletionList, CompletionRegistrationOptions, InitializeResult, MessageType, TextDocumentSyncKind } from "vscode-languageserver";
+import { CodeContext, ContextType, Tokenize } from "./tokenizer";
+
+function generateCompletionMap(entries: (string)[]): CompletionItem[] {
+    let result: CompletionItem[] = []
+    for (const v of entries) {
+        let item: CompletionItem = {
+            "label": v
+        }
+        result.push(item)
+    }
+    return result
+}
+
+const headerKeywords = generateCompletionMap(["LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM"])
+const variableScopeKeywords = generateCompletionMap(["local","saved","global","line"])
+
+function getDomainKeywords() {
+    let result: CompletionItem[] = []
+    for (const [id, domain] of Object.entries(domains.PublicDomains)) {
+        let item: CompletionItem = {
+            "label": id
+        }
+        result.push(item)
+    }
+    return result
+}
 
 export function StartServer() {
     //==========[ create rpc connection ]=========\\
@@ -32,19 +59,38 @@ export function StartServer() {
         return response
     })
 
-    connection.onRequest("textDocument/completion", param => {
+    connection.onRequest("textDocument/completion", async (param) => {
+        let script = await Bun.file(new URL(param.textDocument.uri)).text()
+        let line = 0
+        let index = 0
+        for (let i = 0; i < script.length; i++) {
+            if (line == param.position.line) {
+                index = i + param.position.character
+                break
+            }
+            if (script[i] === '\n') {
+                line++
+            }
+        }
+
+
+        showText(`EChar: ${index}:'${script[index]} | ${param} | ${script}`)
+        let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": index}) as CodeContext
+        showText(`Char: ${index}:'${script[index]}'\nContext: ${JSON.stringify(context)}`)
+
+        let items: any[] = []
+        
+        if (context.Type == ContextType.General) {
+            items.push(headerKeywords,variableScopeKeywords,getDomainKeywords())
+        }
+
+        items = items.flat()
+
         let response: CompletionList = {
             isIncomplete: false,
-            items: [
-                {
-                    label: "Hello world!"
-                },
-                {
-                    label: "I don't like it here actually can i go back pls"
-                }
-            ]
+            items: items
         }
-        return
+        return response
     })
 
     //==========[ notification handling ]=========\\

@@ -46,7 +46,7 @@ async function Main() {
         let tokenResults: Tokenizer.TokenizerResults
         
         try {
-            tokenResults = Tokenizer.Tokenize(script)
+            tokenResults = Tokenizer.Tokenize(script,{"mode": "getTokens"}) as Tokenizer.TokenizerResults
         } catch (e) {
             ErrorHandler.PrintError(e, script)
             return

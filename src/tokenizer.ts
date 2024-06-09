@@ -12,10 +12,6 @@ import { UnzipPassThrough } from "fflate"
 
 import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS} from "./constants"
 
-export class TokenizerResults {
-    Lines: Array<Array<Token>>
-}
-
 //==========[ tokens ]=========\\
 export class Token {
     constructor(metadata: [number, number]) {
@@ -425,8 +421,38 @@ export class DebugPrintVarTypeToken extends Token {
     Variable: VariableToken
 }
 
-export function Tokenize(script: string): TokenizerResults {
+//==========[ other stuff ]=========\\
+
+export class TokenizerResults {
+    Lines: Array<Array<Token>>
+}
+
+
+export class CodeContext {
+    constructor(type: ContextType, data: Dict<any> = {}) {
+        this.Type = type
+        this.Data = data
+    }
+    Type: ContextType
+    Data: Dict<any>
+}
+
+export enum ContextType {
+    "General"
+}
+
+export interface TokenizeMode {
+    "mode": "getTokens" | "getContext",
+
+    // if mode is getContext, the char index to look for
+    "contextTestPosition"?: number
+}
+
+//THIS FUNCTION WILL NEVER RETURN UNDEFINED! IT JUST SAYS THAT BECAUSE TYPESCRIPT IS SPECIAL
+export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults | CodeContext | undefined {
+
     //==========[ constants ]=========\\
+
     let CharIndex = -1
     let Running = true
     let Lines: Array<Array<Token>> = []
@@ -436,6 +462,16 @@ export function Tokenize(script: string): TokenizerResults {
     let cu: CharUtils = new CharUtils(SCRIPT_CONTENTS,true)
 
     //==========[ helper functions ]=========\\
+
+    function OfferContext(currentIndex: number, type: ContextType, data: Dict<any> | undefined = undefined) {
+        if (mode.mode != "getContext") { return }
+        //@ts-ignore SHUDDUP!!
+        if (currentIndex >= mode.contextTestPosition) {
+            //utilizing error throwing to stop parsing and send the context up 
+            //to the top is possibly the most sinful thing i've ever done
+            throw new CodeContext(type,data)
+        }
+    }
 
     //returned number will be index of closing char
     //ERR1 = string was not closed
@@ -2151,9 +2187,11 @@ export function Tokenize(script: string): TokenizerResults {
     }
 
     //main logic goes here
-    function DoTheThing(): void {
+    function TokenizationLogic(): void {
         let previousLine = Lines[Lines.length - 1]
         if (previousLine == undefined) { previousLine = [] }
+
+        OfferContext(CharIndex,ContextType.General)
 
         //if at the end of a line, push that line and start a new one
         if (cu.GetNextCharacters(CharIndex, 1) == ";" || CharIndex + cu.GetWhitespaceAmount(CharIndex) == SCRIPT_CONTENTS.length - 1 || SCRIPT_CONTENTS[CharIndex] == "#") {
@@ -2342,12 +2380,28 @@ export function Tokenize(script: string): TokenizerResults {
         throw new TCError("Something's definitely wrong here (fallback error)", 0, CharIndex, CharIndex)
     }
 
-    while (Running) {
-        DoTheThing()
+    if (mode.mode == "getTokens") {
+        while (Running) {
+            TokenizationLogic()
+        }
+    
+        let results = new TokenizerResults()
+        results.Lines = Lines
+    
+        return results
+    } 
+    else if (mode.mode == "getContext") {
+        // kill me now
+        while (Running) {
+            try {
+                TokenizationLogic()
+            } catch (e) {
+                if (e instanceof CodeContext) {
+                    return e
+                }
+                break
+            }
+        }
+        return new CodeContext(ContextType.General)
     }
-
-    let results = new TokenizerResults()
-    results.Lines = Lines
-
-    return results
 }
