@@ -3,6 +3,7 @@ import * as ErrorHandler from "./errorHandler"
 import * as Compiler from "./compiler"
 import { parseArgs } from "@pkgjs/parseargs"
 import * as path from "path"
+import { StartServer } from "./languageServer"
 const ncp = require("copy-paste")
 
 export const DEBUG_MODE = {
@@ -18,7 +19,7 @@ export function print (...data: any[]) {
 
 async function Main() {
     const options = {
-        //the file to take in
+        //the file to take in (does not do anything in server mode)
         file: { type: "string" },
         
         //if true, compile inputted script
@@ -32,16 +33,18 @@ async function Main() {
         //"dfgive": output a /dfgive command that gives the template
         //default is "gzip"
         cmode: { type: "string" },
+
+        //if true, run as a language server
+        server: { type: "boolean"},
     };
 
     const { values, positionals } = parseArgs({ options });
     
-    //mode: --compile
     if (values.compile) {
         //tokenize
         let script = await Bun.file(values.file).text()
         let tokenResults: Tokenizer.TokenizerResults
-
+        
         try {
             tokenResults = Tokenizer.Tokenize(script)
         } catch (e) {
@@ -79,7 +82,10 @@ async function Main() {
             ncp.copy(finalOutput)
             print("Copied output to clipboard")
         }
-    }   
+    } 
+    else if (values.server) {
+        StartServer()
+    }
 }
 
 await Main()

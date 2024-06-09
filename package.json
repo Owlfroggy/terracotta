@@ -11,6 +11,8 @@
     "@types/bun": "^1.1.2",
     "bun": "^1.1.8",
     "copy-paste": "^1.5.3",
-    "fflate": "^0.8.2"
+    "fflate": "^0.8.2",
+    "vscode-jsonrpc": "^8.2.1",
+    "vscode-languageserver": "^9.0.1"
   }
 }
