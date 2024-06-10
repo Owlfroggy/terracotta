@@ -438,7 +438,8 @@ export class CodeContext {
 }
 
 export enum ContextType {
-    "General"
+    "General",
+    "DomainMethod",
 }
 
 export interface TokenizeMode {
@@ -463,8 +464,11 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
     //==========[ helper functions ]=========\\
 
-    function OfferContext(currentIndex: number, type: ContextType, data: Dict<any> | undefined = undefined) {
+    function OfferContext(currentIndex: number, type: ContextType, data: Dict<any> = {}) {
         if (mode.mode != "getContext") { return }
+        currentIndex += cu.GetWhitespaceAmount(currentIndex) + 1
+        currentIndex += cu.GetIdentifier(currentIndex,true)[1].length
+        data.indx = currentIndex
         //@ts-ignore SHUDDUP!!
         if (currentIndex >= mode.contextTestPosition) {
             //utilizing error throwing to stop parsing and send the context up 
@@ -1562,6 +1566,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //move to the accessor
         index += 1 + cu.GetWhitespaceAmount(index)
+        
+        OfferContext(index,ContextType.DomainMethod,{"domain":domainResults[1]})
 
         //= parse action =\\
         let actionResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)

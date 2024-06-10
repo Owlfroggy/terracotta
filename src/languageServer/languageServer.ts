@@ -1,6 +1,6 @@
 import * as rpc from "vscode-jsonrpc/node"
 import * as domains from "../util/domains"
-import { CompletionItem, CompletionList, CompletionRegistrationOptions, InitializeResult, MessageType, TextDocumentSyncKind } from "vscode-languageserver";
+import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, InitializeResult, MarkupContent, MarkupKind, MessageType, TextDocumentSyncKind } from "vscode-languageserver";
 import { CodeContext, ContextType, Tokenize } from "../tokenizer/tokenizer";
 import { DocumentTracker } from "./documentTracker";
 
@@ -23,7 +23,8 @@ function getDomainKeywords() {
     let result: CompletionItem[] = []
     for (const [id, domain] of Object.entries(domains.PublicDomains)) {
         let item: CompletionItem = {
-            "label": id
+            "label": id,
+            "commitCharacters": [":",".","?"]
         }
         result.push(item)
     }
@@ -55,7 +56,8 @@ export function StartServer() {
                 textDocumentSync: TextDocumentSyncKind.Full,
                 // Tell the client that this server supports code completion.
                 completionProvider: {
-                    resolveProvider: true
+                    resolveProvider: true,
+                    triggerCharacters: [":"],
                 }
             }
         }
@@ -85,6 +87,17 @@ export function StartServer() {
         
         if (context.Type == ContextType.General) {
             items.push(headerKeywords,variableScopeKeywords,genericKeywords,getDomainKeywords())
+        }
+        else if (context.Type == ContextType.DomainMethod) {
+            let domain = domains.DomainList[context.Data.domain]!
+            for (const [tcName, action] of Object.entries(domain.Actions)) {
+                let item: CompletionItem = {
+                    "label": tcName,
+                    "kind": CompletionItemKind.Method,
+                    "commitCharacters": [";","("]
+                }
+                items.push(item)
+            }
         }
 
         items = items.flat()
