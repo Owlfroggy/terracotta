@@ -1,5 +1,6 @@
 import * as rpc from "vscode-jsonrpc/node"
 import * as domains from "../util/domains"
+import * as AD from "../util/actionDump"
 import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, InitializeResult, MarkupContent, MarkupKind, MessageType, TextDocumentSyncKind } from "vscode-languageserver";
 import { CodeContext, ContextType, Tokenize } from "../tokenizer/tokenizer";
 import { DocumentTracker } from "./documentTracker";
@@ -101,6 +102,18 @@ export function StartServer() {
         }
         else if (context.Type == ContextType.String) {
             // no autocomplete entries
+        }
+        else if (context.Type == ContextType.EventDeclaration) {
+            let eventType = context.Data.type!
+            showText(eventType)
+            for (const [dfName, action] of Object.entries(AD.DFActionMap[`${eventType == "player" ? '' : 'entity_'}event`]!)) {
+                let item: CompletionItem = {
+                    "label": dfName,
+                    "kind": CompletionItemKind.Function,
+                    "commitCharacters": [";"]
+                }
+                items.push(item)
+            }
         }
 
         items = items.flat()

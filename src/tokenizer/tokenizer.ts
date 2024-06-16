@@ -441,6 +441,11 @@ export enum ContextType {
     "String",
     "General",
     "DomainMethod",
+
+    /*data: {
+        type: "player" | "entity"
+    }*/
+    "EventDeclaration"
 }
 
 export interface TokenizeMode {
