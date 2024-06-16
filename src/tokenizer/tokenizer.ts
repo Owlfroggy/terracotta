@@ -1041,7 +1041,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         for (const length of lengthList) {
             let operatorString = cu.GetNextCharacters(index, length)
 
-            if (validOperators.has(operatorString)) {
+            if (validOperators.includes(operatorString)) {
                 return [index + length, new OperatorToken([index + 1,index+length],operatorString)]
             }
         }
