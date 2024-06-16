@@ -438,6 +438,7 @@ export class CodeContext {
 }
 
 export enum ContextType {
+    "String",
     "General",
     "DomainMethod",
 }
@@ -493,6 +494,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             let nextChunk = cu.GetCharactersUntil(index + 1, ["\n", "\\", "&", closingChar], true)[1]
             string += nextChunk
             index += nextChunk.length
+
+            OfferContext(index,ContextType.String)
 
             //if chunk stopp due to a backslash
             if (SCRIPT_CONTENTS[index + 1] == "\\") {

@@ -99,6 +99,9 @@ export function StartServer() {
                 items.push(item)
             }
         }
+        else if (context.Type == ContextType.String) {
+            // no autocomplete entries
+        }
 
         items = items.flat()
 
