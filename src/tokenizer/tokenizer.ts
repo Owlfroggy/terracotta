@@ -450,6 +450,11 @@ export enum ContextType {
     "DomainCondition",
 
     /*data: {
+        type: "select" | "filter"
+    }*/
+    "SelectionAction",
+
+    /*data: {
         type: "player" | "entity"
     }*/
     "EventDeclaration"
@@ -2124,6 +2129,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         index = keywordResults[0]
         let actionInitIndex = index + cu.GetWhitespaceAmount(index) + 1 //used for errors
 
+        OfferContext(index,ContextType.SelectionAction,{"type": keywordResults[1]})
+
         let actionResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
         let action = actionResults[1]
         //error for no action given
@@ -2143,6 +2150,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //parse condition (if applicable)
         if (action == "PlayersByCondition" || action == "EntitiesByCondition" || action == "ByCondition") {
+            OfferContext(index,ContextType.General,{"addons":{"genericDomains":"true"}})
             //parse expression
             let expressionResults = ParseExpression(index,[";"],false,["comparisons","genericTargetComparisons"])
             if (expressionResults == null) { 

@@ -4,8 +4,9 @@ import * as AD from "../util/actionDump"
 import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, InitializeResult, MarkupContent, MarkupKind, MessageType, TextDocumentSyncKind } from "vscode-languageserver";
 import { CodeContext, ContextType, Tokenize } from "../tokenizer/tokenizer";
 import { DocumentTracker } from "./documentTracker";
+import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS } from "../util/constants";
 
-function generateCompletionMap(entries: (string)[]): CompletionItem[] {
+function generateCompletions(entries: (string)[]): CompletionItem[] {
     let result: CompletionItem[] = []
     for (const v of entries) {
         let item: CompletionItem = {
@@ -16,9 +17,10 @@ function generateCompletionMap(entries: (string)[]): CompletionItem[] {
     return result
 }
 
-const headerKeywords = generateCompletionMap(["LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM"])
-const genericKeywords = generateCompletionMap(["if","else","repeat","in","to","on","not","while","break","continue","return","returnmult","wait","endthread","select","filter","optional","plural"])
-const variableScopeKeywords = generateCompletionMap(["local","saved","global","line"])
+const headerKeywords = generateCompletions(["LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM"])
+const genericKeywords = generateCompletions(["if","else","repeat","in","to","on","not","while","break","continue","return","returnmult","wait","endthread","select","filter","optional","plural"])
+const variableScopeKeywords = generateCompletions(["local","saved","global","line"])
+const genericDomains = generateCompletions(["player","entity"])
 
 function getDomainKeywords() {
     let result: CompletionItem[] = []
@@ -80,9 +82,7 @@ export function StartServer() {
         }
 
 
-        showText(`EChar: ${index}:'${script[index]} | ${JSON.stringify(param)} | "${script}" | ${line}`)
         let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": index}) as CodeContext
-        showText(`Char: ${index}:'${script[index]}'\nContext: ${JSON.stringify(context)}`)
 
         let items: any[] = []
         
@@ -131,7 +131,6 @@ export function StartServer() {
         }
         else if (context.Type == ContextType.EventDeclaration) {
             let eventType = context.Data.type!
-            showText(eventType)
             for (const [dfName, action] of Object.entries(AD.DFActionMap[`${eventType == "player" ? '' : 'entity_'}event`]!)) {
                 let item: CompletionItem = {
                     "label": dfName,
@@ -140,6 +139,21 @@ export function StartServer() {
                 }
                 items.push(item)
             }
+        }
+        else if (context.Type == ContextType.SelectionAction) {
+            let actionType = context.Data.type!
+            for (const dfName of actionType == "select" ? CREATE_SELECTION_ACTIONS : FILTER_SELECTION_ACTIONS) {
+                let item: CompletionItem = {
+                    "label": AD.DFActionMap.select_obj![dfName]!.TCId,
+                    "kind": CompletionItemKind.Function,
+                    "commitCharacters": ["(",";"]
+                }
+                items.push(item)
+            }
+        }
+
+        if (context.Data.addons) {
+            if (context.Data.addons.genericDomains) { items.push(genericDomains) }
         }
 
         items = items.flat()
