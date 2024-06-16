@@ -36,10 +36,10 @@ export const DF_TYPE_MAP = {
 
 //==========[ keywords ]=========\\
 //keywords that will trigger control block parsing if encountered
-export const VALID_CONTROL_KEYWORDS = new Set(["break","continue","return","returnmult","wait","endthread"])
+export const VALID_CONTROL_KEYWORDS = ["break","continue","return","returnmult","wait","endthread"]
 
 //keywords that are valid in a parameter's modifier list
-export const VALID_PARAM_MODIFIERS = new Set(["plural","optional"])
+export const VALID_PARAM_MODIFIERS = ["plural","optional"]
 
 //key: keywords that trigger variable parsing in terracotta
 //value: the corresponding df scope id
@@ -51,36 +51,36 @@ export const VALID_VAR_SCOPES = {
 }
 
 //keywords that if placed on their own at the top of a file will be parsed as a header
-export const VALID_HEADER_KEYWORDS = new Set(["LAGSLAYER_CANCEL"])
+export const VALID_HEADER_KEYWORDS = ["LAGSLAYER_CANCEL"]
 
 //keywords that are valid line starter blocks
-export const VALID_LINE_STARTERS = new Set(["PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION"])
+export const VALID_LINE_STARTERS = ["PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION"]
 
 //operators that can be used to assign a value to a variable
-export const VALID_ASSIGNMENT_OPERATORS = new Set(["=", "+=", "-=", "*=", "/=", "%="])
+export const VALID_ASSIGNMENT_OPERATORS = ["=", "+=", "-=", "*=", "/=", "%="]
 
 //operators that can be used in expressions
-export const VALID_MATH_OPERATORS = new Set(["+", "-", "*", "/", "^", "%"])
+export const VALID_MATH_OPERATORS = ["+", "-", "*", "/", "^", "%"]
 
 //operators that do comparisons
-export const VALID_COMPARISON_OPERATORS = new Set(["==", "!=", "<", ">", "<=", ">="])
+export const VALID_COMPARISON_OPERATORS = ["==", "!=", "<", ">", "<=", ">="]
 
 //==========[ misc ]=========\\
 
 //game values that cannot be applied to entities
-export const PLAYER_ONLY_GAME_VALUES = new Set(["Food Level","Food Saturation","Food Exhaustion","Attack Damage","Attack Speed","Attack Cooldown","Attack Cooldown Ticks","Experience Level","Experience Progress","Held Slot","Ping","Steer Sideways Movement","Steer Forward Movement","Hotbar Items","Inventory Items","Cursor Item","Inventory Menu Items","Game Mode","Open Inventory Title"])
+export const PLAYER_ONLY_GAME_VALUES = ["Food Level","Food Saturation","Food Exhaustion","Attack Damage","Attack Speed","Attack Cooldown","Attack Cooldown Ticks","Experience Level","Experience Progress","Held Slot","Ping","Steer Sideways Movement","Steer Forward Movement","Hotbar Items","Inventory Items","Cursor Item","Inventory Menu Items","Game Mode","Open Inventory Title"]
 
 //==========[ domain lists ]=========\\
 
 //controls which select actions go with the create keyword
 //! IF A SELECTION ACTION ISN'T PRESENT IN THESE TABLES IT WON'T BE ACCESSIBLE AT ALL !
 //df id
-export const CREATE_SELECTION_ACTIONS = new Set(["RandomPlayer","LastEntity","EntityName","PlayerName","AllEntities","Reset","EventTarget","EntitiesCond","AllPlayers","Invert","PlayersCond"])
+export const CREATE_SELECTION_ACTIONS = ["RandomPlayer","LastEntity","EntityName","PlayerName","AllEntities","Reset","EventTarget","EntitiesCond","AllPlayers","Invert","PlayersCond"]
 
 //controls which select actions go with the filter keyword
 //! IF A SELECTION ACTION ISN'T PRESENT IN THESE TABLES IT WON'T BE ACCESSIBLE AT ALL !
 //df id
-export const FILTER_SELECTION_ACTIONS = new Set(["FilterRandom","FilterDistance","FilterRay","FilterCondition","FilterSort"])
+export const FILTER_SELECTION_ACTIONS = ["FilterRandom","FilterDistance","FilterRay","FilterCondition","FilterSort"]
 
 //controls which set var actions go into which domains
 //! IF A SET_VAR ACTION ISN'T PRESENT IN THIS TABLE IT WON'T BE ACCESSIBLE AT ALL !

@@ -1160,7 +1160,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //get keyword
         let identifierResults = cu.GetIdentifier(index)
-        if (identifierResults != null && !VALID_CONTROL_KEYWORDS.has(identifierResults[1])) {
+        if (identifierResults != null && !VALID_CONTROL_KEYWORDS.includes(identifierResults[1])) {
             return null
         }
 
@@ -1983,7 +1983,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     function ParseKeywordHeaderToken(index): [number, KeywordHeaderToken] | null {
         index += cu.GetWhitespaceAmount(index) + 1
         let identifierResults = cu.GetIdentifier(index)
-        if (VALID_HEADER_KEYWORDS.has(identifierResults[1])) {
+        if (VALID_HEADER_KEYWORDS.includes(identifierResults[1])) {
             //if valid keyword
             return [identifierResults[0],new KeywordHeaderToken([index,identifierResults[0]],identifierResults[1])]
         } else {
@@ -1998,7 +1998,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         
         //make sure its the right header typre
         let identifierResults = cu.GetIdentifier(index)
-        if (identifierResults == null || !VALID_LINE_STARTERS.has(identifierResults[1])) { return null }
+        if (identifierResults == null || !VALID_LINE_STARTERS.includes(identifierResults[1])) { return null }
         index = identifierResults[0]
 
         OfferContext(index,ContextType.EventDeclaration,{"type": identifierResults[1] == "PLAYER_EVENT" ? "player" : "entity"})
@@ -2052,7 +2052,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             //yet another modifier
             } else {
                 //error for invalid modifier
-                if (!VALID_PARAM_MODIFIERS.has(identifierResults[1])) {
+                if (!VALID_PARAM_MODIFIERS.includes(identifierResults[1])) {
                     throw new TCError(`Invalid param modifier: ${identifierResults[1]}`,0,modInitIndex,identifierResults[0])
                 }
 
@@ -2135,7 +2135,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let actionData = AD.TCActionMap.select_obj![action]!
 
         //error for invalid action
-        if (!actionData || !(keyword == "select" ? CREATE_SELECTION_ACTIONS : FILTER_SELECTION_ACTIONS).has(actionData.DFId)) {
+        if (!actionData || !(keyword == "select" ? CREATE_SELECTION_ACTIONS : FILTER_SELECTION_ACTIONS).includes(actionData.DFId)) {
             throw new TCError(`Invalid select action: '${action}'`,0,index + cu.GetWhitespaceAmount(index) + 1, actionResults[0])
         }
 
@@ -2375,7 +2375,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 let operation = CurrentLine[1].Operator
                 //<variable> =
                 //must be followed by an expression
-                if (VALID_ASSIGNMENT_OPERATORS.has(operation)) {
+                if (VALID_ASSIGNMENT_OPERATORS.includes(operation)) {
                     //parse expression
                     let expressionResults = ParseExpression(CharIndex, [";"], false)
                     if (expressionResults) {

@@ -223,7 +223,7 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
         DFTargetedGameValues[value.DFId] = value
         TCTargetedGameValues[value.TCId] = value
     }
-    if (!PLAYER_ONLY_GAME_VALUES.has(value.DFId)) {
+    if (!PLAYER_ONLY_GAME_VALUES.includes(value.DFId)) {
         DFEntityGameValues[value.DFId] = value
         TCEntityGameValues[value.TCId] = value
     }
