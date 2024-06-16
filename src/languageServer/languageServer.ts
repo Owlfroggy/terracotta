@@ -58,7 +58,7 @@ export function StartServer() {
                 // Tell the client that this server supports code completion.
                 completionProvider: {
                     resolveProvider: true,
-                    triggerCharacters: [":"],
+                    triggerCharacters: [":","."],
                 }
             }
         }
@@ -98,6 +98,19 @@ export function StartServer() {
                     "commitCharacters": [";","("]
                 }
                 items.push(item)
+            }
+        }
+        else if (context.Type == ContextType.DomainValue) {
+            let domain = domains.DomainList[context.Data.domain]!
+            if (domain.SupportsGameValues) {
+                for (const [tcName, action] of Object.entries(domain.Values)) {
+                    let item: CompletionItem = {
+                        "label": tcName,
+                        "kind": CompletionItemKind.Value,
+                        "commitCharacters": [";"]
+                    }
+                    items.push(item)
+                }
             }
         }
         else if (context.Type == ContextType.String) {

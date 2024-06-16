@@ -440,7 +440,13 @@ export class CodeContext {
 export enum ContextType {
     "String",
     "General",
+
+    /*data for the domain contexts: {
+        //domain name
+        domain: string
+    }*/
     "DomainMethod",
+    "DomainValue",
 
     /*data: {
         type: "player" | "entity"
@@ -1716,6 +1722,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //move to the accessor
         index += 1 + cu.GetWhitespaceAmount(index)
 
+        OfferContext(index,ContextType.DomainValue,{"domain":domainResults[1]})
+
         //= parse value =\\
         let valueResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
         //error for missing action
@@ -1983,8 +1991,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     }
 
     //functiosn and processes also use this
-    
-
     function ParseEventHeader(index: number): [number, EventHeaderToken] | null {
         index += cu.GetWhitespaceAmount(index) + 1
         let initIndex = index
@@ -1993,6 +1999,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let identifierResults = cu.GetIdentifier(index)
         if (identifierResults == null || !VALID_LINE_STARTERS.has(identifierResults[1])) { return null }
         index = identifierResults[0]
+
+        OfferContext(index,ContextType.EventDeclaration,{"type": identifierResults[1] == "PLAYER_EVENT" ? "player" : "entity"})
 
         let nameResults = GetComplexName(index)
         return [nameResults[0], new EventHeaderToken([initIndex,index],identifierResults[1],nameResults[1])]
