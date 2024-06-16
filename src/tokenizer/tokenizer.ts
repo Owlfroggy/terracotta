@@ -447,6 +447,7 @@ export enum ContextType {
     }*/
     "DomainMethod",
     "DomainValue",
+    "DomainCondition",
 
     /*data: {
         type: "player" | "entity"
@@ -1581,7 +1582,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //move to the accessor
         index += 1 + cu.GetWhitespaceAmount(index)
         
-        OfferContext(index,ContextType.DomainMethod,{"domain":domainResults[1]})
+        OfferContext(index,accessor == ":" ? ContextType.DomainMethod : ContextType.DomainCondition,{"domain":domainResults[1]})
 
         //= parse action =\\
         let actionResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
