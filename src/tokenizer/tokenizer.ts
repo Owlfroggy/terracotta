@@ -1447,7 +1447,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             //if empty tag list
             if (cu.GetNextCharacters(index, 1) == "}") {
                 index += 1 + cu.GetWhitespaceAmount(index)
-                return null
+                return [index,{}]
             } else {
                 let tagsListInitIndex = index
 

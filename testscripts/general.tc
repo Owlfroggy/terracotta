@@ -1,5 +1,7 @@
 FUNCTION awesome;
 
+default:SetRotation(){};
+
 global dingus = 5;
 global asdf = 100;
 global One = 1;
