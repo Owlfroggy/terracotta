@@ -1475,6 +1475,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //parse tag name
                     let tagNameResults = cu.GetCharactersUntil(index, ["=", "\n", "}"])
                     if (tagNameResults[1] == "") {
+                        if (cu.GetNextCharacters(tagNameResults[0],1) == "}") { break }
                         throw new TCError("Missing tag name", 3, index, index)
                     }
                     //remove trailing whitespace from tag name
