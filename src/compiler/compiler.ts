@@ -31,7 +31,7 @@ function FillMissingTags(codeblockIdentifier: string, actionDFName: string, tags
 
 function ActionNameErrorChecks(domain: Domain, action: ActionToken) {
     //error for invalid action
-    if (domain.Actions[action.Action] == undefined) {
+    if (domain[action.Type == "comparison" ? "Conditions" : "Actions"][action.Action] == undefined) {
         if (domain instanceof TargetDomain) {
             throw new TCError(`Invalid ${action.Type == "comparison" ? 'if ' : ''}${domain.ActionType} action: '${action.Action}'`, 2, action.Segments.actionName![0], action.Segments.actionName![1])
         }
