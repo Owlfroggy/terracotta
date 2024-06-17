@@ -81,13 +81,45 @@ export class MathTextCodeToken extends TextCodeToken {
 
     Expression: Token[]
 
-    //flattens out all nested %math expressions
+    //if the entire %math expression just consists of one operator, return that operator
+    //otherwise return false
+    GetIsSingleOperator(): string | false {
+        let operator: string | false = false
+
+        for (const token of this.Expression) {
+            if (token instanceof OperatorToken) {
+                if (operator == false) {
+                    operator = token.Operator
+                } else if (operator != token.Operator) {
+                    return false
+                }
+            }
+        }
+
+        return operator
+    }
+
+    //flattens out nested %math expressions where possible
+    //resulting expression will be equivalent to original (assuming variables haven't changed, it will result in the same value)
     Flatten(): MathTextCodeToken {
         let newExpression: Token[] = []
 
+        if (this.Expression.length == 1 && this.Expression[0] instanceof MathTextCodeToken) {
+            return this.Expression[0].Flatten()
+        }
+
+        //%math(  %math(%math(1+2))+1  )
+
         this.Expression.forEach(token => {
             if (token instanceof MathTextCodeToken) {
-                newExpression.push(...token.Flatten().Expression)
+                let flat = token.Flatten()
+                let singleOperator = this.GetIsSingleOperator()
+                if (flat.Expression.length == 1 || (singleOperator && flat.GetIsSingleOperator() == singleOperator && (singleOperator == "+" || singleOperator == "*"))) {
+                    newExpression.push(...flat.Expression)
+                } 
+                else {
+                    newExpression.push(flat)
+                }
             } else {
                 newExpression.push(token)
             }
@@ -95,6 +127,8 @@ export class MathTextCodeToken extends TextCodeToken {
 
         return new MathTextCodeToken([this.CharStart,this.CharEnd],newExpression)
     }
+
+    // %math{  %math(    %math(1+%math(2))     )+1  }
     
     //compiles back to a string
     Compile(): string {
@@ -208,23 +242,23 @@ export function TokenizeMath(expressionString: string): MathTextCodeToken {
 
             let results
 
-            //try number
-            if (results == null) {results = ParseNumber(index)}
+            //try nested %math
+            if (results == null) {results = ParseMath(index)}
 
             //try variable
             if (results == null) {results = ParseVariable(index)}
 
-            //try nested %math
-            if (results == null) {results = ParseMath(index)}
-
             //try operator
             if (results == null) {results = ParseOperator(index)}
+
+            //try number
+            if (results == null) {results = ParseNumber(index)}
 
             if (results) {
                 expressionTokens.push(results[1])
                 index = results[0]
             } else {
-                throw new Error(`Could not parse anything from pos ${index}`)
+                throw new Error(`Could not parse anything from pos ${index}: '${expressionString[index]}'`)
             }
         }
 
