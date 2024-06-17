@@ -29,6 +29,21 @@ function FillMissingTags(codeblockIdentifier: string, actionDFName: string, tags
     return tags
 }
 
+function ActionNameErrorChecks(domain: Domain, action: ActionToken) {
+    //error for invalid action
+    if (domain.Actions[action.Action] == undefined) {
+        if (domain instanceof TargetDomain) {
+            throw new TCError(`Invalid ${action.Type == "comparison" ? 'if ' : ''}${domain.ActionType} action: '${action.Action}'`, 2, action.Segments.actionName![0], action.Segments.actionName![1])
+        }
+        else if (domain.Identifier == "game") {
+            throw new TCError(`Invalid ${action.Type == "comparison" ? 'if ' : ''}game action: '${action.Action}'`, 2, action.Segments.actionName![0], action.Segments.actionName![1])
+        }
+        else {
+            throw new TCError(`'${domain.Identifier}' does not contain function '${action.Action}'`, 2, action.Segments.actionName![0], action.Segments.actionName![1])
+        }
+    }
+}
+
 export class CompileResults {
     Code: Array<CodeBlock>
 }
@@ -558,12 +573,21 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         else if (token instanceof LocationToken) {
             let components: Dict<any> = {}
 
+            //error for too many args
+            if (token.RawArgs.length > 5) {
+                throw new TCError(`Location takes at most 5 arguments, ${token.RawArgs.length} were provided instead`, 3, token.CharStart, token.CharEnd)
+            }
+
             for (const component of ["X","Y","Z","Pitch","Yaw"]) {
                 //defaults
                 let defaultValue = ITEM_PARAM_DEFAULTS.loc[component]
-                if (defaultValue !== undefined && !token[component]) { 
-                    components[component] = defaultValue
-                    continue
+                if (!token[component]) {
+                    if (defaultValue !== undefined) {
+                        components[component] = defaultValue
+                        continue
+                    } else { 
+                        throw new TCError(`Location is missing ${component} coordinate`,0,token.CharStart,token.CharEnd)
+                    }
                 }
 
                 let solved = solveArg(token[component],component,"num")
@@ -582,10 +606,18 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         //vector
         } else if (token instanceof VectorToken) {
             let components: Dict<any> = {}
+
+            if (token.RawArgs.length > 3) {
+                throw new TCError(`Vector takes at most 3 arguments, ${token.RawArgs.length} were provided instead`, 0, token.CharStart, token.CharEnd)
+            }
             
+            let i = 0
             for (const component of ["X","Y","Z"]) {
+                if (token.RawArgs[i] == null) { throw new TCError(`Vector is missing ${component} coordinate`, 3, token.CharStart, token.CharEnd) }
+
                 let solved = solveArg(token[component],component,"num")
                 components[component] = solved[1]
+                i++
             }
 
             if (variableComponents.length > 0) {
@@ -600,6 +632,14 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         //sound
         } else if (token instanceof SoundToken) {
             let components: Dict<any> = {}
+
+            //error handling
+            if (token.RawArgs.length > 4) {
+                throw new TCError(`Sound takes at most 4 arguments, ${token.RawArgs.length} were provided instead`, 3, token.CharStart, token.CharEnd)
+            }
+            if (token.RawArgs[0] == null) {
+                throw new TCError("Sound is missing ID", 2, token.CharStart, token.CharEnd)
+            }
 
             for (const component of ["SoundId","Volume","Pitch","Variant"]) {
                 //defaults
@@ -668,6 +708,31 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         }
         //game value
         else if (token instanceof GameValueToken) {
+            let domain: Domain = DomainList[token.Target || "game"]!
+
+            //error for invalid value
+            if (domain.Values[token.Value] == undefined) {
+                if (domain instanceof TargetDomain) {
+                    if (domain.SupportsGameValues == false) {
+                        //throw special error if this domain doesnt support game values
+                        throw new TCError(`Target '${domain.Identifier}' does not support game values`, 2, token.Segments.valueName![0], token.Segments.valueName![1])
+                        //throw special error if this gv is valid for players but not entities and the target is an entity
+                    } else if (!AD.TCEntityGameValues[token.Value] && domain.ActionType == "entity") {
+                        throw new TCError(`Invalid entity game value: '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1])
+                    } else {
+                        throw new TCError(`Invalid targeted game value: '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1])
+                    }
+                }
+                else {
+                    if (domain.Identifier == "game") {
+                        //throw special error for game game values
+                        throw new TCError(`Invalid game value: '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1])
+                    } else {
+                        throw new TCError(`'${domain.Identifier}' does not contain value '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1])
+                    }
+                }
+            }
+
             return [code, new GameValueItem([token.CharStart,token.CharEnd],
                 //DomainList[token.Target as string]!.Values[token.Value],
                 AD.TCGameValueMap[token.Value]!.DFId,
@@ -1190,6 +1255,8 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             let action = exprToken.Expression[0] as ActionToken
             let domain = DomainList[action.DomainId]!
 
+            ActionNameErrorChecks(domain,action)
+
             let codeblock = "if_var"
             if (domain instanceof TargetDomain) {
                 codeblock = domain.ActionType == "player" ? "if_player" : "if_entity"
@@ -1267,6 +1334,8 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 //convert action token to code block
                 let action = token
                 let domain: Domain = DomainList[action.DomainId]!
+                
+                ActionNameErrorChecks(domain,action)
                 
                 //arguments
                 //a temporary variable is automatically inserted as the first chest slot to get the returned value of the function
@@ -1400,7 +1469,10 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
     function SolveTags(dict: Dict<ActionTag>, codeblock: string, actionDFName: string): [CodeBlock[],TagItem[]] {
         let tags: TagItem[] = []
+        let validTags = AD.DFActionMap[codeblock]![actionDFName]!.Tags
         for (let [name, tag] of Object.entries(dict)) {
+            if (!validTags[name]) { throw new TCError(`Invalid tag name: '${name}'`,4,tag!.CharStart,tag!.CharEnd) }
+            if (!validTags[name]!.Options.includes(tag!.Value)) { throw new TCError(`Invalid tag option: '${tag!.Value}'`,4,tag!.CharStart,tag!.CharEnd) }
             tags.push(new TagItem(
                 [-1,-1],
                 name,
@@ -1561,6 +1633,8 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         if (line[0] instanceof ActionToken) {
             let action = line[0]
             let domain: Domain = DomainList[action.DomainId]!
+
+            ActionNameErrorChecks(domain,action)
             
             let args
             if (action.Params) {

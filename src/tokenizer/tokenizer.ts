@@ -21,8 +21,17 @@ export class Token {
 
     CharStart: number
     CharEnd: number
+    Segments: Dict<[number,number]> = {}
 
     itemtype: string
+}
+
+export class TypeCreationToken extends Token {
+    constructor(meta, rawArgs: any[] = []) {
+        super(meta)
+        this.RawArgs = rawArgs
+    }
+    RawArgs: any[]
 }
 
 export class VariableToken extends Token {
@@ -60,9 +69,9 @@ export class NumberToken extends Token {
 
     itemtype = "num"
 }
-export class VectorToken extends Token {
-    constructor(meta,x: ExpressionToken, y: ExpressionToken, z: ExpressionToken) {
-        super(meta)
+export class VectorToken extends TypeCreationToken {
+    constructor(meta,x: ExpressionToken, y: ExpressionToken, z: ExpressionToken, rawArgs: any[]) {
+        super(meta, rawArgs)
         this.X = x
         this.Y = y
         this.Z = z
@@ -83,9 +92,9 @@ export class TextToken extends Token {
 
     itemtype = "txt"
 }
-export class SoundToken extends Token {
-    constructor(meta,id: ExpressionToken, volume: ExpressionToken | null, pitch: ExpressionToken | null, variant: ExpressionToken | null, isCustom: boolean) {
-        super(meta)
+export class SoundToken extends TypeCreationToken {
+    constructor(meta,id: ExpressionToken, volume: ExpressionToken | null, pitch: ExpressionToken | null, variant: ExpressionToken | null, isCustom: boolean, rawArgs: any[]) {
+        super(meta,rawArgs)
         this.SoundId = id
         this.Volume = volume
         this.Pitch = pitch
@@ -102,9 +111,9 @@ export class SoundToken extends Token {
 
     itemtype = "snd"
 }
-export class LocationToken extends Token {
-    constructor(meta,x: ExpressionToken, y: ExpressionToken, z: ExpressionToken, pitch: ExpressionToken | null = null, yaw: ExpressionToken | null = null) {
-        super(meta)
+export class LocationToken extends TypeCreationToken {
+    constructor(meta,x: ExpressionToken, y: ExpressionToken, z: ExpressionToken, pitch: ExpressionToken | null = null, yaw: ExpressionToken | null = null, rawArgs: any[]) {
+        super(meta,rawArgs)
         this.X = x
         this.Y = y
         this.Z = z
@@ -120,9 +129,9 @@ export class LocationToken extends Token {
 
     itemtype = "loc"
 }
-export class PotionToken extends Token {
-    constructor(meta,pot: ExpressionToken, amp: ExpressionToken | null, dur: ExpressionToken | null) {
-        super(meta)
+export class PotionToken extends TypeCreationToken {
+    constructor(meta,pot: ExpressionToken, amp: ExpressionToken | null, dur: ExpressionToken | null, rawArgs: any[]) {
+        super(meta,rawArgs)
         this.Potion = pot
         this.Amplifier = amp
         this.Duration = dur
@@ -134,9 +143,9 @@ export class PotionToken extends Token {
 
     itemtype = "pot"
 }
-export class ItemToken extends Token {
-    constructor(meta,id: ExpressionToken, count: ExpressionToken | null = null, nbt: ExpressionToken | undefined, library: ExpressionToken | undefined) {
-        super(meta)
+export class ItemToken extends TypeCreationToken {
+    constructor(meta,id: ExpressionToken, count: ExpressionToken | null = null, nbt: ExpressionToken | undefined, library: ExpressionToken | undefined, rawArgs: any[]) {
+        super(meta, rawArgs)
         this.Id = id
         this.Count = count
         this.Nbt = nbt
@@ -291,17 +300,23 @@ export class BracketToken extends Token {
 
 //= Action =\\
 export class ActionTag {
-    constructor(name: string, value: string, variable: VariableToken | null = null) {
+    constructor(name: string, value: string, variable: VariableToken | null = null, charStart: number = -1, charEnd: number = -1) {
         this.Name = name
         this.Value = value
         this.Variable = variable
+        this.CharStart = charStart
+        this.CharEnd = charEnd
     }
 
     Name: string
     Value: string
     Variable: VariableToken | null
+
+    CharStart: number
+    CharEnd: number
 }
 
+//possible segments: "actionName"
 export class ActionToken extends Token {
     constructor(meta,domain: string, action: string, params: ListToken | null = null, isComparison: boolean = false, tags: Dict<ActionTag> = {}) {
         super(meta)
@@ -310,6 +325,9 @@ export class ActionToken extends Token {
         this.Params = params
         this.Tags = tags
         if (isComparison) { this.Type = "comparison" }
+        if (meta[2] != null && meta[3] != null) {
+            this.Segments.actionName = [meta[2],meta[3]]
+        }
     }
 
     Params: ListToken | null
@@ -332,11 +350,16 @@ export class CallToken extends Token {
     Arguments: ListToken | null
     Tags: Dict<ActionTag> | null
 }
+
+//possible segments: "valueName"
 export class GameValueToken extends Token {
     constructor(meta,gameValue: string, target: string | null) {
         super(meta)
         this.Value = gameValue
         this.Target = target
+        if (meta[2] && meta[3]) {
+            this.Segments.valueName = [meta[2],meta[3]]
+        }
     }
 
     Value: string
@@ -590,7 +613,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             //get name of variable
             let variableNameResults = cu.GetIdentifier(index)
             if (variableNameResults == null || variableNameResults[1] == "") {
-                throw new TCError(`Expected name'`, 2, index,-1)
+                throw new TCError(`Expected name`, 2, index,-1)
             }
 
             return [variableNameResults[0], variableNameResults[1]]
@@ -782,26 +805,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
         let args = argResults[1].Items
 
-        //error for too many args
-        if (args.length > 3) {
-            throw new TCError(`Vector takes at most 3 arguments, ${args.length} were provided instead`, 3, keywordInitIndex, argResults[0])
-        }
-
-        //error for missing args
-        if (args[0] == null) {
-            throw new TCError("Vector is missing X coordinate", 2, keywordInitIndex, argResults[0])
-        }
-
-        if (args[1] == null) {
-            throw new TCError("Vector is missing Y coordinate", 2, keywordInitIndex, argResults[0])
-        }
-
-        if (args[2] == null) {
-            throw new TCError("Vector is missing Z coordinate", 2, keywordInitIndex, argResults[0])
-        }
-
         //successful vector creation
-        return [argResults[0], new VectorToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2])]
+        return [argResults[0], new VectorToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2],args)]
     }
 
     //= Minimessage Text =\\
@@ -857,18 +862,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         let args = argResults[1].Items
 
-        //error for too many args
-        if (args.length > 4) {
-            throw new TCError(`Sound takes at most 4 arguments, ${args.length} were provided instead`, 3, keywordInitIndex, argResults[0])
-        }
-
-        //error for missing args
-        if (args[0] == null) {
-            throw new TCError("Sound is missing ID", 2, keywordInitIndex, argResults[0])
-        }
-
         //successful sound creation
-        return [argResults[0], new SoundToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], args[3],isCustom)]
+        return [argResults[0], new SoundToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], args[3],isCustom,args)]
     }
 
 
@@ -898,26 +893,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
         let args = argResults[1].Items
 
-        //error for too many args
-        if (args.length > 5) {
-            throw new TCError(`Location takes at most 5 arguments, ${args.length} were provided instead`, 3, keywordInitIndex, argResults[0])
-        }
-
-        //error for missing args
-        if (args[0] == null) {
-            throw new TCError("Location is missing X coordinate", 2, keywordInitIndex, argResults[0])
-        }
-
-        if (args[1] == null) {
-            throw new TCError("Location is missing Y coordinate", 2, keywordInitIndex, argResults[0])
-        }
-
-        if (args[2] == null) {
-            throw new TCError("Location is missing Z coordinate", 2, keywordInitIndex, argResults[0])
-        }
-
         //successful location creation
-        return [argResults[0], new LocationToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], args[3], args[4])]
+        return [argResults[0], new LocationToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], args[3], args[4],args)]
     }
 
     //= Potions =\\
@@ -943,7 +920,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
         let args = argResults[1].Items
 
-        return [argResults[0],new PotionToken([keywordInitIndex,argResults[0]],args[0],args[1],args[2])]
+        return [argResults[0],new PotionToken([keywordInitIndex,argResults[0]],args[0],args[1],args[2],args)]
     }
 
     //= Items =\\
@@ -973,13 +950,13 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //basic item
         if (identifierResults[1] == "item") {
-            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], undefined)]
+            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], undefined, args)]
             //library item
         } else if (identifierResults[1] == "litem") {
-            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[1],args[2],undefined,args[0])]
+            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[1],args[2],undefined,args[0], args)]
         }
 
-        return [argResults[0],new ItemToken([keywordInitIndex,argResults[0]],args[0],args[1],args[2],args[3])]
+        return [argResults[0],new ItemToken([keywordInitIndex,argResults[0]],args[0],args[1],args[2],args[3],args)]
     }
 
     //= List/Dictionary Indexer =\\
@@ -1471,6 +1448,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     OfferContext(index,ContextType.ActionTagName,{"validTags":Object.keys(validTags)})
                     //move to first character of tag name
                     index += 1 + cu.GetWhitespaceAmount(index)
+                    let tagInitIndex = index
 
                     //parse tag name
                     let tagNameResults = cu.GetCharactersUntil(index, ["=", "\n", "}"])
@@ -1480,11 +1458,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     }
                     //remove trailing whitespace from tag name
                     let tagName = tagNameResults[1].trim()
-
-                    //error if invalid tag name
-                    if (validTags[tagName] == undefined) {
-                        throw new TCError(`Invalid tag name: '${tagName}'`, 4, index, index + tagName.length - 1)
-                    }
 
                     //move to end of tag name
                     index = tagNameResults[0]
@@ -1497,7 +1470,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //move to :
                     index += 1 + cu.GetWhitespaceAmount(index)
 
-                    OfferContext(index,ContextType.ActionTagValue,{"validValues":validTags[tagName]!.Options,"canHaveVariable":true})
+                    OfferContext(index,ContextType.ActionTagValue,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":true})
 
                     //parse variable
                     let variableResults = ParseVariable(index)
@@ -1517,7 +1490,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         //move to ?
                         index += 1 + cu.GetWhitespaceAmount(index)
 
-                        OfferContext(index,ContextType.ActionTagValue,{"validValues":validTags[tagName]!.Options,"canHaveVariable":false})
+                        OfferContext(index,ContextType.ActionTagValue,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":false})
                     }
                     let lastCharIndex = index
 
@@ -1538,11 +1511,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //remove trailing whitespace from tag value
                     let tagValue = tagValueResults[1].trim()
 
-                    //error if invalid tag value
-                    if (!validTags[tagName]!.Options.includes(tagValue)) {
-                        throw new TCError(`Invalid tag value: '${tagValue}'`, 8, index, index + tagValue.length - 1)
-                    }
-
                     //move to end of tag value
                     index = tagValueResults[0]
 
@@ -1551,11 +1519,11 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         throw new TCError("Tags list never closed", 5, tagsListInitIndex, cu.GetLineEnd(index) - 1)
                     }
 
+                    //add to tag list
+                    tags[tagName] = new ActionTag(tagName, tagValue, variable, tagInitIndex, index)
+
                     //move to next character (, or >)
                     index += 1 + cu.GetWhitespaceAmount(index)
-
-                    //add to tag list
-                    tags[tagName] = new ActionTag(tagName, tagValue, variable)
                 }
 
                 return [index,tags]
@@ -1612,30 +1580,18 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         OfferContext(index,accessor == ":" ? ContextType.DomainMethod : ContextType.DomainCondition,{"domain":domainResults[1]})
 
         //= parse action =\\
-        let actionResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
+        let actionNameInitIndex = index + cu.GetWhitespaceAmount(index) + 1
+        let actionResults = cu.GetIdentifier(actionNameInitIndex)
         //error for missing action
         if (actionResults == null || actionResults[1] == "") {
             if (domain instanceof TargetDomain) {
-                throw new TCError(`Expected name for ${domain.ActionType} action`, 1, initIndex + 1, index)
+                throw new TCError(`Expected name for ${domain.ActionType} action`, 1, initIndex, index)
             }
             else {
                 throw new TCError(`Expected function name`, 1, initIndex + 1, index)
             }
         }
-
-        //error for invalid action
-        if (actions[actionResults[1]] == undefined) {
-            if (domain instanceof TargetDomain) {
-                throw new TCError(`Invalid ${isComparison == true ? 'if ' : ''}${domain.ActionType} action: '${actionResults[1]}'`, 2, index + cu.GetWhitespaceAmount(index) + 1, actionResults[0])
-            }
-            else if (domain.Identifier == "game") {
-                throw new TCError(`Invalid ${isComparison == true ? 'if ' : ''}game action: '${actionResults[1]}'`, 2, index + cu.GetWhitespaceAmount(index) + 1, actionResults[0])
-            }
-            else {
-                throw new TCError(`'${domain.Identifier}' does not contain function '${actionResults[1]}'`, 2, index + cu.GetWhitespaceAmount(index) + 1, actionResults[0])
-            }
-        }
-
+        
         //move to the end of the action name
         index = actionResults[0]
 
@@ -1650,14 +1606,13 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             params = new ListToken([listInitIndex,-1],[])
         }
 
-        let tagResults = ParseTags(index,actions[actionResults[1]]!.Tags)
         let tags
+        let tagResults = ParseTags(index, actions[actionResults[1]] != undefined ? actions[actionResults[1]]!.Tags : {})
         if (tagResults != null) {
             tags = tagResults[1]
             index = tagResults[0]
         }
-
-        return [index, new ActionToken([initIndex,index],domain.Identifier, actionResults[1], params, isComparison, tags!)]
+        return [index, new ActionToken([initIndex,index,actionNameInitIndex,actionResults[0]],domain.Identifier, actionResults[1], params, isComparison, tags!)]
     }
 
     //= Call function/start process =\\
@@ -1753,7 +1708,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         OfferContext(index,ContextType.DomainValue,{"domain":domainResults[1]})
 
         //= parse value =\\
-        let valueResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
+        let valueInitIndex = index + cu.GetWhitespaceAmount(index) + 1
+        let valueResults = cu.GetIdentifier(valueInitIndex)
         //error for missing action
         if (valueResults == null || valueResults[1] == "") {
             if (domain instanceof TargetDomain) {
@@ -1764,34 +1720,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
         }
 
-        //error for invalid value
-        if (domain.Values[valueResults[1]] == undefined) {
-            if (domain instanceof TargetDomain) {
-                if (domain.SupportsGameValues == false) {
-                    //throw special error if this domain doesnt support game values
-                    throw new TCError(`Target '${domain.Identifier}' does not support game values`, 2, index + cu.GetWhitespaceAmount(index) + 1, valueResults[0])
-                //throw special error if this gv is valid for players but not entities and the target is an entity
-                } else if (!AD.TCEntityGameValues[valueResults[1]] && domain.ActionType == "entity") {
-                    throw new TCError(`Invalid entity game value: '${valueResults[1]}'`, 2, index + cu.GetWhitespaceAmount(index) + 1, valueResults[0])
-                } else {
-                    throw new TCError(`Invalid targeted game value: '${valueResults[1]}'`, 2, index + cu.GetWhitespaceAmount(index) + 1, valueResults[0])
-                }
-            }
-            else {
-                if (domain.Identifier == "game") {
-                    //throw special error for game game values
-                    print(valueResults[1],domain.Values)
-                    throw new TCError(`Invalid game value: '${valueResults[1]}'`, 2, index + cu.GetWhitespaceAmount(index) + 1, valueResults[0])
-                } else {
-                    throw new TCError(`'${domain.Identifier}' does not contain value '${valueResults[1]}'`, 2, index + cu.GetWhitespaceAmount(index) + 1, valueResults[0])
-                }
-            }
-        }
-
         //move to the end of the action name
         index = valueResults[0]
 
-        return [index, new GameValueToken([initIndex,index],valueResults[1], domain.Identifier)]
+        return [index, new GameValueToken([initIndex,index,valueInitIndex,index],valueResults[1], domain.Identifier)]
     }
 
     //= Type override thingy =\\
