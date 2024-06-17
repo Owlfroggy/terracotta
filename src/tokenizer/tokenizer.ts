@@ -1079,7 +1079,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             let keyInitIndex = index + cu.GetWhitespaceAmount(index) + 1 //used for errors
             let keyResults = ParseExpression(index,[closingChar,assignmentChar],false)
             //if empty dictionary, stop
-            if (keyResults == null) { break }
+            if (keyResults == null) { 
+                index += cu.GetWhitespaceAmount(index) + 1
+                break 
+            }
             //move to end of key
             index = keyResults[0]
             //add to key list
