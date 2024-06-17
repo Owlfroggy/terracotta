@@ -1984,6 +1984,23 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
     //the order they appear in the array is the order they will be executed
     let codeIndex = -1
     const OptimizationPasses = [
+        // Clean up %math expressions \\
+        function (block: CodeBlock) {
+            if (!(block instanceof ActionBlock)) { return }
+
+            block.Arguments.forEach(item => {
+                if (!(item instanceof NumberItem)) { return }
+
+                let value = (item as NumberItem).Value
+                let mathExpression: TextCode.MathTextCodeToken
+                try {
+                    mathExpression = TextCode.TokenizeMath(value)
+                    item.Value = mathExpression.Flatten().Compile()
+                } catch {}
+            });
+        },
+
+
         // Condense to incrementer \\
         function(block: CodeBlock, nextBlock: CodeBlock) {
             //require this block to be action with arguments
@@ -1996,17 +2013,19 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             if (block.Action == "+" && nextBlock.Action == "=") {
                 let thisTempVar = block.Arguments[0] as VariableItem 
                 let nextTempVar = nextBlock.Arguments[1] as VariableItem
-
                 //require this block and next block to both use the same temp var
                 if (nextTempVar.Name != thisTempVar.Name) { return }
                 
                 //remove temp var from + block
                 block.Arguments.shift()
 
-                //remove = block
-                CodeLine.splice(codeIndex + 1, 1)
+                //replace temp var in = block with this block's contents
+                nextBlock.Arguments.splice(1,1,...block.Arguments)
 
-                block.Action = "+="
+                //remove + block
+                CodeLine.splice(codeIndex, 1)
+
+                nextBlock.Action = "+="
                 codeIndex -= 2
             } 
             else if (block.Action == "+" && nextBlock.Action == "+=") {
@@ -2097,24 +2116,6 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         //##########################################################################\\
         //#### NO CODE OPTIMIZATIONS THAT ADD/REMOVE CODEBLOCKS PAST THIS POINT ####\\
         //##########################################################################\\
-
-        // REMOVE NOW UNUSED TEMP VARS HERE \\
-
-        // Clean up %math expressions \\
-        function (block: CodeBlock) {
-            if (!(block instanceof ActionBlock)) { return }
-
-            block.Arguments.forEach(item => {
-                if (!(item instanceof NumberItem)) { return }
-
-                let value = (item as NumberItem).Value
-                let mathExpression
-                try {
-                    mathExpression = TextCode.TokenizeMath(value)
-                    //item.Value = mathExpression.Flatten().Compile()
-                } catch {}
-            });
-        },
 
         // Final error checking \\
         function(block: CodeBlock) {
