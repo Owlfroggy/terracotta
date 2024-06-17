@@ -1347,7 +1347,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                     let typeright = GetType(right)
 
                     //comparison operators
-                    if (VALID_COMPARISON_OPERATORS.has(item.Operator)) {
+                    if (VALID_COMPARISON_OPERATORS.includes(item.Operator)) {
                         ifAction = new IfActionBlock("if_var", item.Operator == "==" ? "=" : item.Operator, [left, right], [], null, exprToken.Not)
                     }
                     //normal operators

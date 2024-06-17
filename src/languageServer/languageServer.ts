@@ -151,6 +151,27 @@ export function StartServer() {
                 items.push(item)
             }
         }
+        else if (context.Type == ContextType.ActionTagName) {
+            for (const tagName of context.Data.validTags) {
+                let item: CompletionItem = {
+                    "label": tagName,
+                    "kind": CompletionItemKind.Property,
+                    "commitCharacters": ["(",";"]
+                }
+                items.push(item)
+            }
+        }
+        else if (context.Type == ContextType.ActionTagValue) {
+            for (const tagValue of context.Data.validValues) {
+                let item: CompletionItem = {
+                    "label": tagValue,
+                    "kind": CompletionItemKind.Value,
+                    "commitCharacters": ["(",";"],
+                    "insertTextMode": 2,
+                }
+                items.push(item)
+            }
+        }
 
         if (context.Data.addons) {
             if (context.Data.addons.genericDomains) { items.push(genericDomains) }

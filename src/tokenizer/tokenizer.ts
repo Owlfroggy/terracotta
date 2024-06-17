@@ -449,6 +449,16 @@ export enum ContextType {
     "DomainValue",
     "DomainCondition",
 
+    /*data:{
+        validTags: string[]
+    }*/
+    "ActionTagName",
+    /*data:{
+        validValues: string[],
+        canHaveVariable: boolean,
+    }*/
+    "ActionTagValue",
+
     /*data: {
         type: "select" | "filter"
     }*/
@@ -1123,6 +1133,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let items: Array<ExpressionToken> = []
 
         while (SCRIPT_CONTENTS[index] != closingChar && index < SCRIPT_CONTENTS.length) {
+            OfferContext(index,ContextType.General)
+
             let expressionResults
             try {
                 expressionResults = ParseExpression(index, [seperatingChar, closingChar], false)
@@ -1446,12 +1458,14 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
             //if empty tag list
             if (cu.GetNextCharacters(index, 1) == "}") {
+                OfferContext(index+1,ContextType.ActionTagName,{"validTags":Object.keys(validTags)})
                 index += 1 + cu.GetWhitespaceAmount(index)
                 return [index,{}]
             } else {
                 let tagsListInitIndex = index
 
                 while (SCRIPT_CONTENTS[index] != "}") {
+                    OfferContext(index,ContextType.ActionTagName,{"validTags":Object.keys(validTags)})
                     //move to first character of tag name
                     index += 1 + cu.GetWhitespaceAmount(index)
 
@@ -1479,6 +1493,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //move to :
                     index += 1 + cu.GetWhitespaceAmount(index)
 
+                    OfferContext(index,ContextType.ActionTagValue,{"validValues":validTags[tagName]!.Options,"canHaveVariable":true})
+
                     //parse variable
                     let variableResults = ParseVariable(index)
                     let variable: VariableToken | null = null
@@ -1496,6 +1512,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                         //move to ?
                         index += 1 + cu.GetWhitespaceAmount(index)
+
+                        OfferContext(index,ContextType.ActionTagValue,{"validValues":validTags[tagName]!.Options,"canHaveVariable":false})
                     }
                     let lastCharIndex = index
 
