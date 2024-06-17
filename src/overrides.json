@@ -56,7 +56,7 @@
             "NormalRandom": "NormalRandom",
             "Logarithm": "Log",
             "WrapNum": "Wrap",
-            "RootNum": "Root",
+            "Root": "Root",
             "MaxNumber": "Max",
             "Tangent": "Tan",
             "+=": "Increment",
@@ -69,7 +69,7 @@
         
 
             "RepeatString": "Repeat",
-            "JoinSring": "Join",
+            "JoinString": "Join",
             "SplitString": "Split",
             "TrimString": "Trim",
             "ReplaceString": "Replace",
@@ -164,7 +164,7 @@
             "GetDictSize": "Len",
             "GetDictValues": "GetValues",
             "GetDictKeys": "GetKeys",
-            "AppendDict": "AppendDictionary",
+            "AppendDict": "Append",
             "RemoveDictEntry": "Remove",
             "GetDictValue": "Get",
             
@@ -189,7 +189,7 @@
 
             "MultiplyVector": "Multiply",
             "VectorBetween": "Between",
-            "GetVectorComponent": "GetComponent",
+            "GetVectorComp": "GetComponent",
             "RotateAroundVec": "RotateAroundVec",
             "CrossProduct": "Cross",
             "DotProduct": "Dot",
