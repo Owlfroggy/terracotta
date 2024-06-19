@@ -2170,6 +2170,29 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             block.Arguments.push(new NumberItem([], `%math(${expressionEntries.join("+")})`))
         },
 
+        // Split incrementers that are longer than 27 items \\ (this isn't technically optimization but i don't care)
+        //mitosis reference??????
+        function (block: CodeBlock) {
+            if (!(block instanceof ActionBlock)) { return }
+            if (block.Action != "+=") { return }
+
+            let incrementee = block.Arguments[0] as VariableItem
+
+            if (block.Arguments.length > 27) {
+                let newArgs = block.Arguments.splice(27)
+                
+                let clone = new VariableItem([],incrementee.Scope,incrementee.Name,incrementee.StoredType)
+                if (incrementee.IsTemporary) { clone.IsTemporary = true}
+                clone.CharStart = incrementee.CharStart
+                clone.CharEnd = incrementee.CharEnd
+
+                newArgs.unshift(clone)
+
+                let newBlock = new ActionBlock("set_var","+=",newArgs)
+                CodeLine.splice(codeIndex+1,0,newBlock)
+            }
+        },
+
         //##########################################################################\\
         //#### NO CODE OPTIMIZATIONS THAT ADD/REMOVE CODEBLOCKS PAST THIS POINT ####\\
         //##########################################################################\\
@@ -2187,7 +2210,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
             //error if chest item count surpasses 27
             if (combinedChest.length > 27) {
-                throw new TCError("Chest item count cannot surpass than 27 (including tags)", 0, args[28 - tags.length - 1].CharStart, args[args.length - 1].CharEnd)
+                throw new TCError("Chest item count cannot surpass 27 (including tags)", 0, args[28 - tags.length - 1].CharStart, args[args.length - 1].CharEnd)
             }
         }
     ]

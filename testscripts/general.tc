@@ -10,7 +10,9 @@ line Nine = 9;
 line Eighty = 80;
 default:SetToSurvivalMode;
 
-
+global dingus += line [1] + line [2] + line [3] + line [4] + line [5] + line [6] + line [7] + line [8] + line [9] + line [10] + line [11] + line [12] + line [13] + line [14] + line [15] + line [16] + line [17] + line [18] + line [19] + line [20] + line [21] + line [22] + line [23] + line [24] + line [25] + line [26] + line [27];
+global dingus += global [1] + global [2] + global [3] + global [4] + global [5] + global [6] + global [7] + global [8] + global [9] + global [10] + global [11] + global [12] + global [13] + global [14] + global [15] + global [16] + global [17] + global [18] + global [19] + global [20] + global [21] + global [22] + global [23] + global [24] + global [25] + global [26] + global [27];
+global dingus += global [1] + global [2] + global [3] + global [4] + global [5] + global [6] + global [7] + global [8] + global [9] + global [10] + global [11] + global [12] + global [13] + global [14] + global [15] + global [16] + global [17] + global [18] + global [19] + global [20] + global [21] + global [22] + global [23] + global [24] + global [25] + global [26] + global [27];
 global dingus += line Nine + line Nine + 9;
 global dingus += 10 + global asdf;
 global dingus += 25 + local bingus + line Nine + global One + global One;
