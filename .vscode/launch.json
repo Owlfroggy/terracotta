@@ -10,7 +10,7 @@
       "program": "src/main.ts",
 
       // The arguments to pass to the program, if any.
-      "args": ["--compile","--copy","--file","testscripts/general.tc","--cmode","dfgive"],
+      "args": ["--compile","--copy","--file","${file}","--cmode","dfgive"],
 
       // The working directory of the program.
       "cwd": "${workspaceFolder}",
