@@ -84,7 +84,7 @@ export var TargetDomains = { //this feels like a sin
     allPlayers: new TargetDomain("allPlayers","AllPlayers","player",playerActions,playerConditions,{},["player_action","if_player"]),
 
     //entities
-    selectionEntities: new TargetDomain("selectionEntity","Selection","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
+    selectionEntity: new TargetDomain("selectionEntity","Selection","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
     defaultEntity: new TargetDomain("defaultEntity","Default","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
     killerEntity: new TargetDomain("killerEntity","Killer","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
     damagerEntity: new TargetDomain("damagerEntity","Damager","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
@@ -93,7 +93,7 @@ export var TargetDomains = { //this feels like a sin
     allEntities: new TargetDomain("allEntities","AllEntities","entity",entityActions,entityConditions,{},["entity_action","if_entity"]),
     allMobs: new TargetDomain("allMobs","AllMobs","entity",entityActions,entityConditions,{},["entity_action","if_entity"]),
     projectile: new TargetDomain("projectile","Projectile","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
-    lastSpawnedEntity: new TargetDomain("lastSpawnedEntity","LastEntity","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
+    lastEntity: new TargetDomain("lastEntity","LastEntity","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
 }
 
 //versions of target domains but generalized to just "player" and "entity"
