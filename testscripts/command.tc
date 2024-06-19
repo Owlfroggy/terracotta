@@ -1,0 +1,51 @@
+PLAYER_EVENT Command;
+
+line args = game.EventCommandArguments;
+
+# @violence
+if (game ? CommandEquals("violence"){Check Mode = Check beginning}) {
+    # arg vailidation
+    line player = line args[2];
+    if (line player == 0) { default:SendMessage("&cNo player provided"); return; }
+    if (not game?HasPlayer(line player)) { default:SendMessage("&c",line player," is not in-game."){Text Value Merging = No spaces}; return; }
+    line mode = line args[3];
+
+    select PlayersByName(line player);
+
+    # behavior
+    if (line mode == "zeus") {
+        game:SummonLightning(selection.Location);
+        selection:SetCurrentHealth(0);
+        default:SendMessage("&aZeus'd %selected");
+        return;
+    }
+    if (line mode == "kill") { 
+        selection:SetCurrentHealth(0);
+        default:SendMessage("&aKilled %selected");
+        return;
+    }
+    if (line mode == "fling") {
+        line dir = vec:SetLength(vec[
+            num:NormalRandom(0,1),
+            1,
+            num:NormalRandom(0,1)
+        ], 1);
+        selection:SetVelocity(line dir * 100);
+        default:SendMessage("&aFlung %selected");
+        return;
+    }
+
+    default:SendMessage("&cInvalid mode (valid modes are fling|kill|zeus)");
+    return;
+}
+
+# @z
+if (game ? CommandEquals("z"){Check Mode = Check beginning}) {
+    game:SpawnMob(item["zombie_spawn_egg"],default.Location + default.Direction * vec[3,0,3]);
+    lastEntity:SetCustomName(txt"<green>grrrr im a zombie");
+    lastEntity:SetArmorItems(item["crimson_button"]); #no fire!!!
+    default:SendMessage("&aSpawned a zombie");
+    return;
+}
+
+default:SendMessage("&cInvalid command")
