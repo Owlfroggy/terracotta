@@ -1982,24 +1982,31 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
     //optimization passes
     //the order they appear in the array is the order they will be executed
+
+    function OptimizePercentMath(block: CodeBlock) {
+        if (!(block instanceof ActionBlock)) { return }
+
+        block.Arguments.forEach(item => {
+            if (!(item instanceof NumberItem)) { return }
+
+            let value = (item as NumberItem).Value
+            let mathExpression: TextCode.MathTextCodeToken
+            try {
+                mathExpression = TextCode.TokenizeMath(value)
+                let flat = mathExpression.Flatten()
+                if (flat.Expression.length == 1 && flat.Expression[0] instanceof TextCode.NumberToken) {
+                    item.Value = flat.Expression[0].Compile()
+                } else {
+                    item.Value = flat.Compile()
+                }
+            } catch { }
+        });
+    }
+
     let codeIndex = -1
     const OptimizationPasses = [
-        // Clean up %math expressions \\
-        function (block: CodeBlock) {
-            if (!(block instanceof ActionBlock)) { return }
-
-            block.Arguments.forEach(item => {
-                if (!(item instanceof NumberItem)) { return }
-
-                let value = (item as NumberItem).Value
-                let mathExpression: TextCode.MathTextCodeToken
-                try {
-                    mathExpression = TextCode.TokenizeMath(value)
-                    item.Value = mathExpression.Flatten().Compile()
-                } catch {}
-            });
-        },
-
+        // Clean up %math expressions before messing with them \\
+        OptimizePercentMath,
 
         // Condense to incrementer \\
         function(block: CodeBlock, nextBlock: CodeBlock) {
@@ -2116,6 +2123,9 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         //##########################################################################\\
         //#### NO CODE OPTIMIZATIONS THAT ADD/REMOVE CODEBLOCKS PAST THIS POINT ####\\
         //##########################################################################\\
+
+        // Clean up %math one final time \\
+        OptimizePercentMath,
 
         // Final error checking \\
         function(block: CodeBlock) {
