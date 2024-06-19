@@ -1994,6 +1994,39 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             try {
                 mathExpression = TextCode.TokenizeMath(value)
                 let flat = mathExpression.Flatten()
+
+                // if the entire expression is one operation, combine all constants
+                let operation = flat.GetIsSingleOperator()
+                if (operation !== false) {
+                    let total = operation == "+" ? 0 : 1
+                    
+                    let i = 0; while (i < flat.Expression.length) {
+                        let token = flat.Expression[i]
+                        if (token instanceof TextCode.NumberToken) {
+                            // add to total
+                            if (operation == "+") {
+                                total += Number(token.Value)
+                            } else {
+                                total *= Number(token.Value)
+                            }
+
+                            // remove tokens
+                            if (i == flat.Expression.length-1) {
+                                flat.Expression.splice(i-1,2)
+                            } else {
+                                flat.Expression.splice(i,2)
+                            }
+                        } else {
+                            i++
+                        }
+                    }
+
+                    // add constant back onto the end
+                    if ( (operation == "+" && total != 0) || (operation == "*" && total != 1) ) {
+                        flat.Expression.push(new TextCode.OperatorToken([],operation),new TextCode.NumberToken([],total.toString()))
+                    }
+                }
+
                 if (flat.Expression.length == 1 && flat.Expression[0] instanceof TextCode.NumberToken) {
                     item.Value = flat.Expression[0].Compile()
                 } else {
@@ -2020,11 +2053,15 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             if (block.Action == "+" && nextBlock.Action == "=") {
                 let thisTempVar = block.Arguments[0] as VariableItem 
                 let nextTempVar = nextBlock.Arguments[1] as VariableItem
-                //require this block and next block to both use the same temp var
+
+                let thisRealVar = block.Arguments[1] as VariableItem
+                let nextRealVar = nextBlock.Arguments[0] as VariableItem
+                //require this block and next block to both use the same var
                 if (nextTempVar.Name != thisTempVar.Name) { return }
+                if (thisRealVar.Name != nextRealVar.Name) { return }
                 
-                //remove temp var from + block
-                block.Arguments.shift()
+                //remove temp var and real from + block
+                block.Arguments.splice(0,2)
 
                 //replace temp var in = block with this block's contents
                 nextBlock.Arguments.splice(1,1,...block.Arguments)
@@ -2040,19 +2077,32 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 let nextTempVar = nextBlock.Arguments[1] as VariableItem | NumberItem
 
                 let thisTempVarName = thisTempVar instanceof VariableItem ? thisTempVar.Name : thisTempVar.TempVarEquivalent
-                let nextTempVarName = nextTempVar instanceof VariableItem ? nextTempVar.Name : nextTempVar.TempVarEquivalent
-
-                //require this block and next block to both use the same temp var
-                if (thisTempVarName != nextTempVarName) { return }
-
-                //replace temp var with final var
-                block.Arguments[0] = nextBlock.Arguments[0]
 
                 //if the temp var of the next chest is a %math operation, include that in this new chest
                 if (nextTempVar instanceof NumberItem) {
+                    let mathCode = TextCode.TokenizeMath(nextTempVar.Value)
+                    let index = mathCode.FindVariable(thisTempVarName)
+
+                    //require this block and next block to both use the same temp var
+                    if (index == null) { return }
+                        
+                    // remove this temp var from the %math since it no longer exists
+                    if (index == mathCode.Expression.length-1) {
+                        mathCode.Expression.splice(index-1,2)
+                    } else {
+                        mathCode.Expression.splice(index,2)                        
+                    }
+                    nextTempVar.Value = mathCode.Compile()
+
                     nextTempVar.TempVarEquivalent = thisTempVarName
                     block.Arguments.push(nextTempVar)
+                } else {
+                    //require this block and next block to both use the same temp var
+                    if (thisTempVarName != nextTempVar.Name) { return }
                 }
+
+                //replace temp var with final var
+                block.Arguments[0] = nextBlock.Arguments[0]
 
                 //move everything after the temp var of next chest into this chest
                 for (let i = 2; i < nextBlock.Arguments.length; i++) {

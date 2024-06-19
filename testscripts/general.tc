@@ -2,17 +2,19 @@ FUNCTION awesome;
 
 default:SetRotation(){};
 
-global dingus = 5;
+global dingus = 0;
 global asdf = 100;
 global One = 1;
 local bingus = 20;
 line Nine = 9;
+line Eighty = 80;
 default:SetToSurvivalMode;
 
 
+global dingus += line Nine + line Nine + 9;
 global dingus += 10 + global asdf;
-global dingus += 25 + local bingus + global One + global One;
-global dingus += 30;
+global dingus += 25 + local bingus + line Nine + global One + global One;
+global dingus += line Zero + 30 + saved Zero + line Eighty;
 
 
 default:SendMessage(global dingus);

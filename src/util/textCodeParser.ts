@@ -81,6 +81,23 @@ export class MathTextCodeToken extends TextCodeToken {
 
     Expression: Token[]
 
+    //finds the first instance of a given variable in the expression and returns its index
+    //returns null if the variable is not in the expression
+    //does not search nested expressions!!!!
+    FindVariable(varName: string): number | null {
+        let i = -1
+        for (const token of this.Expression) {
+            i++
+            if (token instanceof VariableToken) {
+                if (token.Name == varName) {
+                    return i
+                }
+            }
+        }
+
+        return null
+    }
+
     //if the entire %math expression just consists of one operator, return that operator
     //otherwise return false
     GetIsSingleOperator(): string | false {
