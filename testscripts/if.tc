@@ -23,7 +23,7 @@ if (not global dingus + 2 / global jkdfg * default.CurrentHealth <= 10) {
     default:SendMessage(global dingus);
 }
 
-if (not default ? IsInGameMode{Game Mode = Survival}) {
+if (not default ? IsInGameMode{"Game Mode" = "Survival"}) {
     default:SendMessage("hi owl");
 }
 

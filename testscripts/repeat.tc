@@ -28,7 +28,7 @@ while (not player ? NameEquals) {
     wait(1);
 }
 
-while (entity ? NameEquals("dingus"){Ignore Formatting = True}) {
+while (entity ? NameEquals("dingus"){"Ignore Formatting" = "True"}) {
 
 }
 

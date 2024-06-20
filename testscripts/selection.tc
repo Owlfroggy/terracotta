@@ -12,5 +12,5 @@ filter Randomly;
 #select EntitiesByCondition player ? NameEquals("MrAwesomeOwl");
 
 select PlayersByName ("MrAwesomeOwl");
-select EventTarget {Event Target = Killer};
+select EventTarget {"Event Target" = "Killer"};
 select Nothing;

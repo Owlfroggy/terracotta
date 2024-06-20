@@ -20,7 +20,7 @@ for line v in (global list) {
     default:SendMessage("list value",line v);
 }
 
-for line l on (Path (loc[1,50,1], loc[25,50,25], [21,67,4], 20){Rotate Location = True}) {
+for line l on (Path (loc[1,50,1], loc[25,50,25], [21,67,4], 20){"Rotate Location" = "True"}) {
     default:SendMessage("LOC",line l);
 }
 

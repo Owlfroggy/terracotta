@@ -63,5 +63,5 @@ repeat Forever {
         }
     }
 
-    wait(1){Time Unit = line timeUnit ? Seconds};
+    wait(1){"Time Unit" = line timeUnit ? "Seconds"};
 }

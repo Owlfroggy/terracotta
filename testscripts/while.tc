@@ -23,7 +23,7 @@ while (num:Random(1,10) != 5) {
 default:SendMessage("Final loop ran",line count,"times");
 
 while (default.Y < 50.5) {
-    wait(1){Time Unit = Ticks};
+    wait(1){"Time Unit" = "Ticks"};
 }
 default:SendMessage("u jumped");
 
@@ -32,6 +32,6 @@ while (game.CPUUsage < 100) {
     repeat (line i) {
         default:SetToSurvivalMode();
     }
-    wait(1){Time Unit = Ticks};
+    wait(1){"Time Unit" = "Ticks"};
 }
 default:SendMessage("Lagslayer averted");

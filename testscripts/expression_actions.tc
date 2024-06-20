@@ -18,9 +18,9 @@ default:GivePotionEffect(
 );
 default:GivePotionEffect(pot["Slowness",255,20]);
 
-wait(1){Time Unit = Seconds};
+wait(1){"Time Unit" = "Seconds"};
 
-default:SendMessage("your eye level:",loc:GetCoordinate(default.EyeLocation){Coordinate = Y});
+default:SendMessage("your eye level:",loc:GetCoordinate(default.EyeLocation){"Coordinate" = "Y"});
 default:EnableBlockModification();
 default:GiveItems(item:SetStackSize(item:SetMaterial("water_bucket"),10)); #item compilation isnt a thing yet :(
 

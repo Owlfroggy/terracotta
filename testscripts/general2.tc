@@ -14,7 +14,7 @@ call[%var(khjdgfa)]("dongus");
 call asdfadfuhgkjerng(pot["Speed"]);
 
 start haha;
-start hahahahaha{Local Variables = Share, Target Mode = With no targets};
+start hahahahaha{"Local Variables" = "Share", "Target Mode" = "With no targets"};
 
 #global dingus += num:Random(6,6) + local bingus + 2;
 default:SendMessage(global dingus);

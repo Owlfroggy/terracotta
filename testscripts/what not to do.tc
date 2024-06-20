@@ -38,17 +38,17 @@ dingus
 ,
 )
 {
-Alignment Mode
+"Alignment Mode"
 =
-Regular
+"Regular"
 ,
-Inherit Styles
+"Inherit Styles"
 =
-False
+"False"
 ,
-Text Value Merging
+"Text Value Merging"
 =
-No spaces
+"No spaces"
 ,
 }
 ;
