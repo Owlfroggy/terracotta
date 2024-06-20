@@ -1,7 +1,7 @@
 import * as rpc from "vscode-jsonrpc/node"
 import * as domains from "../util/domains"
 import * as AD from "../util/actionDump"
-import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind } from "vscode-languageserver";
+import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position } from "vscode-languageserver";
 import { CodeContext, ContextType, GetLineIndexes, Tokenize } from "../tokenizer/tokenizer";
 import { DocumentTracker } from "./documentTracker";
 import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS } from "../util/constants";
@@ -18,6 +18,22 @@ function generateCompletions(entries: (string)[]): CompletionItem[] {
         result.push(item)
     }
     return result
+}
+
+function indexToLinePosition(script: string,index: number): Position {
+    let lines = script.split("\n")
+    let finalLine: number = 0
+    let totalIndex: number = 0
+    for (const l of lines) {
+        totalIndex += l.length + 1
+        if (totalIndex >= index) {
+            return {"line": finalLine, "character": 1 + index - (totalIndex - (l.length))}
+            // console.log(finalLine, index - (totalIndex - (l.length)))
+            // break
+        }
+        finalLine++
+    }
+    return {} as Position
 }
 
 const headerKeywords = generateCompletions(["LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM"])
@@ -160,23 +176,25 @@ export function StartServer() {
                 items.push(item)
             }
         }
-        else if (context.Type == ContextType.ActionTagName) {
-            for (const tagName of context.Data.validTags) {
+        else if (context.Type == ContextType.ActionTagString) {
+            for (const tagName of context.Data.validValues) {
                 let item: CompletionItem = {
                     "label": tagName,
+                    "filterText": `" ${tagName}"`,
                     "kind": CompletionItemKind.Property,
                     "commitCharacters": ["(",";"]
                 }
-                items.push(item)
-            }
-        }
-        else if (context.Type == ContextType.ActionTagValue) {
-            for (const tagValue of context.Data.validValues) {
-                let item: CompletionItem = {
-                    "label": tagValue,
-                    "kind": CompletionItemKind.Value,
-                    "commitCharacters": ["(",";"],
-                    "insertTextMode": 2,
+                if (context.Data.replaceRange) {
+                    item.textEdit = {
+                        "newText": `"${tagName}"`,
+                        "range": {
+                            "start": indexToLinePosition(script,context.Data.replaceRange[0]),
+                            "end": indexToLinePosition(script,context.Data.replaceRange[1]),
+                        }
+                    }
+                }
+                else {
+                    item.insertText = `"${tagName}"`
                 }
                 items.push(item)
             }
@@ -189,7 +207,7 @@ export function StartServer() {
         items = items.flat()
 
         let response: CompletionList = {
-            isIncomplete: false,
+            isIncomplete: true,
             items: items
         }
         return response

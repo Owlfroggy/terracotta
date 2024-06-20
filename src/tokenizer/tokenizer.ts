@@ -473,14 +473,10 @@ export enum ContextType {
     "DomainCondition",
 
     /*data:{
-        validTags: string[]
-    }*/
-    "ActionTagName",
-    /*data:{
         validValues: string[],
         canHaveVariable: boolean,
     }*/
-    "ActionTagValue",
+    "ActionTagString",
 
     /*data: {
         type: "select" | "filter"
@@ -506,8 +502,8 @@ export interface TokenizeMode {
 //returns a dictionary where
 //key: line number
 //value: character index right before the first char of that line ()
-export function GetLineIndexes(text: string): Dict<number> {
-    let result: Dict<number> = {0:-1}
+export function GetLineIndexes(text: string): number[] {
+    let result: number[] = [-1]
 
     let i = 0;
     for (const v of text.matchAll(/\n/g)) {
@@ -548,7 +544,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
     //returned number will be index of closing char
     //ERR1 = string was not closed
-    function GetString(index: number, openingChar: string, closingChar: string = openingChar, features: Array<"ampersandConversion"> = []): [number, string] | null {
+    function GetString(index: number, openingChar: string, closingChar: string = openingChar, features: Array<"ampersandConversion"> = [], ignoreContexts: boolean = false): [number, string] | null {
         let initIndex = index + cu.GetWhitespaceAmount(index) + 1
 
         //if not a string, return
@@ -563,7 +559,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             string += nextChunk
             index += nextChunk.length
 
-            OfferContext(index,ContextType.String)
+            if (!ignoreContexts) { OfferContext(index,ContextType.String) }
 
             //if chunk stopp due to a backslash
             if (SCRIPT_CONTENTS[index + 1] == "\\") {
@@ -1456,26 +1452,38 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
             //if empty tag list
             if (cu.GetNextCharacters(index, 1) == "}") {
-                OfferContext(index+1,ContextType.ActionTagName,{"validTags":Object.keys(validTags)})
+                OfferContext(index+1,ContextType.ActionTagString,{"validValues":Object.keys(validTags)})
                 index += 1 + cu.GetWhitespaceAmount(index)
                 return [index,{}]
             } else {
                 let tagsListInitIndex = index
 
                 while (SCRIPT_CONTENTS[index] != "}") {
-                    OfferContext(index,ContextType.ActionTagName,{"validTags":Object.keys(validTags)})
-                    //move to first character of tag name
-                    index += 1 + cu.GetWhitespaceAmount(index)
-                    let tagInitIndex = index
+                    OfferContext(index,ContextType.ActionTagString,{"validValues":Object.keys(validTags)})
+
+                    let tagInitIndex = index + 1 + cu.GetWhitespaceAmount(index)
 
                     //parse tag name
-                    let tagNameResults = cu.GetCharactersUntil(index, ["=", "\n", "}"])
-                    if (tagNameResults[1] == "") {
-                        if (cu.GetNextCharacters(tagNameResults[0],1) == "}") { break }
+                    //try catch is to prevent the string context from getting offered
+                    let tagNameResults = GetString(index,'"','"',[],true)
+
+                    // OfferContext(tagNameResults == null ? index + 1 + cu.GetWhitespaceAmount(index + 1) : tagNameResults[0],ContextType.ActionTagName,{"validTags":Object.keys(validTags)})
+
+                    if (tagNameResults) {
+                        OfferContext(tagNameResults[0],ContextType.ActionTagString,{"validValues":Object.keys(validTags),"replaceRange": [tagInitIndex,tagNameResults[0]+1]})
+                    } 
+                    else {
+                        // let tags have trailing comma
+                        if (cu.GetNextCharacters(index,1) == "}") { 
+                            index += cu.GetWhitespaceAmount(index) + 1
+                            break 
+                        }
+
                         throw new TCError("Missing tag name", 3, index, index)
                     }
-                    //remove trailing whitespace from tag name
-                    let tagName = tagNameResults[1].trim()
+
+
+                    let tagName = tagNameResults[1]
 
                     //move to end of tag name
                     index = tagNameResults[0]
@@ -1485,10 +1493,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         throw new TCError("Expected '=' following tag name", 6, index + 1, index + 1)
                     }
 
-                    //move to :
+                    //move to =
                     index += 1 + cu.GetWhitespaceAmount(index)
 
-                    OfferContext(index,ContextType.ActionTagValue,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":true})
+                    OfferContext(index,ContextType.ActionTagString,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":true})
 
                     //parse variable
                     let variableResults = ParseVariable(index)
@@ -1508,26 +1516,26 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         //move to ?
                         index += 1 + cu.GetWhitespaceAmount(index)
 
-                        OfferContext(index,ContextType.ActionTagValue,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":false})
+                        OfferContext(index,ContextType.ActionTagString,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":false})
                     }
                     let lastCharIndex = index
 
-                    //move to first character of value
-                    index += 1 + cu.GetWhitespaceAmount(index)
-
+                    let valueInitIndex = index + cu.GetWhitespaceAmount(index) + 1
                     //parse tag value
-                    let tagValueResults = cu.GetCharactersUntil(index, [",", "\n", "}"])
+                    let tagValueResults = GetString(index,'"','"',[],true)
 
+                    if (tagValueResults) {
+                        OfferContext(tagValueResults[0],ContextType.ActionTagString,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":false,"replaceRange": [valueInitIndex,tagValueResults[0]+1]})
+                    } 
                     //error if missing tag value
-                    if (tagValueResults[1] == "") {
+                    else {
                         if (variable) {
                             throw new TCError("Expected tag value following '?'", 7, lastCharIndex, lastCharIndex)
                         } else {
                             throw new TCError("Expected variable or tag value", 7, index, index)
                         }
                     }
-                    //remove trailing whitespace from tag value
-                    let tagValue = tagValueResults[1].trim()
+                    let tagValue = tagValueResults[1]
 
                     //move to end of tag value
                     index = tagValueResults[0]
@@ -1540,7 +1548,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //add to tag list
                     tags[tagName] = new ActionTag(tagName, tagValue, variable, tagInitIndex, index)
 
-                    //move to next character (, or >)
+                    //move to next character (, or })
                     index += 1 + cu.GetWhitespaceAmount(index)
                 }
 
