@@ -1,10 +1,13 @@
 import * as rpc from "vscode-jsonrpc/node"
 import * as domains from "../util/domains"
 import * as AD from "../util/actionDump"
-import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, InitializeResult, MarkupContent, MarkupKind, MessageType, TextDocumentSyncKind } from "vscode-languageserver";
-import { CodeContext, ContextType, Tokenize } from "../tokenizer/tokenizer";
+import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind } from "vscode-languageserver";
+import { CodeContext, ContextType, GetLineIndexes, Tokenize } from "../tokenizer/tokenizer";
 import { DocumentTracker } from "./documentTracker";
 import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS } from "../util/constants";
+
+//function that other things can call to log to the language server output when debugging
+export let slog
 
 function generateCompletions(entries: (string)[]): CompletionItem[] {
     let result: CompletionItem[] = []
@@ -50,6 +53,12 @@ export function StartServer() {
     function showText(message: string, messageType: MessageType = MessageType.Info) {
         connection.sendNotification("window/showMessage",{message: message.toString(),type: messageType})
     }
+
+    function log(...message: string[]) {
+        connection.sendNotification("window/logMessage",{message: message.join(" "), type: MessageType.Log})
+    }
+    
+    slog = log
     
     //==========[ request handling ]=========\\
 
@@ -59,7 +68,7 @@ export function StartServer() {
                 textDocumentSync: TextDocumentSyncKind.Full,
                 // Tell the client that this server supports code completion.
                 completionProvider: {
-                    resolveProvider: true,
+                    // resolveProvider: true,
                     triggerCharacters: [":",".","?"],
                 }
             }
@@ -81,8 +90,8 @@ export function StartServer() {
             }
         }
 
-
-        let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": index}) as CodeContext
+        let lineIndexes = GetLineIndexes(script)
+        let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": lineIndexes[param.position.line]+param.position.character + 1,"startFromLine": param.position.line}) as CodeContext
 
         let items: any[] = []
         
@@ -189,6 +198,7 @@ export function StartServer() {
     //==========[ notification handling ]=========\\
 
     connection.onNotification("initialized",(param) => {
-        showText("Terracotta server successfully started!")
+        showText("Terracotta language server successfully started!")
+        log("Terracotta language server successfully started!")
     })
 }

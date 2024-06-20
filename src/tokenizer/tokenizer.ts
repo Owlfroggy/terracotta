@@ -496,8 +496,26 @@ export enum ContextType {
 export interface TokenizeMode {
     "mode": "getTokens" | "getContext",
 
+    "startFromLine"?: number
+
     // if mode is getContext, the char index to look for
     "contextTestPosition"?: number
+}
+
+
+//returns a dictionary where
+//key: line number
+//value: character index right before the first char of that line ()
+export function GetLineIndexes(text: string): Dict<number> {
+    let result: Dict<number> = {0:-1}
+
+    let i = 0;
+    for (const v of text.matchAll(/\n/g)) {
+        i++
+        result[i] = v.index
+    }
+
+    return result
 }
 
 //THIS FUNCTION WILL NEVER RETURN UNDEFINED! IT JUST SAYS THAT BECAUSE TYPESCRIPT IS SPECIAL
@@ -505,7 +523,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
     //==========[ constants ]=========\\
 
-    let CharIndex = -1
+    let LineIndexes = GetLineIndexes(script)
+    let CharIndex = mode.startFromLine == null ? -1 : LineIndexes[mode.startFromLine]!
     let Running = true
     let Lines: Array<Array<Token>> = []
     let CurrentLine: Array<Token> = []
@@ -520,8 +539,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         currentIndex += cu.GetWhitespaceAmount(currentIndex) + 1
         currentIndex += cu.GetIdentifier(currentIndex,true)[1].length
         data.indx = currentIndex
-        //@ts-ignore SHUDDUP!!
-        if (currentIndex >= mode.contextTestPosition) {
+        if (currentIndex >= mode.contextTestPosition!) {
             //utilizing error throwing to stop parsing and send the context up 
             //to the top is possibly the most sinful thing i've ever done
             throw new CodeContext(type,data)
@@ -2172,11 +2190,15 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     }
 
     //main logic goes here
-    function TokenizationLogic(): void {
+    function TokenizationLogic(startLineNumber: number): void {
         let previousLine = Lines[Lines.length - 1]
         if (previousLine == undefined) { previousLine = [] }
 
-        OfferContext(CharIndex,ContextType.General)
+        if (mode.mode == "getContext" && cu.GetNextCharacters(CharIndex,1,false) == "\n" && CharIndex + cu.GetWhitespaceAmount(CharIndex) > LineIndexes[startLineNumber + 1]! - 1) {
+            //if in context mode, don't parse anything past the code lines on the text line being tested
+            Running = false
+            return
+        }
 
         //if at the end of a line, push that line and start a new one
         if (cu.GetNextCharacters(CharIndex, 1) == ";" || CharIndex + cu.GetWhitespaceAmount(CharIndex) == SCRIPT_CONTENTS.length - 1 || SCRIPT_CONTENTS[CharIndex] == "#") {
@@ -2203,6 +2225,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     Running = false
                     return
                 }
+            }
+            
+            //if in context mode, don't parse anything past the code lines on the text line being tested
+            if (mode.mode == "getContext" && CharIndex + cu.GetWhitespaceAmount(CharIndex) > LineIndexes[startLineNumber + 1]! - 1) {
+                Running = false
+                return
             }
 
             return
@@ -2237,6 +2265,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         // if current line is empty
         if (CurrentLine.length == 0) {
+            OfferContext(CharIndex,ContextType.General)
+
             let results
 
             //headers
@@ -2367,7 +2397,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
     if (mode.mode == "getTokens") {
         while (Running) {
-            TokenizationLogic()
+            TokenizationLogic(0)
         }
     
         let results = new TokenizerResults()
@@ -2376,17 +2406,50 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         return results
     } 
     else if (mode.mode == "getContext") {
+        let currentLineNumber = mode.startFromLine == null ? 0 : mode.startFromLine
+
+        let currentContext: CodeContext = new CodeContext(ContextType.General)
+
+        let firstControlTokenFound = false
+
         // kill me now
-        while (Running) {
-            try {
-                TokenizationLogic()
-            } catch (e) {
-                if (e instanceof CodeContext) {
-                    return e
-                }
+        let i = 0
+        while (currentLineNumber > -1) {
+            // lets be honest, if the completion context of any of your code depends on something 
+            // more than 1000 lines above it you deserve to have your autocomplete request canceled
+            i++
+            if (i > 1000) {
                 break
             }
+
+            CharIndex = mode.startFromLine == null ? -1 : LineIndexes[currentLineNumber]!
+            Lines = []
+            CurrentLine = []
+            Running = true            
+            while (Running) {
+                try {
+                    TokenizationLogic(currentLineNumber)
+                } catch (e) {
+                    if (e instanceof CodeContext) {
+                        currentContext = e
+                    } else  {
+                    }
+                    Running = false
+                }
+            }
+
+            //i'm pretty sure that if more than one control token (if,repeat,while,etc.) is passed then 
+            //its impossible for any above code to affect the context of the test pos
+            if (Lines[0] && (Lines[0][0] instanceof RepeatToken || Lines[0][0] instanceof IfToken || Lines[0][0] instanceof ElseToken)) {
+                if (!firstControlTokenFound) {
+                    firstControlTokenFound = true
+                } else {
+                    break
+                }
+            }
+
+            currentLineNumber -= 1
         }
-        return new CodeContext(ContextType.General)
+        return currentContext
     }
 }
