@@ -1,0 +1,54 @@
+#even though this is technically valid code, please don't ever do this
+
+LAGSLAYER_CANCEL;
+FUNCTION 
+Dingus
+;
+
+call
+dingus
+(
+global
+dingus
+,
+"get",
+num
+:
+Random
+(
+0
+,
+5
+,
+)
+,
+)
+;
+
+default
+:
+SendMessage
+(
+global
+dingus
+,
+"Hello world!"
+,
+5
+,
+)
+{
+Alignment Mode
+=
+Regular
+,
+Inherit Styles
+=
+False
+,
+Text Value Merging
+=
+No spaces
+,
+}
+;
