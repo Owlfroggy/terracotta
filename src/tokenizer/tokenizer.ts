@@ -2100,9 +2100,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             if (modifiers.includes("plural")) {
                 throw new TCError("Plural parameters cannot have default values",0,index,expressionResults[0])
             }
-            if (defaultValue && (type == "dict" || type == "list")) {
-                throw new TCError(`Parameters of type ${type} cannot have default values`,0,index,expressionResults[0])
-            }
             
             index = expressionResults[0]
             defaultValue = expressionResults[1]
