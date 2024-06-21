@@ -692,6 +692,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             index += cu.GetWhitespaceAmount(index) + 1
             let colonIndex = index //used for errors
 
+            OfferContext(index,ContextType.TypeAssignment)
+            
             //move to start of type
             index += cu.GetWhitespaceAmount(index) + 1
             
@@ -1324,7 +1326,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             index += cu.GetWhitespaceAmount(index) + 1
 
             OfferContext(index,ContextType.General,{"addons":{"genericDomains":"true"}})
-            
+
             //expression
             let expressionResults = ParseExpression(index,[")"],true,["comparisons","genericTargetComparisons"])
             if (expressionResults == null) {
