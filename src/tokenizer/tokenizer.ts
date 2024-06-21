@@ -465,6 +465,8 @@ export enum ContextType {
     "String",
     "General",
 
+    "TypeAssignment",
+
     /*data for the domain contexts: {
         //domain name
         domain: string
@@ -1773,6 +1775,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         
         //move to start of type
         index += cu.GetWhitespaceAmount(index) + 1
+
+        OfferContext(index,ContextType.TypeAssignment)
 
         //parse type
         let typeResults = cu.GetIdentifier(index)

@@ -199,6 +199,16 @@ export function StartServer() {
                 items.push(item)
             }
         }
+        else if (context.Type == ContextType.TypeAssignment) {
+            let item: string
+            Object.keys(ValueType).forEach(typeName => {
+                let item: CompletionItem = {
+                    "label": typeName,
+                    "kind": CompletionItemKind.Keyword
+                }
+                items.push(item)
+            })
+        }
 
         if (context.Data.addons) {
             if (context.Data.addons.genericDomains) { items.push(genericDomains) }
