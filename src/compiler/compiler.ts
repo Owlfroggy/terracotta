@@ -1580,7 +1580,11 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                     if (headerData.codeblock.Codeblock == "PLAYER_EVENT" || headerData.codeblock.Codeblock == "ENTITY_EVENT") {
                         block = new EventBlock(headerData.codeblock.Codeblock, headerData.codeblock.Event, headerData.lsCancel == false ? false : true)
                     }
-                    else if (headerData.codeblock.Codeblock == "FUNCTION") {
+                    else if (headerData.lsCancel) {
+                        throw new TCError("Lagslayer cancel can only be applied to events",0,headerData.lsCancel.CharStart,headerData.lsCancel.CharEnd)
+                    }
+                    
+                    if (headerData.codeblock.Codeblock == "FUNCTION") {
                         block = new FunctionBlock(headerData.codeblock.Event, headerData.params)
                     }
                     else if (headerData.codeblock.Codeblock == "PROCESS") {
