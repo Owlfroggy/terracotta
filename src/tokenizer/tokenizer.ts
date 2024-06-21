@@ -466,6 +466,7 @@ export enum ContextType {
     "General",
 
     "TypeAssignment",
+    "ParamType",
 
     /*data for the domain contexts: {
         //domain name
@@ -693,7 +694,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             let colonIndex = index //used for errors
 
             OfferContext(index,ContextType.TypeAssignment)
-            
+
             //move to start of type
             index += cu.GetWhitespaceAmount(index) + 1
             
@@ -2034,6 +2035,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //parse modifiers until either end of line or =
         while (!["\n","="].includes(cu.GetNextCharacters(index,1))) {
             let modInitIndex = index + cu.GetWhitespaceAmount(index) + 1 //used for error messages
+
+            OfferContext(modInitIndex, ContextType.ParamType)
 
             let identifierResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
             if (identifierResults == null) {

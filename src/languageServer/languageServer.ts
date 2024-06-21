@@ -37,7 +37,7 @@ function indexToLinePosition(script: string,index: number): Position {
     return {} as Position
 }
 
-
+var paramTypeKeywords = generateCompletions(["plural","optional"],CompletionItemKind.Keyword)
 var headerKeywords = generateCompletions(["LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM"],CompletionItemKind.Keyword)
 var genericKeywords = generateCompletions(["if","else","repeat","in","to","on","not","while","break","continue","return","returnmult","endthread","select","filter","optional","plural"],CompletionItemKind.Keyword)
 genericKeywords.push({
@@ -46,6 +46,7 @@ genericKeywords.push({
 })
 var variableScopeKeywords = generateCompletions(["local","saved","global","line"],CompletionItemKind.Keyword)
 var genericDomains = generateCompletions(["player","entity"],CompletionItemKind.Variable)
+var typeKeywords = generateCompletions(Object.keys(ValueType),CompletionItemKind.Keyword)
 
 function getDomainKeywords() {
     let result: CompletionItem[] = []
@@ -187,7 +188,7 @@ export function StartServer() {
             for (const tagName of context.Data.validValues) {
                 let item: CompletionItem = {
                     "label": tagName,
-                    "filterText": `" ${tagName}"`,
+                    "filterText": `"${tagName} "`,
                     "kind": CompletionItemKind.Text,
                     "commitCharacters": ["(",";"]
                 }
@@ -207,14 +208,11 @@ export function StartServer() {
             }
         }
         else if (context.Type == ContextType.TypeAssignment) {
-            let item: string
-            Object.keys(ValueType).forEach(typeName => {
-                let item: CompletionItem = {
-                    "label": typeName,
-                    "kind": CompletionItemKind.Keyword
-                }
-                items.push(item)
-            })
+            items.push(typeKeywords)
+        }
+        else if (context.Type == ContextType.ParamType) {
+            items.push(typeKeywords)
+            items.push(paramTypeKeywords)
         }
 
         if (context.Data.addons) {
