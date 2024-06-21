@@ -2046,7 +2046,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             index = identifierResults[0]
 
             //type has been found
-            if (ValueType[identifierResults[1]]) {
+            if (ValueType[identifierResults[1]] || identifierResults[1] == "") {
                 type = identifierResults[1]
                 break
 
@@ -2062,9 +2062,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
         }
 
-        //throw error if theres no type after the :
-        if (type == null) {
-            throw new TCError("Expected type following ':'",0,modifiersInitIndex,index)
+        if (!type) {
+            if (modifiers.length > 0) {
+                type = "any"
+            } else {
+                throw new TCError("Expected type or modifiers following ':'",0,modifiersInitIndex,index)
+            }
         }
 
         //throw error for trying to use modifiers with vars
