@@ -4,16 +4,17 @@ import * as AD from "../util/actionDump"
 import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position } from "vscode-languageserver";
 import { CodeContext, ContextType, GetLineIndexes, Tokenize } from "../tokenizer/tokenizer";
 import { DocumentTracker } from "./documentTracker";
-import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS } from "../util/constants";
+import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, ValueType } from "../util/constants";
 
 //function that other things can call to log to the language server output when debugging
 export let slog
 
-function generateCompletions(entries: (string)[]): CompletionItem[] {
+function generateCompletions(entries: (string)[], kind: CompletionItemKind = CompletionItemKind.Property): CompletionItem[] {
     let result: CompletionItem[] = []
     for (const v of entries) {
         let item: CompletionItem = {
-            "label": v
+            "label": v,
+            "kind": kind
         }
         result.push(item)
     }
@@ -36,17 +37,23 @@ function indexToLinePosition(script: string,index: number): Position {
     return {} as Position
 }
 
-const headerKeywords = generateCompletions(["LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM"])
-const genericKeywords = generateCompletions(["if","else","repeat","in","to","on","not","while","break","continue","return","returnmult","wait","endthread","select","filter","optional","plural"])
-const variableScopeKeywords = generateCompletions(["local","saved","global","line"])
-const genericDomains = generateCompletions(["player","entity"])
+
+var headerKeywords = generateCompletions(["LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM"],CompletionItemKind.Keyword)
+var genericKeywords = generateCompletions(["if","else","repeat","in","to","on","not","while","break","continue","return","returnmult","endthread","select","filter","optional","plural"],CompletionItemKind.Keyword)
+genericKeywords.push({
+    "label": "wait",
+    "kind": CompletionItemKind.Function
+})
+var variableScopeKeywords = generateCompletions(["local","saved","global","line"],CompletionItemKind.Keyword)
+var genericDomains = generateCompletions(["player","entity"],CompletionItemKind.Variable)
 
 function getDomainKeywords() {
     let result: CompletionItem[] = []
     for (const [id, domain] of Object.entries(domains.PublicDomains)) {
         let item: CompletionItem = {
             "label": id,
-            "commitCharacters": [":",".","?"]
+            "commitCharacters": [":",".","?"],
+            "kind": CompletionItemKind.Variable
         }
         result.push(item)
     }
@@ -131,7 +138,7 @@ export function StartServer() {
                 for (const [tcName, action] of Object.entries(domain.Values)) {
                     let item: CompletionItem = {
                         "label": tcName,
-                        "kind": CompletionItemKind.Value,
+                        "kind": CompletionItemKind.Field,
                         "commitCharacters": [";"]
                     }
                     items.push(item)
@@ -144,7 +151,7 @@ export function StartServer() {
                 for (const [tcName, action] of Object.entries(domain.Conditions)) {
                     let item: CompletionItem = {
                         "label": tcName,
-                        "kind": CompletionItemKind.Value,
+                        "kind": CompletionItemKind.Method,
                         "commitCharacters": ["(",")"]
                     }
                     items.push(item)
@@ -181,7 +188,7 @@ export function StartServer() {
                 let item: CompletionItem = {
                     "label": tagName,
                     "filterText": `" ${tagName}"`,
-                    "kind": CompletionItemKind.Property,
+                    "kind": CompletionItemKind.Text,
                     "commitCharacters": ["(",";"]
                 }
                 if (context.Data.replaceRange) {
