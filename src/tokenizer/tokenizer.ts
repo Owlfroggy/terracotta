@@ -2086,27 +2086,26 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             index += cu.GetWhitespaceAmount(index) + 1
             let equalSignIndex = index //used for errors
 
-            //throw error if param is required
-            if (!modifiers.includes("optional")) {
-                throw new TCError("Only optional parameters can have default values",0,index,cu.GetLineEnd(initIndex)-1)
-            }
-            //throw error if param is optional, but plural
-            if (modifiers.includes("plural")) {
-                throw new TCError("Plural parameters cannot have default values",0,index,cu.GetLineEnd(initIndex)-1)
-            }
-
             //parse default value
             let expressionResults = ParseExpression(index,[";"],false)
             if (expressionResults == null) {
                 throw new TCError("Expected param default value following '='",0,equalSignIndex,equalSignIndex)
             }
+
+            //throw error if param is required
+            if (!modifiers.includes("optional")) {
+                throw new TCError("Only optional parameters can have default values",0,index,expressionResults[0])
+            }
+            //throw error if param is optional, but plural
+            if (modifiers.includes("plural")) {
+                throw new TCError("Plural parameters cannot have default values",0,index,expressionResults[0])
+            }
+            if (defaultValue && (type == "dict" || type == "list")) {
+                throw new TCError(`Parameters of type ${type} cannot have default values`,0,index,expressionResults[0])
+            }
             
             index = expressionResults[0]
             defaultValue = expressionResults[1]
-        }
-        //if there isn't a = but the param is optional
-        else if (modifiers.includes("optional") && !modifiers.includes("plural")) {
-            throw new TCError("Optional parameter must have default value",0,initIndex,cu.GetLineEnd(initIndex)-1)
         }
 
         return [index, new ParamHeaderToken([initIndex,index],nameResults[1],type,modifiers.includes("plural"),modifiers.includes("optional"),defaultValue)]
