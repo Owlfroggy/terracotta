@@ -151,7 +151,7 @@ export function StartServer() {
                 }
             }
         }
-        else if (context.Type == ContextType.String) {
+        else if (context.Type == ContextType.String || context.Type == ContextType.PureUser) {
             // no autocomplete entries
         }
         else if (context.Type == ContextType.EventDeclaration) {
@@ -210,6 +210,7 @@ export function StartServer() {
             isIncomplete: true,
             items: items
         }
+
         return response
     })
 

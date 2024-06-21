@@ -461,6 +461,7 @@ export class CodeContext {
 }
 
 export enum ContextType {
+    "PureUser",
     "String",
     "General",
 
@@ -530,10 +531,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
     //==========[ helper functions ]=========\\
 
-    function OfferContext(currentIndex: number, type: ContextType, data: Dict<any> = {}) {
+    function OfferContext(currentIndex: number, type: ContextType, data: Dict<any> = {}, autoExtend: boolean = true) {
         if (mode.mode != "getContext") { return }
-        currentIndex += cu.GetWhitespaceAmount(currentIndex) + 1
-        currentIndex += cu.GetIdentifier(currentIndex,true)[1].length
+        if (autoExtend) {   
+            currentIndex += cu.GetWhitespaceAmount(currentIndex) + 1
+            currentIndex += cu.GetIdentifier(currentIndex,true)[1].length
+        }
         data.indx = currentIndex
         if (currentIndex >= mode.contextTestPosition!) {
             //utilizing error throwing to stop parsing and send the context up 
@@ -790,6 +793,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //remove trailing decimal if nothing's after it
         if (string[string.length - 1] == ".") { string = string.substring(0, string.length - 1) }
+
+        OfferContext(index,ContextType.PureUser,{},false)
 
         return [index - 1, new NumberToken([initIndex,index - 1],string)]
     }
