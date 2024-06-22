@@ -1290,28 +1290,27 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 return [foreverResults[0], new RepeatForeverToken([initIndex,foreverResults[0]])]
             }
             //anything below this is for repeat multiple
+            //(n)
+            if (cu.GetNextCharacters(index,1) != "(") {
+                throw new TCError("Expected '(' following 'repeat'",0,initIndex,index)
+            }
+            index += cu.GetWhitespaceAmount(index) + 1
 
             //variable
             let variableResults = ParseVariable(index)
             if (variableResults) {
-                index = variableResults[0]
-                //make sure theres a 'to'
-                let toResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
-                if (!toResults || toResults[1] != "to") {
-                    throw new TCError("Expected 'to' following 'repeat <var>'",0,initIndex,index)
+                let toResults = cu.GetIdentifier(variableResults[0] + cu.GetWhitespaceAmount(variableResults[0]) + 1)
+                
+                //if there's a "to", use this variable as the index getter
+                if (toResults && toResults[1] == "to") {
+                    index = toResults[0]
+                } 
+                //otherwise throw it out here and let the following expression parsing scoop it up
+                else {
+                    variableResults = null
                 }
-                index = toResults[0]
             }
 
-            //(n)
-            if (cu.GetNextCharacters(index,1) != "(") {
-                if (variableResults) {
-                    throw new TCError("Expected '(amount)' following 'to'",0,initIndex,index)
-                } else {
-                    throw new TCError("Expected variable, '(amount)', or 'Forever' following 'repeat'",0,initIndex,index)
-                }
-            }
-            index += cu.GetWhitespaceAmount(index) + 1
 
             //expression
             let expressionResults = ParseExpression(index,[")"],true)

@@ -8,7 +8,7 @@ repeat (2) {
 }
 
 #with getting variable
-repeat line i to (2) {
+repeat (line i to 2) {
     default:SendMessage(line i);
 }
 
@@ -18,7 +18,7 @@ repeat (global DINGUS) {
 }
 
 #variables as both
-repeat line i to (global DINGUS) {
+repeat (line i to global DINGUS) {
     __printvartype line i;
     default:SendMessage(line i + (default.Location + txt" <= 5"));
 }
