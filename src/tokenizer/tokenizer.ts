@@ -469,6 +469,8 @@ export enum ContextType {
     "TypeAssignment",
     "ParamType",
 
+    "RepeatAction",
+
     /*data for the domain contexts: {
         //domain name
         domain: string
@@ -1403,6 +1405,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             else if (mode == "on") {
                 //parse action name
                 let actionNameInitIndex = index + cu.GetWhitespaceAmount(index) + 1
+                OfferContext(index,ContextType.RepeatAction)
                 let actionNameResults = cu.GetIdentifier(actionNameInitIndex)
                 //error for missing action name
                 if (actionNameResults[1] == "") {

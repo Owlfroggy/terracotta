@@ -7,7 +7,7 @@ import { DocumentTracker } from "./documentTracker";
 import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, ValueType } from "../util/constants";
 
 enum CompletionItemType {
-    DomainAction
+    CodeblockAction
 }
 
 //function that other things can call to log to the language server output when debugging
@@ -50,7 +50,7 @@ genericKeywords.push({
         "value": "kill me now"
     },
     "data": {
-        "type": CompletionItemType.DomainAction,
+        "type": CompletionItemType.CodeblockAction,
         "codeblock": "control",
         "actionDFId": "Wait",
     }
@@ -59,6 +59,14 @@ genericKeywords.push({
 var variableScopeKeywords = generateCompletions(["local","saved","global","line"],CompletionItemKind.Keyword)
 var genericDomains = generateCompletions(["player","entity"],CompletionItemKind.Variable)
 var typeKeywords = generateCompletions(Object.keys(ValueType),CompletionItemKind.Keyword)
+var forLoopActionKeywords = generateCompletions(Object.keys(AD.TCActionMap.repeat!),CompletionItemKind.Property)
+forLoopActionKeywords.forEach(item => {
+    item.data = {
+        "type": CompletionItemType.CodeblockAction,
+        "codeblock": "repeat",
+        "actionDFId": AD.TCActionMap.repeat![item.label]?.DFId
+    }
+});
 
 function getDomainKeywords() {
     let result: CompletionItem[] = []
@@ -117,7 +125,7 @@ export function StartServer() {
 
         let documentation: string | undefined = undefined
 
-        if (item.data.type == CompletionItemType.DomainAction) {
+        if (item.data.type == CompletionItemType.CodeblockAction) {
             let action: AD.Action = AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!
 
             let paramString = ""
@@ -186,7 +194,7 @@ export function StartServer() {
                     "kind": CompletionItemKind.Method,
                     "commitCharacters": [";","("],
                     "data": {
-                        "type": CompletionItemType.DomainAction,
+                        "type": CompletionItemType.CodeblockAction,
                         "codeblock": domain.ActionCodeblock,
                         "actionDFId": action!.DFId
                     }
@@ -274,6 +282,10 @@ export function StartServer() {
         else if (context.Type == ContextType.ParamType) {
             items.push(typeKeywords)
             items.push(paramTypeKeywords)
+        }
+        else if (context.Type == ContextType.RepeatAction) {
+            slog('dingus')
+            items.push(forLoopActionKeywords)
         }
 
         if (context.Data.addons) {
