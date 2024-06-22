@@ -11,6 +11,7 @@ import * as AD from "../util/actionDump"
 import { UnzipPassThrough } from "fflate"
 
 import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS} from "../util/constants"
+import { CompletionItemKind } from "vscode-languageserver"
 
 //==========[ tokens ]=========\\
 export class Token {
@@ -1280,6 +1281,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //repeat n times or repeat forever
         if (keywordResults[1] == "repeat") {
+            OfferContext(index,ContextType.General,{"addItems":[{"label": "Forever", "kind": CompletionItemKind.Keyword}]})
             //repeat Forever
             let foreverResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
             if (foreverResults[1] == "Forever") {

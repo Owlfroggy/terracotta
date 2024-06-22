@@ -280,6 +280,10 @@ export function StartServer() {
             if (context.Data.addons.genericDomains) { items.push(genericDomains) }
         }
 
+        if (context.Data.addItems) {
+            items.push(context.Data.addItems)
+        }
+
         items = items.flat()
 
         let response: CompletionList = {
