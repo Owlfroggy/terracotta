@@ -72,6 +72,10 @@ export const PLAYER_ONLY_GAME_VALUES = ["Food Level","Food Saturation","Food Exh
 
 //==========[ domain lists ]=========\\
 
+//actions present in this list can be used with (for x on action) syntax
+//df id
+export const REPEAT_ON_ACTIONS = ["Adjacent", "Path", "Grid", "Sphere", " Range "]
+
 //controls which select actions go with the create keyword
 //! IF A SELECTION ACTION ISN'T PRESENT IN THESE TABLES IT WON'T BE ACCESSIBLE AT ALL !
 //df id

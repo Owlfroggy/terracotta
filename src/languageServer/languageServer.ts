@@ -4,7 +4,7 @@ import * as AD from "../util/actionDump"
 import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position } from "vscode-languageserver";
 import { CodeContext, ContextType, GetLineIndexes, Tokenize } from "../tokenizer/tokenizer";
 import { DocumentTracker } from "./documentTracker";
-import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, ValueType } from "../util/constants";
+import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, REPEAT_ON_ACTIONS, ValueType } from "../util/constants";
 
 enum CompletionItemType {
     CodeblockAction
@@ -59,13 +59,18 @@ genericKeywords.push({
 var variableScopeKeywords = generateCompletions(["local","saved","global","line"],CompletionItemKind.Keyword)
 var genericDomains = generateCompletions(["player","entity"],CompletionItemKind.Variable)
 var typeKeywords = generateCompletions(Object.keys(ValueType),CompletionItemKind.Keyword)
-var forLoopActionKeywords = generateCompletions(Object.keys(AD.TCActionMap.repeat!),CompletionItemKind.Property)
-forLoopActionKeywords.forEach(item => {
-    item.data = {
-        "type": CompletionItemType.CodeblockAction,
-        "codeblock": "repeat",
-        "actionDFId": AD.TCActionMap.repeat![item.label]?.DFId
-    }
+var forLoopActionKeywords: CompletionItem[] = []
+REPEAT_ON_ACTIONS.forEach(dfId => {
+    let action = AD.DFActionMap.repeat![dfId]!
+    forLoopActionKeywords.push({
+        "label": action.TCId,
+        "kind": CompletionItemKind.Function,
+        "data": {
+            "type": CompletionItemType.CodeblockAction,
+            "codeblock": "repeat",
+            "actionDFId": dfId
+        }
+    } as CompletionItem)
 });
 
 function getDomainKeywords() {
