@@ -12,7 +12,11 @@
             "CreativeMode": "SetToCreativeMode",
             "SurvivalMode": "SetToSurvivalMode",
             "ActionBar": "SendActionBar",
-            "SendTitle": "SendTitle"
+            "SendTitle": "SendTitle",
+            "SetTabListInfo": "SetTabListInfo",
+            "SetPlayerWeather": "SetWeather",
+            "SetPlayerTime": "SetTime",
+            "AttackAnimation": "SendAttackAnimation"
         },
         "if_player": {
 
@@ -29,10 +33,13 @@
             "DispRotAxisAngle": "SetDisplayRotationFromAxisAngle",
             "SetCustomTag": "SetTag",
             "GetCustomTag": "GetTag",
-            "GetAllEntityTags": "GetAllTags"
+            "GetAllEntityTags": "GetAllTags",
+            "SendAnimation": "SendAnimation",
+            "AttackAnimation": "SendAttackAnimation",
+            "SetItem": "SetItem"
         },
         "if_entity": {
-
+            
         },
         "set_var": {
             "PurgeVars": "PurgeMatching",
