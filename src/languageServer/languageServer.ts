@@ -6,6 +6,10 @@ import { CodeContext, ContextType, GetLineIndexes, Tokenize } from "../tokenizer
 import { DocumentTracker } from "./documentTracker";
 import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, ValueType } from "../util/constants";
 
+enum CompletionItemType {
+    DomainAction
+}
+
 //function that other things can call to log to the language server output when debugging
 export let slog
 
@@ -29,8 +33,6 @@ function indexToLinePosition(script: string,index: number): Position {
         totalIndex += l.length + 1
         if (totalIndex >= index) {
             return {"line": finalLine, "character": 1 + index - (totalIndex - (l.length))}
-            // console.log(finalLine, index - (totalIndex - (l.length)))
-            // break
         }
         finalLine++
     }
@@ -42,8 +44,18 @@ var headerKeywords = generateCompletions(["LAGSLAYER_CANCEL","PLAYER_EVENT","ENT
 var genericKeywords = generateCompletions(["if","else","repeat","in","to","on","not","while","break","continue","return","returnmult","endthread","select","filter","optional","plural"],CompletionItemKind.Keyword)
 genericKeywords.push({
     "label": "wait",
-    "kind": CompletionItemKind.Function
+    "kind": CompletionItemKind.Function,
+    "documentation": {
+        "kind": MarkupKind.Markdown,
+        "value": "kill me now"
+    },
+    "data": {
+        "type": CompletionItemType.DomainAction,
+        "codeblock": "control",
+        "actionDFId": "Wait",
+    }
 })
+
 var variableScopeKeywords = generateCompletions(["local","saved","global","line"],CompletionItemKind.Keyword)
 var genericDomains = generateCompletions(["player","entity"],CompletionItemKind.Variable)
 var typeKeywords = generateCompletions(Object.keys(ValueType),CompletionItemKind.Keyword)
@@ -92,12 +104,56 @@ export function StartServer() {
                 textDocumentSync: TextDocumentSyncKind.Full,
                 // Tell the client that this server supports code completion.
                 completionProvider: {
-                    // resolveProvider: true,
+                    resolveProvider: true,
                     triggerCharacters: [":",".","?"],
                 }
             }
         }
         return response
+    })
+
+    connection.onRequest("completionItem/resolve", (item: CompletionItem) => {
+        if (item.data == null || item.data.type == null) {return item}
+
+        let documentation: string | undefined = undefined
+
+        if (item.data.type == CompletionItemType.DomainAction) {
+            let action: AD.Action = AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!
+
+            let paramString = ""
+            let paramEntries: string[] = []
+            if (action.Parameters.length == 0){
+                paramString += "\n\n**No Parameters**"
+            }
+            else {
+                paramString += "\n\n**Parameters:**\n\n"
+                action.Parameters.forEach(paramList => {
+                    let paramTypes: string[] = []
+                    paramList.forEach(param => {
+                        let notesString = ""
+                        param.notes.forEach(note => {
+                            notesString += `\\\n  ⏵ ${note}`
+                        });
+                        paramTypes.push(`\`${AD.DFTypeToString[param.type]}${param.plural ? "(s)" : ""}${param.optional ? "*" : ""}\` ${(param.description + notesString).length > 0 ? "-" : ""} ${param.description}${notesString}`)
+                    });
+                    let e = paramTypes.join("\\\n **OR**\\\n")
+                    paramEntries.push(e)
+                });
+                paramString += paramEntries.join("\n\n\n\n")
+            }
+            
+            documentation = "paramString"
+            documentation = `${AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!.Description || "<Failed to get action description>"}${paramString}`
+        }
+
+        if (documentation !== undefined) {
+            item.documentation = {
+                "kind": MarkupKind.Markdown,
+                "value": documentation
+            }
+        }
+
+        return item
     })
 
     connection.onRequest("textDocument/completion", async (param) => {
@@ -128,7 +184,12 @@ export function StartServer() {
                 let item: CompletionItem = {
                     "label": tcName,
                     "kind": CompletionItemKind.Method,
-                    "commitCharacters": [";","("]
+                    "commitCharacters": [";","("],
+                    "data": {
+                        "type": CompletionItemType.DomainAction,
+                        "codeblock": domain.ActionCodeblock,
+                        "actionDFId": action!.DFId
+                    }
                 }
                 items.push(item)
             }

@@ -4,6 +4,14 @@ import { ValueType, PLAYER_ONLY_GAME_VALUES } from "./constants"
 
 //==========[ classes ]=========\\
 
+export class Parameter {
+    type: string
+    plural: boolean
+    optional: boolean
+    description: string
+    notes: string[] = []
+}
+
 export class Tag {
     Name: string
     Options: string[]
@@ -26,6 +34,11 @@ export class Action {
     TCId: string
     //list of tags, key = tag name
     Tags: Dict<Tag>
+    //description lore that shows up when you hover over the action in df
+    //DOES NOT INCLUDE PARAMETER INFORMATION!!
+    Description: string
+
+    Parameters: (Parameter[])[]
     
     //type this action returns
     ReturnType: ValueType | null = null
@@ -91,16 +104,49 @@ export var Potions: Set<string> = new Set([])
 
 //key: how a return type appears in the action dump
 //value: terracotta type name
-const ReturnTypeMap = {
+export const DFTypeToTC = {
     NUMBER: "num",
     LOCATION: "loc",
     VECTOR: "vec",
     ITEM: "item",
     LIST: "list",
+    POTION: "pot",
+    PARTICLE: "par",
+    SOUND: "snd",
     COMPONENT: "txt",
     TEXT: "str",
     DICT: "dict",
-    ANY_TYPE: "any"
+    VARIABLE: "var",
+    ANY_TYPE: "any",
+    BLOCK_TAG: "str",
+    BLOCK: "item",
+    ENTITY_TYPE: "item",
+    PROJECTILE: "item",
+    VEHICLE: "item",
+    SPAWN_EGG: "item",
+}
+
+export const DFTypeToString = {
+    NUMBER: "Number",
+    LOCATION: "Location",
+    VECTOR: "Vector",
+    ITEM: "Item",
+    LIST: "List",
+    POTION: "Potion",
+    PARTICLE: "Particle",
+    SOUND: "Sound",
+    COMPONENT: "Styled Text",
+    TEXT: "String",
+    DICT: "Dictionary",
+    VARIABLE: "Variable",
+    ANY_TYPE: "Any Value",
+    BLOCK_TAG: "Block Tag",
+    BLOCK: "Block",
+    ENTITY_TYPE: "Entity Type",
+    PROJECTILE: "Projectile",
+    VEHICLE: "Vehicle",
+    SPAWN_EGG: "Spawn Egg",
+    NONE: "None"
 }
 
 //key: codeblock name (e.g. "PLAYER ACTION")
@@ -148,7 +194,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     let returnType: ValueType | null = returnTypeOverrides[actionJson.name] ? ValueType[returnTypeOverrides[actionJson.name]] : null
     if (actionJson.icon.returnValues && actionJson.icon.returnValues.length > 0) {
         if (actionJson.icon.returnValues.length == 1) {
-            returnType = ValueType[ReturnTypeMap[actionJson.icon.returnValues[0].type]]
+            returnType = ValueType[DFTypeToTC[actionJson.icon.returnValues[0].type]]
         } 
         //if an action could return more than one type just mark it as "any"
         //and let special behavior in compiler handle it
@@ -170,6 +216,51 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
         tags[tagJson.name] = tag
     }
 
+    //parameters
+    //this code is hideous BUT IT WORKS so unless a future action dump changes how parameters are stored i do not have to care
+    //(if anyone ever has to bugfix this, i am sorry)
+    let parameters: any[] = []
+    if (actionJson.icon && actionJson.icon.arguments) {
+        let currentParameter: Parameter[] = []
+        let i = -1
+        for (const arg of actionJson.icon.arguments) {
+            i++
+            if (arg.text !== undefined) {
+                continue
+            }
+            if ( 
+                (
+                    !(actionJson.icon.arguments[i+1] && actionJson.icon.arguments[i+1].text == "OR" || actionJson.icon.arguments[i-1] && actionJson.icon.arguments[i-1].text == "OR") ||
+                    (actionJson.icon.arguments[i-1] && actionJson.icon.arguments[i-1].text === "")    
+                )
+                && currentParameter.length > 0
+            ) 
+            {
+                parameters.push(currentParameter)
+                currentParameter = []
+            }
+            
+            let p = new Parameter()
+            p.description = arg.description ? arg.description.join(" ") : ""
+            p.optional = arg.optional
+            p.plural = arg.plural
+            p.type = arg.type
+            
+            if (arg.notes) {
+                arg.notes.forEach((note: string[]) => {
+                    p.notes.push(note.join(" "))
+                });
+            }
+            currentParameter.push(p)
+        }
+        if (currentParameter.length > 0) {
+            parameters.push(currentParameter)
+        }
+    }
+
+    
+    let descriptionString = actionJson.icon.description.join(" ")
+
     //normal action
     let normalAction = new Action()
     normalAction.Codeblock = codeblockId
@@ -177,6 +268,8 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     normalAction.DFId = dfId
     normalAction.Tags = tags
     normalAction.ReturnType = returnType
+    normalAction.Description = descriptionString
+    normalAction.Parameters = parameters
 
     TCActionMap[codeblockId]![tcId] = normalAction
     DFActionMap[codeblockId]![dfId] = normalAction
@@ -188,6 +281,8 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     differentiatedAction.DFId = dfId
     differentiatedAction.Tags = tags
     differentiatedAction.ReturnType = returnType
+    differentiatedAction.Description = descriptionString
+    differentiatedAction.Parameters = parameters
 
     //check all aliases
     for (const alias of actionJson.aliases) {
@@ -211,7 +306,7 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
     let value = new GameValue()
     value.DFId = gameValueJson.icon.name
     value.TCId = OVERRIDES_JSON.gameValues[gameValueJson.icon.name] || CodeifyName(gameValueJson.icon.name)
-    value.ReturnType = ReturnTypeMap[gameValueJson.icon.returnType]
+    value.ReturnType = DFTypeToTC[gameValueJson.icon.returnType]
 
     DFGameValueMap[value.DFId] = value
     TCGameValueMap[value.TCId] = value
