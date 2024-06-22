@@ -39,6 +39,9 @@ export class Action {
     Description: string
 
     Parameters: (Parameter[])[]
+
+    //will be true or false for events, undefined for non-events
+    Cancellable: boolean | undefined
     
     //type this action returns
     ReturnType: ValueType | null = null
@@ -270,10 +273,11 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     normalAction.ReturnType = returnType
     normalAction.Description = descriptionString
     normalAction.Parameters = parameters
-
+    normalAction.Cancellable = actionJson.icon.cancellable
+    
     TCActionMap[codeblockId]![tcId] = normalAction
     DFActionMap[codeblockId]![dfId] = normalAction
-
+    
     //differentiated action
     let differentiatedAction = new Action()
     differentiatedAction.Codeblock = codeblockId
@@ -283,7 +287,8 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     differentiatedAction.ReturnType = returnType
     differentiatedAction.Description = descriptionString
     differentiatedAction.Parameters = parameters
-
+    differentiatedAction.Cancellable = actionJson.icon.cancellable
+    
     //check all aliases
     for (const alias of actionJson.aliases) {
         //if this alias starts with the if block's corresponding letter assume its a differentiation

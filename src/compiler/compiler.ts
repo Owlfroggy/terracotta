@@ -1581,6 +1581,9 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 if (headerData.codeblock) {
                     let block
                     if (headerData.codeblock.Codeblock == "PLAYER_EVENT" || headerData.codeblock.Codeblock == "ENTITY_EVENT") {
+                        if (!AD.DFActionMap["PLAYER_EVENT" ? "event" : "entity_event"]![headerData.codeblock.Event]!.Cancellable && headerData.lsCancel) {
+                            throw new TCError(`${headerData.codeblock.Codeblock == "PLAYER_EVENT" ? "Player" : "Entity"} event '${headerData.codeblock.Event}' is not cancellable`,0,headerData.lsCancel.CharStart,headerData.lsCancel.CharEnd)
+                        }
                         block = new EventBlock(headerData.codeblock.Codeblock, headerData.codeblock.Event, headerData.lsCancel == false ? false : true)
                     }
                     else if (headerData.lsCancel) {
