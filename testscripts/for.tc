@@ -12,28 +12,30 @@ global list = [
     txt"<font:illageralt>e" + [7][1] * [100][1] #DISCLAIMER! please don't do this
 ];
 
-for line k, line v in (global dict) {
+for (line k, line v in global dict) {
     default:SendMessage(line k,"=",line v);
 }
 
-for line v in (global list) {
+for (line v in global list) {
     default:SendMessage("list value",line v);
 }
 
-for line l on (Path (loc[1,50,1], loc[25,50,25], [21,67,4], 20){"Rotate Location" = "True"}) {
+for (line l on Path (loc[1,50,1], loc[25,50,25], loc[21,67,4], 20){"Rotate Location" = "True"}) {
     default:SendMessage("LOC",line l);
 }
 
-for line n on (Range(1,10,0.5)) {
+for (line n on Range(1,10,0.5)) {
     default:SendMessage("iterate over range",line n);
 }
 
-for line message in (["you","cannot","escape","the might of",txt"<rainbow>doggus prime"]) {
+for (line message in ["you","cannot","escape","the might of",txt"<rainbow>doggus prime"]) {
     default:SendMessage(line message);
 }
 
 #HOLY SKJHD FOR EACH IN SELECTION REAL NOT CLICKBAIT????????
-for line uuid in (game.SelectionTargetUUIDs) {
-    #i havent implemented select object yet
-    default:SendMessage(line uuid);
+line selection = game.SelectionTargetUUIDs;
+for (line uuid in game.SelectionTargetUUIDs) {
+    select EntitiesByName(line uuid);
+    selectionEntity:SetCustomName(num:Random(1,10));
 }
+select EntitiesByName(line selection);

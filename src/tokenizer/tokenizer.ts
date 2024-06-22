@@ -1344,11 +1344,16 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //for
         else if (keywordResults[1] == "for") {
             let variables: Array<VariableToken> = []
-
+            
             //in will iterate over a list or dict
             //on will do an action like on range or adjacent
             let mode: "in" | "on"
-
+            //make sure theres a (
+            if (cu.GetNextCharacters(index,1) != "(") {
+                throw new TCError(`Expected '(' following 'for'`,0,initIndex,index)
+            }
+            index += cu.GetWhitespaceAmount(index) + 1
+            
             //accumulate variables until either the 'in' or 'on' keyword
             while (true) { //scary!!
                 let variableResults = ParseVariable(index)
@@ -1381,11 +1386,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 index += cu.GetWhitespaceAmount(index) + 1
             }
 
-            //make sure theres a (
-            if (cu.GetNextCharacters(index,1) != "(") {
-                throw new TCError(`Expected '(' following '${mode}'`,0,initIndex,index)
-            }
-            index += cu.GetWhitespaceAmount(index) + 1
             let actionInitIndex = index
 
             let returnToken: RepeatToken
