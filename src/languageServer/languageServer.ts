@@ -289,7 +289,6 @@ export function StartServer() {
             items.push(paramTypeKeywords)
         }
         else if (context.Type == ContextType.RepeatAction) {
-            slog('dingus')
             items.push(forLoopActionKeywords)
         }
 

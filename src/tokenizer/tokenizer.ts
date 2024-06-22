@@ -2004,7 +2004,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         if (identifierResults == null || !VALID_LINE_STARTERS.includes(identifierResults[1])) { return null }
         index = identifierResults[0]
 
-        OfferContext(index,ContextType.EventDeclaration,{"type": identifierResults[1] == "PLAYER_EVENT" ? "player" : "entity"})
+        if (identifierResults[1] == "PLAYER_EVENT" || identifierResults[1] == "ENTITY_EVENT") {
+            OfferContext(index,ContextType.EventDeclaration,{"type": identifierResults[1] == "PLAYER_EVENT" ? "player" : "entity"})
+        }
+        else {
+            OfferContext(index,ContextType.PureUser)
+        }
 
         let nameResults = GetComplexName(index)
         return [nameResults[0], new EventHeaderToken([initIndex,index],identifierResults[1],nameResults[1])]
