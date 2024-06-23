@@ -1820,7 +1820,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
 
         let expressionSymbols: Array<any> = []
-        let comparisonFound = false
         let not = false
 
         let initIndex = index + cu.GetWhitespaceAmount(index) + 1
@@ -1847,106 +1846,82 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             let results: [number, Token] | null = null
             // parse next token!!
 
-            //if previous token is an operator or this is the first token in the expression, parse for value
-            if (expressionSymbols[expressionSymbols.length - 1] instanceof OperatorToken || expressionSymbols.length == 0) {
-                //try nested expression
-                if (cu.GetNextCharacters(index, 1) == "(") {
-                    results = ParseExpression(index + cu.GetWhitespaceAmount(index) + 1, [")"])
-                }
+            //try nested expression
+            if (cu.GetNextCharacters(index, 1) == "(") {
+                results = ParseExpression(index + cu.GetWhitespaceAmount(index) + 1, [")"])
+            }
 
-                //try action
-                if (results == null) { results = ParseAction(index, true, features.includes("genericTargetComparisons")) }
+            //try indexer thingy if last token isn't an operator
+            //(if last token is an operator, the square brackets should be parsed as a list later down)
+            if (results == null && expressionSymbols[expressionSymbols.length - 1] && !(expressionSymbols[expressionSymbols.length - 1] instanceof OperatorToken)) { results = ParseIndexer(index) }
 
-                //try string
-                if (results == null) { results = ParseString(index, "\"") }
+            //try action
+            if (results == null) { results = ParseAction(index, true, features.includes("genericTargetComparisons")) }
 
-                //try number
+            //try string
+            if (results == null) { results = ParseString(index, "\"") }
+
+            //try number first if last token is operator or this is the first token so negative numbers are possible
+            if (expressionSymbols.length == 0 || (expressionSymbols[expressionSymbols.length - 1] && expressionSymbols[expressionSymbols.length - 1] instanceof OperatorToken)) {
                 if (results == null) { results = ParseNumber(index) }
+                if (results == null) { results = ParseOperator(index, "math") }
+            } else {
+                if (results == null) { results = ParseOperator(index, "math") }
+                if (results == null) { results = ParseNumber(index) }
+            }
 
-                //try location
-                if (results == null) { results = ParseLocation(index) }
+            //try comparison operator
+            if (results == null && features.includes("comparisons")) { results = ParseOperator(index, "comparison") }
 
-                //try vector
-                if (results == null) { results = ParseVector(index) }
+            //try location
+            if (results == null) { results = ParseLocation(index) }
 
-                //try text
-                if (results == null) { results = ParseText(index) }
+            //try vector
+            if (results == null) { results = ParseVector(index) }
 
-                //try sound
-                if (results == null) { results = ParseSound(index) }
+            //try text
+            if (results == null) { results = ParseText(index) }
 
-                //try potion
-                if (results == null) { results = ParsePotion(index) }
+            //try sound
+            if (results == null) { results = ParseSound(index) }
 
-                //try variable
-                if (results == null) { results = ParseVariable(index) }
+            //try potion
+            if (results == null) { results = ParsePotion(index) }
 
-                //try item
-                if (results == null) { results = ParseItem(index) }
+            //try variable
+            if (results == null) { results = ParseVariable(index) }
 
-                //try function
-                if (results == null) { 
-                    results = ParseCall(index)
+            //try item
+            if (results == null) { results = ParseItem(index) }
 
-                    if (results && (results[1] as CallToken).Type == "process") {
-                        throw new TCError("Processes cannot be started from within expressions",0,valueInitIndex + cu.GetWhitespaceAmount(valueInitIndex) + 1,results[0])
-                    }
-                }
+            //try function
+            if (results == null) { 
+                results = ParseCall(index)
 
-                //try game value
-                if (results == null) { results = ParseGameValue(index) }
-
-                //try list
-                if (results == null) { results = ParseList(index, "[","]",",") }
-
-                //try dict
-                if (results == null) { results = ParseDictionary(index, "{", "}", ",", "=")}
-
-                if (results == null) {
-                    //= ERROR: operator was given instead of expr
-                    let operatorResults = ParseOperator(index, "math")
-                    if (operatorResults != null) {
-                        if (expressionSymbols.length == 0) {
-                            throw new TCError("Expressions can't start with operators", 4, initIndex, initIndex)
-                        } else {
-                            throw new TCError("Expected value or expression following operator", 5, index + cu.GetWhitespaceAmount(index) + 1, index + cu.GetWhitespaceAmount(index) + 1)
-                        }
-                    }
-
-                    let identifierResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)!
-                    if (identifierResults[1] == "") {
-                        throw new TCError(`Invalid character: '${cu.GetNextCharacters(index, 1)}'`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, valueInitIndex + cu.GetWhitespaceAmount(index) + 1)
-                    }
-                    else {
-                        throw new TCError(`Invalid value: '${cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)![1]}'`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, identifierResults[0])
-                    }
+                if (results && (results[1] as CallToken).Type == "process") {
+                    throw new TCError("Processes cannot be started from within expressions",0,valueInitIndex + cu.GetWhitespaceAmount(valueInitIndex) + 1,results[0])
                 }
             }
-            //otherwise, parse for operator or type override
-            else {
-                if (results == null) { results = ParseTypeOverride(index) }
 
-                if (results == null) { results = ParseOperator(index, "math") }
+            //try game value
+            if (results == null) { results = ParseGameValue(index) }
 
-                //indexer thingy
-                if (results == null) { results = ParseIndexer(index) }
+            //try list
+            if (results == null) { results = ParseList(index, "[","]",",") }
 
-                //comparison operator
-                if (results == null && features.includes("comparisons")) {
-                    results = ParseOperator(index, "comparison")
+            //try dict
+            if (results == null) { results = ParseDictionary(index, "{", "}", ",", "=")}
 
-                    //error if this is the not the first comparison operator in this expression
-                    if (results != null && comparisonFound) {
-                        throw new TCError("Cannot have more than one comparison per statement", 6, valueInitIndex + cu.GetWhitespaceAmount(valueInitIndex) + 1, results[0])
-                    }
+            //try type override
+            if (results == null) { results = ParseTypeOverride(index) }
 
-                    comparisonFound = true
+            if (results == null) {
+                let identifierResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)!
+                if (identifierResults[1] == "") {
+                    throw new TCError(`Invalid character: '${cu.GetNextCharacters(index, 1)}'`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, valueInitIndex + cu.GetWhitespaceAmount(index) + 1)
                 }
-
-                //= ERROR: invalid operator
-                if (results == null) {
-                    let identifierResults = cu.GetCharactersUntil(index + cu.GetWhitespaceAmount(index) + 1, [" ", "\n"])
-                    throw new TCError(`Expected operator, got '${identifierResults[1]}'`, 3, index + cu.GetWhitespaceAmount(index) + 1, identifierResults[0])
+                else {
+                    throw new TCError(`Invalid value: '${cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)![1]}'`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, identifierResults[0])
                 }
             }
 
@@ -1959,11 +1934,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 throw Error("y'all, that expression dont look right")
             }
         } //end of value while loop
-
-        //= ERROR: throw err if expression ends with operator
-        if (expressionSymbols[expressionSymbols.length - 1] instanceof OperatorToken) {
-            throw new TCError("Expression cannot end on an operator", 1, index, index)
-        }
 
         //if this expression has a terminator, move index to that terminate if told to
         if (terminateAt.includes(cu.GetNextCharacters(index, 1)) && endIndexAtTerminator) {

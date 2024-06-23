@@ -1247,6 +1247,28 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
     function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
         let code: CodeBlock[] = []
         let expression: (Token | CodeItem)[] = []
+
+        //validate that operators are good
+        for (let i = 0; i < exprToken.Expression.length; i++ ){
+            const token = exprToken.Expression[i]
+            if (token instanceof OperatorToken) {
+                if (i == 0){ 
+                    throw new TCError(`Expressions cannot begin with '${token.Operator}'`,0,token.CharStart,token.CharEnd)
+                }
+                if (i == exprToken.Expression.length - 1) {
+                    throw new TCError(`Expressions cannot end on '${token.Operator}'`,0,token.CharStart,token.CharEnd)
+                }
+                if (exprToken.Expression[i-1] instanceof OperatorToken) {
+                    throw new TCError(`Expected value following '${(exprToken.Expression[i-1] as OperatorToken).Operator}', got '${token.Operator}'`,0,token.CharStart,token.CharEnd)
+                }
+            }
+            else if (token instanceof TypeOverrideToken) {
+                if (!(exprToken.Expression[i-1] instanceof ActionToken)) {
+                    throw new TCError("Invalid type override placement",0,token.CharStart,token.CharEnd)
+                }
+            }
+        }
+
         //if an index is present as a key in here, item conversion will skip it
         let skipIndexes: Dict<boolean> = {}
 
