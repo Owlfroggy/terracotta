@@ -1897,13 +1897,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 if (results == null) { results = ParseItem(index) }
 
                 //try function
-                if (results == null) { 
-                    results = ParseCall(index)
-
-                    if (results && (results[1] as CallToken).Type == "process") {
-                        throw new TCError("Processes cannot be started from within expressions",0,valueInitIndex + cu.GetWhitespaceAmount(valueInitIndex) + 1,results[0])
-                    }
-                }
+                if (results == null) { results = ParseCall(index) }
 
                 //try game value
                 if (results == null) { results = ParseGameValue(index) }

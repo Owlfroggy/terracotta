@@ -1248,7 +1248,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         let code: CodeBlock[] = []
         let expression: (Token | CodeItem)[] = []
 
-        //validate that operators are good
+        //initial validation
         for (let i = 0; i < exprToken.Expression.length; i++ ){
             const token = exprToken.Expression[i]
             if (token instanceof OperatorToken) {
@@ -1266,6 +1266,9 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 if (!(exprToken.Expression[i-1] instanceof ActionToken)) {
                     throw new TCError("Invalid type override placement",0,token.CharStart,token.CharEnd)
                 }
+            }
+            else if (token instanceof CallToken && token.Type == "process") {
+                throw new TCError("Processes cannot be started from within expressions",0,token.CharStart,token.CharEnd)
             }
         }
 
