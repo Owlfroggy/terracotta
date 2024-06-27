@@ -1468,7 +1468,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
             //if empty tag list
             if (cu.GetNextCharacters(index, 1) == "}") {
-                OfferContext(index+1,ContextType.ActionTagString,{"validValues":Object.keys(validTags)})
+                OfferContext(index+cu.GetWhitespaceAmount(index),ContextType.ActionTagString,{"validValues":Object.keys(validTags)},true)
                 index += 1 + cu.GetWhitespaceAmount(index)
                 return [index,{}]
             } else {
