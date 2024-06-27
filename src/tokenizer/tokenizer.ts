@@ -1833,105 +1833,122 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
         }
 
+        let lastErrorEnd = -1
 
         index += cu.GetWhitespaceAmount(index)
         while (!terminateAt.includes(cu.GetNextCharacters(index, 1)) && index + cu.GetWhitespaceAmount(index) + 1 < SCRIPT_CONTENTS.length) {
-            let valueInitIndex = index
+            try {
+                let valueInitIndex = index
 
-            //= ERROR: expression isnt closed
-            if (cu.GetNextCharacters(index, 1) == ";" || (cu.GetNextCharacters(index, 1) == "" && !terminateAt.includes(";"))) {
-                throw new TCError("Expression was never closed", 1, initIndex, index)
-            }
+                //= ERROR: expression isnt closed
+                if (cu.GetNextCharacters(index, 1) == ";" || (cu.GetNextCharacters(index, 1) == "" && !terminateAt.includes(";"))) {
+                    throw new TCError("Expression was never closed", 1, initIndex, index)
+                }
 
-            let results: [number, Token] | null = null
-            // parse next token!!
+                let results: [number, Token] | null = null
+                // parse next token!!
 
-            //try nested expression
-            if (cu.GetNextCharacters(index, 1) == "(") {
-                results = ParseExpression(index + cu.GetWhitespaceAmount(index) + 1, [")"])
-            }
+                //try nested expression
+                if (cu.GetNextCharacters(index, 1) == "(") {
+                    results = ParseExpression(index + cu.GetWhitespaceAmount(index) + 1, [")"])
+                }
 
-            //try indexer thingy if last token isn't an operator
-            //(if last token is an operator, the square brackets should be parsed as a list later down)
-            if (results == null && expressionSymbols[expressionSymbols.length - 1] && !(expressionSymbols[expressionSymbols.length - 1] instanceof OperatorToken)) { results = ParseIndexer(index) }
+                //try indexer thingy if last token isn't an operator
+                //(if last token is an operator, the square brackets should be parsed as a list later down)
+                if (results == null && expressionSymbols[expressionSymbols.length - 1] && !(expressionSymbols[expressionSymbols.length - 1] instanceof OperatorToken)) { results = ParseIndexer(index) }
 
-            //try action
-            if (results == null) { results = ParseAction(index, true, features.includes("genericTargetComparisons")) }
+                //try action
+                if (results == null) { results = ParseAction(index, true, features.includes("genericTargetComparisons")) }
 
-            //try string
-            if (results == null) { results = ParseString(index, "\"") }
+                //try string
+                if (results == null) { results = ParseString(index, "\"") }
 
-            //try number first if last token is operator or this is the first token so negative numbers are possible
-            if (expressionSymbols.length == 0 || (expressionSymbols[expressionSymbols.length - 1] && expressionSymbols[expressionSymbols.length - 1] instanceof OperatorToken)) {
-                if (results == null) { results = ParseNumber(index) }
-                if (results == null) { results = ParseOperator(index, "math") }
-            } else {
-                if (results == null) { results = ParseOperator(index, "math") }
-                if (results == null) { results = ParseNumber(index) }
-            }
+                //try number first if last token is operator or this is the first token so negative numbers are possible
+                if (expressionSymbols.length == 0 || (expressionSymbols[expressionSymbols.length - 1] && expressionSymbols[expressionSymbols.length - 1] instanceof OperatorToken)) {
+                    if (results == null) { results = ParseNumber(index) }
+                    if (results == null) { results = ParseOperator(index, "math") }
+                } else {
+                    if (results == null) { results = ParseOperator(index, "math") }
+                    if (results == null) { results = ParseNumber(index) }
+                }
 
-            //try comparison operator
-            if (results == null && features.includes("comparisons")) { results = ParseOperator(index, "comparison") }
+                //try comparison operator
+                if (results == null && features.includes("comparisons")) { results = ParseOperator(index, "comparison") }
 
-            //try location
-            if (results == null) { results = ParseLocation(index) }
+                //try location
+                if (results == null) { results = ParseLocation(index) }
 
-            //try vector
-            if (results == null) { results = ParseVector(index) }
+                //try vector
+                if (results == null) { results = ParseVector(index) }
 
-            //try text
-            if (results == null) { results = ParseText(index) }
+                //try text
+                if (results == null) { results = ParseText(index) }
 
-            //try sound
-            if (results == null) { results = ParseSound(index) }
+                //try sound
+                if (results == null) { results = ParseSound(index) }
 
-            //try potion
-            if (results == null) { results = ParsePotion(index) }
+                //try potion
+                if (results == null) { results = ParsePotion(index) }
 
-            //try variable
-            if (results == null) { results = ParseVariable(index) }
+                //try variable
+                if (results == null) { results = ParseVariable(index) }
 
-            //try item
-            if (results == null) { results = ParseItem(index) }
+                //try item
+                if (results == null) { results = ParseItem(index) }
 
-            //try function
-            if (results == null) { 
-                results = ParseCall(index)
+                //try function
+                if (results == null) { 
+                    results = ParseCall(index)
 
-                if (results && (results[1] as CallToken).Type == "process") {
-                    throw new TCError("Processes cannot be started from within expressions",0,valueInitIndex + cu.GetWhitespaceAmount(valueInitIndex) + 1,results[0])
+                    if (results && (results[1] as CallToken).Type == "process") {
+                        throw new TCError("Processes cannot be started from within expressions",0,valueInitIndex + cu.GetWhitespaceAmount(valueInitIndex) + 1,results[0])
+                    }
+                }
+
+                //try game value
+                if (results == null) { results = ParseGameValue(index) }
+
+                //try list
+                if (results == null) { results = ParseList(index, "[","]",",") }
+
+                //try dict
+                if (results == null) { results = ParseDictionary(index, "{", "}", ",", "=")}
+
+                //try type override
+                if (results == null) { results = ParseTypeOverride(index) }
+
+                if (results == null) {
+                    let identifierResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)!
+                    if (identifierResults[1] == "") {
+                        throw new TCError(`Invalid character: '${cu.GetNextCharacters(index, 1)}'`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, valueInitIndex + cu.GetWhitespaceAmount(index) + 1)
+                    }
+                    else {
+                        throw new TCError(`Invalid value: '${cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)![1]}'`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, identifierResults[0])
+                    }
+                }
+
+
+                if (results) {
+                    expressionSymbols.push(results[1])
+                    index = results[0]
+                    continue
+                } else {
+                    throw Error("y'all, that expression dont look right")
                 }
             }
-
-            //try game value
-            if (results == null) { results = ParseGameValue(index) }
-
-            //try list
-            if (results == null) { results = ParseList(index, "[","]",",") }
-
-            //try dict
-            if (results == null) { results = ParseDictionary(index, "{", "}", ",", "=")}
-
-            //try type override
-            if (results == null) { results = ParseTypeOverride(index) }
-
-            if (results == null) {
-                let identifierResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)!
-                if (identifierResults[1] == "") {
-                    throw new TCError(`Invalid character: '${cu.GetNextCharacters(index, 1)}'`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, valueInitIndex + cu.GetWhitespaceAmount(index) + 1)
+            catch (e) {
+                if (mode.mode == "getTokens") { throw e }
+                if (e instanceof TCError) {
+                    index = e.CharLoc
+                    lastErrorEnd = index
+                    if (lastErrorEnd == index) {
+                        index += cu.GetWhitespaceAmount(index)
+                        lastErrorEnd = index
+                    }
+                    OfferContext(index,ContextType.General)
+                } else {
+                    throw e
                 }
-                else {
-                    throw new TCError(`Invalid value: '${cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)![1]}'`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, identifierResults[0])
-                }
-            }
-
-
-            if (results) {
-                expressionSymbols.push(results[1])
-                index = results[0]
-                continue
-            } else {
-                throw Error("y'all, that expression dont look right")
             }
         } //end of value while loop
 
