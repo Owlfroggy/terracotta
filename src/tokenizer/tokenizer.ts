@@ -1032,8 +1032,25 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         if (identifierResults == null || identifierResults[1] != "par") { return null }
         index = identifierResults[0]
 
+        //add particle types to autocomplete
+        function typeContextHandler(startIndex: number, expressionResults: [number,ExpressionToken] | null, contextResults: CodeContext) {
+            let data = contextResults ? structuredClone(contextResults.Data) : {}
+            if (!data.addons) {data.addons = {}}
+            data.addons.particleTypes = true
+            
+            if (!expressionResults) {
+                OfferContext(startIndex,ContextType.General,data,expressionResults ? false : true)
+            }
+            else if (expressionResults[1].Expression[0] && expressionResults[1].Expression[0] instanceof StringToken) {
+                data.replaceRange = [expressionResults[1].Expression[0].CharStart,expressionResults[1].Expression[0].CharEnd+1]
+                OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.PureUser,data)
+            }
+
+            throw contextResults
+        }
+
         //parse args
-        let argResults = ParseList(index, "[", "]", ",")
+        let argResults = ParseList(index, "[", "]", ",", {0: typeContextHandler})
         if (argResults == null) {
             throw new TCError("Expected arguments following particle constructor",1,keywordInitIndex,index)
         }

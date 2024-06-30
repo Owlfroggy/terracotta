@@ -315,6 +315,18 @@ export function StartServer() {
                     items.push(item)
                 })
             }
+            if (context.Data.addons.particleTypes) {
+                Object.keys(AD.Particles).forEach(particleType => {
+                    let item = {
+                        "label": particleType,
+                        "kind": CompletionItemKind.Text
+                    }
+
+                    stringizeCompletionItem(context,particleType,item)
+
+                    items.push(item)
+                })
+            }
         }
 
         if (context.Data.addItems) {

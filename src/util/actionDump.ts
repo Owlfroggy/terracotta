@@ -12,6 +12,11 @@ export class Parameter {
     notes: string[] = []
 }
 
+export class Particle {
+    Name: string
+    Fields: string[]
+}
+
 export class Tag {
     Name: string
     Options: string[]
@@ -96,6 +101,9 @@ export var TCEntityGameValues = {}
 
 //game values which have no target, key = terracotta gv name
 export var TCUntargetedGameValues = {}
+
+//key = particle name
+export var Particles: Dict<Particle> = {}
 
 //valid sound names
 export var Sounds: Set<string> = new Set([])
@@ -327,6 +335,14 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
         DFEntityGameValues[value.DFId] = value
         TCEntityGameValues[value.TCId] = value
     }
+}
+
+// particle pass \\
+for (const particleJson of ACTION_DUMP_JSON.particles) {
+    let par = new Particle()
+    par.Name = particleJson.icon.name
+    par.Fields = particleJson.fields
+    Particles[par.Name] = par
 }
 
 // sound pass \\
