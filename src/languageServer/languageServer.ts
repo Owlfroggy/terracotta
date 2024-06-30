@@ -11,7 +11,7 @@ enum CompletionItemType {
 }
 
 //function that other things can call to log to the language server output when debugging
-export let slog
+export let slog = (...data: any[]) => {}
 
 function generateCompletions(entries: (string)[], kind: CompletionItemKind = CompletionItemKind.Property): CompletionItem[] {
     let result: CompletionItem[] = []
@@ -60,6 +60,7 @@ var variableScopeKeywords = generateCompletions(["local","saved","global","line"
 var genericDomains = generateCompletions(["player","entity"],CompletionItemKind.Variable)
 var typeKeywords = generateCompletions(Object.keys(ValueType),CompletionItemKind.Keyword)
 var forLoopActionKeywords: CompletionItem[] = []
+
 REPEAT_ON_ACTIONS.forEach(dfId => {
     let action = AD.DFActionMap.repeat![dfId]!
     forLoopActionKeywords.push({
@@ -171,6 +172,24 @@ export function StartServer() {
 
     connection.onRequest("textDocument/completion", async (param) => {
         let script = documentTracker.GetFileText(param.textDocument.uri)
+
+        //function that does the replacing logic for string completions
+        function stringizeCompletionItem(context: CodeContext,string: string,item: CompletionItem) {
+            if (context.Data.replaceRange) {
+                item.filterText = `"${string} "`
+                item.textEdit = {
+                    "newText": `"${string}"`,
+                    "range": {
+                        "start": indexToLinePosition(script,context.Data.replaceRange[0]),
+                        "end": indexToLinePosition(script,context.Data.replaceRange[1]),
+                    }
+                }
+            }
+            else {
+                item.insertText = `"${string}"`
+            }
+        }
+
         let line = 0
         let index = 0
         for (let i = 0; i < script.length; i++) {
@@ -262,22 +281,12 @@ export function StartServer() {
             for (const tagName of context.Data.validValues) {
                 let item: CompletionItem = {
                     "label": tagName,
-                    "filterText": `"${tagName} "`,
                     "kind": CompletionItemKind.Text,
                     "commitCharacters": ["(",";"]
                 }
-                if (context.Data.replaceRange) {
-                    item.textEdit = {
-                        "newText": `"${tagName}"`,
-                        "range": {
-                            "start": indexToLinePosition(script,context.Data.replaceRange[0]),
-                            "end": indexToLinePosition(script,context.Data.replaceRange[1]),
-                        }
-                    }
-                }
-                else {
-                    item.insertText = `"${tagName}"`
-                }
+                
+                stringizeCompletionItem(context,tagName,item)
+
                 items.push(item)
             }
         }
@@ -294,6 +303,18 @@ export function StartServer() {
 
         if (context.Data.addons) {
             if (context.Data.addons.genericDomains) { items.push(genericDomains) }
+            if (context.Data.addons.potionTypes) {
+                AD.Potions.forEach(potionType => {
+                    let item = {
+                        "label": potionType,
+                        "kind": CompletionItemKind.Text
+                    }
+                    
+                    stringizeCompletionItem(context,potionType,item)
+
+                    items.push(item)
+                })
+            }
         }
 
         if (context.Data.addItems) {

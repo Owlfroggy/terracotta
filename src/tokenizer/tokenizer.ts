@@ -458,13 +458,14 @@ export class CodeContext {
         this.Data = data
     }
     Type: ContextType
-    Data: Dict<any>
+    Data: Dict<any> = {}
 }
 
 export enum ContextType {
     "PureUser",
     "String",
     "General",
+    "PotionType",
 
     "TypeAssignment",
     "ParamType",
@@ -532,13 +533,14 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     let Lines: Array<Array<Token>> = []
     let CurrentLine: Array<Token> = []
     let SCRIPT_CONTENTS = script
+    let CurrentlyGrabbingContexts: boolean = false
 
     let cu: CharUtils = new CharUtils(SCRIPT_CONTENTS,true)
 
     //==========[ helper functions ]=========\\
 
     function OfferContext(currentIndex: number, type: ContextType, data: Dict<any> = {}, autoExtend: boolean = true) {
-        if (mode.mode != "getContext") { return }
+        if (!CurrentlyGrabbingContexts) { return }
         if (autoExtend) {   
             currentIndex += cu.GetWhitespaceAmount(currentIndex) + 1
             currentIndex += cu.GetIdentifier(currentIndex,true)[1].length
@@ -936,12 +938,31 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //if no pot keyword, this is not a potion
         if (identifierResults == null || identifierResults[1] != "pot") { return null }
-
+        
         //move to end of pot keyword
         index = identifierResults[0]
+        
+        //add potion types to autocomplete
+        function typeContextHandler(startIndex: number, expressionResults: [number,ExpressionToken] | null, contextResults: CodeContext) {
+            let data = contextResults ? structuredClone(contextResults.Data) : {}
+            if (!data.addons) {data.addons = {}}
+            data.addons.potionTypes = true
+            
+            if (!expressionResults) {
+                OfferContext(startIndex,ContextType.General,data,expressionResults ? false : true)
+            }
+            else if (expressionResults[1].Expression[0] && expressionResults[1].Expression[0] instanceof StringToken) {
+                data.replaceRange = [expressionResults[1].Expression[0].CharStart,expressionResults[1].Expression[0].CharEnd+1]
+                OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.PureUser,data)
+            }
+
+            throw contextResults
+        }
 
         //parse arguments
-        let argResults = ParseList(index, "[", "]", ",")
+        let argResults = ParseList(index, "[", "]", ",",{0: typeContextHandler})
+
+
         if (argResults == null) {
             throw new TCError("Expected arguments following potion constructor", 1, keywordInitIndex, index)
         }
@@ -1126,9 +1147,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
     //= ListToken =\\
     
-
     //ERR1 = list was never closed
-    function ParseList(index, openingChar: string, closingChar: string, seperatingChar: string): [number, ListToken] | null {
+    function ParseList(index, openingChar: string, closingChar: string, seperatingChar: string, contextHandlers: Dict<(...any) => void> = {}): [number, ListToken] | null {
         index += cu.GetWhitespaceAmount(index)
         let initIndex = index
 
@@ -1139,26 +1159,55 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         let items: Array<ExpressionToken> = []
 
+        let i = 0
         while (SCRIPT_CONTENTS[index] != closingChar && index < SCRIPT_CONTENTS.length) {
-            OfferContext(index,ContextType.General)
-
             let expressionResults
             try {
-                expressionResults = ParseExpression(index, [seperatingChar, closingChar], false)
+                //yeah i've given up on having good code
+
+                //if there's special code for handling this list entry's context, get a copy
+                //of the expression item *and* the context it would have otherwise thrown
+                if (i in contextHandlers && CurrentlyGrabbingContexts) {
+                    //get what the expression would return
+                    CurrentlyGrabbingContexts = false
+                    //wrap it in try catch so that CurrentlyGrabbingContexts always gets turned back on
+                    try {expressionResults = ParseExpression(index, [seperatingChar, closingChar], false,[])} catch {}
+                    CurrentlyGrabbingContexts = true
+                    
+                    //get the context that would be thrown
+                    let contextResults: CodeContext | null = null
+                    try {ParseExpression(index, [seperatingChar, closingChar], false,[])}
+                    catch (e) {
+                        if (e instanceof CodeContext) {
+                            contextResults = e
+                        }
+                        else {
+                            throw e
+                        }
+                    }
+
+                    contextHandlers[i]!(index,expressionResults,contextResults)
+                } else {
+                    expressionResults = ParseExpression(index, [seperatingChar, closingChar], false,[])
+
+                }
             } catch (e) {
                 if (e.message == "Expression was never closed") {
                     throw new TCError("List was never closed", 1, initIndex + 1, cu.GetLineEnd(index) - 1)
-                } else {
+                }
+                else {
                     throw e
                 }
             }
-
+            
+            
             if (expressionResults == null) {
                 //the only situation this can happen is when the list is empty eg. ()
                 //move to closing char so loop finishes:
                 index += cu.GetWhitespaceAmount(index) + 1
-            }
+            } 
             else if (expressionResults != null) {
+                i++
                 index = expressionResults[0] + cu.GetWhitespaceAmount(expressionResults[0]) + 1
                 items.push(expressionResults[1])
             }
@@ -1482,8 +1531,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //parse tag name
                     //try catch is to prevent the string context from getting offered
                     let tagNameResults = GetString(index,'"','"',[],true)
-
-                    // OfferContext(tagNameResults == null ? index + 1 + cu.GetWhitespaceAmount(index + 1) : tagNameResults[0],ContextType.ActionTagName,{"validTags":Object.keys(validTags)})
 
                     if (tagNameResults) {
                         OfferContext(tagNameResults[0],ContextType.ActionTagString,{"validValues":Object.keys(validTags),"replaceRange": [tagInitIndex,tagNameResults[0]+1]})
@@ -2424,6 +2471,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let currentContext: CodeContext = new CodeContext(ContextType.General)
 
         let firstControlTokenFound = false
+        
+        CurrentlyGrabbingContexts = true
 
         // kill me now
         let i = 0

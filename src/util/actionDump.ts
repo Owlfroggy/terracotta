@@ -101,7 +101,7 @@ export var TCUntargetedGameValues = {}
 export var Sounds: Set<string> = new Set([])
 
 //valid potion names
-export var Potions: Set<string> = new Set([])
+export var Potions: string[] = []
 
 //==========[ private data ]=========\\
 
@@ -336,5 +336,5 @@ for (const soundJson of ACTION_DUMP_JSON.sounds) {
 
 // potion pass \\
 for (const potJson of ACTION_DUMP_JSON.potions) {
-    Potions.add(potJson.icon.name)
+    Potions.push(potJson.icon.name)
 }
