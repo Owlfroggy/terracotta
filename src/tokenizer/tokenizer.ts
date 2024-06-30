@@ -11,7 +11,7 @@ import * as AD from "../util/actionDump"
 import { UnzipPassThrough } from "fflate"
 
 import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS} from "../util/constants"
-import { CompletionItemKind } from "vscode-languageserver"
+import { CompletionItemKind, InsertTextMode } from "vscode-languageserver"
 
 //==========[ tokens ]=========\\
 export class Token {
@@ -168,6 +168,20 @@ export class ItemToken extends TypeCreationToken {
 
     itemtype = "item"
 }
+
+export class ParticleToken extends TypeCreationToken {
+    constructor(meta, type: ExpressionToken, data: ExpressionToken, rawArgs: any[]) {
+        super(meta, rawArgs)
+        this.Type = type
+        this.Data = data
+    }
+
+    Type: ExpressionToken
+    Data: ExpressionToken
+
+    itemtype = "par"
+}
+
 export class IndexerToken extends Token {
     constructor(meta,index: ExpressionToken) {
         super(meta)
@@ -1005,6 +1019,27 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
 
         return [argResults[0],new ItemToken([keywordInitIndex,argResults[0]],args[0],args[1],args[2],args[3],args)]
+    }
+
+    //= Particles =\\
+
+    function ParseParticle(index: number): [number, ParticleToken] | null {
+        index += cu.GetWhitespaceAmount(index) + 1
+        let keywordInitIndex = index
+
+        //parse par keyword
+        let identifierResults = cu.GetIdentifier(index)
+        if (identifierResults == null || identifierResults[1] != "par") { return null }
+        index = identifierResults[0]
+
+        //parse args
+        let argResults = ParseList(index, "[", "]", ",")
+        if (argResults == null) {
+            throw new TCError("Expected arguments following particle constructor",1,keywordInitIndex,index)
+        }
+        let args = argResults[1].Items
+
+        return [argResults[0],new ParticleToken([keywordInitIndex,argResults[0]],args[0],args[1],args)]
     }
 
     //= List/Dictionary Indexer =\\
@@ -1942,6 +1977,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                 //try item
                 if (results == null) { results = ParseItem(index) }
+                
+                //try particle
+                if (results == null) { results = ParseParticle(index) }
 
                 //try function
                 if (results == null) { results = ParseCall(index) }

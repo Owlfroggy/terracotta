@@ -1,0 +1,8 @@
+FUNCTION awesome;
+
+global cool = par["Spit",{
+    "Amount" = 1,
+    "Spread" = [1,4],
+    "Motion" = vec[1,2,3],
+    "Motion Variation" = 1,
+}];
