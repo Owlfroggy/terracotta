@@ -467,12 +467,14 @@ export class TokenizerResults {
 
 
 export class CodeContext {
-    constructor(type: ContextType, data: Dict<any> = {}) {
+    constructor(type: ContextType, data: Dict<any>, from: number) {
         this.Type = type
         this.Data = data
+        this.FromIndex = from
     }
     Type: ContextType
     Data: Dict<any> = {}
+    FromIndex: number //index this context was thrown at AFTER auto-extending
 }
 
 export enum ContextType {
@@ -559,11 +561,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             currentIndex += cu.GetWhitespaceAmount(currentIndex) + 1
             currentIndex += cu.GetIdentifier(currentIndex,true)[1].length
         }
-        data.indx = currentIndex
         if (currentIndex >= mode.contextTestPosition!) {
             //utilizing error throwing to stop parsing and send the context up 
             //to the top is possibly the most sinful thing i've ever done
-            throw new CodeContext(type,data)
+            throw new CodeContext(type,data,currentIndex)
         }
     }
 
@@ -969,8 +970,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 data.replaceRange = [expressionResults[1].Expression[0].CharStart,expressionResults[1].Expression[0].CharEnd+1]
                 OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.PureUser,data)
             }
-
-            throw contextResults
+            else if (contextResults) {
+                OfferContext(contextResults.FromIndex,contextResults.Type,data,false)
+            }
         }
 
         //parse arguments
@@ -1045,8 +1047,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 data.replaceRange = [expressionResults[1].Expression[0].CharStart,expressionResults[1].Expression[0].CharEnd+1]
                 OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.PureUser,data)
             }
+            else if (contextResults) {
+                OfferContext(contextResults.FromIndex,contextResults.Type,data,false)
+            }
 
-            throw contextResults
         }
 
         //parse args
@@ -2523,7 +2527,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     else if (mode.mode == "getContext") {
         let currentLineNumber = mode.startFromLine == null ? 0 : mode.startFromLine
 
-        let currentContext: CodeContext = new CodeContext(ContextType.General)
+        let currentContext: CodeContext = new CodeContext(ContextType.General,{},SCRIPT_CONTENTS.length)
 
         let firstControlTokenFound = false
         
