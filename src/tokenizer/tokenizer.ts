@@ -585,8 +585,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             string += nextChunk
             index += nextChunk.length
 
-            if (!ignoreContexts) { OfferContext(index,ContextType.String) }
-
             //if chunk stopp due to a backslash
             if (SCRIPT_CONTENTS[index + 1] == "\\") {
                 //dont escape newline if a string is unclosed and ends on \
@@ -613,13 +611,16 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
             //if chunk stopped due to closing char
             else if (SCRIPT_CONTENTS[index + 1] == closingChar) {
+                if (!ignoreContexts) { OfferContext(index + 1,ContextType.String,{charStart: initIndex, charEnd: index + 1},false) }
                 return [index + 1, string]
             }
             //if chunk stopped due to newline
             else if (SCRIPT_CONTENTS[index + 1] == "\n") {
+                if (!ignoreContexts) { OfferContext(index + 1, ContextType.String,{charStart: initIndex},false) }
                 throw new TCError("String was never closed", 1, initIndex, index)
             }
         }
+        if (!ignoreContexts) { OfferContext(index, ContextType.String,{charStart: initIndex},false) }
         throw new TCError("String was never closed", 1, initIndex, index)
     }
 
@@ -967,7 +968,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 OfferContext(startIndex,ContextType.General,data,expressionResults ? false : true)
             }
             else if (expressionResults[1].Expression[0] && expressionResults[1].Expression[0] instanceof StringToken) {
-                data.replaceRange = [expressionResults[1].Expression[0].CharStart,expressionResults[1].Expression[0].CharEnd+1]
+                data.charStart = expressionResults[1].Expression[0].CharStart
+                data.charEnd = expressionResults[1].Expression[0].CharEnd
                 OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.PureUser,data)
             }
             else if (contextResults) {
@@ -1044,7 +1046,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 OfferContext(startIndex,ContextType.General,data,expressionResults ? false : true)
             }
             else if (expressionResults[1].Expression[0] && expressionResults[1].Expression[0] instanceof StringToken) {
-                data.replaceRange = [expressionResults[1].Expression[0].CharStart,expressionResults[1].Expression[0].CharEnd+1]
+                data.charStart = expressionResults[1].Expression[0].CharStart
+                data.charEnd = expressionResults[1].Expression[0].CharEnd
                 OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.PureUser,data)
             }
             else if (contextResults) {
@@ -1589,7 +1592,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     let tagNameResults = GetString(index,'"','"',[],true)
 
                     if (tagNameResults) {
-                        OfferContext(tagNameResults[0],ContextType.ActionTagString,{"validValues":Object.keys(validTags),"replaceRange": [tagInitIndex,tagNameResults[0]+1]})
+                        OfferContext(tagNameResults[0],ContextType.ActionTagString,{"validValues":Object.keys(validTags), "charStart": tagInitIndex, "charEnd": tagNameResults[0]})
                     } 
                     else {
                         // let tags have trailing comma
@@ -1644,7 +1647,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     let tagValueResults = GetString(index,'"','"',[],true)
 
                     if (tagValueResults) {
-                        OfferContext(tagValueResults[0],ContextType.ActionTagString,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":false,"replaceRange": [valueInitIndex,tagValueResults[0]+1]})
+                        OfferContext(tagValueResults[0],ContextType.ActionTagString,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":false,"charStart": valueInitIndex,"charEnd": tagValueResults[0]})
                     } 
                     //error if missing tag value
                     else {

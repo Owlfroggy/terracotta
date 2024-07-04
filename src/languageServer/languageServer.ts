@@ -175,14 +175,17 @@ export function StartServer() {
 
         //function that does the replacing logic for string completions
         function stringizeCompletionItem(context: CodeContext,string: string,item: CompletionItem) {
-            if (context.Data.replaceRange) {
+            if (context.Data.charStart) {
                 item.filterText = `"${string} "`
                 item.textEdit = {
                     "newText": `"${string}"`,
                     "range": {
-                        "start": indexToLinePosition(script,context.Data.replaceRange[0]),
-                        "end": indexToLinePosition(script,context.Data.replaceRange[1]),
+                        "start": indexToLinePosition(script,context.Data.charStart),
+                        "end": indexToLinePosition(script,context.Data.charStart)
                     }
+                }
+                if (context.Data.charEnd) {
+                    item.textEdit.range.end = indexToLinePosition(script,context.Data.charEnd+1)
                 }
             }
             else {
