@@ -330,6 +330,21 @@ export function StartServer() {
                     items.push(item)
                 })
             }
+            if (context.Data.addons.particleFields) {
+                let par = AD.Particles[context.Data.addons.particleFields]
+                if (par) {
+                    par.Fields.forEach(field => {
+                        let item = {
+                            "label": field,
+                            "kind": CompletionItemKind.Text
+                        }
+
+                        stringizeCompletionItem(context,field,item)
+
+                        items.push(item)
+                    })
+                }
+            }
         }
 
         if (context.Data.addItems) {

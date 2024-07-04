@@ -1053,11 +1053,30 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             else if (contextResults) {
                 OfferContext(contextResults.FromIndex,contextResults.Type,data,false)
             }
+        }
 
+        //autocomplete keys in field dict
+        function fieldsContextHandler(startIndex: number, expressionResults: [number,ExpressionToken] | null, contextResults: CodeContext, listItems: ExpressionToken[]) {
+            let data = contextResults ? structuredClone(contextResults.Data) : {}
+            if (!data.addons) {data.addons = {}}
+
+            if (contextResults) {
+                if (data.isDictionaryKey && listItems[0]?.Expression[0] && listItems[0].Expression[0] instanceof StringToken) {
+                    data.addons.particleFields = listItems[0].Expression[0].String
+                    if (data.charEnd) {
+                        OfferContext(data.charEnd || data.charStart || startIndex, contextResults.Type, data,false)
+                    } else {
+                        OfferContext(contextResults.FromIndex, contextResults.Type, data, false)
+                    }
+                }
+                else {
+                    OfferContext(contextResults.FromIndex,contextResults.Type,contextResults.Data,false)
+                }
+            }
         }
 
         //parse args
-        let argResults = ParseList(index, "[", "]", ",", {0: typeContextHandler})
+        let argResults = ParseList(index, "[", "]", ",", {0: typeContextHandler, 1: fieldsContextHandler})
         if (argResults == null) {
             throw new TCError("Expected arguments following particle constructor",1,keywordInitIndex,index)
         }
@@ -1161,7 +1180,20 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         while (SCRIPT_CONTENTS[index] != closingChar && index < SCRIPT_CONTENTS.length) {
             //= key =\\
             let keyInitIndex = index + cu.GetWhitespaceAmount(index) + 1 //used for errors
-            let keyResults = ParseExpression(index,[closingChar,assignmentChar],false)
+            let keyResults: [number, ExpressionToken] | null = null
+
+            try { 
+                keyResults = ParseExpression(index,[closingChar,assignmentChar],false) 
+            }
+            catch (e) {
+                if (e instanceof CodeContext) {
+                    e.Data.isDictionaryKey = true
+                }
+                throw e
+            }
+
+            OfferContext(index,ContextType.General,{isDictionaryKey: true})
+
             //if empty dictionary, stop
             if (keyResults == null) { 
                 index += cu.GetWhitespaceAmount(index) + 1
@@ -1245,7 +1277,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         }
                     }
 
-                    contextHandlers[i]!(index,expressionResults,contextResults)
+                    contextHandlers[i]!(index,expressionResults,contextResults,items)
                 } else {
                     expressionResults = ParseExpression(index, [seperatingChar, closingChar], false,[])
 

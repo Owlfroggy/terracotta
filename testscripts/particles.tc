@@ -1,8 +1,18 @@
 FUNCTION awesome;
 
-global cool = par["Spit",{
+line e = par["aksdjgfkjl",{
+    "Color" = "#ff0000",
+    "Size" = 2
+}]
+
+global cool = par["Spit" + 2,{
     "Amount" = 1,
     "Spread" = [1,4],
     "Motion" = vec[1,2,3],
-    "Motion Variation" = 1,
+    "Motion Variation" = 18934591346587193465987134856184751683745781347856167834587613548761435876135486713456781387645168734871634875163874561873465817345681734658713645871634587,
 }];
+
+repeat Forever {
+    allPlayers:DisplayParticleEffect(par["Flame"],default.Location);
+    wait(1){"Time Unit" = "Ticks"};
+}
