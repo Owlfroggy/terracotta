@@ -341,7 +341,7 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
 for (const particleJson of ACTION_DUMP_JSON.particles) {
     let par = new Particle()
     par.Name = particleJson.icon.name
-    par.Fields = particleJson.fields
+    par.Fields = [...particleJson.fields,"Amount","Spread"]
     Particles[par.Name] = par
 }
 
