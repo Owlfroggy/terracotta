@@ -7,12 +7,12 @@ repeat Forever {
 
     allPlayers:DisplayParticleEffect(par["Rain",{
         "Amount" = 10,
-        "Spread" = [5,10]
+        "Spread" = [global hSpread,global vSpread]
     }], default.Location);
 
     allPlayers:DisplayParticleEffect(par["Cloud",{
         "Amount" = 10,
-        "Spread" = [5,10],
+        "Spread" = [global hSpread,10],
         # "Motion" = global motion: vec,
         # "Motion Variation" = global variation,
         "Motion" = vec[1,2,5],
@@ -21,7 +21,7 @@ repeat Forever {
     
     allPlayers:DisplayParticleEffect(par["Entity Effect",{
         "Amount" = 10,
-        "Spread" = [5,10],
+        "Spread" = [5,global vSpread],
         # "Color" = global color: str,
         # "Color Variation" = global cvar,
         "Color" = "#8000ff",

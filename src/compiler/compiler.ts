@@ -583,29 +583,29 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         let code: CodeBlock[] = []
         let variableComponents: string[] = []
 
-        function solveArg(expr: ExpressionToken,paramName: string,type: string): [CodeBlock[],CodeItem] {
+        function solveArg(expr: ExpressionToken,paramName: string,type: string, variableComponentsList: any[] = variableComponents): [CodeBlock[],CodeItem] {
             let solved = SolveExpression(expr)
             //if code was required to generate this component
             if (solved[0].length > 0) {
                 code.push(...solved[0])
-                variableComponents.push(paramName)
+                variableComponentsList.push(paramName)
             }
             //if this component is a variable
             if (solved[1] instanceof VariableItem) {
-                variableComponents.push(paramName)
+                variableComponentsList.push(paramName)
             }
 
 
             //if this component is a %mathing number
             if (type == "num" && solved[1] instanceof NumberItem && Number.isNaN(Number(solved[1].Value))) {
-                variableComponents.push(paramName)
+                variableComponentsList.push(paramName)
             }
 
             //if this string is doing %var
             //% to detect strings doing %var() feels really hacky and is probably gonna break 
             //but as of right now there aren't any sounds with % in the name so i do not care
             if (type == "str" && solved[1] instanceof StringItem && solved[1].Value.includes("%")) {
-                variableComponents.push(paramName)
+                variableComponentsList.push(paramName)
             }
 
 
@@ -952,6 +952,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             }
             
             let fields: Dict<any> = {}
+            let spread: ExpressionToken | null = null
 
             let i = -1
             for (const fieldExpression of data.Keys) {
@@ -964,7 +965,10 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 let value = data.Values[i]
                 
                 //spread has special handling since its represented as a list by tc but not df
-                if (key == "Spread") {continue}
+                if (key == "Spread") {
+                    spread = value
+                    continue
+                }
 
                 let solved = solveArg(value,key,PARTICLE_FIELD_TYPES[key])
                 fields[key] = solved[1]
@@ -1075,6 +1079,44 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             else {
                 if (fields.Roll) {
                     item.Data.roll = Number(fields.Roll.Value)
+                }
+            }
+
+            if (spread == null) {
+                //default value go here
+            }
+            else {
+                let list = spread.Expression[0]
+                let spreadVariableComponents: number[] = [];
+
+                //validation
+                if (!(spread.Expression.length == 1 && list instanceof ListToken)) {
+                    if (list instanceof VariableToken) {
+                        throw new TCError("Expected list [horizontal, vertical] for spread (the list itself cannot yet be a variable, however min and max can be variables)",0,spread.CharStart,spread.CharEnd) 
+                    } else if (list instanceof ExpressionToken && list.Expression.length == 1 && list.Expression[0] instanceof ListToken) {
+                        throw new TCError("Expected list [horizontal, vertical] for spread (the list cannot be wrapped in parentheses because i'm too lazy to actually parse it and you should know better. in fact shame on you for even trying. i hope you waste the next 30 minutes parkouring on your compiled code.)",0,spread.CharStart,spread.CharEnd) 
+                    } else {
+                        throw new TCError(`Expected list [horizontal, vertical] for spread`,0,spread.CharStart,spread.CharEnd) 
+                    }
+                }
+                if (list.Items.length != 2) {
+                    throw new TCError(`Spread list must contain 2 values, ${list.Items.length} were provided`,0,spread.CharStart,spread.CharEnd)
+                }
+
+                //solve
+                let horizontal = solveArg(list.Items[0],"Horizontal Spread", "num",spreadVariableComponents)[1] as NumberItem
+                let vertical = solveArg(list.Items[1],"Vertical Spread", "num",spreadVariableComponents)[1] as NumberItem
+
+                //apply
+                if (spreadVariableComponents.length > 0) {
+                    code.push(
+                        new ActionBlock("set_var","SetParticleSprd",[tempVar,latestItem,horizontal,vertical])
+                    )
+
+                    latestItem = tempVar
+                } else {
+                    item.Cluster.HorizontalSpread = Number(horizontal.Value)
+                    item.Cluster.VerticalSpread = Number(vertical.Value)
                 }
             }
 
