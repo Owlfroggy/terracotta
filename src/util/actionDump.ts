@@ -111,6 +111,9 @@ export var Sounds: Set<string> = new Set([])
 //valid potion names
 export var Potions: string[] = []
 
+//every possible particle field (the other fields are filled when going through action dump)
+export var AllParticleFields: string[] = ["Amount", "Spread"]
+
 //==========[ private data ]=========\\
 
 //key: how a return type appears in the action dump
@@ -342,8 +345,10 @@ for (const particleJson of ACTION_DUMP_JSON.particles) {
     let par = new Particle()
     par.Name = particleJson.icon.name
     par.Fields = [...particleJson.fields,"Amount","Spread"]
+    AllParticleFields.push(...particleJson.fields)
     Particles[par.Name] = par
 }
+AllParticleFields = [...new Set(AllParticleFields)]
 
 // sound pass \\
 for (const soundJson of ACTION_DUMP_JSON.sounds) {

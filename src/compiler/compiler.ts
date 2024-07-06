@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer"
+import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer"
 import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP } from "../util/constants"
 import { DEBUG_MODE, print } from "../main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "../util/domains"
@@ -42,6 +42,23 @@ function ActionNameErrorChecks(domain: Domain, action: ActionToken) {
             throw new TCError(`'${domain.Identifier}' does not contain function '${action.Action}'`, 2, action.Segments.actionName![0], action.Segments.actionName![1])
         }
     }
+}
+
+function IntegerizeHexColor(color: StringItem) {
+    let string = color.Value.substring(color.Value.startsWith("#") ? 1 : 0, color.Value.length)
+    if (string.length == 3) {
+        string = string[0].repeat(2) + string[1].repeat(2) + string[2].repeat(2)
+    }
+    else if (string.length != 6) {
+        throw new TCError(`Invalid hex color: '${color.Value}'`,0,color.CharStart,color.CharEnd)
+    }
+
+    let int = Number("0x" + string)
+    if (Number.isNaN(int) || int < 0 || int > 16777215) {
+        throw new TCError(`Invalid hex color: '${color.Value}'`,0,color.CharStart,color.CharEnd)
+    }
+    
+    return int
 }
 
 export class CompileResults {
@@ -182,6 +199,22 @@ class ItemItem extends CodeItem {
     }
     Id: string
     Count: number
+}
+
+class ParticleItem extends CodeItem {
+    constructor(meta, particle: string, cluster: {Amount: number,HorizontalSpread: number,VerticalSpread: number}, data: Dict<any>) {
+        super("par",meta)
+        this.Particle = particle
+        this.Cluster = cluster
+        this.Data = data
+    }
+    Particle: string
+    Cluster: {
+        Amount: number,
+        HorizontalSpread: number,
+        VerticalSpread: number
+    }
+    Data: Dict<any>
 }
 
 class TagItem extends CodeItem {
@@ -518,7 +551,30 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         },
         item: {
             Count: new NumberItem([],"1"),
+        },
+        par: {
+            Amount: new NumberItem([],"1"),
+            Motion: new VectorItem([], 1, 0, 0),
+            "Motion Variation": new NumberItem([],"100"),
+            Color: new StringItem([],"#FF0000"),
+            "Color Variation": new NumberItem([],"0"),
+            Material: new StringItem([],"oak_log"),
+            Size: new NumberItem([], "1"),
+            "Size Variation": new NumberItem([], "0"),
+            Roll: new NumberItem([], "0")
         }
+    }
+
+    const PARTICLE_FIELD_TYPES = {
+        Amount: "num",
+        Motion: "vec",
+        "Motion Variation": "num",
+        Color: "str",
+        "Color Variation": "num",
+        Material: "str",
+        Size: "num",
+        "Size Variation": "num",
+        Roll: "num"
     }
 
     //takes in a Token from the parser and converts it to a CodeItem
@@ -856,6 +912,173 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
                 return [code,latestItem]
             }
+        }
+        else if (token instanceof ParticleToken) {
+            //error for missing particle type
+            if (!token.Type) {
+                throw new TCError(`Particle effect must specify a type (str)`,0,token.CharStart,token.CharEnd)
+            }
+            
+            let item = new ParticleItem([token.CharStart,token.CharEnd],"Rain",{Amount: 1, HorizontalSpread: 0, VerticalSpread: 0},{})
+            let tempVar = NewTempVar("par")
+            let latestItem: ParticleItem | VariableItem = item
+            
+            //if particle type needs to be set with code
+            let solvedType = solveArg(token.Type,"Type","str") as [CodeBlock[], StringItem]
+            if (variableComponents.includes("Type")) {
+                code.push(
+                    new ActionBlock("set_var","SetParticleType",[tempVar,latestItem,solvedType[1]])
+                )
+                latestItem = tempVar
+            } else {
+                //error for invalid particle type
+                if (!AD.Particles[solvedType[1].Value]) {
+                    throw new TCError(`Invalid particle type '${solvedType[1].Value}'`,0,token.Type.CharStart,token.Type.CharEnd)
+                }
+
+                item.Particle = solvedType[1].Value
+            }
+
+            //make sure data is just a dictionary (or at least peacefully non-existant)
+            let data: DictionaryToken
+            if (token.Data == null) {
+                data = new DictionaryToken([],[],[])
+            }
+            else if (token.Data.Expression.length == 1 && token.Data.Expression[0] instanceof DictionaryToken) {
+                data = token.Data.Expression[0]
+            }
+            else {
+                throw new TCError("Particle data must be a compile-time constant dictionary",0,token.Data.CharStart,token.Data.CharEnd)
+            }
+            
+            let fields: Dict<any> = {}
+
+            let i = -1
+            for (const fieldExpression of data.Keys) {
+                i++; 
+                if (!(fieldExpression.Expression.length == 1 && fieldExpression.Expression[0] instanceof StringToken)) {
+                    throw new TCError("Particle data key must be a compile-time constant string",0,fieldExpression.CharStart,fieldExpression.CharEnd)
+                }
+                
+                let key = fieldExpression.Expression[0].String
+                let value = data.Values[i]
+                
+                //spread has special handling since its represented as a list by tc but not df
+                if (key == "Spread") {continue}
+
+                let solved = solveArg(value,key,PARTICLE_FIELD_TYPES[key])
+                fields[key] = solved[1]
+            }
+
+            //= start field parsing!! =\\
+
+            // amount
+
+            if (variableComponents.includes("Amount")) {
+                code.push(
+                    new ActionBlock("set_var","SetParticleAmount",[tempVar,latestItem,fields.Amount])
+                )
+                latestItem = tempVar
+            } else if (fields.Amount) {
+                item.Cluster.Amount = fields.Amount.Value
+            }
+
+            // motion
+
+            if (variableComponents.includes("Motion") || variableComponents.includes("Motion Variation")) {
+                item.Data.x = 0
+                item.Data.y = 0
+                item.Data.z = 0
+                item.Data.motionVariation = 0
+                code.push(
+                    new ActionBlock("set_var","SetParticleMotion",[tempVar,latestItem,fields.Motion,fields["Motion Variation"]])
+                )
+                latestItem = tempVar
+            }
+            else {
+                if (fields.Motion) {
+                    let motion: VectorItem = fields.Motion
+                    item.Data.x = motion.X
+                    item.Data.y = motion.Y
+                    item.Data.z = motion.Z
+                }
+                if (fields["Motion Variation"]) {
+                    item.Data.motionVariation = fields["Motion Variation"].Value
+                }
+            }
+
+            // color
+
+            if (variableComponents.includes("Color") || variableComponents.includes("Color Variation")) {
+                item.Data.rgb = 0
+                item.Data.colorVariation = 0
+                code.push(
+                    new ActionBlock("set_var","SetParticleMotion",[tempVar,latestItem,fields.Color,fields["Color Variation"]])
+                )
+                latestItem = tempVar
+            }
+            else {
+                if (fields.Color) {
+                    item.Data.rgb = IntegerizeHexColor(fields["Color"])
+                }
+                if (fields["Color Variation"]) {
+                    item.Data.colorVariation = Number(fields["Color Variation"].Value)
+                }
+            }
+
+            // material
+            
+            if (variableComponents.includes("Material")) {
+                item.Data.material = "oak_log"
+                code.push(
+                    new ActionBlock("set_var","SetParticleMat",[tempVar,latestItem,fields.Material])
+                )
+
+                latestItem = tempVar
+            }
+            else {
+                if (fields.Material) {
+                    item.Data.material = fields.Material.Value
+                }
+            }
+
+            // size
+
+            if (variableComponents.includes("Size") || variableComponents.includes("Size Variation")) {
+                item.Data.size = 0
+                item.Data.sizeVariation = 0
+                code.push( 
+                    new ActionBlock("set_var","SetParticleSize",[tempVar,latestItem,fields.Size,fields["Size Variation"]])
+                )
+
+                latestItem = tempVar
+            }
+            else {
+                if (fields.Size) {
+                    item.Data.size = fields.Size.value
+                }
+                if (fields["Size Variation"]) {
+                    item.Data.sizeVariation = fields["Size Variation"].Value
+                }
+            }
+
+            // roll
+            
+            if (variableComponents.includes("Roll")) {
+                item.Data.roll = 0
+                code.push(
+                    new ActionBlock("set_var","SetParticleRoll",[tempVar,latestItem,fields.Roll])
+                )
+
+                latestItem = tempVar
+            }
+            else {
+                if (fields.Roll) {
+                    item.Data.roll = Number(fields.Roll.Value)
+                }
+            }
+
+            return [code,latestItem]
         }
         //lists
         else if (token instanceof ListToken) {
@@ -2363,6 +2586,20 @@ function JSONizeItem(item: CodeItem) {
             "id": "item",
             "data": {
                 "item": `{ Count:${item.Count}b,DF_NBT:3700,id:"${item.Id}"}`
+            }
+        }
+    }
+    else if (item instanceof ParticleItem) {
+        return {
+            "id": "part",
+            "data": {
+                "particle": item.Particle,
+                "cluster": {
+                    "amount": item.Cluster.Amount,
+                    "horizontal": item.Cluster.HorizontalSpread,
+                    "vertical": item.Cluster.VerticalSpread
+                },
+                "data": item.Data
             }
         }
     }

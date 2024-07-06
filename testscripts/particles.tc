@@ -1,18 +1,49 @@
-FUNCTION awesome;
+PROCESS trail;
 
-line e = par["aksdjgfkjl",{
-    "Color" = "#ff0000",
-    "Size" = 2
-}]
-
-global cool = par["Spit" + 2,{
-    "Amount" = 1,
-    "Spread" = [1,4],
-    "Motion" = vec[1,2,3],
-    "Motion Variation" = 18934591346587193465987134856184751683745781347856167834587613548761435876135486713456781387645168734871634875163874561873465817345681734658713645871634587,
-}];
+saved [%default selectedParticle]: str;
 
 repeat Forever {
-    allPlayers:DisplayParticleEffect(par["Flame"],default.Location);
-    wait(1){"Time Unit" = "Ticks"};
+    allPlayers:DisplayParticleEffect(par[saved [%default selectedParticle]]);
+
+    allPlayers:DisplayParticleEffect(par["Rain",{
+        "Amount" = 10,
+        "Spread" = [5,10]
+    }], default.Location);
+
+    allPlayers:DisplayParticleEffect(par["Cloud",{
+        "Amount" = 10,
+        "Spread" = [5,10],
+        # "Motion" = global motion: vec,
+        # "Motion Variation" = global variation,
+        "Motion" = vec[1,2,5],
+        "Motion Variation" = 25
+    }], default.Location);
+    
+    allPlayers:DisplayParticleEffect(par["Entity Effect",{
+        "Amount" = 10,
+        "Spread" = [5,10],
+        # "Color" = global color: str,
+        # "Color Variation" = global cvar,
+        "Color" = "#8000ff",
+        "Color Variation" = 50,
+        "Motion Variation" = 50
+    }], default.Location);
+    
+    allPlayers:DisplayParticleEffect(par["Block Marker",{
+        "Amount" = 10,
+        "Spread" = [5,10],
+        "Material" = global mat: str,
+        # "Material" = "structure_void"
+    }], default.Location);
+    
+    allPlayers:DisplayParticleEffect(par["Sculk Charge",{
+        "Amount" = 10,
+        "Spread" = [5,10],
+        "Motion" = vec[0,0,0],
+        "Motion Variation" = 0,
+        "Roll" = global roll,
+        # "Roll" = 3.14 + 3.14/2
+    }], default.Location);
+
+    wait(1);
 }
