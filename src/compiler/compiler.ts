@@ -924,19 +924,19 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             let latestItem: ParticleItem | VariableItem = item
             
             //if particle type needs to be set with code
-            let solvedType = solveArg(token.Type,"Type","str") as [CodeBlock[], StringItem]
+            let solvedType = solveArg(token.Type,"Type","str")[1] as StringItem
             if (variableComponents.includes("Type")) {
                 code.push(
-                    new ActionBlock("set_var","SetParticleType",[tempVar,latestItem,solvedType[1]])
+                    new ActionBlock("set_var","SetParticleType",[tempVar,latestItem,solvedType])
                 )
                 latestItem = tempVar
             } else {
                 //error for invalid particle type
-                if (!AD.Particles[solvedType[1].Value]) {
-                    throw new TCError(`Invalid particle type '${solvedType[1].Value}'`,0,token.Type.CharStart,token.Type.CharEnd)
+                if (!AD.Particles[solvedType.Value]) {
+                    throw new TCError(`Invalid particle type '${solvedType.Value}'`,0,token.Type.CharStart,token.Type.CharEnd)
                 }
 
-                item.Particle = solvedType[1].Value
+                item.Particle = solvedType.Value
             }
 
             //make sure data is just a dictionary (or at least peacefully non-existant)
@@ -954,6 +954,11 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             let fields: Dict<any> = {}
             let spread: ExpressionToken | null = null
 
+            let validFields = AD.AllParticleFields
+            if (solvedType instanceof StringItem && AD.Particles[solvedType.Value] != undefined) {
+                validFields = AD.Particles[solvedType.Value]!.Fields
+            }
+
             let i = -1
             for (const fieldExpression of data.Keys) {
                 i++; 
@@ -963,6 +968,16 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 
                 let key = fieldExpression.Expression[0].String
                 let value = data.Values[i]
+
+                //error for invalid key
+                if (!validFields.includes(key)) {
+                    if (solvedType instanceof StringItem) {
+                        throw new TCError(`'${key}' is not a valid field of particle '${solvedType.Value}'`,0,fieldExpression.CharStart,fieldExpression.CharEnd)
+                    }
+                    else {
+                        throw new TCError(`'${key}' is not a valid particle field`,0,fieldExpression.CharStart,fieldExpression.CharEnd)
+                    }
+                }
                 
                 //spread has special handling since its represented as a list by tc but not df
                 if (key == "Spread") {
