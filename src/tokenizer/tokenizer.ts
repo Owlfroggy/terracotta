@@ -581,6 +581,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         let string = ""
         while (index < SCRIPT_CONTENTS.length - 1) {
+
             let nextChunk = cu.GetCharactersUntil(index + 1, ["\n", "\\", "&", closingChar], true)[1]
             string += nextChunk
             index += nextChunk.length
@@ -1255,7 +1256,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             let expressionResults
             try {
                 //yeah i've given up on having good code
-
+                
                 //if there's special code for handling this list entry's context, get a copy
                 //of the expression item *and* the context it would have otherwise thrown
                 if (i in contextHandlers && CurrentlyGrabbingContexts) {
@@ -1280,7 +1281,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     contextHandlers[i]!(index,expressionResults,contextResults,items)
                 } else {
                     expressionResults = ParseExpression(index, [seperatingChar, closingChar], false,[])
-
                 }
             } catch (e) {
                 if (e.message == "Expression was never closed") {
@@ -1945,18 +1945,17 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     //ERR6 = multiple comparisons
     function ParseExpression(
         index: number, 
-        terminateAt: Array<string | null> = [";"], 
+        terminateAt: Array<string | null> = [], 
         endIndexAtTerminator: boolean | undefined = true, 
         features: Array<"comparisons" | "genericTargetComparisons"> = []
         ): [number, ExpressionToken] | null 
-        {
-
+    {
+        terminateAt.push(";")
         //if it should terminate at a newline, also terminate at eof
         if (terminateAt.includes("\n")) {
             if (!terminateAt.includes(null)) { terminateAt.push(null) }
             if (!terminateAt.includes("")) { terminateAt.push("") }
         }
-
         let expressionSymbols: Array<any> = []
         let not = false
 
