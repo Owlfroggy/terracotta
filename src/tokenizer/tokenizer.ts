@@ -2512,22 +2512,20 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 let operatorResults = ParseOperator(CharIndex, "assignment")
                 if (operatorResults) {
                     ApplyResults(operatorResults)
-                    return
-                }
-            }
 
-            //if line is <variable> <operator>
-            if (CurrentLine[1] instanceof OperatorToken) {
-                let operation = CurrentLine[1].Operator
-                //<variable> =
-                //must be followed by an expression
-                if (VALID_ASSIGNMENT_OPERATORS.includes(operation)) {
-                    //parse expression
-                    let expressionResults = ParseExpression(CharIndex, [";"], false)
-                    if (expressionResults) {
-                        ApplyResults(expressionResults)
-                        return
+                    //get expression if assignment
+                    if (VALID_ASSIGNMENT_OPERATORS.includes(operatorResults[1].Operator)) {
+                        let expressionResults = ParseExpression(CharIndex, [";"], false)
+                        if (expressionResults) {
+                            ApplyResults(expressionResults)
+                            return
+                        } 
+                        else {
+                            throw new TCError("Expected expression following assignment",0,CurrentLine[1].CharStart,CurrentLine[1].CharEnd)
+                        }
                     }
+                    
+                    return
                 }
             }
         }
