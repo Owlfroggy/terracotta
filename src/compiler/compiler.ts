@@ -1000,11 +1000,12 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
             if (variableComponents.includes("Amount")) {
                 code.push(
-                    new ActionBlock("set_var","SetParticleAmount",[tempVar,latestItem,fields.Amount])
+                    new ActionBlock("set_var","SetParticleAmount",[tempVar,latestItem,fields.Amount || ITEM_PARAM_DEFAULTS.par.Amount])
                 )
                 latestItem = tempVar
-            } else if (fields.Amount) {
-                item.Cluster.Amount = fields.Amount.Value
+            } 
+            else {
+                item.Cluster.Amount = fields.Amount?.Value || ITEM_PARAM_DEFAULTS.par.Amount.Value
             }
 
             // motion
@@ -1015,20 +1016,20 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 item.Data.z = 0
                 item.Data.motionVariation = 0
                 code.push(
-                    new ActionBlock("set_var","SetParticleMotion",[tempVar,latestItem,fields.Motion,fields["Motion Variation"]])
+                    new ActionBlock("set_var","SetParticleMotion",[tempVar,latestItem,fields.Motion || ITEM_PARAM_DEFAULTS.par.Motion, fields["Motion Variation"] || ITEM_PARAM_DEFAULTS.par["Motion Variation"]])
                 )
                 latestItem = tempVar
             }
             else {
+                let motion = ITEM_PARAM_DEFAULTS.par.Motion
                 if (fields.Motion) {
-                    let motion: VectorItem = fields.Motion
-                    item.Data.x = motion.X
-                    item.Data.y = motion.Y
-                    item.Data.z = motion.Z
+                    motion = fields.Motion
                 }
-                if (fields["Motion Variation"]) {
-                    item.Data.motionVariation = fields["Motion Variation"].Value
-                }
+                item.Data.x = motion.X
+                item.Data.y = motion.Y
+                item.Data.z = motion.Z
+
+                item.Data.motionVariation = fields["Motion Variation"]?.Value || ITEM_PARAM_DEFAULTS.par["Motion Variation"].Value
             }
 
             // color
@@ -1037,34 +1038,28 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 item.Data.rgb = 0
                 item.Data.colorVariation = 0
                 code.push(
-                    new ActionBlock("set_var","SetParticleColor",[tempVar,latestItem,fields.Color,fields["Color Variation"]])
+                    new ActionBlock("set_var","SetParticleColor",[tempVar,latestItem,fields.Color || ITEM_PARAM_DEFAULTS.par.Color,fields["Color Variation"] || ITEM_PARAM_DEFAULTS.par["Color Variation"]])
                 )
 
                 latestItem = tempVar
             }
             else {
-                if (fields.Color) {
-                    item.Data.rgb = IntegerizeHexColor(fields["Color"])
-                }
-                if (fields["Color Variation"]) {
-                    item.Data.colorVariation = Number(fields["Color Variation"].Value)
-                }
+                item.Data.rgb = IntegerizeHexColor(fields["Color"] || ITEM_PARAM_DEFAULTS.par.Color)
+                item.Data.colorVariation = fields["Color Variation"]?.Value || ITEM_PARAM_DEFAULTS.par["Color Variation"].Value
             }
 
             // material
-            
+
             if (variableComponents.includes("Material")) {
                 item.Data.material = "oak_log"
                 code.push(
-                    new ActionBlock("set_var","SetParticleMat",[tempVar,latestItem,fields.Material])
+                    new ActionBlock("set_var","SetParticleMat",[tempVar,latestItem,fields.Material || ITEM_PARAM_DEFAULTS.par.Material])
                 )
 
                 latestItem = tempVar
             }
             else {
-                if (fields.Material) {
-                    item.Data.material = fields.Material.Value
-                }
+                item.Data.material = fields.Material?.Value || ITEM_PARAM_DEFAULTS.par.Material.Value
             }
 
             // size
@@ -1073,18 +1068,14 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 item.Data.size = 0
                 item.Data.sizeVariation = 0
                 code.push( 
-                    new ActionBlock("set_var","SetParticleSize",[tempVar,latestItem,fields.Size,fields["Size Variation"]])
+                    new ActionBlock("set_var","SetParticleSize",[tempVar,latestItem,fields.Size || ITEM_PARAM_DEFAULTS.par.Size,fields["Size Variation"] || ITEM_PARAM_DEFAULTS.par["Size Variation"]])
                 )
 
                 latestItem = tempVar
             }
             else {
-                if (fields.Size) {
-                    item.Data.size = fields.Size.value
-                }
-                if (fields["Size Variation"]) {
-                    item.Data.sizeVariation = fields["Size Variation"].Value
-                }
+                item.Data.size = fields.Size?.value || ITEM_PARAM_DEFAULTS.par.Size.Value
+                item.Data.sizeVariation = fields["Size Variation"]?.Value || ITEM_PARAM_DEFAULTS.par["Size Variation"].Value
             }
 
             // roll
@@ -1092,19 +1083,18 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             if (variableComponents.includes("Roll")) {
                 item.Data.roll = 0
                 code.push(
-                    new ActionBlock("set_var","SetParticleRoll",[tempVar,latestItem,fields.Roll])
+                    new ActionBlock("set_var","SetParticleRoll",[tempVar,latestItem,fields.Roll || ITEM_PARAM_DEFAULTS.par.Roll])
                 )
 
                 latestItem = tempVar
             }
             else {
-                if (fields.Roll) {
-                    item.Data.roll = Number(fields.Roll.Value)
-                }
+                item.Data.roll = fields.Roll?.Value || ITEM_PARAM_DEFAULTS.par.Roll.Value
             }
 
             if (spread == null) {
-                //default value go here
+                item.Cluster.HorizontalSpread = 0
+                item.Cluster.VerticalSpread = 0
             }
             else {
                 let list = spread.Expression[0]
