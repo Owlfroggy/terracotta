@@ -3,7 +3,7 @@ PROCESS trail;
 saved [%default selectedParticle]: str;
 
 repeat Forever {
-    allPlayers:DisplayParticleEffect(par[saved [%default selectedParticle]]);
+    allPlayers:DisplayParticleEffect(par[saved [%default selectedParticle],{}]);
 
     allPlayers:DisplayParticleEffect(par["Rain",{
         "Amount" = 10,

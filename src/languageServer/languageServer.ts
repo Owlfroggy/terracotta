@@ -331,9 +331,15 @@ export function StartServer() {
                 })
             }
             if (context.Data.addons.particleFields) {
-                let par = AD.Particles[context.Data.addons.particleFields]
-                if (par) {
-                    par.Fields.forEach(field => {
+                let fields: string[] | null = null
+                if (context.Data.addons.particleFields == "$all") {
+                    fields = AD.AllParticleFields
+                } else {
+                    let par = AD.Particles[context.Data.addons.particleFields]
+                    if (par) { fields = par.Fields }
+                }
+                if (fields) {
+                    fields.forEach(field => {
                         let item = {
                             "label": field,
                             "kind": CompletionItemKind.Text

@@ -978,6 +978,11 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                         throw new TCError(`'${key}' is not a valid particle field`,0,fieldExpression.CharStart,fieldExpression.CharEnd)
                     }
                 }
+
+                //if type is variable then all par-specific fields must be set with code since their data gets stripped when applied to the default particle
+                if (solvedType instanceof VariableItem && !(key == "Amount" || key == "Spread") && !variableComponents.includes(key)) {
+                    variableComponents.push(key)
+                }
                 
                 //spread has special handling since its represented as a list by tc but not df
                 if (key == "Spread") {
@@ -1032,8 +1037,9 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 item.Data.rgb = 0
                 item.Data.colorVariation = 0
                 code.push(
-                    new ActionBlock("set_var","SetParticleMotion",[tempVar,latestItem,fields.Color,fields["Color Variation"]])
+                    new ActionBlock("set_var","SetParticleColor",[tempVar,latestItem,fields.Color,fields["Color Variation"]])
                 )
+
                 latestItem = tempVar
             }
             else {

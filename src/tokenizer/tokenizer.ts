@@ -12,6 +12,7 @@ import { UnzipPassThrough } from "fflate"
 
 import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS} from "../util/constants"
 import { CompletionItemKind, InsertTextMode } from "vscode-languageserver"
+import { slog } from "../languageServer/languageServer"
 
 //==========[ tokens ]=========\\
 export class Token {
@@ -1062,8 +1063,13 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             if (!data.addons) {data.addons = {}}
 
             if (contextResults) {
-                if (data.isDictionaryKey && listItems[0]?.Expression[0] && listItems[0].Expression[0] instanceof StringToken) {
-                    data.addons.particleFields = listItems[0].Expression[0].String
+                if (data.isDictionaryKey) {
+                    if (listItems[0]?.Expression[0] && listItems[0].Expression[0] instanceof StringToken) {
+                        data.addons.particleFields = listItems[0].Expression[0].String
+                    }
+                    else {
+                        data.addons.particleFields = "$all"
+                    }
                     if (data.charEnd) {
                         OfferContext(data.charEnd || data.charStart || startIndex, contextResults.Type, data,false)
                     } else {
