@@ -1253,6 +1253,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         let i = 0
         while (SCRIPT_CONTENTS[index] != closingChar && index < SCRIPT_CONTENTS.length) {
+            //error for unclosed list if theres a semicolon in the middle of it
+            if (SCRIPT_CONTENTS[index] == ";") {
+                throw new TCError("List was never closed",1,initIndex + 1,index - 1)
+            }
             let expressionResults
             try {
                 //yeah i've given up on having good code
