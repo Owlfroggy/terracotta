@@ -44,6 +44,7 @@ export class Action {
     Description: string
 
     Parameters: (Parameter[])[]
+    ReturnValues: (Parameter[])[]
 
     //will be true or false for events, undefined for non-events
     Cancellable: boolean | undefined
@@ -182,6 +183,50 @@ function CodeifyName(name: string): string {
     return name
 }
 
+//this code is hideous BUT IT WORKS so unless a future action dump changes how parameters are stored i do not have to care
+//(if anyone ever has to bugfix this, i am sorry)
+function ParseArgumentValueThingies(args: any[]): Parameter[][] {
+    let result: Parameter[][] = []
+
+    let currentParameter: Parameter[] = []
+    let i = -1
+    for (const arg of args) {
+        i++
+        if (arg.text !== undefined) {
+            continue
+        }
+        if ( 
+            (
+                !(args[i+1] && args[i+1].text == "OR" || args[i-1] && args[i-1].text == "OR") ||
+                (args[i-1] && args[i-1].text === "")    
+            )
+            && currentParameter.length > 0
+        ) 
+        {
+            result.push(currentParameter)
+            currentParameter = []
+        }
+        
+        let p = new Parameter()
+        p.description = arg.description ? arg.description.join(" ") : ""
+        p.optional = arg.optional
+        p.plural = arg.plural
+        p.type = arg.type
+        
+        if (arg.notes) {
+            arg.notes.forEach((note: string[]) => {
+                p.notes.push(note.join(" "))
+            });
+        }
+        currentParameter.push(p)
+    }
+    if (currentParameter.length > 0) {
+        result.push(currentParameter)
+    }
+
+    return result
+}
+
 //==========[ populate data tables ]=========\\
 
 // codeblock pass \\
@@ -230,48 +275,13 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
         tags[tagJson.name] = tag
     }
 
-    //parameters
-    //this code is hideous BUT IT WORKS so unless a future action dump changes how parameters are stored i do not have to care
-    //(if anyone ever has to bugfix this, i am sorry)
-    let parameters: any[] = []
-    if (actionJson.icon && actionJson.icon.arguments) {
-        let currentParameter: Parameter[] = []
-        let i = -1
-        for (const arg of actionJson.icon.arguments) {
-            i++
-            if (arg.text !== undefined) {
-                continue
-            }
-            if ( 
-                (
-                    !(actionJson.icon.arguments[i+1] && actionJson.icon.arguments[i+1].text == "OR" || actionJson.icon.arguments[i-1] && actionJson.icon.arguments[i-1].text == "OR") ||
-                    (actionJson.icon.arguments[i-1] && actionJson.icon.arguments[i-1].text === "")    
-                )
-                && currentParameter.length > 0
-            ) 
-            {
-                parameters.push(currentParameter)
-                currentParameter = []
-            }
-            
-            let p = new Parameter()
-            p.description = arg.description ? arg.description.join(" ") : ""
-            p.optional = arg.optional
-            p.plural = arg.plural
-            p.type = arg.type
-            
-            if (arg.notes) {
-                arg.notes.forEach((note: string[]) => {
-                    p.notes.push(note.join(" "))
-                });
-            }
-            currentParameter.push(p)
-        }
-        if (currentParameter.length > 0) {
-            parameters.push(currentParameter)
-        }
-    }
+    
+    //parameters and return value
+    let parameters: Parameter[][] = []
+    if (actionJson.icon?.arguments) { parameters = ParseArgumentValueThingies(actionJson.icon.arguments) }
 
+    let returnValues: Parameter[][] = []
+    if (actionJson.icon?.returnValues) { returnValues = ParseArgumentValueThingies(actionJson.icon?.returnValues) }
     
     let descriptionString = actionJson.icon.description.join(" ")
 
@@ -284,6 +294,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     normalAction.ReturnType = returnType
     normalAction.Description = descriptionString
     normalAction.Parameters = parameters
+    normalAction.ReturnValues = returnValues
     normalAction.Cancellable = actionJson.icon.cancellable
     
     TCActionMap[codeblockId]![tcId] = normalAction
@@ -298,6 +309,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     differentiatedAction.ReturnType = returnType
     differentiatedAction.Description = descriptionString
     differentiatedAction.Parameters = parameters
+    differentiatedAction.ReturnValues = returnValues
     differentiatedAction.Cancellable = actionJson.icon.cancellable
     
     //check all aliases

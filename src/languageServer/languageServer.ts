@@ -39,6 +39,32 @@ function indexToLinePosition(script: string,index: number): Position {
     return {} as Position
 }
 
+function getParamString(parameters: AD.Parameter[][], yesHeader: string, noHeader: string): string {
+    let paramString = ""
+    let paramEntries: string[] = []
+    if (parameters.length == 0) {
+        paramString += noHeader
+    }
+    else {
+        paramString += yesHeader
+        parameters.forEach(paramList => {
+            let paramTypes: string[] = []
+            paramList.forEach(param => {
+                let notesString = ""
+                param.notes.forEach(note => {
+                    notesString += `\\\n  ⏵ ${note}`
+                });
+                paramTypes.push(`\`${AD.DFTypeToString[param.type]}${param.plural ? "(s)" : ""}${param.optional ? "*" : ""}\` ${(param.description + notesString).length > 0 ? "-" : ""} ${param.description}${notesString}`)
+            });
+            let e = paramTypes.join("\\\n **OR**\\\n")
+            paramEntries.push(e)
+        });
+        paramString += paramEntries.join("\n\n\n\n")
+    }
+
+    return paramString
+}
+
 var paramTypeKeywords = generateCompletions(["plural","optional"],CompletionItemKind.Keyword)
 var headerKeywords = generateCompletions(["LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM"],CompletionItemKind.Keyword)
 var genericKeywords = generateCompletions(["if","else","repeat","in","to","on","not","while","break","continue","return","returnmult","endthread","select","filter","optional","plural"],CompletionItemKind.Keyword)
@@ -134,30 +160,11 @@ export function StartServer() {
         if (item.data.type == CompletionItemType.CodeblockAction) {
             let action: AD.Action = AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!
 
-            let paramString = ""
-            let paramEntries: string[] = []
-            if (action.Parameters.length == 0){
-                paramString += "\n\n**No Parameters**"
-            }
-            else {
-                paramString += "\n\n**Parameters:**\n\n"
-                action.Parameters.forEach(paramList => {
-                    let paramTypes: string[] = []
-                    paramList.forEach(param => {
-                        let notesString = ""
-                        param.notes.forEach(note => {
-                            notesString += `\\\n  ⏵ ${note}`
-                        });
-                        paramTypes.push(`\`${AD.DFTypeToString[param.type]}${param.plural ? "(s)" : ""}${param.optional ? "*" : ""}\` ${(param.description + notesString).length > 0 ? "-" : ""} ${param.description}${notesString}`)
-                    });
-                    let e = paramTypes.join("\\\n **OR**\\\n")
-                    paramEntries.push(e)
-                });
-                paramString += paramEntries.join("\n\n\n\n")
-            }
+            let paramString = getParamString(action.Parameters,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")
+
+            let returnString = getParamString(action.ReturnValues,"\n\n**Returns:**\n\n","")
             
-            documentation = "paramString"
-            documentation = `${AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!.Description || "<Failed to get action description>"}${paramString}`
+            documentation = `${AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!.Description || "<Failed to get action description>"}${paramString}${returnString}`
         }
 
         if (documentation !== undefined) {
