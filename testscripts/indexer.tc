@@ -13,10 +13,10 @@ default:SendMessage(global verycoollist[3]: pot);
 default:SendMessage(global verycoollist[3]);
 
 #if you have a variable as unknown type you can specify it as a list in-expression to index it
-default:SendMessage(saved [%default unlocks]: list[3]);
+default:SendMessage(saved ["%default unlocks"]: list[3]);
 
 #if the square brackets coming directly after the type makes you uncomfortable for some reason
-default:SendMessage((saved [%default unlocks]: list)[3]);
+default:SendMessage((saved ["%default unlocks"]: list)[3]);
 
 #also works on dictionaries
 global dict = {

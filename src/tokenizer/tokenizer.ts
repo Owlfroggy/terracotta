@@ -8,7 +8,6 @@ import { PrintError, TCError } from "../util/errorHandler"
 import { DEBUG_MODE, print } from "../main"
 import { CharUtils } from "../util/characterUtils"
 import * as AD from "../util/actionDump"
-import { UnzipPassThrough } from "fflate"
 
 import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS} from "../util/constants"
 import { CompletionItemKind, InsertTextMode } from "vscode-languageserver"
@@ -631,22 +630,27 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     //ERR2: missing name
     function GetComplexName(index: number): [number, string] {
         //= parse event name =\\
-        let complexNameResults
-        let name
-
-        //try [] name
-        try {
-            complexNameResults = GetString(index, "[", "]")
-        }
-        catch (e) {
-            if (e.Code == 1) {
-                throw new TCError("Name was never closed", 1, e.CharStart, e.CharLoc)
-            }
-        }
 
         //if theres a [, use the inside of the [] as name
-        if (complexNameResults) {
-            return [complexNameResults[0], complexNameResults[1]]
+        if (cu.GetNextCharacters(index,1) == "[") {
+            index += cu.GetWhitespaceAmount(index) + 1
+            let initIndex = index
+
+            let nameResults = GetString(index, '"', '"')
+            
+            if (nameResults == null) {
+                throw new TCError("Expected string following '['",0,index,index)
+            }
+
+            index = nameResults[0]
+
+            if (cu.GetNextCharacters(index,1) != "]") {
+                throw new TCError("Name was never closed",1,initIndex,index)
+            }
+
+            index += cu.GetWhitespaceAmount(index) + 1
+            
+            return [index, nameResults[1]]
         }
         //otherwise, use identifier as name
         else {
@@ -704,6 +708,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 throw new TCError("Variable name was never closed", 1, e.CharStart, e.CharLoc)
             } else if (e.Code == 2) {
                 throw new TCError(`Expected variable name following '${scopeKeyword}'`, 2, initIndex, keywordEndIndex)
+            } else {
+                throw e
             }
         }
 

@@ -1,4 +1,6 @@
-FUNCTION awesome;
+FUNCTION ["the fog is coing"];
+PARAM ["dingus dongus nimbus rhombus"]: str;
+
 local bingus = 10;
 line asdf = 5;
 global dingus = 0;
@@ -6,11 +8,12 @@ line jjjj = 120;
 
 default:SendMessage();
 
+default:SendMessage(global gwegowy);
 
 global dingus += 25 + local bingus + line asdf + num:Random(6,6) + local Local + line jjjj;
-call[dingus %var(dongus)];
+call["dingus %var(dongus)"];
 call asdf;
-call[%var(khjdgfa)]("dongus");
+call["%var(khjdgfa)"]("dongus");
 call asdfadfuhgkjerng(pot["Speed"]);
 
 start haha;

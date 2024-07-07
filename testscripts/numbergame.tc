@@ -1,6 +1,6 @@
 FUNCTION numbergame;
 
-line i: num = saved [%default number];
+line i: num = saved ["%default number"];
 
 default:SendMessage("The number game!! compiled with terracotta");
 
@@ -45,7 +45,7 @@ repeat Forever {
         default:SendActionBar(line msg: txt);
     }
 
-    saved [%default number] = line i;
+    saved ["%default number"] = line i;
 
     #reset code
     if (default ? IsStandingOnBlock("nether_wart_block")) {
