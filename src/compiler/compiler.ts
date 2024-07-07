@@ -1539,7 +1539,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 }
             }
             else if (token instanceof TypeOverrideToken) {
-                if (!(exprToken.Expression[i-1] instanceof ActionToken)) {
+                if (!(exprToken.Expression[i-1] instanceof ActionToken || exprToken.Expression[i-1] instanceof IndexerToken)) {
                     throw new TCError("Invalid type override placement",0,token.CharStart,token.CharEnd)
                 }
             }
