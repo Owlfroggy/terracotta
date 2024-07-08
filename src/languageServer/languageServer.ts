@@ -278,20 +278,18 @@ export function StartServer() {
         }
         else if (context.Type == ContextType.DomainCondition) {
             let domain = domains.DomainList[context.Data.domain]!
-            if (domain.SupportsGameValues) {
-                for (const [tcName, action] of Object.entries(domain.Conditions)) {
-                    let item: CompletionItem = {
-                        "label": tcName,
-                        "kind": CompletionItemKind.Method,
-                        "commitCharacters": ["(",")"],
-                        "data": {
-                            "type": CompletionItemType.CodeblockAction,
-                            "codeblock": domain.ConditionCodeblock,
-                            "actionDFId": action!.DFId
-                        }
+            for (const [tcName, action] of Object.entries(domain.Conditions)) {
+                let item: CompletionItem = {
+                    "label": tcName,
+                    "kind": CompletionItemKind.Method,
+                    "commitCharacters": ["(",")"],
+                    "data": {
+                        "type": CompletionItemType.CodeblockAction,
+                        "codeblock": domain.ConditionCodeblock,
+                        "actionDFId": action!.DFId
                     }
-                    items.push(item)
                 }
+                items.push(item)
             }
         }
         else if (context.Type == ContextType.String || context.Type == ContextType.PureUser) {
