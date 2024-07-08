@@ -7,7 +7,8 @@ import { DocumentTracker } from "./documentTracker";
 import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, REPEAT_ON_ACTIONS, ValueType } from "../util/constants";
 
 enum CompletionItemType {
-    CodeblockAction
+    CodeblockAction,
+    GameValue
 }
 
 //function that other things can call to log to the language server output when debugging
@@ -161,10 +162,20 @@ export function StartServer() {
             let action: AD.Action = AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!
 
             let paramString = getParamString(action.Parameters,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")
-
             let returnString = getParamString(action.ReturnValues,"\n\n**Returns:**\n\n","")
-            
             documentation = `${AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!.Description || "<Failed to get action description>"}${paramString}${returnString}`
+        }
+        else if (item.data.type == CompletionItemType.GameValue) {
+            let val = AD.DFGameValueMap[item.data.valueDFId]
+            if (val != undefined) {
+                let description = val.Description
+                let info = val.AdditionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
+                let returnP = new AD.Parameter()
+                returnP.type = val.DFReturnType
+                returnP.description = val.ReturnDescription
+                let returnType = getParamString([[returnP]],"\n\n**Returns Value:**\n\n","")
+                documentation = `${description}${info}${returnType}`
+            }
         }
 
         if (documentation !== undefined) {
@@ -239,11 +250,15 @@ export function StartServer() {
         else if (context.Type == ContextType.DomainValue) {
             let domain = domains.DomainList[context.Data.domain]!
             if (domain.SupportsGameValues) {
-                for (const [tcName, action] of Object.entries(domain.Values)) {
+                for (const [tcName, value] of Object.entries(domain.Values)) {
                     let item: CompletionItem = {
                         "label": tcName,
                         "kind": CompletionItemKind.Field,
-                        "commitCharacters": [";"]
+                        "commitCharacters": [";"],
+                        "data": {
+                            "type": CompletionItemType.GameValue,
+                            "valueDFId": value?.DFId
+                        }
                     }
                     items.push(item)
                 }

@@ -60,6 +60,12 @@ export class GameValue {
     TCId: string
     //type this game value resolves to
     ReturnType: ValueType
+    //return type string used by df
+    DFReturnType: string
+    
+    Description: string
+    ReturnDescription: string
+    AdditionalInfo: string[]
 }
 
 //==========[ public data ]=========\\
@@ -139,6 +145,10 @@ export const DFTypeToTC = {
     PROJECTILE: "item",
     VEHICLE: "item",
     SPAWN_EGG: "item",
+}
+
+export const TCTypeToDF = {
+    
 }
 
 export const DFTypeToString = {
@@ -335,6 +345,12 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
     value.DFId = gameValueJson.icon.name
     value.TCId = OVERRIDES_JSON.gameValues[gameValueJson.icon.name] || CodeifyName(gameValueJson.icon.name)
     value.ReturnType = DFTypeToTC[gameValueJson.icon.returnType]
+    value.DFReturnType = gameValueJson.icon.returnType
+    value.Description = gameValueJson.icon.description.join(" ")
+    value.ReturnDescription = gameValueJson.icon.returnDescription.join(" ")
+    value.AdditionalInfo = gameValueJson.icon.additionalInfo.map(entry => {
+        return entry.join(" ")  
+    })
 
     DFGameValueMap[value.DFId] = value
     TCGameValueMap[value.TCId] = value
