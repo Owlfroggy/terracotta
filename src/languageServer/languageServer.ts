@@ -256,7 +256,12 @@ export function StartServer() {
                     let item: CompletionItem = {
                         "label": tcName,
                         "kind": CompletionItemKind.Method,
-                        "commitCharacters": ["(",")"]
+                        "commitCharacters": ["(",")"],
+                        "data": {
+                            "type": CompletionItemType.CodeblockAction,
+                            "codeblock": domain.ConditionCodeblock,
+                            "actionDFId": action!.DFId
+                        }
                     }
                     items.push(item)
                 }
