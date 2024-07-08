@@ -302,7 +302,12 @@ export function StartServer() {
                 let item: CompletionItem = {
                     "label": AD.DFActionMap.select_obj![dfName]!.TCId,
                     "kind": CompletionItemKind.Function,
-                    "commitCharacters": ["(",";"]
+                    "commitCharacters": ["(",";"],
+                    "data": {
+                        "type": CompletionItemType.CodeblockAction,
+                        "codeblock": "select_obj",
+                        "actionDFId": AD.DFActionMap.select_obj![dfName]!.DFId
+                    }
                 }
                 items.push(item)
             }
