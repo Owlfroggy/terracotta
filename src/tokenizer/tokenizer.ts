@@ -1271,6 +1271,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
             let expressionResults
             try {
+                let itemInitIndex = index
                 //yeah i've given up on having good code
                 
                 //if there's special code for handling this list entry's context, get a copy
@@ -1298,6 +1299,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 } else {
                     expressionResults = ParseExpression(index, [seperatingChar, closingChar], false,[])
                 }
+
+                //if no other contexts were offered, default to general
+                OfferContext(itemInitIndex,ContextType.General,{})
             } catch (e) {
                 if (e.message == "Expression was never closed") {
                     throw new TCError("List was never closed", 1, initIndex + 1, cu.GetLineEnd(index) - 1)
@@ -1619,7 +1623,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let tags = {}
 
         if (cu.GetNextCharacters(index, 1) == "{") {
-            //move to opening <
+            //move to opening {
             index += 1 + cu.GetWhitespaceAmount(index)
 
             //if empty tag list
