@@ -42,7 +42,7 @@ if (game ? CommandEquals("violence"){"Check Mode" = "Check beginning"}) {
 # @z
 if (game ? CommandEquals("z"){"Check Mode" = "Check beginning"}) {
     game:SpawnMob(item["zombie_spawn_egg"],default.Location + default.Direction * vec[3,0,3]);
-    lastEntity:SetCustomName(txt"<green>grrrr im a zombie");
+    lastEntity:SetCustomName(s"<green>grrrr im a zombie");
     lastEntity:SetArmorItems(item["crimson_button"]); #no fire!!!
     default:SendMessage("&aSpawned a zombie");
     return;

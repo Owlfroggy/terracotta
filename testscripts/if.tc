@@ -3,7 +3,7 @@ selection:SendMessage("balls");
 
 #very cursed way to do and
 if (not game.CPUUsage < saved config_maxCPU + 3) { if (game.PlayerCount > 10) {
-    allPlayers:SendMessage("&c" + txt"ALRIGHT EVERYBODY OUT <green>unless you're a"+"&e"+txt" duck<white>....");
+    allPlayers:SendMessage("&c" + s"ALRIGHT EVERYBODY OUT <green>unless you're a"+"&e"+s" duck<white>....");
     allPlayers:Kick;
 }}
 

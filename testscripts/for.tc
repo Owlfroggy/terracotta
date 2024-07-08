@@ -9,7 +9,7 @@ global list = [
     "seven hundred",
     700,
     "DCC",
-    txt"<font:illageralt>e" + [7][1] * [100][1] #DISCLAIMER! please don't do this
+    s"<font:illageralt>e" + [7][1] * [100][1] #DISCLAIMER! please don't do this
 ];
 
 for (line k, line v in global dict) {
@@ -28,7 +28,7 @@ for (line n on Range(1,10,0.5)) {
     default:SendMessage("iterate over range",line n);
 }
 
-for (line message in ["you","cannot","escape","the might of",txt"<rainbow>doggus prime"]) {
+for (line message in ["you","cannot","escape","the might of",s"<rainbow>doggus prime"]) {
     default:SendMessage(line message);
 }
 

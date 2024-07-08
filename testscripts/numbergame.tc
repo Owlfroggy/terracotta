@@ -9,7 +9,7 @@ repeat Forever {
     line rainbowIndex += 1;
 
     line timeUnit = "Seconds";
-    default:SendActionBar(txt"The number: <green>" + line i);
+    default:SendActionBar(s"The number: <green>" + line i);
 
     if (default ? IsSprinting) {
         line rngResult = num:Random(1, 20);
@@ -35,7 +35,7 @@ repeat Forever {
 
     if (default ? IsSneaking) {
         default:PlaySound(snd["Anvil Land"]);
-        default:SendActionBar(txt"<red>You have killed the loop!!! How dare you");
+        default:SendActionBar(s"<red>You have killed the loop!!! How dare you");
         break;
     }
 

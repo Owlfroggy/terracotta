@@ -874,7 +874,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let identifierResults = cu.GetIdentifier(index)
 
         //if no txt keyword, this is not a text
-        if (identifierResults == null || identifierResults[1] != "txt") { return null }
+        if (identifierResults == null || identifierResults[1] != "s") { return null }
 
         //move to end of txt keyword
         index = identifierResults[0]

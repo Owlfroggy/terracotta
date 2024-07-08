@@ -20,7 +20,7 @@ repeat (global DINGUS) {
 #variables as both
 repeat (line i to global DINGUS) {
     __printvartype line i;
-    default:SendMessage(line i + (default.Location + txt" <= 5"));
+    default:SendMessage(line i + (default.Location + s" <= 5"));
 }
 
 while (not player ? NameEquals) {
