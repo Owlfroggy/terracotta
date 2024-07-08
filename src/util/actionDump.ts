@@ -42,12 +42,14 @@ export class Action {
     //description lore that shows up when you hover over the action in df
     //DOES NOT INCLUDE PARAMETER INFORMATION!!
     Description: string
+    AdditionalInfo: string[]
 
     Parameters: (Parameter[])[]
     ReturnValues: (Parameter[])[]
 
     //will be true or false for events, undefined for non-events
     Cancellable: boolean | undefined
+    CancelledAutomatically: boolean | undefined
     
     //type this action returns
     ReturnType: ValueType | null = null
@@ -295,6 +297,10 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     
     let descriptionString = actionJson.icon.description.join(" ")
 
+    let additionalInfo = actionJson.icon.additionalInfo ? actionJson.icon.additionalInfo.map(entry => {
+        return entry.join(" ")  
+    }) : []
+
     //normal action
     let normalAction = new Action()
     normalAction.Codeblock = codeblockId
@@ -303,9 +309,11 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     normalAction.Tags = tags
     normalAction.ReturnType = returnType
     normalAction.Description = descriptionString
+    normalAction.AdditionalInfo = additionalInfo
     normalAction.Parameters = parameters
     normalAction.ReturnValues = returnValues
     normalAction.Cancellable = actionJson.icon.cancellable
+    normalAction.CancelledAutomatically = actionJson.icon.cancelledAutomatically
     
     TCActionMap[codeblockId]![tcId] = normalAction
     DFActionMap[codeblockId]![dfId] = normalAction
@@ -318,9 +326,11 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     differentiatedAction.Tags = tags
     differentiatedAction.ReturnType = returnType
     differentiatedAction.Description = descriptionString
+    differentiatedAction.AdditionalInfo = additionalInfo
     differentiatedAction.Parameters = parameters
     differentiatedAction.ReturnValues = returnValues
     differentiatedAction.Cancellable = actionJson.icon.cancellable
+    differentiatedAction.CancelledAutomatically = actionJson.icon.cancelledAutomatically
     
     //check all aliases
     for (const alias of actionJson.aliases) {
@@ -351,7 +361,7 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
     value.AdditionalInfo = gameValueJson.icon.additionalInfo.map(entry => {
         return entry.join(" ")  
     })
-
+3
     DFGameValueMap[value.DFId] = value
     TCGameValueMap[value.TCId] = value
 

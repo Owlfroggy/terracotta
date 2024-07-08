@@ -8,7 +8,8 @@ import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, REPEAT_ON_ACTIONS, 
 
 enum CompletionItemType {
     CodeblockAction,
-    GameValue
+    GameValue,
+    EventName,
 }
 
 //function that other things can call to log to the language server output when debugging
@@ -158,6 +159,7 @@ export function StartServer() {
 
         let documentation: string | undefined = undefined
 
+        // action
         if (item.data.type == CompletionItemType.CodeblockAction) {
             let action: AD.Action = AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!
 
@@ -165,6 +167,7 @@ export function StartServer() {
             let returnString = getParamString(action.ReturnValues,"\n\n**Returns:**\n\n","")
             documentation = `${AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!.Description || "<Failed to get action description>"}${paramString}${returnString}`
         }
+        // game value
         else if (item.data.type == CompletionItemType.GameValue) {
             let val = AD.DFGameValueMap[item.data.valueDFId]
             if (val != undefined) {
@@ -175,6 +178,15 @@ export function StartServer() {
                 returnP.description = val.ReturnDescription
                 let returnType = getParamString([[returnP]],"\n\n**Returns Value:**\n\n","")
                 documentation = `${description}${info}${returnType}`
+            }
+        }
+        // event
+        else if (item.data.type == CompletionItemType.EventName) {
+            let event = AD.DFActionMap[item.data.codeblock]![item.data.eventDFId]
+            if (event != undefined) {
+                let info = event.AdditionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
+                let cancelInfo = event.Cancellable ? "\n\n∅ Cancellable" : event.CancelledAutomatically ? "\n\n∅ Cancelled automatically" : ""
+                documentation = `${event.Description}${info}${cancelInfo}`
             }
         }
 
@@ -287,11 +299,17 @@ export function StartServer() {
         }
         else if (context.Type == ContextType.EventDeclaration) {
             let eventType = context.Data.type!
-            for (const [dfName, action] of Object.entries(AD.DFActionMap[`${eventType == "player" ? '' : 'entity_'}event`]!)) {
+            let codeblock = `${eventType == "player" ? '' : 'entity_'}event`
+            for (const [dfName, event] of Object.entries(AD.DFActionMap[codeblock]!)) {
                 let item: CompletionItem = {
                     "label": dfName,
                     "kind": CompletionItemKind.Function,
-                    "commitCharacters": [";"]
+                    "commitCharacters": [";"],
+                    "data": {
+                        "type": CompletionItemType.EventName,
+                        "codeblock": codeblock,
+                        "eventDFId": event?.DFId
+                    }
                 }
                 items.push(item)
             }
