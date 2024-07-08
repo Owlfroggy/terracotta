@@ -162,10 +162,11 @@ export function StartServer() {
         // action
         if (item.data.type == CompletionItemType.CodeblockAction) {
             let action: AD.Action = AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!
-
-            let paramString = getParamString(action.Parameters,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")
-            let returnString = getParamString(action.ReturnValues,"\n\n**Returns:**\n\n","")
-            documentation = `${AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!.Description || "<Failed to get action description>"}${paramString}${returnString}`
+            if (action != undefined) {
+                let paramString = getParamString(action.Parameters,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")
+                let returnString = getParamString(action.ReturnValues,"\n\n**Returns:**\n\n","")
+                documentation = `${AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!.Description || "<Failed to get action description>"}${paramString}${returnString}`
+            }
         }
         // game value
         else if (item.data.type == CompletionItemType.GameValue) {
