@@ -1,7 +1,7 @@
 import * as rpc from "vscode-jsonrpc/node"
 import * as domains from "../util/domains"
 import * as AD from "../util/actionDump"
-import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position } from "vscode-languageserver";
+import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures } from "vscode-languageserver";
 import { CodeContext, ContextType, GetLineIndexes, Tokenize } from "../tokenizer/tokenizer";
 import { DocumentTracker } from "./documentTracker";
 import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, REPEAT_ON_ACTIONS, ValueType } from "../util/constants";
@@ -14,6 +14,23 @@ enum CompletionItemType {
 
 //function that other things can call to log to the language server output when debugging
 export let slog = (...data: any[]) => {}
+
+export function LinePositionToIndex(script: string, position: Position): number | null {
+    let lines = script.split("\n")
+
+    let index = 0
+
+    for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+        if (lineNum == position.line) {
+            index += position.character
+            return index
+        }
+        index += lines[lineNum].length + 1
+    }
+
+    return null
+}
+
 
 function generateCompletions(entries: (string)[], kind: CompletionItemKind = CompletionItemKind.Property): CompletionItem[] {
     let result: CompletionItem[] = []
@@ -40,6 +57,7 @@ function indexToLinePosition(script: string,index: number): Position {
     }
     return {} as Position
 }
+
 
 function getParamString(parameters: AD.Parameter[][], yesHeader: string, noHeader: string): string {
     let paramString = ""
@@ -124,7 +142,7 @@ export function StartServer() {
     );
     connection.listen()
 
-    let documentTracker = new DocumentTracker(connection)
+    let documentTracker: DocumentTracker = new DocumentTracker(connection)
 
     //==========[ utility functions ]=========\\
 
@@ -140,17 +158,38 @@ export function StartServer() {
     
     //==========[ request handling ]=========\\
 
-    connection.onRequest("initialize", (param) => {
+    connection.onRequest("initialize", (param: InitializeParams) => {
+        documentTracker.initialize(param)
+
         let response: InitializeResult = {
             capabilities: {
-                textDocumentSync: TextDocumentSyncKind.Full,
-                // Tell the client that this server supports code completion.
+                textDocumentSync: TextDocumentSyncKind.Incremental,
+                //workspace folders
+                workspace: {
+                    workspaceFolders: {
+                        supported: true,
+                        changeNotifications: false
+                    },
+                    fileOperations: {
+                        didCreate: {
+                            filters: [
+                                {
+                                    pattern: {
+                                        "glob": "**/*.tc"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                //completion
                 completionProvider: {
                     resolveProvider: true,
                     triggerCharacters: [":",".","?"],
                 }
             }
         }
+
         return response
     })
 
@@ -201,7 +240,7 @@ export function StartServer() {
         return item
     })
 
-    connection.onRequest("textDocument/completion", async (param) => {
+    connection.onRequest("textDocument/completion", async (param: CompletionParams) => {
         let script = documentTracker.GetFileText(param.textDocument.uri)
 
         //function that does the replacing logic for string completions
