@@ -976,9 +976,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 OfferContext(startIndex,ContextType.General,data,expressionResults ? false : true)
             }
             else if (expressionResults[1].Expression[0] && expressionResults[1].Expression[0] instanceof StringToken) {
-                data.charStart = expressionResults[1].Expression[0].CharStart
-                data.charEnd = expressionResults[1].Expression[0].CharEnd
-                OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.PureUser,data)
+                OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.String,data)
             }
             else if (contextResults) {
                 OfferContext(contextResults.FromIndex,contextResults.Type,data,false)
@@ -1054,9 +1052,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 OfferContext(startIndex,ContextType.General,data,expressionResults ? false : true)
             }
             else if (expressionResults[1].Expression[0] && expressionResults[1].Expression[0] instanceof StringToken) {
-                data.charStart = expressionResults[1].Expression[0].CharStart
-                data.charEnd = expressionResults[1].Expression[0].CharEnd
-                OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.PureUser,data)
+                OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.String,data)
             }
             else if (contextResults) {
                 OfferContext(contextResults.FromIndex,contextResults.Type,data,false)

@@ -245,22 +245,13 @@ export function StartServer() {
 
         //function that does the replacing logic for string completions
         function stringizeCompletionItem(context: CodeContext,string: string,item: CompletionItem) {
-            if (context.Data.charStart) {
-                item.filterText = `"${string} "`
-                item.textEdit = {
-                    "newText": `"${string}"`,
-                    "range": {
-                        "start": indexToLinePosition(script,context.Data.charStart),
-                        "end": indexToLinePosition(script,context.Data.charStart)
-                    }
-                }
-                if (context.Data.charEnd) {
-                    item.textEdit.range.end = indexToLinePosition(script,context.Data.charEnd+1)
-                }
+            if (context.Type == ContextType.String) {
+                item.insertText = string
             }
             else {
                 item.insertText = `"${string}"`
             }
+            item.filterText = `"${string}"`
         }
 
         let line = 0
