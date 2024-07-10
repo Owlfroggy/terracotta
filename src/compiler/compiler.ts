@@ -1074,7 +1074,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 latestItem = tempVar
             }
             else {
-                item.Data.size = fields.Size?.value || ITEM_PARAM_DEFAULTS.par.Size.Value
+                item.Data.size = fields.Size?.Value || ITEM_PARAM_DEFAULTS.par.Size.Value
                 item.Data.sizeVariation = fields["Size Variation"]?.Value || ITEM_PARAM_DEFAULTS.par["Size Variation"].Value
             }
 
