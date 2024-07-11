@@ -4,7 +4,7 @@ import * as AD from "../util/actionDump"
 import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures } from "vscode-languageserver";
 import { CodeContext, ContextType, GetLineIndexes, Tokenize } from "../tokenizer/tokenizer";
 import { DocumentTracker } from "./documentTracker";
-import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, REPEAT_ON_ACTIONS, ValueType } from "../util/constants";
+import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, REPEAT_ON_ACTIONS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants";
 
 enum CompletionItemType {
     CodeblockAction,
@@ -14,6 +14,7 @@ enum CompletionItemType {
 
 //function that other things can call to log to the language server output when debugging
 export let slog = (...data: any[]) => {}
+export let snotif = (message: string, type: MessageType = MessageType.Info) => {}
 
 export function LinePositionToIndex(script: string, position: Position): number | null {
     let lines = script.split("\n")
@@ -44,6 +45,7 @@ function generateCompletions(entries: (string)[], kind: CompletionItemKind = Com
     return result
 }
 
+//try not to use this function its very slow
 function indexToLinePosition(script: string,index: number): Position {
     let lines = script.split("\n")
     let finalLine: number = 0
@@ -103,7 +105,7 @@ genericKeywords.push({
 })
 
 var variableScopeKeywords = generateCompletions(["local","saved","global","line"],CompletionItemKind.Keyword)
-var genericDomains = generateCompletions(["player","entity"],CompletionItemKind.Variable)
+var genericDomains = generateCompletions(["player","entity"],CompletionItemKind.Keyword)
 var typeKeywords = generateCompletions(Object.keys(ValueType),CompletionItemKind.Keyword)
 var forLoopActionKeywords: CompletionItem[] = []
 
@@ -126,7 +128,7 @@ function getDomainKeywords() {
         let item: CompletionItem = {
             "label": id,
             "commitCharacters": [":",".","?"],
-            "kind": CompletionItemKind.Variable
+            "kind": CompletionItemKind.Keyword
         }
         result.push(item)
     }
@@ -153,8 +155,78 @@ export function StartServer() {
     function log(...message: string[]) {
         connection.sendNotification("window/logMessage",{message: message.join(" "), type: MessageType.Log})
     }
+
+    function getVariableCompletions(documentUri: string) {
+        let document = documentTracker.Documents[documentUri]
+        if (document == undefined) { return }
+        let ownerFolder = document.OwnedBy
+
+        let variables = {global: {}, saved: {}, local: {}, line: {}}
+        let items: CompletionItem[] = []
+        
+
+        let nameFirstScopes: Dict<string> = {}
+        let multiScopeNames: Dict<boolean> = {}
+        function addvar(scope,name) {
+            if (variables[scope][name] == undefined) {
+                variables[scope][name] = true
+            }
+            if (nameFirstScopes[name] == undefined) {
+                nameFirstScopes[name] = scope
+            } else if (nameFirstScopes[name] != scope) {
+                multiScopeNames[name] = true
+            }
+        }
+
+        //if this document is owned by a folder, include all global and saved vars from that folder
+        if (ownerFolder != null) {
+            Object.values(ownerFolder.OwnedDocuments).forEach(doc => {
+                ["global","saved"].forEach(scope => {
+                    Object.keys(doc!.Variables[scope]).forEach(name => {
+                        addvar(scope,name)
+                    });
+                });
+            });
+        }
+        
+        //include all variables from this document
+        ["global","saved","local","line"].forEach(scope => {
+            Object.keys(document.Variables[scope]).forEach(name => {
+                addvar(scope,name)
+            });
+        });
+        
+        
+        //generate completion items
+        ["global","saved","local","line"].forEach(scope => {
+            Object.keys(variables[scope]).forEach(name => {
+                let item: CompletionItem = {
+                    "label": `${name}`,
+                    "sortText": `${name} ${scope == "line" ? "a" : scope == "local" ? "b" : scope == "saved" ? "c" : "d"}`,
+                    "filterText": name,
+                    "kind": CompletionItemKind.Variable,
+                }
+
+                if (multiScopeNames[name]) {
+                    item.label = `${name} (${scope})`
+                }
+
+                //if name has special characters and needs ["akjhdgffkj"] syntax
+                if (name.match(/[^a-z_]/gi)) {
+                    item.insertText = `${scope} ["${name}"]`
+                } else {
+                    item.insertText = `${scope} ${name}`
+                }
+
+                items.push(item)
+            });
+        })
+
+        return items
+    }
     
     slog = log
+    snotif = showText
     
     //==========[ request handling ]=========\\
 
@@ -186,6 +258,9 @@ export function StartServer() {
                 completionProvider: {
                     resolveProvider: true,
                     triggerCharacters: [":",".","?"],
+                    completionItem: {
+                        labelDetailsSupport: true
+                    }
                 }
             }
         }
@@ -245,7 +320,7 @@ export function StartServer() {
 
         //function that does the replacing logic for string completions
         function stringizeCompletionItem(context: CodeContext,string: string,item: CompletionItem) {
-            if (context.Type == ContextType.String) {
+            if (context.Type == ContextType.String || context.Type == ContextType.ActionTagString) {
                 item.insertText = string
             }
             else {
@@ -267,12 +342,12 @@ export function StartServer() {
         }
 
         let lineIndexes = GetLineIndexes(script)
-        let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": lineIndexes[param.position.line]+param.position.character + 1,"startFromLine": param.position.line}) as CodeContext
+        let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": lineIndexes[param.position.line]+param.position.character + 1,"startFromLine": param.position.line, "fromLanguageServer": true}) as CodeContext
 
         let items: any[] = []
         
         if (context.Type == ContextType.General) {
-            items.push(headerKeywords,variableScopeKeywords,genericKeywords,getDomainKeywords())
+            items.push(headerKeywords,variableScopeKeywords,genericKeywords,getDomainKeywords(),getVariableCompletions(param.textDocument.uri))
         }
         else if (context.Type == ContextType.DomainMethod) {
             let domain = domains.DomainList[context.Data.domain]!
@@ -360,17 +435,7 @@ export function StartServer() {
             }
         }
         else if (context.Type == ContextType.ActionTagString) {
-            for (const tagName of context.Data.validValues) {
-                let item: CompletionItem = {
-                    "label": tagName,
-                    "kind": CompletionItemKind.Text,
-                    "commitCharacters": ["(",";"]
-                }
-                
-                stringizeCompletionItem(context,tagName,item)
-
-                items.push(item)
-            }
+            
         }
         else if (context.Type == ContextType.TypeAssignment) {
             items.push(typeKeywords)
@@ -385,6 +450,19 @@ export function StartServer() {
 
         if (context.Data.addons) {
             if (context.Data.addons.genericDomains) { items.push(genericDomains) }
+            if (context.Data.addons.actionTagString) {
+                for (const tagName of context.Data.addons.actionTagString) {
+                    let item: CompletionItem = {
+                        "label": tagName,
+                        "kind": CompletionItemKind.Text,
+                        "commitCharacters": ["(",";"]
+                    }
+                    
+                    stringizeCompletionItem(context,tagName,item)
+    
+                    items.push(item)
+                }
+            }
             if (context.Data.addons.potionTypes) {
                 AD.Potions.forEach(potionType => {
                     let item = {

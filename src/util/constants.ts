@@ -43,7 +43,7 @@ export const VALID_PARAM_MODIFIERS = ["plural","optional"]
 
 //key: keywords that trigger variable parsing in terracotta
 //value: the corresponding df scope id
-export const VALID_VAR_SCOPES = {
+export const VALID_VAR_SCOPES: Dict<"unsaved" | "saved" | "local" | "line"> = {
     "global": "unsaved",
     "saved": "saved",
     "local": "local",

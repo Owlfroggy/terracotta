@@ -36,14 +36,14 @@ export class TypeCreationToken extends Token {
 }
 
 export class VariableToken extends Token {
-    constructor(meta,scope: string, name: string, type: string | null) {
+    constructor(meta,scope, name: string, type: string | null) {
         super(meta)
         this.Scope = scope
         this.Name = name
         this.Type = type
     }
 
-    Scope: string
+    Scope: "global" | "saved" | "local" | "line"
     Name: string
     Type: string | null
 
@@ -514,12 +514,17 @@ export enum ContextType {
 }
 
 export interface TokenizeMode {
-    "mode": "getTokens" | "getContext",
+    "mode": "getTokens" | "getContext" | "getVariables",
 
-    "startFromLine"?: number
-
+    //starts at startFromLine, moving up until it reaches goUntilLine
+    "startFromLine"?: number,
+    "goUntilLine"?: number //inclusive
+    
     // if mode is getContext, the char index to look for
     "contextTestPosition"?: number
+
+    //if true, will take extra precautions to avoid breaking the langauge server
+    "fromLanguageServer"?: boolean
 }
 
 
@@ -535,11 +540,13 @@ export function GetLineIndexes(text: string): number[] {
         result[i] = v.index
     }
 
+    result[result.length] = text.length
+
     return result
 }
 
 //THIS FUNCTION WILL NEVER RETURN UNDEFINED! IT JUST SAYS THAT BECAUSE TYPESCRIPT IS SPECIAL
-export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults | CodeContext | undefined {
+export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults | CodeContext | Dict<VariableToken[]> | undefined {
 
     //==========[ constants ]=========\\
 
@@ -554,6 +561,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     let cu: CharUtils = new CharUtils(SCRIPT_CONTENTS,true)
 
     //==========[ helper functions ]=========\\
+
+    //does nothing by default, implemented down at the bottom if in get vars mode
+    let ReportVariable = function (variable: VariableToken) {}
 
     function OfferContext(currentIndex: number, type: ContextType, data: Dict<any> = {}, autoExtend: boolean = true) {
         if (!CurrentlyGrabbingContexts) { return }
@@ -740,6 +750,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             index = typeResults[0]
             type = typeResults[1]
         }
+
+        //im making a new one cuz im scared that some funny reference shenanigans will happen if i use the one thats returned
+        ReportVariable(new VariableToken([initIndex,index],scopeKeyword, nameResults[1], type))
 
         return [index, new VariableToken([initIndex,index],scopeKeyword, nameResults[1], type)]
     }
@@ -1105,7 +1118,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let initIndex = index
 
         //parse indexer expression
-        let expressionResults = ParseExpression(index,["]"],true)
+        let expressionResults = ParseExpression(index,["]",";"],true)
         if (expressionResults == null) {
             throw new TCError("Expected index value for indexer",0,initIndex, initIndex)
         }
@@ -1192,7 +1205,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             let keyResults: [number, ExpressionToken] | null = null
 
             try { 
-                keyResults = ParseExpression(index,[closingChar,assignmentChar],false) 
+                keyResults = ParseExpression(index,[closingChar,assignmentChar,";"],false) 
             }
             catch (e) {
                 if (e instanceof CodeContext) {
@@ -1222,7 +1235,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             index += cu.GetWhitespaceAmount(index) + 1
             
             //= value =\\
-            let valueResults = ParseExpression(index,[closingChar,seperatingChar],false)
+            let valueResults = ParseExpression(index,[closingChar,seperatingChar,";"],false)
             if (valueResults == null) {
                 throw new TCError(`Expected value following '${assignmentChar}'`,0,keyInitIndex,index)
             }
@@ -1276,12 +1289,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //get what the expression would return
                     CurrentlyGrabbingContexts = false
                     //wrap it in try catch so that CurrentlyGrabbingContexts always gets turned back on
-                    try {expressionResults = ParseExpression(index, [seperatingChar, closingChar], false,[])} catch {}
+                    try {expressionResults = ParseExpression(index, [seperatingChar, closingChar,";"], false,[])} catch {}
                     CurrentlyGrabbingContexts = true
                     
                     //get the context that would be thrown
                     let contextResults: CodeContext | null = null
-                    try {ParseExpression(index, [seperatingChar, closingChar], false,[])}
+                    try {ParseExpression(index, [seperatingChar, closingChar,";"], false,[])}
                     catch (e) {
                         if (e instanceof CodeContext) {
                             contextResults = e
@@ -1293,7 +1306,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                     contextHandlers[i]!(index,expressionResults,contextResults,items)
                 } else {
-                    expressionResults = ParseExpression(index, [seperatingChar, closingChar], false,[])
+                    expressionResults = ParseExpression(index, [seperatingChar, closingChar,";"], false,[])
                 }
 
                 //if no other contexts were offered, default to general
@@ -1420,7 +1433,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         index += cu.GetWhitespaceAmount(index) + 1
 
         //parse expression
-        let expressionResults = ParseExpression(index,[")"],true,["comparisons"])
+        let expressionResults = ParseExpression(index,[")",";"],true,["comparisons"])
         if (expressionResults == null) {
             throw new TCError("Expected condition following 'if'",0,initIndex,identifierResults[0])
         }
@@ -1469,7 +1482,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
 
             //expression
-            let expressionResults = ParseExpression(index,[")"],true)
+            let expressionResults = ParseExpression(index,[")",";"],true)
             if (expressionResults == null) {
                 throw new TCError("Expected an actual expression",0,initIndex,index+1)
             }
@@ -1488,7 +1501,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             OfferContext(index,ContextType.General,{"addons":{"genericDomains":"true"}})
 
             //expression
-            let expressionResults = ParseExpression(index,[")"],true,["comparisons","genericTargetComparisons"])
+            let expressionResults = ParseExpression(index,[")",";"],true,["comparisons","genericTargetComparisons"])
             if (expressionResults == null) {
                 throw new TCError("Expected condition following 'while'",0,initIndex,keywordResults[0])
             }
@@ -1548,7 +1561,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             //iterating over a dictionary
             if (mode == "in") {
                 //parse expression inside the ()
-                let expressionResults = ParseExpression(index,[")"],true)
+                let expressionResults = ParseExpression(index,[")",";"],true)
                 if (expressionResults == null) {
                     throw new TCError("Expected list or dictionary inside parentheses",0,initIndex,index)
                 }
@@ -1624,14 +1637,14 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
             //if empty tag list
             if (cu.GetNextCharacters(index, 1) == "}") {
-                OfferContext(index+cu.GetWhitespaceAmount(index),ContextType.ActionTagString,{"validValues":Object.keys(validTags)},true)
+                OfferContext(index+cu.GetWhitespaceAmount(index),ContextType.General,{"addons": {"actionTagString": Object.keys(validTags)}},true)
                 index += 1 + cu.GetWhitespaceAmount(index)
                 return [index,{}]
             } else {
                 let tagsListInitIndex = index
 
                 while (SCRIPT_CONTENTS[index] != "}") {
-                    OfferContext(index,ContextType.ActionTagString,{"validValues":Object.keys(validTags)})
+                    OfferContext(index,ContextType.General,{"addons": {"actionTagString": Object.keys(validTags)}})
 
                     let tagInitIndex = index + 1 + cu.GetWhitespaceAmount(index)
 
@@ -1640,7 +1653,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     let tagNameResults = GetString(index,'"','"',[],true)
 
                     if (tagNameResults) {
-                        OfferContext(tagNameResults[0],ContextType.ActionTagString,{"validValues":Object.keys(validTags), "charStart": tagInitIndex, "charEnd": tagNameResults[0]})
+                        OfferContext(tagNameResults[0],ContextType.String,{"addons": {"actionTagString": Object.keys(validTags)}, "charStart": tagInitIndex, "charEnd": tagNameResults[0]})
                     } 
                     else {
                         // let tags have trailing comma
@@ -1666,7 +1679,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //move to =
                     index += 1 + cu.GetWhitespaceAmount(index)
 
-                    OfferContext(index,ContextType.ActionTagString,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":true})
+                    OfferContext(index,ContextType.General,{"addons":{"actionTagString":validTags[tagName] ? validTags[tagName]!.Options : []},"canHaveVariable":true})
 
                     //parse variable
                     let variableResults = ParseVariable(index)
@@ -1686,7 +1699,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         //move to ?
                         index += 1 + cu.GetWhitespaceAmount(index)
 
-                        OfferContext(index,ContextType.ActionTagString,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":false})
+                        OfferContext(index,ContextType.General,{"addons":{"actionTagString":validTags[tagName] ? validTags[tagName]!.Options : []},"canHaveVariable":false})
                     }
                     let lastCharIndex = index
 
@@ -1695,7 +1708,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     let tagValueResults = GetString(index,'"','"',[],true)
 
                     if (tagValueResults) {
-                        OfferContext(tagValueResults[0],ContextType.ActionTagString,{"validValues":validTags[tagName] ? validTags[tagName]!.Options : [],"canHaveVariable":false,"charStart": valueInitIndex,"charEnd": tagValueResults[0]})
+                        OfferContext(tagValueResults[0],ContextType.String,{"addons":{"actionTagString":validTags[tagName] ? validTags[tagName]!.Options : []},"canHaveVariable":false,"charStart": valueInitIndex,"charEnd": tagValueResults[0]})
                     } 
                     //error if missing tag value
                     else {
@@ -1963,10 +1976,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         index: number, 
         terminateAt: Array<string | null> = [], 
         endIndexAtTerminator: boolean | undefined = true, 
-        features: Array<"comparisons" | "genericTargetComparisons"> = []
+        features: Array<"comparisons" | "genericTargetComparisons" | "lineTolerance"> = [],
+        extraArgs: {"stopAtEndOfLine"?: number} = {},
         ): [number, ExpressionToken] | null 
     {
-        terminateAt.push(";")
         //if it should terminate at a newline, also terminate at eof
         if (terminateAt.includes("\n")) {
             if (!terminateAt.includes(null)) { terminateAt.push(null) }
@@ -1993,8 +2006,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             try {
                 let valueInitIndex = index
 
+                if (features.includes("lineTolerance") && extraArgs.stopAtEndOfLine != undefined && index > LineIndexes[extraArgs.stopAtEndOfLine+1!]) {
+                    break
+                }
+
                 //= ERROR: expression isnt closed
-                if (cu.GetNextCharacters(index, 1) == ";" || (cu.GetNextCharacters(index, 1) == "" && !terminateAt.includes(";"))) {
+                if ((cu.GetNextCharacters(index, 1) == ";" && !features.includes("lineTolerance")) || (cu.GetNextCharacters(index, 1) == "" && !terminateAt.includes(";"))) {
                     throw new TCError("Expression was never closed", 1, initIndex, index)
                 }
 
@@ -2003,7 +2020,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                 //try nested expression
                 if (cu.GetNextCharacters(index, 1) == "(") {
-                    results = ParseExpression(index + cu.GetWhitespaceAmount(index) + 1, [")"])
+                    results = ParseExpression(index + cu.GetWhitespaceAmount(index) + 1, [")",";"])
                 }
 
                 //try indexer thingy if last token isn't an operator
@@ -2250,6 +2267,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             index = expressionResults[0]
             defaultValue = expressionResults[1]
         }
+
+        ReportVariable(new VariableToken([initIndex,index],"line",nameResults[1],type))
 
         return [index, new ParamHeaderToken([initIndex,index],nameResults[1],type,modifiers.includes("plural"),modifiers.includes("optional"),defaultValue)]
     }
@@ -2557,8 +2576,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
 
 
-        console.log("Current line:", CurrentLine)
-        console.log("Current indx:", CharIndex)
+        if (!mode.fromLanguageServer) {
+            console.log("Current line:", CurrentLine)
+            console.log("Current indx:", CharIndex)
+        }
         throw new TCError("Something's definitely wrong here (fallback error)", 0, CharIndex, CharIndex)
     }
 
@@ -2571,37 +2592,35 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         results.Lines = Lines
     
         return results
-    } 
+    }
     else if (mode.mode == "getContext") {
         let currentLineNumber = mode.startFromLine == null ? 0 : mode.startFromLine
-
         let currentContext: CodeContext = new CodeContext(ContextType.General,{},SCRIPT_CONTENTS.length)
-
         let firstControlTokenFound = false
         
         CurrentlyGrabbingContexts = true
 
         // kill me now
-        let i = 0
         while (currentLineNumber > -1) {
             // lets be honest, if the completion context of any of your code depends on something 
             // more than 1000 lines above it you deserve to have your autocomplete request canceled
-            i++
-            if (i > 1000) {
-                break
-            }
-
+            
             CharIndex = mode.startFromLine == null ? -1 : LineIndexes[currentLineNumber]!
             Lines = []
             CurrentLine = []
             Running = true            
             while (Running) {
                 try {
-                    TokenizationLogic(currentLineNumber)
+                    try { TokenizationLogic(currentLineNumber) }
+                    catch (e) {
+                        if (e instanceof TCError) {
+                            ParseExpression(CharIndex,["\n","#"],true,["lineTolerance"])
+                        }
+                        throw e
+                    }
                 } catch (e) {
                     if (e instanceof CodeContext) {
                         currentContext = e
-                    } else  {
                     }
                     Running = false
                 }
@@ -2620,5 +2639,44 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             currentLineNumber -= 1
         }
         return currentContext
+    }
+    else if (mode.mode == "getVariables") {
+        //key: line number, value: array of all variables on that line
+        let lineVariableInfo: Dict<VariableToken[]> = {}
+        let currentLineNumber = mode.startFromLine == null ? 0 : mode.startFromLine
+        let firstControlTokenFound = false
+
+        ReportVariable = function(variable: VariableToken) {
+            if (variable.CharStart > LineIndexes[currentLineNumber] && variable.CharEnd < LineIndexes[currentLineNumber+1]) {
+                lineVariableInfo[currentLineNumber]?.push(variable)
+            }
+        }
+
+        // if you are killing me now, please continue to do so
+        while (currentLineNumber > -1 && currentLineNumber >= (mode.goUntilLine || -1)) {
+            CharIndex = mode.startFromLine == null ? -1 : LineIndexes[currentLineNumber]!
+            Lines = []
+            CurrentLine = []
+            Running = true
+            
+            lineVariableInfo[currentLineNumber] = []
+            while (Running) {
+                try {
+                    TokenizationLogic(currentLineNumber)
+                    if (CharIndex > LineIndexes[mode.startFromLine! + 1]) { 
+                        Running = false 
+                    }
+                } catch (e) {
+                    if (e instanceof TCError) {
+                        ParseExpression(CharIndex,["\n","#"],true,["lineTolerance"],{stopAtEndOfLine: currentLineNumber})
+                    }
+                    Running = false
+                }
+            }
+
+            currentLineNumber -= 1
+        }
+
+        return lineVariableInfo
     }
 }

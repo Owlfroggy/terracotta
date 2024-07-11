@@ -419,8 +419,8 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
     function SetVarType(variable: VariableToken | VariableItem | ["unsaved" | "local" | "saved" | "line",string], type: string | undefined) {
         if (variable instanceof VariableToken) {
-            ContextStack[ContextStack.length-1].VariableTypes[VALID_VAR_SCOPES[variable.Scope]][variable.Name] = type
-            CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[variable.Scope]][variable.Name] = type
+            ContextStack[ContextStack.length-1].VariableTypes[VALID_VAR_SCOPES[variable.Scope]!][variable.Name] = type
+            CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[variable.Scope]!][variable.Name] = type
         } else if (variable instanceof VariableItem ) {
             ContextStack[ContextStack.length-1].VariableTypes[variable.Scope][variable.Name] = type
             CombinedVarContext.VariableTypes[variable.Scope][variable.Name] = type
@@ -623,7 +623,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             return [code,new StringItem([token.CharStart,token.CharEnd],token.String)]
         }
         else if (token instanceof VariableToken) {
-            return [code,new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCOPES[token.Scope],token.Name, token.Type)]
+            return [code,new VariableItem([token.CharStart,token.CharEnd],VALID_VAR_SCOPES[token.Scope]!,token.Name, token.Type)]
         } 
         //location
         else if (token instanceof LocationToken) {
@@ -2282,7 +2282,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         }
         //debug print variable
         else if (line[0] instanceof DebugPrintVarTypeToken) {
-            console.log(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[line[0].Variable.Scope]][line[0].Variable.Name]}`)
+            console.log(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[line[0].Variable.Scope]!][line[0].Variable.Name]}`)
         }
     }
 
