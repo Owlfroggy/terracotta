@@ -2290,6 +2290,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         ReportVariable(new VariableToken([initIndex,index],"line",nameResults[1],type))
 
+        slog('report varable')
+
         return [index, new ParamHeaderToken([initIndex,index],nameResults[1],type,modifiers.includes("plural"),modifiers.includes("optional"),defaultValue)]
     }
 
@@ -2384,7 +2386,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
 
     let symbols = "!@#$%^&*(){}[]-:;\"'~`=/*-+|\\/,.<>".split("")
-    let InHeaderParsingStage = true
 
     //push current line to line list even if theres no semicolon
     //will NOT move the index
@@ -2478,15 +2479,13 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             let results
 
             //headers
-            if (InHeaderParsingStage) {
-                //top event header e.g. 'PLAYER_EVENT LeftClick'
-                if (results == null) { results = ParseEventHeader(CharIndex) }
+            //top event header e.g. 'PLAYER_EVENT LeftClick'
+            if (results == null) { results = ParseEventHeader(CharIndex) }
 
-                //params
-                if (results == null) { results = ParseParamHeader(CharIndex) }
+            //params
+            if (results == null) { results = ParseParamHeader(CharIndex) }
 
-                if (results == null) { results = ParseKeywordHeaderToken(CharIndex) }
-            }
+            if (results == null) { results = ParseKeywordHeaderToken(CharIndex) }
 
             //debug
             if (DEBUG_MODE.enableDebugFunctions) {
@@ -2529,11 +2528,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
 
             if (results != null) {
-                //if any token other than header is found, stop allowing headers
-                if (!(results[1] instanceof HeaderToken)) {
-                    InHeaderParsingStage = false
-                }
-
                 ApplyResults(results)
                 return
             }

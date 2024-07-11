@@ -1911,6 +1911,9 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                 headerMode = false
             }
         }
+        else if (line[0] instanceof HeaderToken) {
+            throw new TCError("All headers must appear at the top of the file, before any actual code",0,line[0].CharStart,line[0].CharEnd)
+        }
 
         //opening bracket
         if (HighestContext.BracketType != "none" && HighestContext.OpeningBracketResolved == false) {
