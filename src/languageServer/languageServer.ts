@@ -156,7 +156,18 @@ export function StartServer() {
         connection.sendNotification("window/logMessage",{message: message.join(" "), type: MessageType.Log})
     }
 
-    function getVariableCompletions(documentUri: string) {
+    //function that does the replacing logic for string completions
+    function stringizeCompletionItem(context: CodeContext,string: string,item: CompletionItem) {
+        if (context.Type == ContextType.String || context.Type == ContextType.ActionTagString || context.Data.inString) {
+            item.insertText = string
+        }
+        else {
+            item.insertText = `"${string}"`
+        }
+        item.filterText = `"${string}"`
+    }
+
+    function getVariableCompletions(documentUri: string, context: CodeContext) {
         let document = documentTracker.Documents[documentUri]
         if (document == undefined) { return }
         let ownerFolder = document.OwnedBy
@@ -196,10 +207,15 @@ export function StartServer() {
             });
         });
         
+        let scopes = ["global","saved","local","line"]
         
+        if (context.Type == ContextType.VariableName) {
+            scopes = [context.Data.scope]   
+        }
+
         //generate completion items
-        ["global","saved","local","line"].forEach(scope => {
-            Object.keys(variables[scope]).forEach(name => {
+        scopes.forEach(scope => {
+            for (let name of Object.keys(variables[scope])) {
                 let item: CompletionItem = {
                     "label": `${name}`,
                     "sortText": `${name} ${scope == "line" ? "a" : scope == "local" ? "b" : scope == "saved" ? "c" : "d"}`,
@@ -213,13 +229,25 @@ export function StartServer() {
 
                 //if name has special characters and needs ["akjhdgffkj"] syntax
                 if (name.match(/[^a-z_]/gi)) {
-                    item.insertText = `${scope} ["${name}"]`
+                    item.insertText = `["${name}"]`
                 } else {
-                    item.insertText = `${scope} ${name}`
+                    item.insertText = `${name}`
+                }
+
+                if (context.Type == ContextType.VariableName) {
+                    //prevent what's already typed in the doc from hogging the top of the autocomplete list
+                    if (context.Data.name && context.Data.name == name) {
+                        continue
+                    }
+                    if (context.Data.inComplex) {
+                        stringizeCompletionItem(context,name,item)
+                    }
+                } else {
+                    item.insertText = scope + " " + item.insertText
                 }
 
                 items.push(item)
-            });
+            }
         })
 
         return items
@@ -318,17 +346,6 @@ export function StartServer() {
     connection.onRequest("textDocument/completion", async (param: CompletionParams) => {
         let script = documentTracker.GetFileText(param.textDocument.uri)
 
-        //function that does the replacing logic for string completions
-        function stringizeCompletionItem(context: CodeContext,string: string,item: CompletionItem) {
-            if (context.Type == ContextType.String || context.Type == ContextType.ActionTagString) {
-                item.insertText = string
-            }
-            else {
-                item.insertText = `"${string}"`
-            }
-            item.filterText = `"${string}"`
-        }
-
         let line = 0
         let index = 0
         for (let i = 0; i < script.length; i++) {
@@ -347,7 +364,7 @@ export function StartServer() {
         let items: any[] = []
         
         if (context.Type == ContextType.General) {
-            items.push(headerKeywords,variableScopeKeywords,genericKeywords,getDomainKeywords(),getVariableCompletions(param.textDocument.uri))
+            items.push(headerKeywords,variableScopeKeywords,genericKeywords,getDomainKeywords(),getVariableCompletions(param.textDocument.uri,context))
         }
         else if (context.Type == ContextType.DomainMethod) {
             let domain = domains.DomainList[context.Data.domain]!
@@ -446,6 +463,9 @@ export function StartServer() {
         }
         else if (context.Type == ContextType.RepeatAction) {
             items.push(forLoopActionKeywords)
+        }
+        else if (context.Type == ContextType.VariableName) {
+            items.push(getVariableCompletions(param.textDocument.uri,context))
         }
 
         if (context.Data.addons) {

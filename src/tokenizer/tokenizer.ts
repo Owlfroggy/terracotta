@@ -482,6 +482,7 @@ export enum ContextType {
     "String",
     "General",
     "PotionType",
+    "VariableName",
 
     "TypeAssignment",
     "ParamType",
@@ -622,16 +623,16 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
             //if chunk stopped due to closing char
             else if (SCRIPT_CONTENTS[index + 1] == closingChar) {
-                if (!ignoreContexts) { OfferContext(index + 1,ContextType.String,{charStart: initIndex, charEnd: index + 1},false) }
+                if (!ignoreContexts) { OfferContext(index + 1,ContextType.String,{charStart: initIndex, charEnd: index + 1, contents: string},false) }
                 return [index + 1, string]
             }
             //if chunk stopped due to newline
             else if (SCRIPT_CONTENTS[index + 1] == "\n") {
-                if (!ignoreContexts) { OfferContext(index + 1, ContextType.String,{charStart: initIndex},false) }
+                if (!ignoreContexts) { OfferContext(index + 1, ContextType.String,{charStart: initIndex, contents: string},false) }
                 throw new TCError("String was never closed", 1, initIndex, index)
             }
         }
-        if (!ignoreContexts) { OfferContext(index, ContextType.String,{charStart: initIndex},false) }
+        if (!ignoreContexts) { OfferContext(index, ContextType.String,{charStart: initIndex, contents: string},false) }
         throw new TCError("String was never closed", 1, initIndex, index)
     }
 
@@ -639,12 +640,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     //ERR1: complex name never closed
     //ERR2: missing name
     function GetComplexName(index: number): [number, string] {
-        //= parse event name =\\
-
         //if theres a [, use the inside of the [] as name
         if (cu.GetNextCharacters(index,1) == "[") {
             index += cu.GetWhitespaceAmount(index) + 1
             let initIndex = index
+
+            OfferContext(index + cu.GetWhitespaceAmount(index),ContextType.PureUser,{})
 
             let nameResults = GetString(index, '"', '"')
             
@@ -698,22 +699,39 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let keywordResults = cu.GetIdentifier(index)
         if (keywordResults == null) { return null }
 
+        
         let scopeKeyword = keywordResults[1]
-
+        
         //if keyword is a var scope
         let scope = VALID_VAR_SCOPES[scopeKeyword]
         if (scope == null) { return null }
-
+        
         //move into position to parse variable name
         index = keywordResults[0]
+
+        
         let keywordEndIndex = index// used for error messages
-
+        
         let nameResults
-
+        
         //parse variable name
         try {
             nameResults = GetComplexName(index)
         } catch (e) {
+            if (e instanceof CodeContext) {
+                if (e.Type == ContextType.String || e.Type == ContextType.PureUser) {
+                    e.Data.inComplex = true
+                    if (e.Data.contents) {
+                        e.Data.name = e.Data.contents
+                    }
+                    e.Data.inString = e.Type === ContextType.String
+                    e.Data.scope = scopeKeyword
+                    e.Type = ContextType.VariableName
+                }
+            }
+
+            OfferContext(index,ContextType.VariableName,{"scope": scopeKeyword})
+
             if (e.Code == 1) {
                 throw new TCError("Variable name was never closed", 1, e.CharStart, e.CharLoc)
             } else if (e.Code == 2) {
@@ -722,6 +740,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 throw e
             }
         }
+
+        OfferContext(index,ContextType.VariableName,{"scope": scopeKeyword, "name": nameResults[1]})
 
         index = nameResults[0]
 
