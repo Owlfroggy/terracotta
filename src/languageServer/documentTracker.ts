@@ -19,6 +19,7 @@ function printvars(vars: VariableTable) {
         if (varnames.length > 0) { varstr = JSON.stringify(varnames) }
         str += `${str == "" ? "" : "\n"}> ${scope}: ${varstr}`
     });
+    slog(str)
 }
 
 export type VariableTable = {global: Dict<TrackedVariable>, saved: Dict<TrackedVariable>, local: Dict<TrackedVariable>, line: Dict<TrackedVariable>}
@@ -128,13 +129,46 @@ export class TrackedDocument {
     ApplyChanges(param) {
         let ranges: [number,number][] = []
         param.contentChanges.forEach(change => {
+            //= update text =\\
             let startIndex = LinePositionToIndex(this.Text,change.range.start)!
             let endIndex = LinePositionToIndex(this.Text,change.range.end)!
             this.Text = this.Text.substring(0,startIndex) + change.text + this.Text.substring(endIndex);
-            ranges.push([change.range.end.line + change.text.split("\n").length-1,change.range.start.line])
+
+            //= update variables =\\
+            let bottomLineToUpdate = change.range.end.line + change.text.split("\n").length-1
+            
+            //move lines affected by newlines in the change but not contained with the change's range
+            let linesToMove = change.text.split("\n").length - (change.range.end.line - change.range.start.line + 1)
+            let keys = Object.keys(this.VariablesByLine)
+            //iterate starting from bottom if moving lines down
+            if (linesToMove > 0) {
+                for (let i = Number(keys[keys.length-1]); i > change.range.end.line; i--) {
+                    if (this.VariablesByLine[i] != undefined) {
+                        this.VariablesByLine[Number(i)+linesToMove] = this.VariablesByLine[i]
+                        delete this.VariablesByLine[i]
+                    }
+                }
+            }
+            //iterate starting from top if moving lines up
+            else if (linesToMove < 0) {
+                for (let i = bottomLineToUpdate; i <= Number(keys[keys.length-1]); i++) {
+                    if (this.VariablesByLine[i] != undefined) {
+                        this.VariablesByLine[Number(i)+linesToMove] = this.VariablesByLine[i]
+                        delete this.VariablesByLine[i]
+                    }
+                }
+            }
+
+            
+            //reparse lines that actually were in the change's range
+            this.UpdateVariables(bottomLineToUpdate, change.range.start.line)
         });
-        ranges.forEach(range => {
-            this.UpdateVariables(...range)
+        
+        Object.keys(this.VariablesByLine).forEach(i => {
+            if (this.VariablesByLine[i]) {
+                let varnames: string[] = []
+                this.VariablesByLine[i].forEach(variable => { varnames.push(variable.Name) });
+            }
         });
     }
 
