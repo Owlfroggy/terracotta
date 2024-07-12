@@ -1657,14 +1657,14 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
             //if empty tag list
             if (cu.GetNextCharacters(index, 1) == "}") {
-                OfferContext(index+cu.GetWhitespaceAmount(index),ContextType.General,{"addons": {"actionTagString": Object.keys(validTags)}},true)
+                OfferContext(index+cu.GetWhitespaceAmount(index),ContextType.PureUser,{"addons": {"actionTagString": Object.keys(validTags)}},true)
                 index += 1 + cu.GetWhitespaceAmount(index)
                 return [index,{}]
             } else {
                 let tagsListInitIndex = index
 
                 while (SCRIPT_CONTENTS[index] != "}") {
-                    OfferContext(index,ContextType.General,{"addons": {"actionTagString": Object.keys(validTags)}})
+                    OfferContext(index,ContextType.PureUser,{"addons": {"actionTagString": Object.keys(validTags)}})
 
                     let tagInitIndex = index + 1 + cu.GetWhitespaceAmount(index)
 
@@ -1699,7 +1699,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //move to =
                     index += 1 + cu.GetWhitespaceAmount(index)
 
-                    OfferContext(index,ContextType.General,{"addons":{"actionTagString":validTags[tagName] ? validTags[tagName]!.Options : []},"canHaveVariable":true})
+                    OfferContext(index,ContextType.PureUser,{"addons":{"actionTagString":validTags[tagName] ? validTags[tagName]!.Options : []},"canHaveVariable":true})
 
                     //parse variable
                     let variableResults = ParseVariable(index)
@@ -1719,7 +1719,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         //move to ?
                         index += 1 + cu.GetWhitespaceAmount(index)
 
-                        OfferContext(index,ContextType.General,{"addons":{"actionTagString":validTags[tagName] ? validTags[tagName]!.Options : []},"canHaveVariable":false})
+                        OfferContext(index,ContextType.PureUser,{"addons":{"actionTagString":validTags[tagName] ? validTags[tagName]!.Options : []},"canHaveVariable":false})
                     }
                     let lastCharIndex = index
 

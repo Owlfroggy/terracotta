@@ -474,6 +474,7 @@ export function StartServer() {
                 for (const tagName of context.Data.addons.actionTagString) {
                     let item: CompletionItem = {
                         "label": tagName,
+                        "sortText": "0000000000"+tagName,
                         "kind": CompletionItemKind.Text,
                         "commitCharacters": ["(",";"]
                     }
@@ -481,6 +482,15 @@ export function StartServer() {
                     stringizeCompletionItem(context,tagName,item)
     
                     items.push(item)
+                }
+
+                if (context.Data.canHaveVariable) {
+                    getVariableCompletions(param.textDocument.uri,context)?.forEach(item => {
+                        //make sure they appear below the tagnames
+                        item.label = item.label
+                        item.sortText = "zzzzzzz"+item.filterText
+                        items.push(item)
+                    })
                 }
             }
             if (context.Data.addons.potionTypes) {
