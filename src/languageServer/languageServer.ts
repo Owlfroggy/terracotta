@@ -229,7 +229,7 @@ export function StartServer() {
 
                 //if name has special characters and needs ["akjhdgffkj"] syntax
                 if (name.match(/[^a-z_]/gi)) {
-                    item.insertText = `["${name}"]`
+                    item.insertText = `["${name.replaceAll("\\","\\\\").replaceAll('"','\\"')}"]`
                 } else {
                     item.insertText = `${name}`
                 }
