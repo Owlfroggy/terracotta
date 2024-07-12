@@ -517,7 +517,7 @@ export enum ContextType {
 export interface TokenizeMode {
     "mode": "getTokens" | "getContext" | "getVariables",
 
-    //starts at startFromLine, moving up until it reaches goUntilLine
+    //starts at startFromLine, moving up until it reaches goThroughLine
     "startFromLine"?: number,
     "goUntilLine"?: number //inclusive
     

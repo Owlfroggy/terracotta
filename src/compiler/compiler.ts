@@ -1895,7 +1895,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                         block = new FunctionBlock(headerData.codeblock.Event, headerData.params)
                     }
                     else if (headerData.codeblock.Codeblock == "PROCESS") {
-                        block = new ProcessBlock(headerData.codeblock.Event)
+                        block = new ProcessBlock(headerData.codeblock.Event)    
                     }
 
                     //error if applying params to something thats not a function

@@ -259,7 +259,7 @@ export function StartServer() {
     //==========[ request handling ]=========\\
 
     connection.onRequest("initialize", (param: InitializeParams) => {
-        documentTracker.initialize(param)
+        documentTracker.Initialize(param)
 
         let response: InitializeResult = {
             capabilities: {
