@@ -223,7 +223,7 @@ export function StartServer() {
                     "kind": CompletionItemKind.Variable,
                 }
 
-                if (multiScopeNames[name]) {
+                if (multiScopeNames[name] && scopes.length != 1) {
                     item.label = `${name} (${scope})`
                 }
 

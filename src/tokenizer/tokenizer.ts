@@ -2290,8 +2290,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         ReportVariable(new VariableToken([initIndex,index],"line",nameResults[1],type))
 
-        slog('report varable')
-
         return [index, new ParamHeaderToken([initIndex,index],nameResults[1],type,modifiers.includes("plural"),modifiers.includes("optional"),defaultValue)]
     }
 
