@@ -101,6 +101,8 @@ export var GenericTargetDomains = {
     player: new TargetDomain("player","Default","player",playerActions,playerConditions,playerGameValues,["player_action","if_player"],true),
     entity: new TargetDomain("entity","Default","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"],true),
 }
+GenericDomains.entity = GenericTargetDomains.entity
+GenericDomains.player = GenericTargetDomains.player
 
 export var GameDomain = new Domain("game",AD.TCActionMap.game_action!,AD.TCActionMap.if_game!,AD.TCUntargetedGameValues,["game_action","if_game"])
 
@@ -113,19 +115,7 @@ function toTcActionTable(actionDFIds: string[],block: string) {
     return table
 }
 
-//WALL OF DOOOOOOOOOMMM!!!!!!
-export var TypeDomains = {
-    "str": new Domain("str",  toTcActionTable(TYPE_DOMAIN_ACTIONS.str,"set_var") , toTcActionTable(TYPE_DOMAIN_CONDITIONS.str,"if_var")  ,{},["set_var","if_var"]),
-    "num": new Domain("num",  toTcActionTable(TYPE_DOMAIN_ACTIONS.num,"set_var") , toTcActionTable(TYPE_DOMAIN_CONDITIONS.num,"if_var")  ,{},["set_var","if_var"]),
-    "vec": new Domain("vec",  toTcActionTable(TYPE_DOMAIN_ACTIONS.vec,"set_var") , toTcActionTable(TYPE_DOMAIN_CONDITIONS.vec,"if_var")  ,{},["set_var","if_var"]),
-    "loc": new Domain("loc",  toTcActionTable(TYPE_DOMAIN_ACTIONS.loc,"set_var") , toTcActionTable(TYPE_DOMAIN_CONDITIONS.loc,"if_var")  ,{},["set_var","if_var"]),
-    "pot": new Domain("pot",  toTcActionTable(TYPE_DOMAIN_ACTIONS.pot,"set_var") , toTcActionTable(TYPE_DOMAIN_CONDITIONS.pot,"if_var")  ,{},["set_var","if_var"]),
-    "var": new Domain("var",  toTcActionTable(TYPE_DOMAIN_ACTIONS.var,"set_var") , toTcActionTable(TYPE_DOMAIN_CONDITIONS.var,"if_var")  ,{},["set_var","if_var"]),
-    "snd": new Domain("snd",  toTcActionTable(TYPE_DOMAIN_ACTIONS.snd,"set_var") , toTcActionTable(TYPE_DOMAIN_CONDITIONS.snd,"if_var")  ,{},["set_var","if_var"]),
-    "txt": new Domain("txt",  toTcActionTable(TYPE_DOMAIN_ACTIONS.txt,"set_var") , toTcActionTable(TYPE_DOMAIN_CONDITIONS.txt,"if_var")  ,{},["set_var","if_var"]),
-    "item": new Domain("item",toTcActionTable(TYPE_DOMAIN_ACTIONS.item,"set_var"), toTcActionTable(TYPE_DOMAIN_CONDITIONS.item,"if_var") ,{},["set_var","if_var"]),
-    "list": new Domain("list",toTcActionTable(TYPE_DOMAIN_ACTIONS.list,"set_var"), toTcActionTable(TYPE_DOMAIN_CONDITIONS.list,"if_var") ,{},["set_var","if_var"]),
-    "dict": new Domain("dict",toTcActionTable(TYPE_DOMAIN_ACTIONS.dict,"set_var"), toTcActionTable(TYPE_DOMAIN_CONDITIONS.dict,"if_var") ,{},["set_var","if_var"])
-}
-GenericDomains.entity = GenericTargetDomains.entity
-GenericDomains.player = GenericTargetDomains.player
+export var TypeDomains = {};
+["str","num","vec","loc","pot","var","snd","txt","item","par","list","dict"].forEach(type => {
+    TypeDomains[type] = new Domain(type,toTcActionTable(TYPE_DOMAIN_ACTIONS[type],"set_var"), toTcActionTable(TYPE_DOMAIN_CONDITIONS[type],"if_var") ,{},["set_var","if_var"])
+});
