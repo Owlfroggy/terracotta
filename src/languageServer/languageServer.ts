@@ -261,6 +261,12 @@ export function StartServer() {
     connection.onRequest("initialize", (param: InitializeParams) => {
         documentTracker.Initialize(param)
 
+        let yesIWouldLikeToKnowAboutThat = {
+            filters: [
+                { pattern: {"glob": "**/*.tc"} }
+            ]
+        }
+
         let response: InitializeResult = {
             capabilities: {
                 textDocumentSync: TextDocumentSyncKind.Incremental,
@@ -271,15 +277,8 @@ export function StartServer() {
                         changeNotifications: false
                     },
                     fileOperations: {
-                        didCreate: {
-                            filters: [
-                                {
-                                    pattern: {
-                                        "glob": "**/*.tc"
-                                    }
-                                }
-                            ]
-                        }
+                        didCreate: yesIWouldLikeToKnowAboutThat,
+                        willRename: yesIWouldLikeToKnowAboutThat
                     }
                 },
                 //completion

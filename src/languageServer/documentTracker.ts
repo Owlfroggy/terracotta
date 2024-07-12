@@ -1,7 +1,7 @@
 import * as rpc from "vscode-jsonrpc/node"
 import * as fs from "node:fs/promises"
 import { Tokenize, VariableToken } from "../tokenizer/tokenizer"
-import { CreateFilesParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, DocumentLinkResolveRequest, DocumentUri, InitializeParams, MessageType, TextDocumentContentChangeEvent } from "vscode-languageserver"
+import { CreateFilesParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidRenameFilesNotification, DocumentLinkResolveRequest, DocumentUri, InitializeParams, MessageType, RenameFilesParams, TextDocumentContentChangeEvent } from "vscode-languageserver"
 import { LinePositionToIndex, slog, snotif } from "./languageServer"
 
 function fixUriComponent(str: string): string {
@@ -19,7 +19,7 @@ function printvars(vars: VariableTable) {
         if (varnames.length > 0) { varstr = JSON.stringify(varnames) }
         str += `${str == "" ? "" : "\n"}> ${scope}: ${varstr}`
     });
-    slog(str)
+    slog (str)
 }
 
 export type VariableTable = {global: Dict<TrackedVariable>, saved: Dict<TrackedVariable>, local: Dict<TrackedVariable>, line: Dict<TrackedVariable>}
@@ -45,8 +45,10 @@ export class TrackedVariable {
     //value: the number of times this variable appears in that document
     InDocuments: Dict<number> = {}
 
-    Untrack() {
-        delete this.ParentTracker.Variables[this.Scope][this.Name]
+    TryUntrack() {
+        if (Object.keys(this.InDocuments).length == 0) {
+            delete this.ParentTracker.Variables[this.Scope][this.Name]
+        }
     }
 }
 
@@ -79,6 +81,7 @@ export class TrackedDocument {
     //the tracker that has authority over this document
     OwnedBy: TrackedFolder | null = null
 
+    
     //yeah i've kinda given up on the names
     DealWithRemovedVariableLine(line: TrackedVariable[]) {
         if (line == undefined) { return }
@@ -91,9 +94,7 @@ export class TrackedDocument {
                     delete this.Variables[variable.Scope][variable.Name]
                     
                     delete variable.InDocuments[this.Uri]
-                    if (Object.keys(variable.InDocuments).length == 0) {
-                        variable.Untrack()
-                    }
+                    variable.TryUntrack()
                 }
             }
         })
@@ -159,15 +160,17 @@ export class TrackedDocument {
             this.UpdateVariables(change.range.start.line,change.range.start.line + changeLineCount - 1)
         });
 
+        this.Version = param.textDocument.version
+
         
         //just gonna leave this useful logging stuff here in case my terrible variable tracker code ever introduces me to the consequences of my actions
 
-        // slog("\n\n\n\n\n\n\n\n")
+        // slog ("\n\n\n\n\n\n\n\n")
         // Object.keys(this.VariablesByLine).forEach(i => {
         //     if (this.VariablesByLine[i]) {
         //         let varnames: string[] = []
         //         this.VariablesByLine[i].forEach(variable => { varnames.push(variable.Name) });
-        //         slog(`> ${i} (${Number(i)+1}): ${varnames.join(", ")}`)
+        //         slog (`> ${i} (${Number(i)+1}): ${varnames.join(", ")}`)
         //     }
         // });
 
@@ -186,19 +189,46 @@ export class TrackedDocument {
         this.IsOpen = false
     }
 
+    Rename(newUri: string) {
+        let oldUri = this.Uri
+        this.Uri = newUri
+
+        //update variables
+        Object.values(this.Variables).forEach(scopedict => {
+            Object.values(scopedict).forEach(variable => {
+                variable!.InDocuments[newUri] = variable!.InDocuments[oldUri]
+                delete variable!.InDocuments[oldUri]
+            })
+        });
+
+        //update in master doc list
+        delete this.ParentTracker.Documents[oldUri]
+        this.ParentTracker.Documents[newUri] = this
+        
+        //update in folders
+        this.UpdateOwnership(oldUri)
+    }
+
     //updates ownership info, including on FolderTrackers
-    UpdateOwnership() {
+    //if owneship is changing due to a rename, provide oldUri
+    UpdateOwnership(oldUri: string | null = null) {
         Object.keys(this.AncestorFolders).forEach(key => {
             let folder = this.AncestorFolders[key]!
-            delete folder.Documents[this.Uri]
+            delete folder.Documents[oldUri || this.Uri]
             delete this.AncestorFolders[key]
         });
+
+        if (this.OwnedBy != null) {
+            if (oldUri) {
+                delete this.OwnedBy.OwnedDocuments[oldUri]
+            }
+            this.OwnedBy = null
+        }
 
         //if you have this many nested folders and the language server breaks because of it, you are no longer allowed to use terracotta
         let shortestOwnerLength = 29342342395823923
         let docSplitPath = new URL(this.Uri).pathname.split("/")
         
-        this.OwnedBy = null
 
         Object.values(this.ParentTracker.Folders).forEach(folder => {
             folder = folder! //shut the hell up about undefined nobody asked!!!!
@@ -211,7 +241,7 @@ export class TrackedDocument {
                 //the folder highest up the tree is the one given ownership of the document
                 if (folderSplitPath.length < shortestOwnerLength) {
                     if (this.OwnedBy) {
-                        delete this.OwnedBy.OwnedDocuments[this.Uri]
+                        this.OwnedBy.OwnedDocuments[this.Uri] = undefined
                     }
                     this.OwnedBy = folder
                     folder.OwnedDocuments[this.Uri] = this
@@ -251,17 +281,27 @@ export class DocumentTracker {
                 }
             })
         })
+
+        connection.onRequest("workspace/willRenameFiles",(param: RenameFilesParams) => {
+            param.files.forEach(file => {
+                let doc = this.Documents[file.oldUri]
+                if (doc) {
+                    let oo = doc.OwnedBy
+                    doc.Rename(file.newUri)
+                }
+            })
+        })
         
         connection.onNotification("textDocument/didOpen",(param: DidOpenTextDocumentParams) => {
             let doc = this.Documents[param.textDocument.uri]
             let openInfo = {text: param.textDocument.text, version: param.textDocument.version}
-
+            
             if (doc == undefined) { 
                 this.AddDocument(param.textDocument.uri,param.textDocument.text)
-                return
+                doc = this.Documents[param.textDocument.uri]
             }
-
-            doc.Open(openInfo)
+            
+            doc!.Open(openInfo)
         })
 
         connection.onNotification("textDocument/didChange", (param: DidChangeTextDocumentParams) => {
@@ -309,7 +349,7 @@ export class DocumentTracker {
     //leave `text` as null to read file contents and use that
     //if the document is already tracked, this function does nothing
     async AddDocument(uri: string, text: string | null = null) {
-        if (this.Documents[uri]) { return }
+        if (this.Documents[uri] != undefined) { return }
         let urlified = new URL(uri)
 
         let doc = new TrackedDocument(uri, this)
@@ -318,7 +358,6 @@ export class DocumentTracker {
         }
 
         doc.Text = text
-
         doc.UpdateOwnership()
         if (doc.Text.length < 1000000) {
             let lines = (doc.Text.match(/\n/g) || '').length
