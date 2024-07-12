@@ -1,0 +1,39 @@
+PROCESS trail;
+
+saved ["%uuid trail"] = var:SetToRandom("flame","soulflame","rainbow");
+if (num:Random(1,100) == 1) { saved ["%uuid trail"] = "flashbang"; }
+
+line selectedParticle: par;
+
+if (saved ["%uuid trail"] == "flame") { 
+    line selectedParticle = par["Flame"];
+}
+if (saved ["%uuid trail"] == "soulflame") { 
+    line selectedParticle = par["Soul Flame"]; 
+}
+if (saved ["%uuid trail"] == "rainbow") { 
+    line selectedParticle = par["Dust",{
+        "Amount" = 1,
+        "Color" = "#fff",
+        "Color Variation" = 100,
+        "Size" = 5,
+    }];
+}
+if (saved ["%uuid trail"] == "flashbang") {
+    line selectedParticle = par["Explosion Emitter"];
+}
+
+line lastPos = default.Location;
+
+repeat Forever {
+    #if player is walking
+    if (loc:GetDistance(line lastPos,default.Location){"Distance Type" = "Distance 2D (X/Z)"} > 0.02) {
+        if (not default ? IsStandingOnBlock("air")) {
+            allPlayers:DisplayParticleEffect(line selectedParticle,default.Location);
+        }
+    }
+
+    line lastPos = default.Location;
+
+    wait();
+}
