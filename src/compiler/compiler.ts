@@ -464,6 +464,22 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
                         //but with a string you might actually do stuff with that
                         //so just mark this action as str and hope for the best
                         return "str"
+                    case "RandomValue":
+                        //if every arg is the same type, return that
+                        let firstType: string | undefined = undefined
+                        let i = -1
+                        for (const v of action.Arguments) {
+                            i++; if (i == 0) {continue} //skip the variable used to get return results
+                            
+                            let type = GetType(v)
+                            if (firstType == undefined) {
+                                firstType = type
+                            }
+                            else if (type != firstType) {
+                                return "any"
+                            }
+                        }
+                        return firstType || "any"
                 }
             }
         }
