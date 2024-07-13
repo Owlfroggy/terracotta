@@ -1996,7 +1996,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         index: number, 
         terminateAt: Array<string | null> = [], 
         endIndexAtTerminator: boolean | undefined = true, 
-        features: Array<"comparisons" | "genericTargetComparisons" | "lineTolerance"> = [],
+        features: Array<"comparisons" | "genericTargetComparisons" | "lineTolerance" | "selectionActions"> = [],
         extraArgs: {"stopAtEndOfLine"?: number} = {},
         ): [number, ExpressionToken] | null 
     {
@@ -2049,6 +2049,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                 //try action
                 if (results == null) { results = ParseAction(index, true, features.includes("genericTargetComparisons")) }
+
+                //try select action
+                if (results == null && features.includes("selectionActions")) { results = ParseSelectAction(index) }
 
                 //try string
                 if (results == null) { results = ParseString(index, "\"") }
@@ -2626,7 +2629,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     try { TokenizationLogic(currentLineNumber) }
                     catch (e) {
                         if (e instanceof TCError) {
-                            ParseExpression(CharIndex,["\n","#"],true,["lineTolerance"])
+                            ParseExpression(CharIndex,["\n","#"],true,["lineTolerance","selectionActions"])
                         }
                         throw e
                     }
