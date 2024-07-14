@@ -497,12 +497,6 @@ export enum ContextType {
     "DomainValue",
     "DomainCondition",
 
-    /*data:{
-        validValues: string[],
-        canHaveVariable: boolean,
-    }*/
-    "ActionTagString",
-
     /*data: {
         type: "select" | "filter"
     }*/
@@ -1826,7 +1820,25 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //parse params
         let listInitIndex = index + cu.GetWhitespaceAmount(index) + 1
-        let paramResults = ParseList(index, "(", ")", ",")
+        let paramResults: [number, ListToken] | null = null 
+        try {
+            paramResults = ParseList(index, "(", ")", ",")
+        }
+        catch (e) {
+            if (e instanceof CodeContext) {
+                //dont replace an existing function signature since the one lowest down the expression tree is usually the one you're interested n
+                if (!e.Data.functionSignature) {
+                    e.Data.functionSignature = {
+                        "type": "domain",
+                        "domainId": domain.Identifier,
+                        "actionId": actionResults[1],
+                        "isCondition": isComparison
+                    }
+                    OfferContext(e.FromIndex,e.Type,e.Data,false)
+                }
+            }
+            throw e
+        }
         let params: ListToken
         if (paramResults) {
             index = paramResults[0]

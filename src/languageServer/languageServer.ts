@@ -1,7 +1,7 @@
 import * as rpc from "vscode-jsonrpc/node"
 import * as domains from "../util/domains"
 import * as AD from "../util/actionDump"
-import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures } from "vscode-languageserver";
+import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures, SignatureHelpParams, SignatureInformation, SignatureHelp, ParameterInformation } from "vscode-languageserver";
 import { CodeContext, ContextType, GetLineIndexes, Tokenize } from "../tokenizer/tokenizer";
 import { DocumentTracker } from "./documentTracker";
 import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, REPEAT_ON_ACTIONS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants";
@@ -158,7 +158,7 @@ export function StartServer() {
 
     //function that does the replacing logic for string completions
     function stringizeCompletionItem(context: CodeContext,string: string,item: CompletionItem) {
-        if (context.Type == ContextType.String || context.Type == ContextType.ActionTagString || context.Data.inString) {
+        if (context.Type == ContextType.String || context.Data.inString) {
             item.insertText = string
         }
         else {
@@ -288,12 +288,65 @@ export function StartServer() {
                     completionItem: {
                         labelDetailsSupport: true
                     }
+                },
+                //function signature
+                signatureHelpProvider: {
+                    triggerCharacters: [",","(","["]
                 }
             }
         }
 
         return response
     })
+
+    connection.onRequest("textDocument/signatureHelp",(param: SignatureHelpParams) => {
+        let script = documentTracker.GetFileText(param.textDocument.uri)
+        let lineIndexes = GetLineIndexes(script)
+
+        let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": lineIndexes[param.position.line]+param.position.character + 1,"startFromLine": param.position.line, "fromLanguageServer": true}) as CodeContext
+
+        if (context.Data.functionSignature == null) { return null }
+
+        //@ts-ignore typescript try to understand filling in data later on down in the code challenge (level impossible) (100% fail)
+        let signature: SignatureInformation = {}
+
+        if (context.Data.functionSignature.type == "domain") {
+            let domain = domains.DomainList[context.Data.functionSignature.domainId]
+            if (!domain) { return }
+
+            let action = domain[context.Data.functionSignature.isCondition ? "Conditions" : "Actions"][context.Data.functionSignature.actionId]!
+
+            let paramStrings: string[] = []
+            let paramInfos: ParameterInformation[] = []
+            action.Parameters.forEach(paramList => {
+                let typeStrings: string[] = []
+                paramList.forEach(param => {
+                    //cut out stuff like "to give", range hints like (0-100) or unit hints like "in blocks"
+                    let regexResults = param.description.match(/(.+(?=(?<=\s+)(?:(?:in|to) \w*|to get(?:\s|\w|\d)+)?(?:\s*\((?!s\)).*\))?$)|^.*$)/g)
+                    let filteredDescription: string = regexResults ? regexResults[0] : param.description
+                    //manually cut out trailing space if there is one because im too lazy to build that into the regex
+                    if (filteredDescription.endsWith(" ")) {filteredDescription = filteredDescription.substring(0,filteredDescription.length-1)}
+                    typeStrings.push(`${filteredDescription}: ${AD.DFTypeToTC[param.type]}${param.plural ? "(s)" : ""}${param.optional ? "*" : ""}`)
+                })
+                let label = typeStrings.join(" OR ")
+                paramStrings.push(label)
+                paramInfos.push({
+                    label: label,
+                    documentation: getParamString([paramList],"","")
+                })
+            })
+
+            signature = {
+                label: `${action.TCId}(${paramStrings.join(", ")})`,
+                parameters: paramInfos
+            }
+        }
+
+        return {
+            signatures: [signature!],
+            activeSignature: 0
+        } as SignatureHelp
+    }) 
 
     connection.onRequest("completionItem/resolve", (item: CompletionItem) => {
         if (item.data == null || item.data.type == null) {return item}
@@ -344,18 +397,6 @@ export function StartServer() {
 
     connection.onRequest("textDocument/completion", async (param: CompletionParams) => {
         let script = documentTracker.GetFileText(param.textDocument.uri)
-
-        let line = 0
-        let index = 0
-        for (let i = 0; i < script.length; i++) {
-            if (line == param.position.line) {
-                index = i + param.position.character
-                break
-            }
-            if (script[i] === '\n') {
-                line++
-            }
-        }
 
         let lineIndexes = GetLineIndexes(script)
         let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": lineIndexes[param.position.line]+param.position.character + 1,"startFromLine": param.position.line, "fromLanguageServer": true}) as CodeContext
@@ -449,9 +490,6 @@ export function StartServer() {
                 }
                 items.push(item)
             }
-        }
-        else if (context.Type == ContextType.ActionTagString) {
-            
         }
         else if (context.Type == ContextType.TypeAssignment) {
             items.push(typeKeywords)
