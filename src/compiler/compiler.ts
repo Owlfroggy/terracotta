@@ -2327,7 +2327,7 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
 
                 // if the entire expression is one operation, combine all constants
                 let operation = flat.GetIsSingleOperator()
-                if (operation !== false) {
+                if (operation == "+" || operation == "*") {
                     let total = operation == "+" ? 0 : 1
                     
                     let i = 0; while (i < flat.Expression.length) {

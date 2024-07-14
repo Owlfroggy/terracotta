@@ -10,7 +10,7 @@ enum TextCodeType {
     "var" = "var",
 }
 
-const ValidOperators = new Set(["+","-","*","/","%"])
+const ValidOperators = ["+","-","*","/","%"]
 
 //= tokens =\\
 export class Token {
@@ -234,7 +234,7 @@ export function TokenizeMath(expressionString: string): MathTextCodeToken {
 
     function ParseOperator(index: number): [number, OperatorToken] | null {
         let operator = cu.GetNextCharacters(index,1)
-        if (ValidOperators.has(operator)) {
+        if (ValidOperators.includes(operator)) {
             return [index + cu.GetWhitespaceAmount(index) + 1,new OperatorToken([index, index + cu.GetWhitespaceAmount(index)],operator)]
         } else {
             return null
