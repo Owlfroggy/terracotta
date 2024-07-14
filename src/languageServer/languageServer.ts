@@ -61,30 +61,33 @@ function indexToLinePosition(script: string,index: number): Position {
 }
 
 
-function getParamString(parameters: AD.Parameter[][], yesHeader: string, noHeader: string): string {
-    let paramString = ""
-    let paramEntries: string[] = []
-    if (parameters.length == 0) {
-        paramString += noHeader
-    }
-    else {
-        paramString += yesHeader
-        parameters.forEach(paramList => {
-            let paramTypes: string[] = []
-            paramList.forEach(param => {
-                let notesString = ""
-                param.notes.forEach(note => {
-                    notesString += `\\\n  ⏵ ${note}`
-                });
-                paramTypes.push(`\`${AD.DFTypeToString[param.type]}${param.plural ? "(s)" : ""}${param.optional ? "*" : ""}\` ${(param.description + notesString).length > 0 ? "-" : ""} ${param.description}${notesString}`)
-            });
-            let e = paramTypes.join("\\\n **OR**\\\n")
-            paramEntries.push(e)
-        });
-        paramString += paramEntries.join("\n\n\n\n")
-    }
+function getParamString(parameters: AD.Parameter[], yesHeader: string, noHeader: string) {
+    if (parameters.length == 0) { return noHeader }
 
-    return paramString
+    let paramStrings: string[] = []
+
+    parameters.forEach(param => {
+        let groupStrings: string[] = []
+
+        param.Groups.forEach(group => {
+            let valueStrings: string[] = []
+
+            group.forEach(value => {
+                let notesString = ""
+                value.Notes.forEach(note => {
+                    notesString += `\\\n  ⏵ ${note}`
+                })
+
+                valueStrings.push(`\`${AD.DFTypeToString[value.DFType]}${value.Plural ? "(s)" : ""}${value.Optional ? "*" : ""}\` ${value.Description.length + notesString.length > 0 ? "-" : ""} ${value.Description}${notesString}`)
+            })
+
+            groupStrings.push(valueStrings.join("\\\n"))
+        })
+
+        paramStrings.push(groupStrings.join("\\\n **OR**\\\n"))
+    })
+
+    return yesHeader + paramStrings.join("\n\n\n\n")
 }
 
 var paramTypeKeywords = generateCompletions(["plural","optional"],CompletionItemKind.Keyword)
@@ -291,8 +294,8 @@ export function StartServer() {
                 },
                 //function signature
                 signatureHelpProvider: {
-                    triggerCharacters: [",","(","["]
-                }
+                    triggerCharacters: [",","(","["],
+                },
             }
         }
 
@@ -316,35 +319,56 @@ export function StartServer() {
 
             let action = domain[context.Data.functionSignature.isCondition ? "Conditions" : "Actions"][context.Data.functionSignature.actionId]!
 
+
             let paramStrings: string[] = []
             let paramInfos: ParameterInformation[] = []
-            action.Parameters.forEach(paramList => {
-                let typeStrings: string[] = []
-                paramList.forEach(param => {
-                    //cut out stuff like "to give", range hints like (0-100) or unit hints like "in blocks"
-                    let regexResults = param.description.match(/(.+(?=(?<=\s+)(?:(?:in|to) \w*|to get(?:\s|\w|\d)+)?(?:\s*\((?!s\)).*\))?$)|^.*$)/g)
-                    let filteredDescription: string = regexResults ? regexResults[0] : param.description
-                    //manually cut out trailing space if there is one because im too lazy to build that into the regex
-                    if (filteredDescription.endsWith(" ")) {filteredDescription = filteredDescription.substring(0,filteredDescription.length-1)}
-                    typeStrings.push(`${filteredDescription}: ${AD.DFTypeToTC[param.type]}${param.plural ? "(s)" : ""}${param.optional ? "*" : ""}`)
+
+            //create main label
+            action.Parameters.forEach(param => {
+                let groupStrings: string[] = []
+
+                param.Groups.forEach(group => {
+                    let valueStrings: string[] = []
+
+                    group.forEach(value => {
+                        //cut out stuff like "to give", range hints like (0-100) or unit hints like "in blocks"
+                        let regexResults = value.Description.match(/(.+(?=(?<=\s+)(?:(?:in|to) \w*|to get(?:\s|\w|\d)+)?(?:\s*\((?!s\)).*\))?$)|^.*$)/g)
+                        let filteredDescription: string = regexResults ? regexResults[0] : value.Description
+                        //manually cut out trailing space if there is one because im too lazy to build that into the regex
+                        if (filteredDescription.endsWith(" ")) {filteredDescription = filteredDescription.substring(0,filteredDescription.length-1)}
+
+                        let finalValueString = `${filteredDescription}: ${value.DFType == "NONE" ? "none" : AD.DFTypeToTC[value.DFType]}${value.Plural ? "(s)" : ""}${value.Optional ? "*" : ""}`
+                        valueStrings.push(finalValueString)
+                        paramInfos.push({
+                            label: finalValueString,
+                            documentation: {
+                                kind: MarkupKind.Markdown,
+                                value: getParamString([param],"","")
+                            }
+                        })
+                    })
+
+                    let finalGroupString = valueStrings.join(", ")
+                    if (valueStrings.length > 1) [
+                        finalGroupString = "("+finalGroupString+")"
+                    ]
+                    groupStrings.push(finalGroupString)
                 })
-                let label = typeStrings.join(" OR ")
-                paramStrings.push(label)
-                paramInfos.push({
-                    label: label,
-                    documentation: getParamString([paramList],"","")
-                })
+
+                paramStrings.push(groupStrings.join(" | "))
             })
+
 
             signature = {
                 label: `${action.TCId}(${paramStrings.join(", ")})`,
-                parameters: paramInfos
+                parameters: paramInfos,
             }
         }
 
         return {
             signatures: [signature!],
-            activeSignature: 0
+            activeSignature: 0,
+            activeParameter: -1
         } as SignatureHelp
     }) 
 
@@ -368,10 +392,15 @@ export function StartServer() {
             if (val != undefined) {
                 let description = val.Description
                 let info = val.AdditionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
+
+                //creating a parameter object so that it can work with the existing string gen is kinda a hack but whatever
+                let returnV = new AD.ParameterValue()
+                returnV.DFType = val.DFReturnType
+                returnV.Description = val.ReturnDescription
                 let returnP = new AD.Parameter()
-                returnP.type = val.DFReturnType
-                returnP.description = val.ReturnDescription
-                let returnType = getParamString([[returnP]],"\n\n**Returns Value:**\n\n","")
+                returnP.Groups[0] = [returnV]
+                let returnType = getParamString([returnP],"\n\n**Returns Value:**\n\n","")
+
                 documentation = `${description}${info}${returnType}`
             }
         }

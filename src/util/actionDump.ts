@@ -4,12 +4,55 @@ import { ValueType, PLAYER_ONLY_GAME_VALUES } from "./constants"
 
 //==========[ classes ]=========\\
 
+/*
+    example for how Set To RGB Color's final param data structre would look since the parameter data structure is kinda confusing:
+
+    Parameters = [
+        Parameter(
+            Groups: [
+                [Entry("Variable to set",var)]
+            ]
+        ),
+        Parameter(
+            Groups: [
+                [Entry("Red", num), Entry("Green", num), Entry("Blue", num)],
+                [Entry("R, G, B Values",list)]
+            ]
+        )
+    ]
+*/
+   
+
+export class ParameterValue {
+    constructor(dfType: string | null = null, description: string = "", optional: boolean = false, plural: boolean = false, notes: string[] = []) {
+        if (dfType === null) { return }
+        this.DFType = dfType
+        this.Description = description
+        this.Optional = optional
+        this.Plural = plural
+        this.Notes = notes
+    }
+
+    /**type string used by the df action dump */
+    DFType: string
+    Plural: boolean
+    Optional: boolean
+    Description: string
+    Notes: string[] = []
+}
+
+export type ParameterGroup = ParameterValue[]
+
 export class Parameter {
-    type: string
-    plural: boolean
-    optional: boolean
-    description: string
-    notes: string[] = []
+    constructor(groups: ParameterGroup[] | null = null) {
+        if (groups == null) { return }
+
+        this.Groups = groups
+    }
+
+    //different entries in array are different possibilities (they are seperated by OR in df codeblock description)
+    //arrays one level down from that all the parameters grouped into that possiblity
+    Groups: ParameterGroup[] = []
 }
 
 export class Particle {
@@ -44,8 +87,8 @@ export class Action {
     Description: string
     AdditionalInfo: string[]
 
-    Parameters: (Parameter[])[]
-    ReturnValues: (Parameter[])[]
+    Parameters: Parameter[]
+    ReturnValues: Parameter[]
 
     //will be true or false for events, undefined for non-events
     Cancellable: boolean | undefined
@@ -195,45 +238,62 @@ function CodeifyName(name: string): string {
     return name
 }
 
-//this code is hideous BUT IT WORKS so unless a future action dump changes how parameters are stored i do not have to care
-//(if anyone ever has to bugfix this, i am sorry)
-function ParseArgumentValueThingies(args: any[]): Parameter[][] {
-    let result: Parameter[][] = []
+function ParseArgumentValueThingies(args: any[]): Parameter[] {
+    let result: Parameter[] = []
 
-    let currentParameter: Parameter[] = []
+    let heldValues: ParameterValue[] = []
+    let currentGroupList: ParameterGroup[] = []
+
+    //shut up about the name! it makes sense ok!!!!!!!
+    let currentlyORing = false
+
     let i = -1
     for (const arg of args) {
         i++
-        if (arg.text !== undefined) {
-            continue
+        if (arg.type) {
+            let entry = new ParameterValue()
+            entry.Description = arg.description ? arg.description.join(" ") : ""
+            entry.Optional = arg.optional
+            entry.Plural = arg.plural
+            entry.DFType = arg.type
+
+            if (arg.notes) {
+                arg.notes.forEach((note: string[]) => {
+                    entry.Notes.push(note.join(" "))
+                });
+            }
+            heldValues.push(entry)
         }
-        if ( 
-            (
-                !(args[i+1] && args[i+1].text == "OR" || args[i-1] && args[i-1].text == "OR") ||
-                (args[i-1] && args[i-1].text === "")    
-            )
-            && currentParameter.length > 0
-        ) 
-        {
-            result.push(currentParameter)
-            currentParameter = []
+        //we are in a parameter with OR, push all held values as a group
+        else if (arg.text == "OR") {
+            currentGroupList.push(heldValues)
+            heldValues = []
+            currentlyORing = true
         }
-        
-        let p = new Parameter()
-        p.description = arg.description ? arg.description.join(" ") : ""
-        p.optional = arg.optional
-        p.plural = arg.plural
-        p.type = arg.type
-        
-        if (arg.notes) {
-            arg.notes.forEach((note: string[]) => {
-                p.notes.push(note.join(" "))
-            });
+        //if hitting "" line or EOF
+        if ( (arg.text === "") || (i+1 >= args.length) ) {
+            //if this is the end of an OR parameter, push held values as group and then push parameter containing held groups
+            if (currentlyORing) {
+                currentGroupList.push(heldValues)
+
+                let parameter = new Parameter()
+                parameter.Groups = currentGroupList
+                currentGroupList = []
+
+                result.push(parameter)
+
+                currentlyORing = false
+            }
+            //otherwise, push all held values as their own parameters
+            else {
+                heldValues.forEach(entry => {
+                    let parameter = new Parameter()
+                    parameter.Groups = [[entry]]
+                    result.push(parameter)
+                })
+            }
+            heldValues = []
         }
-        currentParameter.push(p)
-    }
-    if (currentParameter.length > 0) {
-        result.push(currentParameter)
     }
 
     return result
@@ -289,10 +349,10 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
 
     
     //parameters and return value
-    let parameters: Parameter[][] = []
+    let parameters: Parameter[] = []
     if (actionJson.icon?.arguments) { parameters = ParseArgumentValueThingies(actionJson.icon.arguments) }
 
-    let returnValues: Parameter[][] = []
+    let returnValues: Parameter[] = []
     if (actionJson.icon?.returnValues) { returnValues = ParseArgumentValueThingies(actionJson.icon?.returnValues) }
     
     let descriptionString = actionJson.icon.description.join(" ")
