@@ -1502,7 +1502,27 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
         else if (identifierResults[1] == "wait") {
             index = identifierResults[0]
-            let listResults = ParseList(index,"(",")",",")
+
+
+            let listResults: [number, ListToken] | null = null
+            try {
+                listResults = ParseList(index,"(",")",",")
+            }
+            catch (e) {
+                if (e instanceof CodeContext) {
+                    //dont replace an existing function signature since the one lowest down the expression tree is usually the one you're interested n
+                    if (!e.Data.functionSignature) {
+                        e.Data.functionSignature = {
+                            "type": "codeblock",
+                            "codeblock": "control",
+                            "actionDFId": "Wait"
+                        }
+                        OfferRawContext(e)
+                    }
+                }
+                throw e
+            }
+
             if (listResults == null) {
                 throw new TCError("Expected arguments following 'wait'",0,initIndex,index)
             }
