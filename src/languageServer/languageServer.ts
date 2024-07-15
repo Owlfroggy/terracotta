@@ -312,58 +312,71 @@ export function StartServer() {
 
         //@ts-ignore typescript try to understand filling in data later on down in the code challenge (level impossible) (100% fail)
         let signature: SignatureInformation = {}
+        let functionName: string = ""
+        let parameters: AD.Parameter[] = []
 
-        if (context.Data.functionSignature.type == "domain") {
+        let mode = context.Data.functionSignature.type
+
+        if (mode == "domain") {
             let domain = domains.DomainList[context.Data.functionSignature.domainId]
             if (!domain) { return }
 
             let action = domain[context.Data.functionSignature.isCondition ? "Conditions" : "Actions"][context.Data.functionSignature.actionId]!
+            parameters = action.Parameters
+            functionName = action.TCId
+        }
+        else if (mode == "constructor") {
+            parameters = AD.ConstructorSignatures[context.Data.functionSignature.constructor]
+            functionName = context.Data.functionSignature.constructor
+        }
 
+        let paramStrings: string[] = []
+        let paramInfos: ParameterInformation[] = []
 
-            let paramStrings: string[] = []
-            let paramInfos: ParameterInformation[] = []
+        //create main label
+        parameters.forEach(param => {
+            let groupStrings: string[] = []
 
-            //create main label
-            action.Parameters.forEach(param => {
-                let groupStrings: string[] = []
+            param.Groups.forEach(group => {
+                let valueStrings: string[] = []
 
-                param.Groups.forEach(group => {
-                    let valueStrings: string[] = []
+                group.forEach(value => {
+                    //cut out stuff like "to give", range hints like (0-100) or unit hints like "in blocks"
+                    let regexResults = value.Description.match(/(.+(?=(?<=\s+)(?:(?:in|to) \w*|to get(?:\s|\w|\d)+)?(?:\s*\((?!s\)).*\))?$)|^.*$)/g)
+                    let filteredDescription: string = regexResults ? regexResults[0] : value.Description
+                    //manually cut out trailing space if there is one because im too lazy to build that into the regex
+                    if (filteredDescription.endsWith(" ")) {filteredDescription = filteredDescription.substring(0,filteredDescription.length-1)}
 
-                    group.forEach(value => {
-                        //cut out stuff like "to give", range hints like (0-100) or unit hints like "in blocks"
-                        let regexResults = value.Description.match(/(.+(?=(?<=\s+)(?:(?:in|to) \w*|to get(?:\s|\w|\d)+)?(?:\s*\((?!s\)).*\))?$)|^.*$)/g)
-                        let filteredDescription: string = regexResults ? regexResults[0] : value.Description
-                        //manually cut out trailing space if there is one because im too lazy to build that into the regex
-                        if (filteredDescription.endsWith(" ")) {filteredDescription = filteredDescription.substring(0,filteredDescription.length-1)}
-
-                        let finalValueString = `${filteredDescription}: ${value.DFType == "NONE" ? "none" : AD.DFTypeToTC[value.DFType]}${value.Plural ? "(s)" : ""}${value.Optional ? "*" : ""}`
-                        valueStrings.push(finalValueString)
-                        paramInfos.push({
-                            label: finalValueString,
-                            documentation: {
-                                kind: MarkupKind.Markdown,
-                                value: getParamString([param],"","")
-                            }
-                        })
+                    let finalValueString = `${filteredDescription}: ${value.DFType == "NONE" ? "none" : AD.DFTypeToTC[value.DFType]}${value.Plural ? "(s)" : ""}${value.Optional ? "*" : ""}`
+                    valueStrings.push(finalValueString)
+                    paramInfos.push({
+                        label: finalValueString,
+                        documentation: {
+                            kind: MarkupKind.Markdown,
+                            value: getParamString([param],"","")
+                        }
                     })
-
-                    let finalGroupString = valueStrings.join(", ")
-                    if (valueStrings.length > 1) [
-                        finalGroupString = "("+finalGroupString+")"
-                    ]
-                    groupStrings.push(finalGroupString)
                 })
 
-                paramStrings.push(groupStrings.join(" | "))
+                let finalGroupString = valueStrings.join(", ")
+                if (valueStrings.length > 1) [
+                    finalGroupString = "("+finalGroupString+")"
+                ]
+                groupStrings.push(finalGroupString)
             })
 
+            paramStrings.push(groupStrings.join(" | "))
+        })
 
-            signature = {
-                label: `${action.TCId}(${paramStrings.join(", ")})`,
-                parameters: paramInfos,
-            }
+        let finalString = paramStrings.join(", ")
+
+        signature.parameters = paramInfos
+        if (mode == "domain") {
+            signature.label = `${functionName}(${finalString})`
+        } else if (mode == "constructor") {
+            signature.label = `${functionName}[${finalString}]`
         }
+        
 
         return {
             signatures: [signature!],

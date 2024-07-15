@@ -573,6 +573,13 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
     }
 
+    //used for when contexts need to be caught, modified, then passed along
+    function OfferRawContext(context: CodeContext) {
+        if (context.FromIndex >= mode.contextTestPosition!) {
+            throw context
+        }
+    }
+
     //returned number will be index of closing char
     //ERR1 = string was not closed
     function GetString(index: number, openingChar: string, closingChar: string = openingChar, features: Array<"ampersandConversion"> = [], ignoreContexts: boolean = false): [number, string] | null {
@@ -879,7 +886,24 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         index = identifierResults[0]
 
         //parse arguments
-        let argResults = ParseList(index, "[", "]", ",")
+        let argResults: [number, ListToken] | null = null
+        try {
+            argResults = ParseList(index, "[", "]", ",")
+        }
+        catch (e) {
+            if (e instanceof CodeContext) {
+                if (!e.Data.functionSignature) {
+                    e.Data.functionSignature = {
+                        "type": "constructor",
+                        "constructor": "vec",
+                    }
+                    OfferRawContext(e)
+                }
+            } else {
+                throw e
+            }
+        }
+
         if (argResults == null) {
             throw new TCError("Expected arguments following vector constructor", 1, keywordInitIndex, index)
         }
@@ -935,7 +959,24 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         index = identifierResults[0]
 
         //parse arguments
-        let argResults = ParseList(index, "[", "]", ",")
+        let argResults: [number, ListToken] | null = null
+        try {
+            argResults = ParseList(index, "[", "]", ",")
+        }
+        catch (e) {
+            if (e instanceof CodeContext) {
+                if (!e.Data.functionSignature) {
+                    e.Data.functionSignature = {
+                        "type": "constructor",
+                        "constructor": identifierResults[1],
+                    }
+                    OfferRawContext(e)
+                }
+            } else {
+                throw e
+            }
+        }
+
         if (argResults == null) {
             throw new TCError("Expected arguments following sound constructor", 1, keywordInitIndex, index)
         }
@@ -967,7 +1008,24 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         index = identifierResults[0]
 
         //parse arguments
-        let argResults = ParseList(index, "[", "]", ",")
+        let argResults: [number, ListToken] | null = null
+        try {
+            argResults = ParseList(index, "[", "]", ",")
+        }
+        catch (e) {
+            if (e instanceof CodeContext) {
+                if (!e.Data.functionSignature) {
+                    e.Data.functionSignature = {
+                        "type": "constructor",
+                        "constructor": "loc",
+                    }
+                    OfferRawContext(e)
+                }
+            } else {
+                throw e
+            }
+        }
+
         if (argResults == null) {
             throw new TCError("Expected arguments following location constructor", 1, keywordInitIndex, index)
         }
@@ -1011,8 +1069,23 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
 
         //parse arguments
-        let argResults = ParseList(index, "[", "]", ",",{0: typeContextHandler})
-
+        let argResults: [number, ListToken] | null = null
+        try {
+            argResults = ParseList(index, "[", "]", ",",{0: typeContextHandler})
+        }
+        catch (e) {
+            if (e instanceof CodeContext) {
+                if (!e.Data.functionSignature) {
+                    e.Data.functionSignature = {
+                        "type": "constructor",
+                        "constructor": "pot",
+                    }
+                    OfferRawContext(e)
+                }
+            } else {
+                throw e
+            }
+        }
 
         if (argResults == null) {
             throw new TCError("Expected arguments following potion constructor", 1, keywordInitIndex, index)
@@ -1041,7 +1114,24 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         index = identifierResults[0]
 
         //parse arguments
-        let argResults = ParseList(index, "[", "]", ",")
+        let argResults: [number, ListToken] | null = null
+        try {
+            argResults = ParseList(index, "[", "]", ",")
+        }
+        catch (e) {
+            if (e instanceof CodeContext) {
+                if (!e.Data.functionSignature) {
+                    e.Data.functionSignature = {
+                        "type": "constructor",
+                        "constructor": identifierResults[1],
+                    }
+                    OfferRawContext(e)
+                }
+            } else {
+                throw e
+            }
+        }
+
         if (argResults == null) {
             throw new TCError("Expected arguments following item constructor", 1, keywordInitIndex, index)
         }
@@ -1112,7 +1202,24 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
 
         //parse args
-        let argResults = ParseList(index, "[", "]", ",", {0: typeContextHandler, 1: fieldsContextHandler})
+        let argResults: [number, ListToken] | null = null
+        try {
+            argResults = ParseList(index, "[", "]", ",", {0: typeContextHandler, 1: fieldsContextHandler})
+        }
+        catch (e) {
+            if (e instanceof CodeContext) {
+                if (!e.Data.functionSignature && !e.Data.addons.particleFields) {
+                    e.Data.functionSignature = {
+                        "type": "constructor",
+                        "constructor": "par",
+                    }
+                    OfferRawContext(e)
+                }
+            } else {
+                throw e
+            }
+        }
+
         if (argResults == null) {
             throw new TCError("Expected arguments following particle constructor",1,keywordInitIndex,index)
         }

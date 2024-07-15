@@ -166,6 +166,51 @@ export var Potions: string[] = []
 //every possible particle field (the other fields are filled when going through action dump)
 export var AllParticleFields: string[] = ["Amount", "Spread"]
 
+//this probably doesn't belong in the action dump file but whatever
+export const ConstructorSignatures = { 
+    "vec": [
+        new Parameter([[new ParameterValue("NUMBER","X")]]),
+        new Parameter([[new ParameterValue("NUMBER","Y")]]),
+        new Parameter([[new ParameterValue("NUMBER","X")]]),
+    ],
+    "loc": [
+        new Parameter([[new ParameterValue("NUMBER","X")]]),
+        new Parameter([[new ParameterValue("NUMBER","Y")]]),
+        new Parameter([[new ParameterValue("NUMBER","Z")]]),
+        new Parameter([[new ParameterValue("NUMBER","Pitch",true)]]),
+        new Parameter([[new ParameterValue("NUMBER","Yaw",true)]]),
+    ],
+    "pot": [
+        new Parameter([[new ParameterValue("TEXT","Potion")]]),
+        new Parameter([[new ParameterValue("NUMBER","Amplifier",true)]]),
+        new Parameter([[new ParameterValue("NUMBER","Duration",true)]]),
+    ],
+    "snd": [
+        new Parameter([[new ParameterValue("TEXT","Sound")]]),
+        new Parameter([[new ParameterValue("NUMBER","Volume",true)]]),
+        new Parameter([[new ParameterValue("NUMBER","Pitch",true)]]),
+        new Parameter([[new ParameterValue("TEXT","Variant",true)]]),
+    ],
+    "csnd": [
+        new Parameter([[new ParameterValue("TEXT","Sound")]]),
+        new Parameter([[new ParameterValue("NUMBER","Volume",true)]]),
+        new Parameter([[new ParameterValue("NUMBER","Pitch",true)]])
+    ],
+    "item": [
+        new Parameter([[new ParameterValue("TEXT","Item")]]),
+        new Parameter([[new ParameterValue("NUMBER","Count",true)]]),
+    ],
+    "litem": [
+        new Parameter([[new ParameterValue("TEXT","Library")]]),
+        new Parameter([[new ParameterValue("TEXT","Item")]]),
+        new Parameter([[new ParameterValue("NUMBER","Count",true)]]),
+    ],
+    "par": [
+        new Parameter([[new ParameterValue("TEXT","Particle")]]),
+        new Parameter([[new ParameterValue("DICT","Data",true)]]),
+    ]
+}
+
 //==========[ private data ]=========\\
 
 //key: how a return type appears in the action dump
