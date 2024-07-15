@@ -1710,6 +1710,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                 //parse args
                 let argResults = ParseList(index, "(", ")", ",")
+                
                 if (argResults == null) {
                     throw new TCError("Expected arguments following action name", 0, actionNameInitIndex, index)
                 }
@@ -1935,13 +1936,15 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             if (e instanceof CodeContext) {
                 //dont replace an existing function signature since the one lowest down the expression tree is usually the one you're interested n
                 if (!e.Data.functionSignature) {
-                    e.Data.functionSignature = {
-                        "type": "domain",
-                        "domainId": domain.Identifier,
-                        "actionId": actionResults[1],
-                        "isCondition": isComparison
+                    let action = domain.Actions[actionResults[1]]
+                    if (action) {
+                        e.Data.functionSignature = {
+                            "type": "codeblock",
+                            "codeblock": domain[isComparison ? "ConditionCodeblock" : "ActionCodeblock"],
+                            "actionDFId": action.DFId
+                        }
                     }
-                    OfferContext(e.FromIndex,e.Type,e.Data,false)
+                    OfferRawContext(e)
                 }
             }
             throw e

@@ -325,6 +325,12 @@ export function StartServer() {
             parameters = action.Parameters
             functionName = action.TCId
         }
+        else if (mode == "codeblock") {
+            let action = AD.DFActionMap[context.Data.functionSignature.codeblock]![context.Data.functionSignature.actionDFId]
+            if (!action) { return }
+            parameters = action.Parameters
+            functionName = action.TCId
+        }
         else if (mode == "constructor") {
             parameters = AD.ConstructorSignatures[context.Data.functionSignature.constructor]
             functionName = context.Data.functionSignature.constructor
@@ -371,10 +377,11 @@ export function StartServer() {
         let finalString = paramStrings.join(", ")
 
         signature.parameters = paramInfos
-        if (mode == "domain") {
-            signature.label = `${functionName}(${finalString})`
-        } else if (mode == "constructor") {
+        if (mode == "constructor") {
             signature.label = `${functionName}[${finalString}]`
+        }
+        else {
+            signature.label = `${functionName}(${finalString})`
         }
         
 
