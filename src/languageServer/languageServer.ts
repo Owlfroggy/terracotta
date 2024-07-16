@@ -402,8 +402,9 @@ export function StartServer() {
             let action: AD.Action = AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!
             if (action != undefined) {
                 let paramString = getParamString(action.Parameters,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")
+                let infoString = action.AdditionalInfo.join("\\\n  ⏵ "); if (infoString) {infoString = "\\\n  ⏵ " + infoString}
                 let returnString = getParamString(action.ReturnValues,"\n\n**Returns:**\n\n","")
-                documentation = `${AD.DFActionMap[item.data.codeblock]![item.data.actionDFId]!.Description || "<Failed to get action description>"}${paramString}${returnString}`
+                documentation = `${action.Description}${infoString}${paramString}${returnString}`
             }
         }
         // game value
