@@ -2502,7 +2502,28 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             return [expressionResults[0], new SelectActionToken([initIndex,expressionResults[0]],actionResults[1],null,null,expressionResults[1])]
         } else {
             //parse arguments
-            let argResults = ParseList(index, "(", ")", ",")
+            let argResults: [number, ListToken] | null = null
+            try {
+                argResults = ParseList(index, "(", ")", ",")
+            }
+            catch (e) {
+                if (e instanceof CodeContext) {
+                    //dont replace an existing function signature since the one lowest down the expression tree is usually the one you're interested n
+                    if (!e.Data.functionSignature) {
+                        if (actionData) {
+                            e.Data.functionSignature = {
+                                "type": "codeblock",
+                                "codeblock": "select_obj",
+                                "actionDFId": actionData.DFId
+                            }
+                        }
+                    }
+                    OfferRawContext(e)
+                } else {
+                    throw e
+                }
+            }
+
             let args
             if (argResults != null) {
                 index = argResults[0]
