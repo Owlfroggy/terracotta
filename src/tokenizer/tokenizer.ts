@@ -1977,7 +1977,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         e.Data.functionSignature = {
                             "type": "codeblock",
                             "codeblock": domain[isComparison ? "ConditionCodeblock" : "ActionCodeblock"],
-                            "actionDFId": action.DFId
+                            "actionDFId": action.DFId,
+                            "canHideGetterVariable": CurrentLine.length != 0
                         }
                     }
                     OfferRawContext(e)

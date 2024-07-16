@@ -340,19 +340,27 @@ export function StartServer() {
         let paramInfos: ParameterInformation[] = []
 
         //create main label
-        parameters.forEach(param => {
+        for (const param of parameters) {
+            //if this is the first param and its a variable for getting results, exclude it if the tokenizer has deemed it is unworthy of existance
+            if (paramStrings.length == 0 && context.Data.functionSignature.canHideGetterVariable) {
+                if (param.Groups[0] && param.Groups[0][0] && param.Groups[0][0].DFType == "VARIABLE" && param.Groups[0][0].Description == "Variable to set") {
+                    continue
+                }
+            }
+    
             let groupStrings: string[] = []
-
+    
             param.Groups.forEach(group => {
                 let valueStrings: string[] = []
-
+    
                 group.forEach(value => {
+    
                     //cut out stuff like "to give", range hints like (0-100) or unit hints like "in blocks"
                     let regexResults = value.Description.match(/(.+(?=(?<=\s+)(?:(?:in|to) \w*|to get(?:\s|\w|\d)+)?(?:\s*\((?!s\)).*\))?$)|^.*$)/g)
                     let filteredDescription: string = regexResults ? regexResults[0] : value.Description
                     //manually cut out trailing space if there is one because im too lazy to build that into the regex
                     if (filteredDescription.endsWith(" ")) {filteredDescription = filteredDescription.substring(0,filteredDescription.length-1)}
-
+    
                     let finalValueString = `${filteredDescription}: ${value.DFType == "NONE" ? "none" : AD.DFTypeToTC[value.DFType]}${value.Plural ? "(s)" : ""}${value.Optional ? "*" : ""}`
                     valueStrings.push(finalValueString)
                     paramInfos.push({
@@ -363,16 +371,16 @@ export function StartServer() {
                         }
                     })
                 })
-
+    
                 let finalGroupString = valueStrings.join(", ")
                 if (valueStrings.length > 1) [
                     finalGroupString = "("+finalGroupString+")"
                 ]
                 groupStrings.push(finalGroupString)
             })
-
+    
             paramStrings.push(groupStrings.join(" | "))
-        })
+        }
 
         let finalString = paramStrings.join(", ")
 
