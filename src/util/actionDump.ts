@@ -86,6 +86,7 @@ export class Action {
     //DOES NOT INCLUDE PARAMETER INFORMATION!!
     Description: string
     AdditionalInfo: string[]
+    WorksWith: string[]
 
     Parameters: Parameter[]
     ReturnValues: Parameter[]
@@ -111,6 +112,7 @@ export class GameValue {
     Description: string
     ReturnDescription: string
     AdditionalInfo: string[]
+    WorksWith: string[]
 }
 
 //==========[ public data ]=========\\
@@ -415,6 +417,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     normalAction.ReturnType = returnType
     normalAction.Description = descriptionString
     normalAction.AdditionalInfo = additionalInfo
+    normalAction.WorksWith = actionJson.icon.worksWith
     normalAction.Parameters = parameters
     normalAction.ReturnValues = returnValues
     normalAction.Cancellable = actionJson.icon.cancellable
@@ -432,6 +435,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     differentiatedAction.ReturnType = returnType
     differentiatedAction.Description = descriptionString
     differentiatedAction.AdditionalInfo = additionalInfo
+    differentiatedAction.WorksWith = actionJson.icon.worksWith
     differentiatedAction.Parameters = parameters
     differentiatedAction.ReturnValues = returnValues
     differentiatedAction.Cancellable = actionJson.icon.cancellable
@@ -466,7 +470,9 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
     value.AdditionalInfo = gameValueJson.icon.additionalInfo.map(entry => {
         return entry.join(" ")  
     })
-3
+    value.WorksWith = gameValueJson.icon.worksWith
+
+
     DFGameValueMap[value.DFId] = value
     TCGameValueMap[value.TCId] = value
 

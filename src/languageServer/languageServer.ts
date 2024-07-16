@@ -403,8 +403,12 @@ export function StartServer() {
             if (action != undefined) {
                 let paramString = getParamString(action.Parameters,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")
                 let infoString = action.AdditionalInfo.join("\\\n  ⏵ "); if (infoString) {infoString = "\\\n  ⏵ " + infoString}
+                let worksWithString = ""
+                if (action.WorksWith.length > 0) {
+                    worksWithString = "\n\n**Works with:**\n\n  ⏵ " + action.WorksWith.join("\\\n  ⏵ ")
+                }
                 let returnString = getParamString(action.ReturnValues,"\n\n**Returns:**\n\n","")
-                documentation = `${action.Description}${infoString}${paramString}${returnString}`
+                documentation = `${action.Description}${infoString}${worksWithString}${paramString}${returnString}`
             }
         }
         // game value
@@ -413,6 +417,10 @@ export function StartServer() {
             if (val != undefined) {
                 let description = val.Description
                 let info = val.AdditionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
+                let worksWithString = ""
+                if (val.WorksWith.length > 0) {
+                    worksWithString = "\n\n**Works with:**\n\n  ⏵ " + val.WorksWith.join("\\\n  ⏵ ")
+                }
 
                 //creating a parameter object so that it can work with the existing string gen is kinda a hack but whatever
                 let returnV = new AD.ParameterValue()
@@ -422,7 +430,7 @@ export function StartServer() {
                 returnP.Groups[0] = [returnV]
                 let returnType = getParamString([returnP],"\n\n**Returns Value:**\n\n","")
 
-                documentation = `${description}${info}${returnType}`
+                documentation = `${description}${worksWithString}${info}${returnType}`
             }
         }
         // event
