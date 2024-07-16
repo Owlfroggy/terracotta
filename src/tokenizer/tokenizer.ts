@@ -1729,8 +1729,28 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 index = actionNameResults[0]
 
                 //parse args
-                let argResults = ParseList(index, "(", ")", ",")
-                
+                let argResults: [number, ListToken] | null
+                try {
+                    argResults = ParseList(index, "(", ")", ",")
+                }
+                catch (e) {
+                    if (e instanceof CodeContext) {
+                        //dont replace an existing function signature since the one lowest down the expression tree is usually the one you're interested n
+                        if (!e.Data.functionSignature) {
+                            let action = AD.TCActionMap.repeat![actionNameResults[1]]
+                            if (action) {
+                                e.Data.functionSignature = {
+                                    "type": "codeblock",
+                                    "codeblock": "repeat",
+                                    "actionDFId": action.DFId
+                                }
+                            }
+                            OfferRawContext(e)
+                        }
+                    }
+                    throw e
+                }
+
                 if (argResults == null) {
                     throw new TCError("Expected arguments following action name", 0, actionNameInitIndex, index)
                 }
