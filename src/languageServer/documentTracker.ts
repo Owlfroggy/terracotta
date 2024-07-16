@@ -1,7 +1,7 @@
 import * as rpc from "vscode-jsonrpc/node"
 import * as fs from "node:fs/promises"
 import { Tokenize, VariableToken } from "../tokenizer/tokenizer"
-import { CreateFilesParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidRenameFilesNotification, DocumentLinkResolveRequest, DocumentUri, InitializeParams, MessageType, RenameFilesParams, TextDocumentContentChangeEvent } from "vscode-languageserver"
+import { CreateFilesParams, DeleteFilesParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidRenameFilesNotification, DocumentLinkResolveRequest, DocumentUri, InitializeParams, MessageType, RenameFilesParams, TextDocumentContentChangeEvent } from "vscode-languageserver"
 import { LinePositionToIndex, slog, snotif } from "./languageServer"
 
 function fixUriComponent(str: string): string {
@@ -189,6 +189,19 @@ export class TrackedDocument {
         this.IsOpen = false
     }
 
+    Remove() {
+        Object.values(this.AncestorFolders).forEach(folder => {
+            delete folder?.Documents[this.Uri]
+            delete folder?.OwnedDocuments[this.Uri]
+        });
+
+        this.VariablesByLine.forEach(line => {
+            this.DealWithRemovedVariableLine(line)
+        })
+
+        delete this.ParentTracker.Documents[this.Uri]
+    }
+
     Rename(newUri: string) {
         let oldUri = this.Uri
         this.Uri = newUri
@@ -286,8 +299,16 @@ export class DocumentTracker {
             param.files.forEach(file => {
                 let doc = this.Documents[file.oldUri]
                 if (doc) {
-                    let oo = doc.OwnedBy
                     doc.Rename(file.newUri)
+                }
+            })
+        })
+        
+        connection.onNotification("workspace/didDeleteFiles",(param:DeleteFilesParams) => {
+            param.files.forEach(file => {
+                let doc = this.Documents[file.uri]
+                if (doc) {
+                    doc.Remove()
                 }
             })
         })

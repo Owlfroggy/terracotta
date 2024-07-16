@@ -281,7 +281,8 @@ export function StartServer() {
                     },
                     fileOperations: {
                         didCreate: yesIWouldLikeToKnowAboutThat,
-                        willRename: yesIWouldLikeToKnowAboutThat
+                        willRename: yesIWouldLikeToKnowAboutThat,
+                        didDelete: yesIWouldLikeToKnowAboutThat,
                     }
                 },
                 //completion
