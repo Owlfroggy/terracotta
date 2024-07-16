@@ -2145,6 +2145,10 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
             //repeat on action
             else if (line[0] instanceof RepeatForActionToken) {
                 let action = line[0]
+                //error for invalid action name
+                if (AD.TCActionMap.repeat![action.Action] == null) {
+                    throw new TCError(`Invalid repeat action '${action.Action}'`, 0, action.CharStart, action.CharEnd)
+                }
                 let args = line[0].Variables.map( (token) => ToItem(token)[1] )
                 if (action.Arguments) {
                     let argResults = SolveArgs(action.Arguments)

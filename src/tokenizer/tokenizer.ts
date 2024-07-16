@@ -1720,10 +1720,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 if (actionNameResults[1] == "") {
                     throw new TCError("Missing action name", 0, initIndex, actionNameResults[0])
                 }
-                //error for invalid action name
-                if (AD.TCActionMap.repeat![actionNameResults[1]] == null) {
-                    throw new TCError(`Invalid repeat action '${actionNameResults[1]}'`, 0, actionNameInitIndex, actionNameResults[0])
-                }
 
                 //move to end of action name
                 index = actionNameResults[0]
@@ -1758,8 +1754,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 index = argResults[0]
 
                 //parse tags
-                let tagResults = ParseTags(index, AD.TCActionMap.repeat![actionNameResults[1]]!.Tags)
                 let tags
+                let tagResults = ParseTags(index, AD.TCActionMap.repeat![actionNameResults[1]] != null ? AD.TCActionMap.repeat![actionNameResults[1]]!.Tags : {})
                 if (tagResults) {
                     index = tagResults[0]
                     tags = tagResults[1]
