@@ -1,6 +1,6 @@
 {
   // The path to the `bun` executable.
-  "bun.runtime": "",
+  "bun.runtime": "${workspaceFolder}/node_modules/.bin/bun",
 
   // If support for Bun should be added to the default "JavaScript Debug Terminal".
   "bun.debugTerminal.enabled": false,

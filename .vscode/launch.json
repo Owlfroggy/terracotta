@@ -33,7 +33,7 @@
       "noDebug": false,
 
       // The path to the `bun` executable, defaults to your `PATH` environment variable.
-      "runtime": "bun",
+      "runtime": "${workspaceFolder}/node_modules/.bin/bun",
 
       // The arguments to pass to the `bun` executable, if any.
       // Unlike `args`, these are passed to the executable itself, not the program.
