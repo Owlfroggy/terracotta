@@ -66,7 +66,7 @@ async function Main() {
 
         let finalOutput: string = ""
         switch (values.cmode) {
-            case undefined || "gzip":
+            case "gzip":
                 finalOutput = gzipped
                 break
             case "json":
@@ -75,12 +75,17 @@ async function Main() {
             case "dfgive":
                 finalOutput = `/dfgive light_blue_terracotta{PublicBukkitValues:{"hypercube:codetemplatedata":'{"author":"Terracotta","name":"Compiled Template","version":1,"code":"${gzipped}"}'},display:{Name:'{"text":"","extra":[{"text":"${path.basename(values.file)}","italic":false,"color":"green"}]}'}}`
                 break
+            default:
+                finalOutput = gzipped
+                break
         }
 
         //copy to clipboard if you're into that
         if (values.copy) {
             ncp.copy(finalOutput)
             print("Copied output to clipboard")
+        } else {
+            process.stdout.write(finalOutput)
         }
     } 
     else if (values.server) {
