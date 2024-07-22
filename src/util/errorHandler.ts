@@ -56,7 +56,7 @@ export function PrintError(e: TCError, SCRIPT_CONTENTS) {
         }
         
         //show what the error actually was
-        console.log(`Error at line ${cu.GetLineFromIndex(e.CharStart) + 1}: ${e.message}`)
+        process.stderr.write(`\nError at line ${cu.GetLineFromIndex(e.CharStart) + 1}: ${e.message}\n`)
     } else {
         throw e
     }
