@@ -61,8 +61,10 @@ function IntegerizeHexColor(color: StringItem) {
     return int
 }
 
-export class CompileResults {
-    Code: Array<CodeBlock>
+export interface CompileResults {
+    code: Array<CodeBlock>
+    type: "PLAYER_EVENT" | "ENTITY_EVENT" | "FUNCTION" | "PROCESS"
+    name: string
 }
 
 //abstract base class for all code items
@@ -370,7 +372,7 @@ class Context {
     HeldPostBracketCode: CodeBlock[] = []
 }
 
-export function Compile(lines: Array<Array<Token>>): CompileResults {
+export function CompileLines(lines: Array<Array<Token>>): CompileResults {
     let tempVarCounter = 0
 
     //context to actually read var types from
@@ -2559,8 +2561,11 @@ export function Compile(lines: Array<Array<Token>>): CompileResults {
         }
     }
 
-    let results = new CompileResults()
-    results.Code = CodeLine
+    let results: CompileResults = {
+        code: CodeLine,
+        type: headerData.codeblock.Codeblock,
+        name: headerData.codeblock.Event
+    }
 
     return results
 }

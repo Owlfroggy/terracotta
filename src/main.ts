@@ -1,6 +1,7 @@
 import * as Tokenizer from "./tokenizer/tokenizer"
 import * as ErrorHandler from "./util/errorHandler"  
-import * as Compiler from "./compiler/compiler"
+import * as LineCompiler from "./compiler/codelineCompiler"
+import * as ProjectCompiler from "./compiler/projectCompiler"
 import { parseArgs } from "@pkgjs/parseargs"
 import * as path from "path"
 import { StartServer } from "./languageServer/languageServer"
@@ -19,20 +20,27 @@ export function print (...data: any[]) {
 
 async function Main() {
     const options = {
-        //the file to take in (does not do anything in server mode)
-        file: { type: "string" },
-        
-        //if true, compile inputted script
         compile: { type: "boolean" },
-
-        //if true, copy the result to the clipboard
+        //if true, copy the result to the clipboard (only works with file mode)
         copy: { type: "boolean" },
 
+        
+        //the file to take in (does not do anything in server mode)
+        file: { type: "string" },
+        //if true, compile inputted script or project
+        /* only works for --file mode: */
         //"gzip": output gzipped df template json
         //"json": output stringified df template json
-        //"dfgive": output a /dfgive command that gives the template
         //default is "gzip"
         cmode: { type: "string" },
+        
+
+        //the project to take in (does not do anything in server mode) (incompatible with --file)
+        project: { type: "string" },
+        //if true, output sorted by codeline type
+        //if false, output every template seperated by newline with
+        includemeta: { type: "boolean" },
+
 
         //if true, run as a language server
         server: { type: "boolean"},
@@ -41,52 +49,53 @@ async function Main() {
     const { values, positionals } = parseArgs({ options });
     
     if (values.compile) {
-        //tokenize
-        let script = await Bun.file(values.file).text()
-        let tokenResults: Tokenizer.TokenizerResults
-        
-        try {
-            tokenResults = Tokenizer.Tokenize(script,{"mode": "getTokens"}) as Tokenizer.TokenizerResults
-        } catch (e) {
-            ErrorHandler.PrintError(e, script)
+        //error handling
+        if (values.file && values.project) {
+            process.stderr.write("\nError: --file and --project are mutually exclusive\n")
+        }
+
+        let output: string | undefined = undefined
+
+        if (values.file) {
+            let script = await Bun.file(values.file).text()
+            let results = ProjectCompiler.CompileFile(script)
+
+            if (results.error) {
+                ErrorHandler.PrintError(results.error, script)
+                return
+            }
+
+            output = results.template
+        }
+        else if (values.project) {
+            let results = await ProjectCompiler.CompileProject(values.project)
+
+            if (values.includemeta) {
+                output = JSON.stringify(results)
+            } else {
+                output = ""
+                for (const category of ["playerEvents","entityEvents","functions","processes"]) {
+                    for (const template of Object.keys(results[category])) {
+                        output += template + "\n"
+                    }
+                }
+                //chop off ending newline
+                output = output.substring(0,output.length - 1)
+            }
+        }
+
+        if (output !== undefined) {
+            //copy to clipboard if you're into that
+            if (values.copy) {
+                ncp.copy(output)
+                process.stdout.write("Copied output to clipboard\n")
+            } else {
+                process.stdout.write(output)
+            }
             return
         }
 
-        //compile
-        let compiledResults: Compiler.CompileResults
-        try {
-            compiledResults = Compiler.Compile(tokenResults.Lines)
-        } catch (e) {
-            ErrorHandler.PrintError(e,script)
-            return
-        }
-
-        let jsoned = Compiler.JSONize(compiledResults.Code)
-        let gzipped = Compiler.GZIP(jsoned)
-
-        let finalOutput: string = ""
-        switch (values.cmode) {
-            case "gzip":
-                finalOutput = gzipped
-                break
-            case "json":
-                finalOutput = jsoned
-                break
-            case "dfgive":
-                finalOutput = `/dfgive light_blue_terracotta{PublicBukkitValues:{"hypercube:codetemplatedata":'{"author":"Terracotta","name":"Compiled Template","version":1,"code":"${gzipped}"}'},display:{Name:'{"text":"","extra":[{"text":"${path.basename(values.file)}","italic":false,"color":"green"}]}'}}`
-                break
-            default:
-                finalOutput = gzipped
-                break
-        }
-
-        //copy to clipboard if you're into that
-        if (values.copy) {
-            ncp.copy(finalOutput)
-            print("Copied output to clipboard")
-        } else {
-            process.stdout.write(finalOutput)
-        }
+        process.stderr.write("\nError: --compile must be provided with either a file or a project\n")
     } 
     else if (values.server) {
         StartServer()

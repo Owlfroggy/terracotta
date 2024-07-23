@@ -1,13 +1,13 @@
 import { CharUtils, COLOR } from "./characterUtils"
 
-export function PrintError(e: TCError, SCRIPT_CONTENTS) {
+export function PrintError(e: Error, SCRIPT_CONTENTS) {
     let cu = new CharUtils(SCRIPT_CONTENTS,true)
     if (e instanceof TCError) {
         let lineStart = cu.GetLineStart(e.CharStart)
         let lineEnd = cu.GetLineEnd(e.CharStart)
 
         // show the line(s) that had the error        
-        function printCodeLine() {
+        function printCodeLine(e: TCError) {
             let codeLine = SCRIPT_CONTENTS.substring(lineStart, lineEnd)
             //if line contains the start of the highlight
             if (e.CharStart > lineStart) {
@@ -29,12 +29,12 @@ export function PrintError(e: TCError, SCRIPT_CONTENTS) {
         //if this is a multiline error
         if (e.CharLoc > lineEnd) {
             //print first line that had the error
-            printCodeLine()
+            printCodeLine(e)
             //print remaining lines
             while (e.CharLoc > lineEnd) {
                 lineStart = lineEnd + 1
                 lineEnd = cu.GetLineEnd(lineStart)
-                printCodeLine()
+                printCodeLine(e)
             }
         //single line error
         } else {
