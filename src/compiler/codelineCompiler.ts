@@ -1197,7 +1197,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
             return [code, returnVar]
         }
         
-        console.log(token)
+        process.stderr.write(JSON.stringify(token))
         throw new Error("Could not convert token to item")
     }
 
@@ -2307,7 +2307,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
         }
         //debug print variable
         else if (line[0] instanceof DebugPrintVarTypeToken) {
-            console.log(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[line[0].Variable.Scope]!][line[0].Variable.Name]}`)
+            process.stderr.write(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[line[0].Variable.Scope]!][line[0].Variable.Name]}\n`)
         }
     }
 
@@ -2685,7 +2685,7 @@ function JSONizeItem(item: CodeItem) {
         }
     }
     else {
-        console.log(item)
+        process.stderr.write(JSON.stringify(item))
         throw new Error(`Failed to convert item of type '${item.itemtype}' to JSON`)
     }
 }
@@ -2812,7 +2812,7 @@ export function JSONize(code: Array<CodeBlock>): string {
             })
         }
         else {
-            console.log(block)
+            process.stderr.write(JSON.stringify(block))
             throw new Error("Failed to convert block to JSON")
         }
     }

@@ -2772,8 +2772,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
 
         if (!mode.fromLanguageServer) {
-            console.log("Current line:", CurrentLine)
-            console.log("Current indx:", CharIndex)
+            process.stderr.write("Current line:" + CurrentLine)
+            process.stderr.write("Current indx:" + CharIndex)
         }
         throw new TCError("Something's definitely wrong here (fallback error)", 0, CharIndex, CharIndex)
     }
