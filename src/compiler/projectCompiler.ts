@@ -66,6 +66,7 @@ export function CompileFile(fileContents: string, mode: "gzip" | "json" = "gzip"
 }
 
 export async function CompileProject(path: string): Promise<CompiledProjectTemplates> {
+    if (!path.endsWith("/")) {path += "/"}
     let folderUrl = pathToFileURL(path)
     //error checking
     if (!(await fs.exists(folderUrl))) { 
