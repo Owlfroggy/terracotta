@@ -23,7 +23,7 @@ export function PrintError(e: Error, SCRIPT_CONTENTS) {
                 let relativeErrorEndPos = e.CharLoc - lineStart + 1
                 codeLine = COLOR.Red + codeLine.slice(0, relativeErrorEndPos) + COLOR.Reset + codeLine.slice(relativeErrorEndPos)
             }
-            console.log(codeLine)
+            process.stderr.write(codeLine+"\n")
         }
 
         //if this is a multiline error
@@ -38,19 +38,19 @@ export function PrintError(e: Error, SCRIPT_CONTENTS) {
             }
         //single line error
         } else {
-            console.log(SCRIPT_CONTENTS.substring(lineStart, lineEnd))
+            process.stderr.write(SCRIPT_CONTENTS.substring(lineStart, lineEnd)+"\n")
 
             //CharLoc -1 means the location of the error is unknown so don't draw the arrows
             if (e.CharLoc == -1) {
-                console.log()
+                process.stderr.write("\n")
             } else {
                 //show the ^ thingies that point to the error
                 if (e.CharLoc - lineStart < 0) {
-                    console.log(" ".repeat(e.CharStart - e.CharStart) + "^".repeat(e.CharLoc - e.CharStart + 1))
+                    process.stderr.write(" ".repeat(e.CharStart - e.CharStart) + "^".repeat(e.CharLoc - e.CharStart + 1)+"\n")
                 } else if (e.CharLoc - e.CharStart == 0) {
-                    console.log(" ".repeat(e.CharStart - lineStart) + "^".repeat(e.CharLoc - e.CharStart + 1))
+                    process.stderr.write(" ".repeat(e.CharStart - lineStart) + "^".repeat(e.CharLoc - e.CharStart + 1)+"\n")
                 } else {
-                    console.log(" ".repeat(e.CharStart - lineStart) + "^".repeat(e.CharLoc - (e.CharStart - 1)))
+                    process.stderr.write(" ".repeat(e.CharStart - lineStart) + "^".repeat(e.CharLoc - (e.CharStart - 1))+"\n")
                 }
             }
         }
