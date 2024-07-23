@@ -75,7 +75,7 @@ async function Main() {
             } else {
                 output = ""
                 for (const category of ["playerEvents","entityEvents","functions","processes"]) {
-                    for (const template of Object.keys(results[category])) {
+                    for (const template of Object.values(results[category])) {
                         output += template + "\n"
                     }
                 }
