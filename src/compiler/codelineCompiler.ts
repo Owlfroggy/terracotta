@@ -63,8 +63,8 @@ function IntegerizeHexColor(color: StringItem) {
 
 export interface CompileResults {
     code: Array<CodeBlock>
-    type: "PLAYER_EVENT" | "ENTITY_EVENT" | "FUNCTION" | "PROCESS"
-    name: string
+    type?: "PLAYER_EVENT" | "ENTITY_EVENT" | "FUNCTION" | "PROCESS"
+    name?: string
 }
 
 //abstract base class for all code items
@@ -2565,8 +2565,8 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
 
     let results: CompileResults = {
         code: CodeLine,
-        type: headerData.codeblock.Codeblock,
-        name: headerData.codeblock.Event
+        type: headerData.codeblock?.Codeblock,
+        name: headerData.codeblock?.Event
     }
 
     return results

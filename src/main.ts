@@ -54,7 +54,7 @@ async function Main() {
             process.stderr.write("\nError: --file and --project are mutually exclusive\n")
         }
 
-        let output: string | undefined = undefined
+        let output: string = ""
 
         if (values.file) {
             let script = await Bun.file(values.file).text()
@@ -65,7 +65,7 @@ async function Main() {
                 return
             }
 
-            output = results.template
+            output = results.template || ""
         }
         else if (values.project) {
             let results = await ProjectCompiler.CompileProject(values.project)
@@ -82,20 +82,17 @@ async function Main() {
                 //chop off ending newline
                 output = output.substring(0,output.length - 1)
             }
+        } else {
+            process.stderr.write("\nError: --compile must be provided with either a file or a project\n")
         }
 
-        if (output !== undefined) {
-            //copy to clipboard if you're into that
-            if (values.copy) {
-                ncp.copy(output)
-                process.stdout.write("Copied output to clipboard\n")
-            } else {
-                process.stdout.write(output)
-            }
-            return
+        //copy to clipboard if you're into that
+        if (values.copy) {
+            ncp.copy(output)
+            process.stdout.write("Copied output to clipboard\n")
+        } else {
+            process.stdout.write(output)
         }
-
-        process.stderr.write("\nError: --compile must be provided with either a file or a project\n")
     } 
     else if (values.server) {
         StartServer()

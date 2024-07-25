@@ -62,6 +62,8 @@ export function CompileFile(fileContents: string, mode: "gzip" | "json" = "gzip"
             break
     }
 
+    if (!compiledResults.type || !compiledResults.name) {return {}}
+
     return {template: finalOutput, type: compiledResults.type, name: compiledResults.name}
 }
 
