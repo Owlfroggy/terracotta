@@ -1224,8 +1224,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         "type": "constructor",
                         "constructor": "par",
                     }
-                    OfferRawContext(e)
                 }
+                OfferRawContext(e)
             } else {
                 throw e
             }
