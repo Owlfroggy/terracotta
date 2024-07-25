@@ -63,6 +63,7 @@
             "NormalRandom": "NormalRandom",
             "Logarithm": "Log",
             "WrapNum": "Wrap",
+            "BounceNum": "Bounce",
             "Root": "Root",
             "MaxNumber": "Max",
             "Tangent": "Tan",

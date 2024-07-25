@@ -272,7 +272,9 @@ const NameToIdentifierMap = {}
 
 //==========[ private functions ]=========\\
 
-function CodeifyName(name: string): string {
+function codeifyName(name: string): string {
+    name = deColorizeString(name)
+
     //convert characters following spaces to uppercase
     for (let i = 0; i < name.length; i++) {
         if (name[i] == " " && name[i+1]) {
@@ -285,7 +287,7 @@ function CodeifyName(name: string): string {
     return name
 }
 
-function ParseArgumentValueThingies(args: any[]): Parameter[] {
+function parseArgumentValueThingies(args: any[]): Parameter[] {
     let result: Parameter[] = []
 
     let heldValues: ParameterValue[] = []
@@ -299,14 +301,14 @@ function ParseArgumentValueThingies(args: any[]): Parameter[] {
         i++
         if (arg.type) {
             let entry = new ParameterValue()
-            entry.Description = arg.description ? arg.description.join(" ") : ""
+            entry.Description = arg.description ? arg.description.map(line => deColorizeString(line)).join(" ") : ""
             entry.Optional = arg.optional
             entry.Plural = arg.plural
             entry.DFType = arg.type
 
             if (arg.notes) {
                 arg.notes.forEach((note: string[]) => {
-                    entry.Notes.push(note.join(" "))
+                    entry.Notes.push(note.map(line => deColorizeString(line)).join(" "))
                 });
             }
             heldValues.push(entry)
@@ -346,6 +348,10 @@ function ParseArgumentValueThingies(args: any[]): Parameter[] {
     return result
 }
 
+function deColorizeString(input: string): string {
+    return input.replaceAll(/§./g,"")
+}
+
 //==========[ populate data tables ]=========\\
 
 // codeblock pass \\
@@ -366,7 +372,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     let returnTypeOverrides = OVERRIDES_JSON.returnTypes[codeblockId] || {}
 
     let dfId = actionJson.name
-    let tcId = nameOverrides[actionJson.name] || CodeifyName(actionJson.icon.name)
+    let tcId = nameOverrides[actionJson.name] || codeifyName(actionJson.icon.name)
 
     //return type
     let returnType: ValueType | null = returnTypeOverrides[actionJson.name] ? ValueType[returnTypeOverrides[actionJson.name]] : null
@@ -397,10 +403,10 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     
     //parameters and return value
     let parameters: Parameter[] = []
-    if (actionJson.icon?.arguments) { parameters = ParseArgumentValueThingies(actionJson.icon.arguments) }
+    if (actionJson.icon?.arguments) { parameters = parseArgumentValueThingies(actionJson.icon.arguments) }
 
     let returnValues: Parameter[] = []
-    if (actionJson.icon?.returnValues) { returnValues = ParseArgumentValueThingies(actionJson.icon?.returnValues) }
+    if (actionJson.icon?.returnValues) { returnValues = parseArgumentValueThingies(actionJson.icon?.returnValues) }
     
     let descriptionString = actionJson.icon.description.join(" ")
 
@@ -461,14 +467,14 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
 // game value pass \\
 for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
     let value = new GameValue()
-    value.DFId = gameValueJson.icon.name
-    value.TCId = OVERRIDES_JSON.gameValues[gameValueJson.icon.name] || CodeifyName(gameValueJson.icon.name)
+    value.DFId = deColorizeString(gameValueJson.icon.name)
+    value.TCId = OVERRIDES_JSON.gameValues[deColorizeString(gameValueJson.icon.name)] || codeifyName(gameValueJson.icon.name)
     value.ReturnType = DFTypeToTC[gameValueJson.icon.returnType]
     value.DFReturnType = gameValueJson.icon.returnType
-    value.Description = gameValueJson.icon.description.join(" ")
-    value.ReturnDescription = gameValueJson.icon.returnDescription.join(" ")
+    value.Description = gameValueJson.icon.description.map(line => deColorizeString(line)).join(" ")
+    value.ReturnDescription = gameValueJson.icon.returnDescription.map(line => deColorizeString(line)).join(" ")
     value.AdditionalInfo = gameValueJson.icon.additionalInfo.map(entry => {
-        return entry.join(" ")  
+        return entry.map(line => deColorizeString(line)).join(" ")  
     })
     value.WorksWith = gameValueJson.icon.worksWith
 
@@ -492,7 +498,7 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
 // particle pass \\
 for (const particleJson of ACTION_DUMP_JSON.particles) {
     let par = new Particle()
-    par.Name = particleJson.icon.name
+    par.Name = deColorizeString(particleJson.icon.name)
     par.Fields = [...particleJson.fields,"Amount","Spread"]
     AllParticleFields.push(...particleJson.fields)
     Particles[par.Name] = par
@@ -501,10 +507,10 @@ AllParticleFields = [...new Set(AllParticleFields)]
 
 // sound pass \\
 for (const soundJson of ACTION_DUMP_JSON.sounds) {
-    Sounds.add(soundJson.icon.name)
+    Sounds.add(deColorizeString(soundJson.icon.name))
 }
 
 // potion pass \\
 for (const potJson of ACTION_DUMP_JSON.potions) {
-    Potions.push(potJson.icon.name)
+    Potions.push(deColorizeString(potJson.icon.name))
 }
