@@ -869,6 +869,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                 code.push(
                     new ActionBlock("set_var","SetPotionDur",[tempVar,latestItem,components.Duration])
                 )
+                latestItem = tempVar
             } else {
                 item.Duration = components.Duration.Value
             }
@@ -913,6 +914,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                     code.push(
                         new ActionBlock("set_var","SetItemAmount",[tempVar,latestItem,components.Count])
                     )
+                    latestItem = tempVar
                 } else {
                     let val = Number(components.Count.Value)
                     //throw error for stack size being too high
