@@ -841,6 +841,17 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                 string += SCRIPT_CONTENTS[index]
             }
+            //allow underscores to seperate digits
+            else if (SCRIPT_CONTENTS[index] == "_") {
+                if (string.length == 0) {
+                    return null
+                }
+                if (SCRIPT_CONTENTS[index+1] == "." || SCRIPT_CONTENTS[index-1] == "." || SCRIPT_CONTENTS[index-1] == "-") {
+                    throw new TCError(`Underscores are only allowed in numbers when seperating digits`, 1, index, index)
+                }
+                index++
+                continue
+            }
             //if character is some other thing that shouldnt be allowed in numbers
             else if (cu.IsCharacterValidIdentifier(SCRIPT_CONTENTS[index])) {
                 throw new TCError(`'${SCRIPT_CONTENTS[index]}' is not a valid character in a number`, 1, index, index)
