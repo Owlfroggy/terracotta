@@ -308,7 +308,7 @@
             "SetCoord": "loc",
             "SetAllCoords": "loc",
             "ShiftOnAxis": "loc",
-            "ShiftAllAxis": "loc",
+            "ShiftAllAxes": "loc",
             "ShiftInDirection": "loc",
             "ShiftAllDirections": "loc",
             "ShiftToward": "loc",
