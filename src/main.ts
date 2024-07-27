@@ -58,17 +58,20 @@ async function Main() {
 
         if (values.file) {
             let script = await Bun.file(values.file).text()
-            let results = ProjectCompiler.CompileFile(script)
+            let results = ProjectCompiler.CompileFile(script,300)
 
             if (results.error) {
                 ErrorHandler.PrintError(results.error, script)
                 return
             }
 
-            output = results.template || ""
+            output = ""
+            results.templates?.forEach(data => {
+                output += data.template
+            })
         }
         else if (values.project) {
-            let results = await ProjectCompiler.CompileProject(values.project)
+            let results = await ProjectCompiler.CompileProject(values.project,{maxCodeLineSize: 100})
 
             if (values.includemeta) {
                 output = JSON.stringify(results)

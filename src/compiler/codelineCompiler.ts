@@ -66,7 +66,7 @@ export interface CompileResults {
 }
 
 //abstract base class for all code items
-class CodeItem {
+export class CodeItem {
     constructor(type: string,meta: [number,number] | null) {
         this.itemtype = type
         if (meta) {
@@ -81,7 +81,7 @@ class CodeItem {
     itemtype: string
 }
 
-class NumberItem extends CodeItem {
+export class NumberItem extends CodeItem {
     constructor(meta,value: string){
         super("num",meta)
         this.Value = value
@@ -93,7 +93,7 @@ class NumberItem extends CodeItem {
     TempVarEquivalent: string
 }
 
-class StringItem extends CodeItem {
+export class StringItem extends CodeItem {
     constructor(meta,value: string){
         super("str",meta)
         this.Value = value
@@ -101,7 +101,7 @@ class StringItem extends CodeItem {
     Value: string
 }
 
-class VariableItem extends CodeItem {
+export class VariableItem extends CodeItem {
     constructor(meta,scope: "unsaved" | "local" | "saved" | "line", name: string, storedType: string | null = null) {
         super("var",meta)
 
@@ -115,7 +115,7 @@ class VariableItem extends CodeItem {
     IsTemporary: boolean = false
 }
 
-class LocationItem extends CodeItem {
+export class LocationItem extends CodeItem {
     constructor(meta, x: number, y: number, z: number, pitch: number, yaw: number) {
         super("loc",meta)
         this.X = x
@@ -131,7 +131,7 @@ class LocationItem extends CodeItem {
     Yaw: number
 }
 
-class VectorItem extends CodeItem {
+export class VectorItem extends CodeItem {
     constructor(meta, x: number, y: number, z: number) {
         super("vec",meta)
         this.X = x
@@ -143,7 +143,7 @@ class VectorItem extends CodeItem {
     Z: number
 }
 
-class SoundItem extends CodeItem {
+export class SoundItem extends CodeItem {
     constructor(meta,soundId: string | null, customKey: string | null, volume: number, pitch: number, variant: string | null = null) {
         super("snd",meta)
         this.SoundId = soundId
@@ -159,7 +159,7 @@ class SoundItem extends CodeItem {
     Variant: string | null
 }
 
-class TextItem extends CodeItem {
+export class TextItem extends CodeItem {
     constructor(meta,value: string) {
         super("txt",meta)
         this.Value = value
@@ -168,7 +168,7 @@ class TextItem extends CodeItem {
     Value: string
 }
 
-class PotionItem extends CodeItem {
+export class PotionItem extends CodeItem {
     constructor(meta,potion: string, amplifier: number, duration: number) {
         super("pot",meta)
         this.Potion = potion
@@ -180,7 +180,7 @@ class PotionItem extends CodeItem {
     Duration: number
 }
 
-class GameValueItem extends CodeItem {
+export class GameValueItem extends CodeItem {
     constructor(meta,value,target) {
         super("gval",meta)
         this.Value = value
@@ -191,7 +191,7 @@ class GameValueItem extends CodeItem {
     Target: string
 }
 
-class ItemItem extends CodeItem {
+export class ItemItem extends CodeItem {
     constructor(meta,id: string,count: number) {
         super("item",meta)
         this.Id = id
@@ -201,7 +201,7 @@ class ItemItem extends CodeItem {
     Count: number
 }
 
-class ParticleItem extends CodeItem {
+export class ParticleItem extends CodeItem {
     constructor(meta, particle: string, cluster: {Amount: number,HorizontalSpread: number,VerticalSpread: number}, data: Dict<any>) {
         super("par",meta)
         this.Particle = particle
@@ -217,7 +217,7 @@ class ParticleItem extends CodeItem {
     Data: Dict<any>
 }
 
-class TagItem extends CodeItem {
+export class TagItem extends CodeItem {
     constructor(meta,tag: string, option: string, block: string, action: string, variable: VariableItem | null = null) {
         super("tag",meta)
         this.Tag = tag
@@ -237,7 +237,7 @@ class TagItem extends CodeItem {
     ChestSlot: number
 }
 
-class ParamItem extends CodeItem {
+export class ParamItem extends CodeItem {
     constructor(meta,name: string,type: string,plural: boolean, optional: boolean, defualtValue: CodeItem | null = null) {
         super("param",meta)
         this.Name = name
@@ -253,14 +253,14 @@ class ParamItem extends CodeItem {
     DefaultValue: CodeItem | null
 }
 
-class CodeBlock {
+export class CodeBlock {
     constructor(block: string) {
         this.Block = block
     }
     Block: string
 }
 
-class EventBlock extends CodeBlock {
+export class EventBlock extends CodeBlock {
     constructor(type: "ENTITY_EVENT" | "PLAYER_EVENT", event: string,lsCancel: boolean) {
         super(type)
         this.Event = event
@@ -270,7 +270,7 @@ class EventBlock extends CodeBlock {
     LSCancel: boolean
 }
 
-class FunctionBlock extends CodeBlock {
+export class FunctionBlock extends CodeBlock {
     constructor(name: string, params: ParamItem[]) {
         super("FUNCTION")
         this.Name = name
@@ -280,7 +280,7 @@ class FunctionBlock extends CodeBlock {
     Parameters: ParamItem[]
 }
 
-class ProcessBlock extends CodeBlock {
+export class ProcessBlock extends CodeBlock {
     constructor(name: string) {
         super("PROCESS")
         this.Name = name
@@ -288,7 +288,7 @@ class ProcessBlock extends CodeBlock {
     Name: string
 }
 
-class ActionBlock extends CodeBlock {
+export class ActionBlock extends CodeBlock {
     constructor(block: string, action: string, args: Array<CodeItem> = [], tags: TagItem[] = [], target: string | null = null) {
         super(block)
         this.Action = action
@@ -306,7 +306,7 @@ class ActionBlock extends CodeBlock {
     ActionNameField: string = "action"
 }
 
-class IfActionBlock extends ActionBlock {
+export class IfActionBlock extends ActionBlock {
     constructor(block: string, action: string, args: Array<CodeItem>, tags: TagItem[], target: string | null, not: boolean) {
         super(block,action,args,tags,target)
         this.Not = not
@@ -314,7 +314,7 @@ class IfActionBlock extends ActionBlock {
     Not: boolean
 }
 
-class SubActionBlock extends ActionBlock {
+export class SubActionBlock extends ActionBlock {
     constructor(block: string, action: string, args: Array<CodeItem>, tags: TagItem[], not: boolean, subaction: string | null = null) {
         super(block,action,args,tags,null)
         this.Subaction = subaction
@@ -325,13 +325,13 @@ class SubActionBlock extends ActionBlock {
     Subaction: string | null
 }
 
-class ElseBlock extends CodeBlock {
+export class ElseBlock extends CodeBlock {
     constructor() {
         super("else")
     }
 }
 
-class BracketBlock extends CodeBlock {
+export class BracketBlock extends CodeBlock {
     constructor(direction: "open" | "close", type: "repeat" | "if") {
         super("BRACKET")
         this.Direction = direction

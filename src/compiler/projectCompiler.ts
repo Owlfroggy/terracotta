@@ -3,6 +3,7 @@ import * as Tokenizer from "../tokenizer/tokenizer"
 import * as ErrorHandler from "../util/errorHandler"
 import * as LineCompiler from "./codelineCompiler"
 import * as fs from "node:fs/promises"
+import * as CodeblockNinja from "./codeblockNinja"
 
 export type CompiledTemplate = string | Dict<any>
 
@@ -19,6 +20,19 @@ export interface CompiledProjectTemplates {
     processes: Dict<CompiledTemplate>
 }
 
+export interface FileCompileResults {
+    error?: Error | ErrorHandler.TCError,
+    templates?: {
+        type: string,
+        name: string,
+        template: string
+    }[]
+}
+
+export interface ProjectCompileData {
+    maxCodeLineSize?: number
+}
+
 //maps a codeblock type to its category in project compile results
 const categoryMap = {
     "PLAYER_EVENT": "playerEvents",
@@ -27,7 +41,7 @@ const categoryMap = {
     "PROCESS": "processes"
 }
 
-export function CompileFile(fileContents: string, mode: "gzip" | "json" = "gzip"): {error?: Error | ErrorHandler.TCError, template?: string, type?: string, name?: string} {
+export function CompileFile(fileContents: string, maxLineLength: number, mode: "gzip" | "json" = "gzip"): FileCompileResults {
     //tokenize
     let script = fileContents
     let tokenResults: Tokenizer.TokenizerResults
@@ -46,28 +60,35 @@ export function CompileFile(fileContents: string, mode: "gzip" | "json" = "gzip"
         return {error: e}
     }
 
-    let jsoned = LineCompiler.JSONize(compiledResults.code)
-    let gzipped = LineCompiler.GZIP(jsoned)
-
-    let finalOutput: string = ""
-    switch (mode) {
-        case "gzip":
-            finalOutput = gzipped
-            break
-        case "json":
-            finalOutput = jsoned
-            break
-        default:
-            finalOutput = gzipped
-            break
-    }
-
     if (!compiledResults.type || !compiledResults.name) {return {}}
 
-    return {template: finalOutput, type: compiledResults.type, name: compiledResults.name}
+    //slice
+    let slicedResults: LineCompiler.CodeBlock[][]
+    try {
+        slicedResults = CodeblockNinja.SliceCodeLine(compiledResults.code,maxLineLength)
+    } catch (e) {
+        return {error: e}
+    }
+
+
+    return {
+        templates: slicedResults.map(line => {
+            let template: string = LineCompiler.JSONize(line)
+            if (mode == "gzip") {
+                template = LineCompiler.GZIP(template) 
+            }
+
+            return {
+                template: template,
+                type: line[0].Block,
+                name: line[0] instanceof LineCompiler.EventBlock ? line[0].Event : (line[0] as LineCompiler.FunctionBlock || LineCompiler.ProcessBlock).Name
+            }
+        })
+    }
 }
 
-export async function CompileProject(path: string): Promise<CompiledProjectTemplates> {
+
+export async function CompileProject(path: string, data: ProjectCompileData): Promise<CompiledProjectTemplates> {
     if (!path.endsWith("/")) {path += "/"}
     let folderUrl = pathToFileURL(path)
     //error checking
@@ -98,8 +119,7 @@ export async function CompileProject(path: string): Promise<CompiledProjectTempl
         if (!file.endsWith(".tc")) { return }
         try {
             let fileContents = (await fs.readFile(new URL(folderUrl+file))).toString()
-            let compileResults = CompileFile(fileContents,"gzip")
-            let codelineType = compileResults.type!
+            let compileResults = CompileFile(fileContents,10,"gzip")
 
             //if this tc script has an error, print it and move on
             if (compileResults.error) {
@@ -108,13 +128,16 @@ export async function CompileProject(path: string): Promise<CompiledProjectTempl
                 return
             }
 
-            if (results[categoryMap[codelineType]][compileResults.name] !== undefined) {
-                process.stderr.write(`Error: Duplicate ${compileResults.type} '${compileResults.name}'\n`)
-                failed = true
-                return
+            //add all templates produced by the file to final result
+            for (const result of compileResults.templates!) {
+                if (results[categoryMap[result.type]][result.name] !== undefined) {
+                    process.stderr.write(`Error: Duplicate ${result.type} '${result.name}'\n`)
+                    failed = true
+                    return
+                }
+    
+                results[categoryMap[result.type]][result.name] = result.template
             }
-            
-            results[categoryMap[codelineType]][compileResults.name] = compileResults.template
         } catch (e) {
             process.stderr.write(`Error while reading file '${file}': ${e} (this file will be skipped)\n`)
             return
