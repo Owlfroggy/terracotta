@@ -1,13 +1,11 @@
 import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer"
-import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP } from "../util/constants"
+import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER } from "../util/constants"
 import { DEBUG_MODE, print } from "../main"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "../util/domains"
 import * as fflate from "fflate"
 import { TCError } from "../util/errorHandler"
 import * as AD from "../util/actionDump"
 import * as TextCode from "../util/textCodeParser"
-
-const VAR_HEADER = `@__TC_`
 
 //fill in missing tags with their default values
 function FillMissingTags(codeblockIdentifier: string, actionDFName: string, tags: TagItem[]): TagItem[] {
@@ -495,7 +493,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
 
     function NewTempVar(type: string | undefined): VariableItem {
         tempVarCounter++
-        let varitem = new VariableItem(null, "line", `${VAR_HEADER}REG_${tempVarCounter}`)
+        let varitem = new VariableItem(null, "line", `${TC_HEADER}REG_${tempVarCounter}`)
         varitem.IsTemporary = true
         SetVarType(varitem,type)
         return varitem
