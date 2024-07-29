@@ -1,134 +1,174 @@
+/**
+ * note: "physical blocks" are minecraft blocks, so most codeblocks are two physical blocks long
+ */
+
 import { TC_HEADER } from "../util/constants";
-import { ActionBlock, BracketBlock, CodeBlock, EventBlock, FunctionBlock, GZIP, IfActionBlock, JSONize, ProcessBlock } from "./codelineCompiler";
+import { ActionBlock, BracketBlock, CodeBlock, ElseBlock, EventBlock, FunctionBlock, GZIP, IfActionBlock, JSONize, NumberItem, ProcessBlock } from "./codelineCompiler";
 import * as tokenizer from "../tokenizer/tokenizer"
 
 /**the maximum number of line vars that can be shared between the parent codeline and a slice */
 const MAX_LINE_VARS = 26
 
-function pr(...data: any[]) {
-    return
-    console.log(...data)
+interface InProgressSlice {
+    blocks: CodeBlock[],
+    physicalLength: number,
+    startIndex: number
+}
+
+interface Chunk {
+    blocks: CodeBlock[],
+    physicalLength: number,
+    startIndex: number,
+    contentRanges?: [number,number][] //start and end are INCLUSIVE!!!
+}
+
+
+const createtimeline = true
+
+function pr (...data: any[]) {
+    process.stderr.write(data.map(entry => entry.toString()).join(" ")+"\n")
 }
 
 /**WILL MODIFY `inputCodeLine`!!*/
 export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number): CodeBlock[][] {
-    let parentCodeLine = [...inputCodeLine] //copy of codeline that can be freely spliced (blocks are still references though so dont change them)
+    let mainLine = [...inputCodeLine]
+    if (createtimeline) {pr("https://dfonline.dev/edit/?template="+GZIP(JSONize(mainLine)))}
+    let mainLinePhysicalLength: number = 1
     let slices: CodeBlock[][] = []
 
     //get header information
-    if (!(parentCodeLine[0] instanceof FunctionBlock || parentCodeLine[0] instanceof ProcessBlock || parentCodeLine[0] instanceof EventBlock)) {
+    if (!(mainLine[0] instanceof FunctionBlock || mainLine[0] instanceof ProcessBlock || mainLine[0] instanceof EventBlock)) {
         throw Error("Cannot slice codeline that does not begin with a header block (process, function, or event)")
     }
     let headerName: string
     let headerType: "P" | "F" | "EE" | "PE"
-    if (parentCodeLine[0] instanceof EventBlock) {
-        headerName = parentCodeLine[0].Event
-        headerType = parentCodeLine[0].Block == "ENTITY_EVENT" ? "EE" : "PE"
+    if (mainLine[0] instanceof EventBlock) {
+        headerName = mainLine[0].Event
+        headerType = mainLine[0].Block == "ENTITY_EVENT" ? "EE" : "PE"
     } else {
-        headerName = parentCodeLine[0].Name
-        headerType = parentCodeLine[0] instanceof ProcessBlock ? "P" : "F"
+        headerName = mainLine[0].Name
+        headerType = mainLine[0] instanceof ProcessBlock ? "P" : "F"
     }
 
-    /**if in bracket mode, will return the length of the entire chunk (including if/repeat block brackets)*/
-    function sliceAlgorithm(startIndex: number): number | null {
-        let mode: "codeline" | "bracketed" = parentCodeLine[startIndex+1] instanceof BracketBlock ? "bracketed" : "codeline"
-        let elseAllowed = parentCodeLine[startIndex] instanceof IfActionBlock
-
-        // pr(mode)
-
-        let thisSliceCodeblocks: CodeBlock[] = []
-        let thisSliceStartIndex: number = startIndex+1 //index of the first codeblock in this slice
-
-        let i = startIndex
-
-        // function commitSlice() {
-
-        // }
-
-        if (mode == "bracketed") {
-            i++
-            thisSliceStartIndex++
+    function getChunk(startIndex: number): Chunk {
+        let mode: "block" | "bracketed" = mainLine[startIndex+1] instanceof BracketBlock && (mainLine[startIndex+1] as BracketBlock).Direction == "open" ? "bracketed" : "block"
+        if (mode == "block") {
+            let physicalLength = 2
+            if (
+                (mainLine[startIndex] instanceof BracketBlock && (mainLine[startIndex] as BracketBlock).Direction == "open")
+                || (mainLine[startIndex] instanceof ActionBlock && mainLine[startIndex].Block == "repeat")
+                || (mainLine[startIndex] instanceof IfActionBlock)
+                || (mainLine[startIndex] instanceof ElseBlock)
+            ) {
+                physicalLength = 1
+            }
+            return {
+                blocks: [mainLine[startIndex]],
+                physicalLength: physicalLength,
+                startIndex: startIndex
+            }
         }
-        //main iteration over all the codeblocks
-        while (true) {
-            i++
-            // pr(i,mode)
+        
+        let chunk: Chunk = {
+            blocks: [mainLine[startIndex],mainLine[startIndex+1]],
+            physicalLength: 2,
+            startIndex: startIndex,
+            contentRanges: [[startIndex+2,startIndex+2]]
+        }
+        
+        let i = startIndex + 2
+        while (i < mainLine.length && !(mainLine[i] instanceof BracketBlock && (mainLine[i] as BracketBlock).Direction == "close")) {
+            let thisChunk = getChunk(i)
+            chunk.blocks.push(...thisChunk.blocks)
+            chunk.physicalLength += thisChunk.physicalLength
+            i += thisChunk.blocks.length
+        }
 
-            if (i >= parentCodeLine.length) {
-                return null
-            }
-            if (mode == "bracketed") {
-                if (parentCodeLine[i] instanceof BracketBlock && (parentCodeLine[i] as BracketBlock).Direction == "close") {
-                    // pr("legth is",i-startIndex,"si is",startIndex)
-                    return i-startIndex
-                }
-            }
-    
-            let lengthWeight = 1
-            let actualBlockLength = 1
-            if (parentCodeLine[i+1] instanceof BracketBlock && (parentCodeLine[i+1] as BracketBlock).Direction == "open") {
-                lengthWeight = sliceAlgorithm(i)!
-                actualBlockLength = lengthWeight + 1
-            }
+        chunk.contentRanges![0][1] = i-1
+        
+        //add closing bracket to chunk
+        chunk.blocks.push(mainLine[i])
+        chunk.physicalLength += 2
 
-            //if there's room for the next codeblock (and its subcode if it has any), add it to the current slice
-            // pr(thisSliceCodeblocks.length, parentCodeLine.length, thisSliceStartIndex)
-            if (thisSliceCodeblocks.length + lengthWeight <= maxLineLength - 1) { //subtract 1 from maxLineLength because a header must be added to the new slice
-                pr(thisSliceCodeblocks.length,lengthWeight,maxLineLength-1,mode)
-                thisSliceCodeblocks.push(...parentCodeLine.slice(i,i+actualBlockLength))
-                i += actualBlockLength-1
-            }
-            //if this codeblock by itself would violate the rules of a slice, skip it
-            else if (lengthWeight >= maxLineLength) {
-                pr('single violation rule',mode)
-                i += actualBlockLength - 1
-                thisSliceCodeblocks = []
-                thisSliceStartIndex = i + 1
-                pr("skip to",JSON.stringify(parentCodeLine[i]))
-                continue
-            }
-            //otherwise finalize current slice
-            else {
-                pr('finalize in',mode)
+        return chunk
+    }
+
+    function sliceAlgorithm(startIndex: number) {
+        let currentSlice: InProgressSlice = {
+            blocks: [],
+            physicalLength: 0,
+            startIndex: startIndex
+        }
+        let i = startIndex - 1
+
+        function applyCurrentSlice() {
+            if (currentSlice.blocks.length > 1) {
                 let sliceName = `${TC_HEADER}SLC_${headerType}_${slices.length}_${headerName}`
     
-                //edit parent line
+                //edit main line
                 let callBlock = new ActionBlock("call_func", sliceName)
                 callBlock.ActionNameField = "data"
-                parentCodeLine.splice(thisSliceStartIndex, thisSliceCodeblocks.length, callBlock)
-                
-                i -= thisSliceCodeblocks.length
-                
+                mainLine.splice(currentSlice.startIndex, currentSlice.blocks.length, callBlock)
+    
+                i -= currentSlice.blocks.length
+    
                 //create new slice
-                thisSliceCodeblocks.unshift(new FunctionBlock(sliceName, []))
+                currentSlice.blocks.unshift(new FunctionBlock(sliceName, []))
+                slices.push(currentSlice.blocks)    
+            }
+            else {
+                i -= 1
+            }
 
-                pr("PARENT: ",GZIP(JSONize(parentCodeLine)))
-                pr("CHILD: ",GZIP(JSONize(thisSliceCodeblocks)))
 
-                slices.push(thisSliceCodeblocks)
-                thisSliceCodeblocks = []
-                thisSliceStartIndex = i + 1
+            currentSlice = {
+                blocks: [],
+                physicalLength: 0,
+                startIndex: i + 1
+            }
+        }
+
+        while (i < mainLine.length) {
+            i++
+            let chunk = getChunk(i)
+
+            if (chunk.contentRanges) {
+                //slice
+                sliceAlgorithm(chunk.contentRanges[0][0])
+                //redo chunk data since length and blocks and stuff have changed
+                chunk = getChunk(i)
+            }
+
+            //if hitting a closing bracket, apply current slice and dont go any further
+            if (mainLine[i] instanceof BracketBlock && (mainLine[i] as BracketBlock).Direction == "close") {
+                applyCurrentSlice()
+                return
+            }
+            //if this chunk by itself is unqualified to be a slice, apply current slice and skip it
+            else if (chunk.physicalLength > maxLineLength - 2) {
+                applyCurrentSlice()
+                i += chunk.blocks.length
+                currentSlice.startIndex = i + 1
+            } 
+            //if this chunk would invalidate the current slice but can be in its own slice, apply current slice but let offending chunk be part of the next one
+            else if (currentSlice.physicalLength + chunk.physicalLength > maxLineLength - 2) {
+                applyCurrentSlice()
+            }
+            //otherwise add this chunk to the slice
+            else {
+                currentSlice.blocks.push(...chunk.blocks)
+                currentSlice.physicalLength += chunk.physicalLength
+                i += chunk.blocks.length - 1
             }
         }
     }
 
-    while (true) {
-        let physicalLength = 0
-        parentCodeLine.forEach(block => {
-            if (block instanceof BracketBlock && block.Direction == "open") {
-                physicalLength += 0
-            } else {
-                physicalLength += 1
-            }
-        })
+    // let chun = getChunk(2)
+    // pr(JSON.stringify(chun),chun.blocks.length)
 
-        if (physicalLength <= maxLineLength) {
-            break
-        }
-        sliceAlgorithm(0)
-    }
+    sliceAlgorithm(1)
 
-    slices.push(parentCodeLine)
+    slices.push(mainLine)
 
     return slices
 }

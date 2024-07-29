@@ -119,7 +119,7 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
         if (!file.endsWith(".tc")) { return }
         try {
             let fileContents = (await fs.readFile(new URL(folderUrl+file))).toString()
-            let compileResults = CompileFile(fileContents,10,"gzip")
+            let compileResults = CompileFile(fileContents,20,"gzip")
 
             //if this tc script has an error, print it and move on
             if (compileResults.error) {
