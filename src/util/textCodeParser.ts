@@ -10,6 +10,17 @@ enum TextCodeType {
     "var" = "var",
 }
 
+enum Target {
+    "default" = "default",
+    "damager" = "damager",
+    "killer" = "killer",
+    "shooter" = "shooter",
+    "victim" = "shooter",
+    "projectile" = "projectile",
+    "uuid" = "uuid",
+    "selected" = "selected",
+}
+
 const ValidOperators = ["+","-","*","/","%"]
 
 //= tokens =\\
@@ -53,6 +64,14 @@ export class OperatorToken extends Token {
     }
 }
 
+export class TargetToken extends Token {
+    constructor(meta, target: Target) {
+        super(meta)
+        this.Target = target
+    }
+    Target: Target
+}
+
 export class VariableToken extends Token {
     constructor(meta, name: string) {
         super(meta)
@@ -62,6 +81,34 @@ export class VariableToken extends Token {
 
     Compile(): string {
         return `%var(${this.Name})`
+    }
+}
+
+export class StringChunkToken extends Token {
+    constructor(meta, value: string) {
+        super(meta)
+        this.Value = value
+    }
+    Value: string
+
+    Compile(): string {
+        return this.Value
+    }
+}
+
+export class StringToken extends Token {
+    constructor(meta, expression: Token[]) {
+        super(meta)
+        this.Expression = expression
+    }
+    Expression: Token[]
+
+    Compile(): string {
+        let expression = ""
+        this.Expression.forEach(token => {
+            expression += token.Compile()
+        })
+        return expression
     }
 }
 
@@ -80,23 +127,6 @@ export class MathTextCodeToken extends TextCodeToken {
     }
 
     Expression: Token[]
-
-    //finds the first instance of a given variable in the expression and returns its index
-    //returns null if the variable is not in the expression
-    //does not search nested expressions!!!!
-    FindVariable(varName: string): number | null {
-        let i = -1
-        for (const token of this.Expression) {
-            i++
-            if (token instanceof VariableToken) {
-                if (token.Name == varName) {
-                    return i
-                }
-            }
-        }
-
-        return null
-    }
 
     //if the entire %math expression just consists of one operator, return that operator
     //otherwise return false
@@ -157,54 +187,59 @@ export class MathTextCodeToken extends TextCodeToken {
     }
 }
 
-export function TokenizeMath(expressionString: string): MathTextCodeToken {
-    let cu = new CharUtils(expressionString,false)
+class Parser {
+    constructor(string: string) {
+        this.expressionString = string
+        this.cu = new CharUtils(string,false)
+    }
+    expressionString: string
+    cu: CharUtils
 
     //returned number is the index of the opening (
     //will error for invalid text code instead of returning null
-    function ParseTextCodeName(index: number): [number, TextCodeType] | null {
-        let initIndex = index + cu.GetWhitespaceAmount(index) + 1
+    ParseTextCodeName(index: number): [number, TextCodeType] | null {
+        let initIndex = index + this.cu.GetWhitespaceAmount(index) + 1
 
         //make sure first character is %
-        if (cu.GetNextCharacters(index,1) != "%") { return null }
-        index += cu.GetWhitespaceAmount(index) + 1 //move to %
+        if (this.cu.GetNextCharacters(index,1) != "%") { return null }
+        index += this.cu.GetWhitespaceAmount(index) + 1 //move to %
 
         //get text code
         index++ //move to first char of name
-        let textCodeResults = cu.GetCharactersUntil(index ,["("," "],true)
+        let textCodeResults = this.cu.GetCharactersUntil(index ,["("," "],true)
         if (!TextCodeType[textCodeResults[1]]) { return null }
         index = textCodeResults[0]
 
         //make sure theres an opening (
-        if (cu.GetNextCharacters(index,1) != "(") {
+        if (this.cu.GetNextCharacters(index,1) != "(") {
             throw new Error(`%${textCodeResults[1]} at pos ${initIndex} missing opening parentheses`)
         }
-        index += cu.GetWhitespaceAmount(index) + 1 //move to opening (
+        index += this.cu.GetWhitespaceAmount(index) + 1 //move to opening (
 
         return [index, TextCodeType[textCodeResults[1]]]
     }
 
-    function ParseNumber(index: number): [number, NumberToken] | null {
-        let initIndex = index + cu.GetWhitespaceAmount(index) + 1
+    ParseNumber(index: number): [number, NumberToken] | null {
+        let initIndex = index + this.cu.GetWhitespaceAmount(index) + 1
         let value = ""
 
         //negative sign
-        if (cu.GetNextCharacters(index,1) == "-") {
+        if (this.cu.GetNextCharacters(index,1) == "-") {
             value += "-"
-            index += cu.GetWhitespaceAmount(index) + 1
+            index += this.cu.GetWhitespaceAmount(index) + 1
             //if theres a space after the - then this isnt a number
-            if (expressionString[index+1] == " ") { return null }
+            if (this.expressionString[index+1] == " ") { return null }
         }
 
-        index += cu.GetWhitespaceAmount(index) + 1 //move to first digit
+        index += this.cu.GetWhitespaceAmount(index) + 1 //move to first digit
 
         //if not a digit, this is not a number
-        if (!cu.IsCharacterValidNumber(expressionString[index])) { return null }
+        if (!this.cu.IsCharacterValidNumber(this.expressionString[index])) { return null }
 
         //digits
         var decimalFound = false
-        while (cu.IsCharacterValidNumber(expressionString[index])) {
-            let char = expressionString[index]
+        while (this.cu.IsCharacterValidNumber(this.expressionString[index])) {
+            let char = this.expressionString[index]
             if (char == ".") {
                 if (decimalFound) { throw new Error(`Number at pos ${initIndex} has multiple decimal points`) }
                 decimalFound = true
@@ -217,78 +252,200 @@ export function TokenizeMath(expressionString: string): MathTextCodeToken {
         return [index - 1,new NumberToken([initIndex,index-1],value)]
     }
 
-    function ParseVariable(index: number): [number, VariableToken] | null {
-        let initIndex = index + cu.GetWhitespaceAmount(index) + 1
+    ParseTarget(index: number): [number, TargetToken] | null {
+        index += this.cu.GetWhitespaceAmount(index) + 1
+        let initIndex = index
+        let testString = this.expressionString.substring(index)
 
-        //make sure text code is %math
-        let codeResults = ParseTextCodeName(index)
+        for (let target of Object.values(Target)) {
+            if (testString.startsWith("%"+target)) {
+                index += target.length
+                return [index,new TargetToken([initIndex,index],target)]
+            }
+        }
+
+        return null
+    }
+
+    ParseVariable(index: number): [number, VariableToken] | null {
+        let initIndex = index + this.cu.GetWhitespaceAmount(index) + 1
+
+        //make sure text code is %var
+        let codeResults = this.ParseTextCodeName(index)
         if (!codeResults || codeResults[1] != TextCodeType.var) { return null }
         index = codeResults[0] //move to opening (
 
         index += 1 //move to start of name
-     
-        let nameResults = cu.GetCharactersUntil(index,[")"])
+    
+        let parenDepth = 1
+        let nameResults: string = ""
+        while (parenDepth > 0) {
+            let nextChunk = this.cu.GetCharactersUntil(index,[")","("])
+            nameResults += nextChunk[1]
+            index = nextChunk[0]+1
+            if (this.expressionString[index] == "(") {
+                nameResults += "("
+                parenDepth += 1
+            } else {
+                if (parenDepth > 1) {
+                    nameResults += ")"
+                }
+                parenDepth -= 1
+            }
+            index++
+        }
+
         
-        return [nameResults[0]+1,new VariableToken([initIndex,nameResults[0]],nameResults[1])]
+        return [index - 1,new VariableToken([initIndex,index],nameResults)]
     }
 
-    function ParseOperator(index: number): [number, OperatorToken] | null {
-        let operator = cu.GetNextCharacters(index,1)
+    ParseOperator(index: number): [number, OperatorToken] | null {
+        let operator = this.cu.GetNextCharacters(index,1)
         if (ValidOperators.includes(operator)) {
-            return [index + cu.GetWhitespaceAmount(index) + 1,new OperatorToken([index, index + cu.GetWhitespaceAmount(index)],operator)]
+            return [index + this.cu.GetWhitespaceAmount(index) + 1,new OperatorToken([index, index + this.cu.GetWhitespaceAmount(index)],operator)]
         } else {
             return null
         }
     }
 
-    function ParseMath(index: number): [number, MathTextCodeToken] | null {
-        let initIndex = index + cu.GetWhitespaceAmount(index) + 1
+
+    //**parses the entire string contained by this parser */
+    ParseString(): StringToken {
+        let index = -1
+
+        let expressionTokens: Token[] = []
+        let currentChunk: string = ""
+        let currentChunkStartIndex: number = 0
+
+        while (index < this.expressionString.length) {
+            let results
+
+            if (results == null) { results = this.ParseVariable(index) }
+
+            if (results == null) { results = this.ParseTarget(index) }
+
+            if (results) {
+                let whitespaceAmount = this.cu.GetWhitespaceAmount(index)
+                if (whitespaceAmount > 0) {
+                    currentChunk += this.expressionString.substring(index + 1,index + this.cu.GetWhitespaceAmount(index) + 1)
+                }
+                //push string content leading up to this token
+                if (currentChunk.length > 0) {
+                    expressionTokens.push(new StringChunkToken([currentChunkStartIndex,index],currentChunk))
+                }
+                expressionTokens.push(results[1])
+                index = results[0]
+                currentChunk = ""
+                currentChunkStartIndex = index + 1
+            } else {
+                index++
+                if (this.expressionString[index] != undefined) {
+                    currentChunk += this.expressionString[index]
+                }
+            }
+        }
+
+        if (currentChunk.length > 0) {
+            expressionTokens.push(new StringChunkToken([currentChunkStartIndex,index],currentChunk))
+        }
+
+        return new StringToken([0,this.expressionString.length],expressionTokens)
+    }
+
+    //**parses a %math code starting at `index` */
+    ParseMath(index: number): [number, MathTextCodeToken] | null {
+        let initIndex = index + this.cu.GetWhitespaceAmount(index) + 1
 
         //make sure text code is %math
-        let codeResults = ParseTextCodeName(index)
+        let codeResults = this.ParseTextCodeName(index)
         if (!codeResults || codeResults[1] != TextCodeType.math) { return null }
         index = codeResults[0] //move to opening (
         
         //= actually parse the expression =\\
         let expressionTokens: Token[] = []
-        while (cu.GetNextCharacters(index,1) != ")") {
+        while (this.cu.GetNextCharacters(index,1) != ")") {
             //error for unclosed expression
-            if (index + cu.GetWhitespaceAmount(index) + 1 >= expressionString.length) {
+            if (index + this.cu.GetWhitespaceAmount(index) + 1 >= this.expressionString.length) {
                 throw new Error(`%math at pos ${initIndex} is never closed`)
             }
 
             let results
 
             //try nested %math
-            if (results == null) {results = ParseMath(index)}
+            if (results == null) {results = this.ParseMath(index)}
 
             //try variable
-            if (results == null) {results = ParseVariable(index)}
+            if (results == null) {results = this.ParseVariable(index)}
 
             //try operator
-            if (results == null) {results = ParseOperator(index)}
+            if (results == null) {results = this.ParseOperator(index)}
 
             //try number
-            if (results == null) {results = ParseNumber(index)}
+            if (results == null) {results = this.ParseNumber(index)}
 
             if (results) {
                 expressionTokens.push(results[1])
                 index = results[0]
             } else {
-                throw new Error(`Could not parse anything from pos ${index}: '${expressionString[index]}'`)
+                throw new Error(`Could not parse anything from pos ${index}: '${this.expressionString[index]}'`)
             }
         }
 
         //move to ending )
-        index += cu.GetWhitespaceAmount(index) + 1
+        index += this.cu.GetWhitespaceAmount(index) + 1
 
         return [index,new MathTextCodeToken([initIndex,index],expressionTokens)]
     }
+}
 
-    let CharIndex = -1
-    let results = ParseMath(CharIndex)
+export function TokenizeMath(input: string): MathTextCodeToken {
+    let results = new Parser(input).ParseMath(-1)
 
     if (!results) { throw new Error("Invalid %math expression") }
 
     return results[1]
+}
+
+export function TokenizeString(input: string): StringToken {
+    let result = new Parser(input).ParseString()
+
+    return result
+}
+
+//finds the first instance of a given variable in the expression and returns its index
+//returns null if the variable is not in the expression
+//does not search nested expressions!!!!
+export function FindVariable(varName: string, expression: Token[]): number | null {
+    let i = -1
+    for (const token of this.Tokens) {
+        i++
+        if (token instanceof VariableToken) {
+            if (token.Name == varName) {
+                return i
+            }
+        }
+    }
+
+    return null
+}
+
+export function GetAllVariables(expression: Token[] | string | StringToken | MathTextCodeToken): string[] {
+    if (typeof expression == "string") {
+        expression = TokenizeString(expression).Expression
+    }
+    else if (expression instanceof StringToken || expression instanceof MathTextCodeToken) {
+        expression = expression.Expression
+    }
+    let results: string[] = []
+
+    expression.forEach(token => {
+        if (token instanceof VariableToken) {
+            results.push(token.Name)
+        }
+        else if (token instanceof MathTextCodeToken) {
+            results.push(...GetAllVariables(token.Expression))
+        }
+    })
+
+    return results
 }

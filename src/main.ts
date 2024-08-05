@@ -15,7 +15,7 @@ export const DEBUG_MODE = {
 //function for spamming debug print statements
 //its faster to type and i can search and destroy them after im done debugging without having to worry about nuking actually important log messages
 export function print (...data: any[]) {
-    console.log(...data,)
+    process.stderr.write(data.map(entry => entry.toString()).join(" ")+"\n")
 }
 
 async function Main() {
@@ -23,6 +23,9 @@ async function Main() {
         compile: { type: "boolean" },
         //if true, copy the result to the clipboard (only works with file mode)
         copy: { type: "boolean" },
+        //how long the codespace is in minecraft blocks (used for auto-slicing codelines)
+        //default is 99999, basically disabling slicing
+        plotsize: { type: "string" },
 
         
         //the file to take in (does not do anything in server mode)
@@ -46,7 +49,14 @@ async function Main() {
         server: { type: "boolean"},
     };
 
+    
     const { values, positionals } = parseArgs({ options });
+    
+    let plotsize = values.plotsize == null ? 99999 : Number(values.plotsize)
+    if (plotsize < 14) {
+        process.stderr.write("Error: plot size cannot be lower than 14\n")
+        process.exit(1)
+    }
     
     if (values.compile) {
         //error handling
@@ -58,7 +68,7 @@ async function Main() {
 
         if (values.file) {
             let script = await Bun.file(values.file).text()
-            let results = ProjectCompiler.CompileFile(script,300)
+            let results = ProjectCompiler.CompileFile(script,plotsize)
 
             if (results.error) {
                 ErrorHandler.PrintError(results.error, script)
@@ -71,7 +81,7 @@ async function Main() {
             })
         }
         else if (values.project) {
-            let results = await ProjectCompiler.CompileProject(values.project,{maxCodeLineSize: 100})
+            let results = await ProjectCompiler.CompileProject(values.project,{maxCodeLineSize: plotsize})
 
             if (values.includemeta) {
                 output = JSON.stringify(results)

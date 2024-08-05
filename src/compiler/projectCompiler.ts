@@ -30,7 +30,7 @@ export interface FileCompileResults {
 }
 
 export interface ProjectCompileData {
-    maxCodeLineSize?: number
+    maxCodeLineSize: number
 }
 
 //maps a codeblock type to its category in project compile results
@@ -119,8 +119,7 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
         if (!file.endsWith(".tc")) { return }
         try {
             let fileContents = (await fs.readFile(new URL(folderUrl+file))).toString()
-            let compileResults = CompileFile(fileContents,20,"gzip")
-
+            let compileResults = CompileFile(fileContents,data.maxCodeLineSize,"gzip")
             //if this tc script has an error, print it and move on
             if (compileResults.error) {
                 ErrorHandler.PrintError(compileResults.error,fileContents)

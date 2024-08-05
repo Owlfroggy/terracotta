@@ -2417,7 +2417,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                 //if the temp var of the next chest is a %math operation, include that in this new chest
                 if (nextTempVar instanceof NumberItem) {
                     let mathCode = TextCode.TokenizeMath(nextTempVar.Value)
-                    let index = mathCode.FindVariable(thisTempVarName)
+                    let index = TextCode.FindVariable(thisTempVarName,mathCode.Expression)
 
                     //require this block and next block to both use the same temp var
                     if (index == null) { return }
