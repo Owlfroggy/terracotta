@@ -71,7 +71,7 @@ async function Main() {
             let results = ProjectCompiler.CompileFile(script,plotsize)
 
             if (results.error) {
-                ErrorHandler.PrintError(results.error, script)
+                ErrorHandler.PrintError(results.error, script, new URL(values.file).pathname.split('/').pop()!)
                 return
             }
 

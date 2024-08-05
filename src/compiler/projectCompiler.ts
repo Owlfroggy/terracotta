@@ -122,7 +122,8 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
             let compileResults = CompileFile(fileContents,data.maxCodeLineSize,"gzip")
             //if this tc script has an error, print it and move on
             if (compileResults.error) {
-                ErrorHandler.PrintError(compileResults.error,fileContents)
+                if (failed) {process.stderr.write("\n\n")}
+                ErrorHandler.PrintError(compileResults.error,fileContents,file)
                 failed = true
                 return
             }

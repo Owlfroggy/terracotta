@@ -1,62 +1,79 @@
 import { CharUtils, COLOR } from "./characterUtils"
 
-export function PrintError(e: Error, SCRIPT_CONTENTS) {
-    let cu = new CharUtils(SCRIPT_CONTENTS,true)
+export function PrintError(e: Error, SCRIPT_CONTENTS: string, fileName: string) {
     if (e instanceof TCError) {
-        let lineStart = cu.GetLineStart(e.CharStart)
-        let lineEnd = cu.GetLineEnd(e.CharStart)
+        let lineStartIndexes: number[] = [-1]
+        let linesFromStartIndex: Dict<number> = {0: -1}
+        let i = 0
+        for (const v of SCRIPT_CONTENTS.matchAll(/\n/g)) {
+            i++
+            lineStartIndexes[i] = v.index+1
+            linesFromStartIndex[v.index+1] = i
+        }
+
+        let cu = new CharUtils(SCRIPT_CONTENTS,true)
+
+        let errorLineStart = cu.GetLineStart(e.CharStart)
+        let errorEndLineStart = cu.GetLineStart(e.CharLoc)
+
+        let endLineNumLength = (linesFromStartIndex[errorEndLineStart]! + 1).toString().length
+        let lineHeaderLength = endLineNumLength + 3
 
         // show the line(s) that had the error        
-        function printCodeLine(e: TCError) {
-            let codeLine = SCRIPT_CONTENTS.substring(lineStart, lineEnd)
+        function printCodeLine(e: TCError, line: number) {
+            let lineStart = lineStartIndexes[line]
+            let lineEnd = cu.GetLineEnd(lineStart)
+            let codeLine = SCRIPT_CONTENTS.substring(lineStart,lineEnd)
+
             //if line contains the start of the highlight
             if (e.CharStart > lineStart) {
                 let relativeErrorPos = Math.max(e.CharStart - lineStart,0)
-                codeLine = codeLine.slice(0, relativeErrorPos) + COLOR.Red + codeLine.slice(relativeErrorPos) + COLOR.Reset
+                let relativeErrorEnd = relativeErrorPos + (e.CharLoc - e.CharStart) + 1
+                
+                //if line also contains the end of the highlight
+                if (errorLineStart == errorEndLineStart) {
+                    codeLine = codeLine.slice(0, relativeErrorPos) + COLOR.Red + codeLine.slice(relativeErrorPos, relativeErrorEnd) + COLOR.Gray + codeLine.slice(relativeErrorEnd)
+                } 
+                else {
+                    codeLine = codeLine.slice(0, relativeErrorPos) + COLOR.Red + codeLine.slice(relativeErrorPos) + COLOR.Gray
+                }
             }
             //if the entire line is highlighted
             else if (e.CharLoc > lineEnd) {
-                codeLine = COLOR.Red + codeLine
+                codeLine = COLOR.Red + codeLine + COLOR.Gray
             }
             //if the line contains the end of the highlight
-            else if (e.CharLoc < lineEnd && e.CharLoc > lineStart) {
+            else if (e.CharLoc < lineEnd && e.CharLoc >= lineStart) {
                 let relativeErrorEndPos = e.CharLoc - lineStart + 1
-                codeLine = COLOR.Red + codeLine.slice(0, relativeErrorEndPos) + COLOR.Reset + codeLine.slice(relativeErrorEndPos)
+                codeLine = COLOR.Red + codeLine.slice(0, relativeErrorEndPos) + COLOR.Gray + codeLine.slice(relativeErrorEndPos)
             }
-            process.stderr.write(codeLine+"\n")
+            process.stderr.write(COLOR.DarkGray + `${(line + 1).toString().padStart(endLineNumLength,"0")} | ` + COLOR.Gray + codeLine+"\n")
         }
 
-        //if this is a multiline error
-        if (e.CharLoc > lineEnd) {
-            //print first line that had the error
-            printCodeLine(e)
-            //print remaining lines
-            while (e.CharLoc > lineEnd) {
-                lineStart = lineEnd + 1
-                lineEnd = cu.GetLineEnd(lineStart)
-                printCodeLine(e)
-            }
-        //single line error
-        } else {
-            process.stderr.write(SCRIPT_CONTENTS.substring(lineStart, lineEnd)+"\n")
-
-            //CharLoc -1 means the location of the error is unknown so don't draw the arrows
-            if (e.CharLoc == -1) {
-                process.stderr.write("\n")
-            } else {
-                //show the ^ thingies that point to the error
-                if (e.CharLoc - lineStart < 0) {
-                    process.stderr.write(" ".repeat(e.CharStart - e.CharStart) + "^".repeat(e.CharLoc - e.CharStart + 1)+"\n")
-                } else if (e.CharLoc - e.CharStart == 0) {
-                    process.stderr.write(" ".repeat(e.CharStart - lineStart) + "^".repeat(e.CharLoc - e.CharStart + 1)+"\n")
-                } else {
-                    process.stderr.write(" ".repeat(e.CharStart - lineStart) + "^".repeat(e.CharLoc - (e.CharStart - 1))+"\n")
-                }
-            }
+        //print code lines involving the error + a few before the error for context
+        let lineNum = Math.max(linesFromStartIndex[errorLineStart]!-5,0)
+        while (lineStartIndexes[lineNum] <= e.CharLoc) {
+            printCodeLine(e,lineNum)
+            lineNum++
         }
         
-        //show what the error actually was
-        process.stderr.write(`\nError at line ${cu.GetLineFromIndex(e.CharStart) + 1}: ${e.message}\n`)
+        //singe line error
+        if (errorLineStart == errorEndLineStart && e.CharLoc !== -1) {
+            let leftSpace: number
+            if (e.CharLoc - errorLineStart < 0) {
+                leftSpace = e.CharStart - e.CharStart + lineHeaderLength
+                process.stderr.write(COLOR.Reset + " ".repeat(leftSpace) + "^".repeat(e.CharLoc - e.CharStart + 1)+"\n")
+            } else if (e.CharLoc - e.CharStart == 0) {
+                leftSpace = e.CharStart - errorLineStart + lineHeaderLength
+                process.stderr.write(COLOR.Reset + " ".repeat(leftSpace) + "^".repeat(e.CharLoc - e.CharStart + 1)+"\n")
+            } else {
+                leftSpace = e.CharStart - errorLineStart + lineHeaderLength
+                process.stderr.write(COLOR.Reset + " ".repeat(leftSpace) + "^".repeat(e.CharLoc - (e.CharStart - 1))+"\n")
+            }
+
+            // process.stderr.write(`${" ".repeat(leftSpace)}${COLOR.Red}${e.message}${COLOR.Reset}\n`)
+        }
+        process.stderr.write(`${COLOR.Reset}Error in ${COLOR.White}${fileName}${COLOR.Reset} at line ${COLOR.White}${cu.GetLineFromIndex(e.CharStart) + 1}${COLOR.Reset}: ${COLOR.Red}${e.message}${COLOR.Reset}\n`)
     } else {
         throw e
     }
