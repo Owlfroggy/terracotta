@@ -1,5 +1,6 @@
 /**
  * note: "physical blocks" are minecraft blocks, so most codeblocks are two physical blocks long
+ * also, due to the nature of codeline splitting, it is not safe to use control:ReturnNTimes on a plot with split codelines
  */
 
 import { TC_HEADER } from "../util/constants";
@@ -273,15 +274,34 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
         }
     }
 
+    //returns: [physicalLength, callBlocks]
+    function getLineInfo(line: CodeBlock[]): [number, [number,ActionBlock][]] {
+        let callBlocks: [number,ActionBlock][] = []
+        let physicalLength = 0
+        let blockIndex = 0
+        line.forEach(block => {
+            if (block instanceof ActionBlock) {
+                if (block.Block == "call_func") {
+                    callBlocks.push([blockIndex,block])
+                }
+            }
+            physicalLength += GetPhysicalLength(block)
+            blockIndex++
+        })
+        
+        return [physicalLength, callBlocks]
+    }
     
     //= aggressively compress as much as possible =\\
     let lastSliceCount = 0
-    let parentPhysicalLength = 0
+    let parentPhysicalLength: number
+    let parentCallBlocks: [number,ActionBlock][]
     while (true) {
         parentPhysicalLength = 0
-        mainLine.forEach(block => {
-            parentPhysicalLength += GetPhysicalLength(block)
-        })
+        let blockIndex = 0
+
+        ;[parentPhysicalLength, parentCallBlocks] = getLineInfo(mainLine)
+
         if (parentPhysicalLength <= maxLineLength) { break }
 
         sliceAlgorithm(1)
@@ -298,13 +318,13 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
         callIndex: number, 
         name: string, 
         line: CodeBlock[], 
-        callBlocks: [number,ActionBlock][] //number is index in the slice that this block appears
+        callBlocks: [number,ActionBlock][], //number is index in the slice that this block appears
         parent?: SliceEntry, 
         physicalLength: number, 
         depth: number,
     }
     
-    let parentSliceEntry: SliceEntry = {name: headerName, line: mainLine, callIndex: 0, physicalLength: parentPhysicalLength, callBlocks: [], depth: -1}
+    let parentSliceEntry: SliceEntry = {name: headerName, line: mainLine, callIndex: 0, physicalLength: parentPhysicalLength, callBlocks: parentCallBlocks, depth: -1}
 
     let sliceEntriesByDepth: SliceEntry[][] = []
     let sliceEntriesByParent: Map<SliceEntry,SliceEntry[]> = new Map()
@@ -325,17 +345,7 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
                 }
 
                 
-                
-                let callBlocks: [number,ActionBlock][] = []
-                let physicalLength = 0
-                let blockIndex = 0
-                slicesByName[codeBlock.Action]!.forEach(block => {
-                    if (block.Block == "call_func" && block instanceof ActionBlock) {
-                        callBlocks.push([blockIndex,block])
-                    }
-                    physicalLength += GetPhysicalLength(block)
-                    blockIndex++
-                })
+                let [physicalLength,callBlocks] = getLineInfo(slicesByName[codeBlock.Action]!)
 
 
                 let entry = {callIndex: i, name: codeBlock.Action, line: slicesByName[codeBlock.Action]!, parent: lineEntry, physicalLength: physicalLength, callBlocks: callBlocks, depth: lineDepth}
@@ -416,6 +426,28 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
         }
         lastSliceCount = sliceCount
     }
+
+    //= adjust return blocks to return the proper number of levels =\\
+    function fixReturnBlocks(line: CodeBlock[], depth: number) {
+        line.forEach(block => {
+            if (!(block instanceof ActionBlock)) {return}
+            if (block.Block == "call_func" && sliceEntriesByName[block.Action] != undefined) {
+                fixReturnBlocks(sliceEntriesByName[block.Action]!.line,depth+1)
+            }
+            else if (block.Block == "control") {
+                if (block.Action == "ReturnNTimes") {
+                    throw new Error("Codeline splitter cannot currently handle control:ReturnNTimes.")
+                }
+                else if (block.Action == "Return" && depth > 0) {
+                    block.Action = "ReturnNTimes"
+                    block.Arguments = [new NumberItem([],(depth + 1).toString())]
+                }
+            }
+        })
+    }
+    fixReturnBlocks(mainLine,0)
+
+
 
     let slices = Object.values(sliceEntriesByName).map(entry => entry?.line) as CodeBlock[][]
     slices.unshift(mainLine)
