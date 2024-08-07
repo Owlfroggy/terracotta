@@ -46,7 +46,8 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
     }
 
     let mainLine = [...inputCodeLine]
-    let slices: CodeBlock[][] = []
+    let slicesByName: Dict<CodeBlock[]> = {}
+    let sliceCount: number = 0
 
     //get header information
     if (!(mainLine[0] instanceof FunctionBlock || mainLine[0] instanceof ProcessBlock || mainLine[0] instanceof EventBlock)) {
@@ -197,7 +198,7 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
 
         function applyCurrentSlice() {
             if (currentSlice.blocks.length > 1) {
-                let sliceName = `${TC_HEADER}SLC_${headerType}_${slices.length}_${headerName}`
+                let sliceName = `${TC_HEADER}SLC_${headerType}_${sliceCount}_${headerName}`
     
                 let callBlock = new ActionBlock("call_func", sliceName)
                 let headerBlock = new FunctionBlock(sliceName, [])
@@ -215,7 +216,8 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
     
                 //create new slice
                 currentSlice.blocks.unshift(headerBlock)
-                slices.push(currentSlice.blocks)    
+                sliceCount++
+                slicesByName[sliceName] = currentSlice.blocks
             }
             else {
                 i -= 1
@@ -271,24 +273,152 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
         }
     }
 
+    
+    //= aggressively compress as much as possible =\\
     let lastSliceCount = 0
-
+    let parentPhysicalLength = 0
     while (true) {
-        let physicalLength = 0
+        parentPhysicalLength = 0
         mainLine.forEach(block => {
-            physicalLength += GetPhysicalLength(block)
+            parentPhysicalLength += GetPhysicalLength(block)
         })
-        if (physicalLength <= maxLineLength) { break }
+        if (parentPhysicalLength <= maxLineLength) { break }
 
         sliceAlgorithm(1)
 
-        if (slices.length == lastSliceCount) {
+        if (sliceCount == lastSliceCount) {
             throw new Error("Could not automatically split line")
         }
-        lastSliceCount = slices.length
+        lastSliceCount = sliceCount
     }
 
-    slices.push(mainLine)
+    //= re-inflate templates back on to higher lines if said higher lines have space for them =\\
+
+    type SliceEntry = {
+        callIndex: number, 
+        name: string, 
+        line: CodeBlock[], 
+        callBlocks: [number,ActionBlock][] //number is index in the slice that this block appears
+        parent?: SliceEntry, 
+        physicalLength: number, 
+        depth: number,
+    }
+    
+    let parentSliceEntry: SliceEntry = {name: headerName, line: mainLine, callIndex: 0, physicalLength: parentPhysicalLength, callBlocks: [], depth: -1}
+
+    let sliceEntriesByDepth: SliceEntry[][] = []
+    let sliceEntriesByParent: Map<SliceEntry,SliceEntry[]> = new Map()
+    let sliceEntriesByName: Dict<SliceEntry> = {}
+
+    sliceEntriesByDepth[-1] = [parentSliceEntry]
+    
+    function addSlices(lineEntry: SliceEntry, lineDepth: number) {
+        let i = -1
+        for (const codeBlock of lineEntry.line) {
+            i++
+            if (codeBlock instanceof ActionBlock && codeBlock.Block == "call_func" && codeBlock.Action in slicesByName) {
+                if (sliceEntriesByDepth[lineDepth] == undefined) {
+                    sliceEntriesByDepth[lineDepth] = []
+                }
+                if (sliceEntriesByParent.get(lineEntry) == undefined) {
+                    sliceEntriesByParent.set(lineEntry,[])
+                }
+
+                
+                
+                let callBlocks: [number,ActionBlock][] = []
+                let physicalLength = 0
+                let blockIndex = 0
+                slicesByName[codeBlock.Action]!.forEach(block => {
+                    if (block.Block == "call_func" && block instanceof ActionBlock) {
+                        callBlocks.push([blockIndex,block])
+                    }
+                    physicalLength += GetPhysicalLength(block)
+                    blockIndex++
+                })
+
+
+                let entry = {callIndex: i, name: codeBlock.Action, line: slicesByName[codeBlock.Action]!, parent: lineEntry, physicalLength: physicalLength, callBlocks: callBlocks, depth: lineDepth}
+                sliceEntriesByDepth[lineDepth].push(entry)
+                sliceEntriesByParent.get(lineEntry)!.push(entry)
+                sliceEntriesByName[codeBlock.Action] = entry
+
+
+                addSlices(entry, lineDepth + 1)
+            }
+        }
+    }
+
+    addSlices(parentSliceEntry, 0)
+
+
+    lastSliceCount = Object.keys(sliceEntriesByName).length
+
+    //repeat the expansion algorithm until it stops having any effect
+    while (true) {
+        //-2 since we're iterating over the parent entries and the greatest depth cannot have children
+        for (let i = sliceEntriesByDepth.length - 2; i >= -1; i--) {
+            for (const parentEntry of sliceEntriesByDepth[i]) {
+                let parentSlices = sliceEntriesByParent.get(parentEntry)
+                if (!parentSlices) { continue }
+    
+                //map slices to their sizes
+                let sliceSizes = new Map<SliceEntry,number>()
+                for (const childEntry of parentSlices) {
+                    sliceSizes.set(childEntry,childEntry.line.length)
+                }
+    
+                //go from smallest slices to largest since the goal is to remove as many call funcs as possible
+                for (const childEntry of new Map<SliceEntry,number>( [...sliceSizes.entries()].sort((e1, e2) => e1[1] - e2[1]) ).keys()) {
+                    if (parentEntry.physicalLength + (childEntry.physicalLength - 2) > maxLineLength) {
+                        break
+                    }
+    
+                    //replace call func block with actual line contents
+                    parentEntry.line.splice(childEntry.callIndex,1,...childEntry.line.slice(1))
+                    parentEntry.physicalLength += childEntry.physicalLength - 2
+                    parentSlices.splice(parentSlices.findIndex(value => value == childEntry),1)
+                    delete sliceEntriesByName[childEntry.name]
+
+                    
+                    //fix callIndex of other child slices
+                    for (const entryToFix of sliceEntriesByParent.get(parentEntry)!) {
+                        if (entryToFix.callIndex > childEntry.callIndex) {
+                            entryToFix.callIndex += childEntry.line.length - 2
+                        }
+                    }
+                    
+                    //update data of slices whose call blocks were just absorbed
+                    for (const callBlockData of childEntry.callBlocks) {
+                        let entryToFix = sliceEntriesByName[callBlockData[1].Action]!
+                        if (entryToFix == undefined) { continue }
+                       
+                        //fix slicesByParent map
+                        let parentArrayToFix = sliceEntriesByParent.get(entryToFix.parent!)!
+                        parentArrayToFix.splice(parentArrayToFix.findIndex(value => value == entryToFix),1)
+                        parentSlices.push(entryToFix)
+
+                        //fix slicesByDepth map
+                        let depthArrayToFix = sliceEntriesByDepth[entryToFix.depth]
+                        depthArrayToFix.splice(depthArrayToFix.findIndex(value => value == entryToFix),1)
+                        sliceEntriesByDepth[parentEntry.depth+1].push(entryToFix)
+
+                        entryToFix.parent = parentEntry
+                        entryToFix.depth = parentEntry.depth + 1
+                        entryToFix.callIndex += childEntry.callIndex - 1
+                    }
+                }
+            }
+        }
+        let sliceCount = Object.keys(sliceEntriesByName).length
+        if (lastSliceCount == sliceCount) {
+            break
+        }
+        lastSliceCount = sliceCount
+    }
+
+    let slices = Object.values(sliceEntriesByName).map(entry => entry?.line) as CodeBlock[][]
+    slices.unshift(mainLine)
 
     return slices
 }
