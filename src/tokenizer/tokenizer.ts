@@ -1502,15 +1502,15 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         else if (identifierResults[1] == "return") {
             return [identifierResults[0], new ControlBlockToken([initIndex,index],"Return")]
         }
-        else if (identifierResults[1] == "returnmult") {
-            //parse number for how many times to return
-            let expressionResults = ParseExpression(identifierResults[0],[";"],false)
-            if (expressionResults == null) {
-                throw new TCError("Expected number following 'returnmult'",0,initIndex,index)
-            }
-
-            return [expressionResults[0], new ControlBlockToken([initIndex,expressionResults[0]],"ReturnNTimes",new ListToken([index,expressionResults[0]],[expressionResults[1]]))]
-        }
+        // else if (identifierResults[1] == "returnmult") {
+        //     //parse number for how many times to return
+        //     let expressionResults = ParseExpression(identifierResults[0],[";"],false)
+        //     if (expressionResults == null) {
+        //         throw new TCError("Expected number following 'returnmult'",0,initIndex,index)
+        //     }
+        //
+        //     return [expressionResults[0], new ControlBlockToken([initIndex,expressionResults[0]],"ReturnNTimes",new ListToken([index,expressionResults[0]],[expressionResults[1]]))]
+        // }
         else if (identifierResults[1] == "wait") {
             index = identifierResults[0]
 
