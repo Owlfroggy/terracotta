@@ -33,13 +33,16 @@
             "DispRotAxisAngle": "SetDisplayRotationFromAxisAngle",
             "SetCustomTag": "SetTag",
             "GetCustomTag": "GetTag",
+            "RemoveCustomTag": "RemoveTag",
             "GetAllEntityTags": "GetAllTags",
             "SendAnimation": "SendAnimation",
             "AttackAnimation": "SendAttackAnimation",
+            "RideEntity": "Ride",
             "SetItem": "SetItem"
         },
         "if_entity": {
-            
+            "HasCustomTag": "HasTag",
+            "IsRidingEntity": "IsRiding"
         },
         "set_var": {
             "PurgeVars": "PurgeMatching",
