@@ -2746,27 +2746,39 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //if current line starts with a variable
         if (CurrentLine[0] instanceof VariableToken) {
-            //if the only thing in the line is a variable
-            if (CurrentLine.length == 1) {
-                //check for an operator
-                let operatorResults = ParseOperator(CharIndex, "assignment")
-                if (operatorResults) {
-                    ApplyResults(operatorResults)
-
-                    //get expression if assignment
-                    if (VALID_ASSIGNMENT_OPERATORS.includes(operatorResults[1].Operator)) {
-                        let expressionResults = ParseExpression(CharIndex, [";"], false)
-                        if (expressionResults) {
-                            ApplyResults(expressionResults)
-                            return
-                        } 
-                        else {
-                            throw new TCError("Expected expression following assignment",0,CurrentLine[1].CharStart,CurrentLine[1].CharEnd)
-                        }
-                    }
-                    
-                    return
+            //accumulate indexers
+            let indexerResults: [number, IndexerToken] | null = null
+            do {
+                indexerResults = ParseIndexer(CharIndex)
+                if (indexerResults) {
+                    ApplyResults(indexerResults)
                 }
+                let typeOverrideResults = ParseTypeOverride(CharIndex)
+                if (typeOverrideResults) {
+                    ApplyResults(typeOverrideResults)
+                }
+            } while (indexerResults != null)
+
+            //check for an operator
+            let operatorResults = ParseOperator(CharIndex, "assignment")
+            if (operatorResults) {
+                ApplyResults(operatorResults)
+
+                //get expression assignment
+                if (VALID_ASSIGNMENT_OPERATORS.includes(operatorResults[1].Operator)) {
+                    let expressionResults = ParseExpression(CharIndex, [";"], false)
+                    if (expressionResults) {
+                        ApplyResults(expressionResults)
+                        return
+                    } 
+                    else {
+                        throw new TCError("Expected expression following assignment",0,CurrentLine[CurrentLine.length-1].CharStart,CurrentLine[CurrentLine.length-1].CharEnd)
+                    }
+                }
+                
+                return
+            } else {
+                throw new TCError(`Expected assignment operator following ${CurrentLine[CurrentLine.length-1] instanceof IndexerToken ? "indexer" : "variable"}`,0,CurrentLine[CurrentLine.length-1].CharStart,CurrentLine[CurrentLine.length-1].CharEnd)
             }
         }
 

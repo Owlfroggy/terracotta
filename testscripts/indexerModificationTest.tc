@@ -1,0 +1,41 @@
+PLAYER_EVENT Join;
+
+global dingus = {
+    "and f" = {
+        "balls" = vec[0,10,0]
+    },
+    "dongus" = {
+        "asdf" = [
+            "one",
+            "two",
+            "thre",
+            "for",
+            [1,2,3],
+            {
+                "1" = [
+                    [
+                        {
+                            "dingu 1" = vec[1,1,1],
+                            "dingu 2" = vec[1,1,1],
+                            "dingu 3" = vec[1,1,1],
+                            "dingu 4" = vec[1,1,1],
+                        }
+                    ]
+                ]
+            }
+        ]
+    },
+    "list" = ["bongus"],
+    "INCEPTION!!!!!!!" = [[[[[[[[[["vaul;t"]]]]]]]]]], #10 layers
+    "number" = 1,
+};
+
+wait();
+
+
+default:SendMessage(global dingus);
+global dingus["dongus"]:dict["asdf"]:list[6]:dict["1"]:list[1]:list[1]:dict["dingu " + num:Random(1,4)]:vec *= 2;
+global dingus["INCEPTION!!!!!!!"]:list[1]:list[1]:list[1]:list[1]:list[1]:list[1]:list[1]:list[1]:list[1]:list[1]:str += s" + <red>DOUBT";
+# global dingus["dongus"]:dict["asdf"]:list[6]:dict["1"] = 5;
+# global dingus["number"]: num += 5;
+default:SendMessage(global dingus);

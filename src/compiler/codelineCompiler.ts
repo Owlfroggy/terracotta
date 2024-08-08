@@ -2256,6 +2256,8 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
             //assignment
             else if (line[1] instanceof OperatorToken) {
                 // convert left and right to code items
+                let assignmentOpr = line[1] as OperatorToken
+
                 let left = ToItem(line[0])[1]
                 let rightResults = SolveExpression(line[2] as ExpressionToken)
                 //if code is required to generate right, push it
@@ -2267,7 +2269,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                 let typeleft = GetType(left)
                 let typeright = GetType(right)
 
-                if (line[1].Operator == "=") { 
+                if (assignmentOpr.Operator == "=") { 
                     if (line[0].Type) {
                         if (typeleft != typeright) {
                             throw new TCError(`Attempted to set variable explicitly typed as ${typeleft} to ${typeright}`,0,line[0].CharStart,line[2].CharEnd)
@@ -2281,11 +2283,11 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                     //incremental things idk what to call them
 
                     let opr = 
-                        line[1].Operator == "+=" ? "+" :
-                        line[1].Operator == "-=" ? "-" :
-                        line[1].Operator == "*=" ? "*" :
-                        line[1].Operator == "/=" ? "/" :
-                        line[1].Operator == "%=" ? "%" :
+                        assignmentOpr.Operator == "+=" ? "+" :
+                        assignmentOpr.Operator == "-=" ? "-" :
+                        assignmentOpr.Operator == "*=" ? "*" :
+                        assignmentOpr.Operator == "/=" ? "/" :
+                        assignmentOpr.Operator == "%=" ? "%" :
                         "INVALID OPERATOR"
 
                     //error for unsupported operation
@@ -2303,6 +2305,134 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                         new ActionBlock("set_var","=",[left,result[1]])
                     )
                 }
+            }
+            //assignment to a dictionary/list
+            else if (line[1] instanceof IndexerToken) {
+                let [generatedCode, rootVarItem] = ToItem(line[0])
+                CodeLine.push(...generatedCode)
+
+                //get path of indexers
+                let path: [IndexerToken,TypeOverrideToken?,CodeItem?][] = []
+                let tokenIndex = 1
+                while (line[tokenIndex] instanceof IndexerToken) {
+                    let entry: [IndexerToken,TypeOverrideToken?] = [line[tokenIndex] as IndexerToken]
+                    tokenIndex++
+                    if (line[tokenIndex] instanceof TypeOverrideToken) {
+                        entry[1] = line[tokenIndex] as TypeOverrideToken
+                        tokenIndex++
+                    }
+                    path.push(entry)
+                }
+
+                let assignmentOpr = (line[tokenIndex] as OperatorToken)
+                let valueExpr = line[tokenIndex+1] as ExpressionToken
+
+                let reinsertionBlocks: CodeBlock[] = []
+
+                //drill down through path
+                let indexeeItem = rootVarItem
+                let indexeeTempVar = NewTempVar(path[path.length-1][1]?.Type)
+                let valueVar: VariableItem; if (assignmentOpr.Operator != "=") { valueVar = NewTempVar(path[path.length-1][1]?.Type) }
+
+                let indexeeType: string | undefined = undefined
+                let indexerItem: CodeItem
+                for (let i = 0; i < path.length; i++) {
+                    let lastEntry = path[i-1]
+                    let thisEntry = path[i]
+                    
+                    //figure out type of indexee
+                    if (i === 0) {
+                        indexeeType = GetType(rootVarItem)
+                    } else if (lastEntry[1] != undefined) {
+                        indexeeType = lastEntry[1]!.Type
+                    } else {
+                        throw new TCError(`Could not infer value type and no type was specified`,0,lastEntry[0].CharStart,lastEntry[0].CharEnd)
+                    }
+                    
+                    //solve expression of indexer
+                    let indexExprCode: CodeBlock[]
+                    [indexExprCode, indexerItem] = SolveExpression(thisEntry[0].Index)
+                    CodeLine.push(...indexExprCode)
+
+                    if (i < path.length-1) {
+                        //create codeblocks for the indexing operation
+                        if (indexeeType == "dict" || indexeeType == "list") {
+                            //add reinsertion codeblock if this value isn't grabbed by reference
+                            let thisEntryType: string
+                            if (thisEntry[1] != undefined) {
+                                thisEntryType = thisEntry[1].Type
+                            }
+                            else {
+                                throw new TCError(`Could not infer value type and no type was specified`,0,thisEntry[0].CharStart,thisEntry[0].CharEnd)
+                            }
+
+                            let newTempVar = NewTempVar(indexeeType)
+                            if (thisEntryType == "list") {
+                                reinsertionBlocks.unshift(
+                                    new ActionBlock("set_var",indexeeType == "dict" ? "SetDictValue" : "SetListValue",[indexeeItem,indexerItem,newTempVar])
+                                )
+                            }
+                            indexeeTempVar = newTempVar
+
+                            //codeblock for actual get operation
+                            CodeLine.push(
+                                new ActionBlock("set_var",indexeeType == "dict" ? "GetDictValue" : "GetListValue",[i == path.length - 1 ? valueVar! : indexeeTempVar,indexeeItem,indexerItem])
+                            )
+                        }
+                        else {
+                            throw new TCError(`Type '${indexeeType}' cannot be indexed into`,0,thisEntry[0].CharStart,thisEntry[0].CharEnd)
+                        }
+                        indexeeItem = indexeeTempVar
+                    }
+                }
+
+                //solve expression of value 
+                let [valueExprCode, valueItem] = SolveExpression(valueExpr)
+
+                if (assignmentOpr.Operator !== "=") {
+                    let typeleft: string
+                    let typeright = GetType(valueItem)
+                    if (path[path.length-1][1] == undefined) {
+                        throw new TCError(`Could not infer value type and no type was specified`,0,path[path.length-1][0].CharStart,path[path.length-1][0].CharEnd)
+                    }
+                    typeleft = path[path.length-1][1]!.Type
+
+                    let opr = 
+                        assignmentOpr.Operator == "+=" ? "+" :
+                        assignmentOpr.Operator == "-=" ? "-" :
+                        assignmentOpr.Operator == "*=" ? "*" :
+                        assignmentOpr.Operator == "/=" ? "/" :
+                        assignmentOpr.Operator == "%=" ? "%" :
+                        "INVALID OPERATOR"
+
+                    //error for unsupported operation
+                    if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][opr] == undefined || OPERATIONS[typeleft][opr][typeright] == undefined) {
+                        throw new TCError(`${typeleft} cannot ${opr} with ${typeright}`, 0, assignmentOpr.CharStart, assignmentOpr.CharEnd)
+                    }
+
+                    //get left value
+                    let [indexerExprCode, finalIndexerItem] = SolveExpression(path[path.length-1][0].Index)
+                    
+                    let left = NewTempVar(typeleft)
+                    CodeLine.push(
+                        ...indexerExprCode,
+                        new ActionBlock("set_var",indexeeType == "dict" ? "GetDictValue" : "GetListValue",[left,indexeeItem,finalIndexerItem])
+                    )
+
+                    // run the operation
+                    let result = OPERATIONS[typeleft][opr][typeright](left, valueItem)
+
+                    //push any code generated by operation
+                    CodeLine.push(...result[0])
+
+                    valueItem = result[1]
+                }
+
+                CodeLine.push(
+                    ...valueExprCode,
+                    new ActionBlock("set_var",indexeeType == "dict" ? "SetDictValue" : "SetListValue",[indexeeItem,indexerItem!,valueItem]),
+                    ...reinsertionBlocks
+                )
             }
         }
         //debug print variable
