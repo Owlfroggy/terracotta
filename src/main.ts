@@ -15,7 +15,19 @@ export const DEBUG_MODE = {
 //function for spamming debug print statements
 //its faster to type and i can search and destroy them after im done debugging without having to worry about nuking actually important log messages
 export function print (...data: any[]) {
-    process.stderr.write(data.map(entry => entry.toString()).join(" ")+"\n")
+    process.stderr.write(data.map(entry => {
+        if (entry === undefined) {
+            return "undefined"
+        }
+        else if (entry === null) {
+            return "null"
+        }
+        try {
+            return entry.toString()
+        } catch (e) {
+            return `[${typeof entry}]`
+        }
+    }).join(" ")+"\n")
 }
 
 async function Main() {
