@@ -2,15 +2,40 @@ import * as Tokenizer from "./tokenizer/tokenizer"
 import * as ErrorHandler from "./util/errorHandler"  
 import * as LineCompiler from "./compiler/codelineCompiler"
 import * as ProjectCompiler from "./compiler/projectCompiler"
-import { parseArgs } from "@pkgjs/parseargs"
+import { parseArgs } from "node:util"
 import * as path from "path"
 import { StartServer } from "./languageServer/languageServer"
+import { COLOR as c } from "./util/characterUtils"
 const ncp = require("copy-paste")
 
 export const DEBUG_MODE = {
     enableDebugFunctions: true,
     disableOptimization: false,
 }
+
+export const VERSION = "alpha"
+
+const SPLASH_TEXTS = [
+    "200% productivity boost by stopping code parkour!",
+    "Making development for mini plots possible!",
+    "Never obliterate an if statement's contents again!",
+    "Never touch %math ever again!",
+    "If your plot isn't open source, I'm not playing it.",
+    "Who needs long codespaces anyway?",
+    "Expression items were canceled? Fine. I'll do it myself.",
+    "Revolutionary new df features such as: Readable Code",
+    "Revolutionary new df features such as: Copy & Paste",
+    "Revolutionary new df features such as: Comments",
+    "We don't talk about lagslayer.",
+    "It shouldn't exist!",
+    "Feature complete and then some!",
+    `${c.Strikethrough}Communism${c.EndStrikethrough} Text->DF has failed every time it was tried... but not this time!`,
+    "Magic!",
+    "Y'all need to stop with this softcoding stuff",
+    "Making Select Object a grand total of 5% less painful!",
+    "What's that? Collaberating on plots? Uhhhhhhh Shut Up",
+    "Shoutout to CodeClient",
+]
 
 //function for spamming debug print statements
 //its faster to type and i can search and destroy them after im done debugging without having to worry about nuking actually important log messages
@@ -32,7 +57,6 @@ export function print (...data: any[]) {
 
 async function Main() {
     const options = {
-        compile: { type: "boolean" },
         //if true, copy the result to the clipboard (only works with file mode)
         copy: { type: "boolean" },
         //how long the codespace is in minecraft blocks (used for auto-slicing codelines)
@@ -47,7 +71,7 @@ async function Main() {
         //"gzip": output gzipped df template json
         //"json": output stringified df template json
         //default is "gzip"
-        cmode: { type: "string" },
+        outmode: { type: "string" },
         
 
         //the project to take in (does not do anything in server mode) (incompatible with --file)
@@ -55,14 +79,11 @@ async function Main() {
         //if true, output sorted by codeline type
         //if false, output every template seperated by newline with
         includemeta: { type: "boolean" },
-
-
-        //if true, run as a language server
-        server: { type: "boolean"},
-    };
+    } as const; //const as const!! i love javascript!!!!!!!!!!!!!!!
 
     
-    const { values, positionals } = parseArgs({ options });
+    const { values, positionals } = parseArgs({ args: process.argv, options: options, allowPositionals: true });
+    let command = positionals[2]
     
     let plotsize = values.plotsize == null ? 99999 : Number(values.plotsize)
     if (plotsize < 14) {
@@ -70,7 +91,7 @@ async function Main() {
         process.exit(1)
     }
     
-    if (values.compile) {
+    if (command == "compile") {
         //error handling
         if (values.file && values.project) {
             process.stderr.write("\nError: --file and --project are mutually exclusive\n")
@@ -79,8 +100,12 @@ async function Main() {
         let output: string = ""
 
         if (values.file) {
+            if (values.outmode && !(values.outmode == "gzip" || values.outmode == "json")) {
+                process.stderr.write("Error: --outmode must be either 'gzip' or 'json'\n")
+                process.exit(1)
+            }
             let script = await Bun.file(values.file).text()
-            let results = ProjectCompiler.CompileFile(script,plotsize)
+            let results = ProjectCompiler.CompileFile(script,plotsize,values.outmode as "gzip" | "json")
 
             if (results.error) {
                 ErrorHandler.PrintError(results.error, script, new URL(values.file).pathname.split('/').pop()!)
@@ -119,8 +144,27 @@ async function Main() {
             process.stdout.write(output)
         }
     } 
-    else if (values.server) {
+    else if (command == "server") {
         StartServer()
+    }
+    else if (command == undefined) {
+        console.log(
+`${c.BrightCyan}${c.Bold}Terracotta${c.Reset} - ${c.LightYellow}${c.Blink}${SPLASH_TEXTS[Math.floor(Math.random() * SPLASH_TEXTS.length)]}${c.Reset}
+${c.Gray}version ${c.Italic}${VERSION}${c.Reset}
+
+${c.White}${c.Underline}Commands:${c.Reset}
+${c.Yellow}compile ${c.White}(${c.Magenta}--project --includemeta${c.White}? | ${c.Magenta}--file --outmode${c.White}?) ${c.Magenta}--plotsize --copy${c.White}?
+${c.White}├ ${c.Underline}Compiles either a single .tc file or an entire project and prints the compiled template data to stdout.${c.Reset}
+${c.White}├ ${c.Magenta}--project ${c.Gray}path/to/folder${c.White}: Compile this folder as a project.
+${c.White}├ ${c.Magenta}--includemeta${c.White}: If present, output a JSON structure containing more info about compiled templates. Currently only works with --project.
+${c.White}│
+${c.White}├ ${c.Magenta}--file ${c.Gray}path/to/file.tc${c.White}: Compile this file only (will ${c.Red}${c.Bold}NOT${c.Reset}${c.White} link any external modules or item libraries).
+${c.White}├ ${c.Magenta}--outmode ${c.Gray}gzip | json${c.White}: What format to return compiled templates in. Currently only works with --file.
+${c.White}│
+${c.White}├ ${c.Magenta}--plotsize ${c.Gray}number${c.White}: Codespace size in minecraft blocks; used for automatic codeline splitting. If not present, disables codeline splitting.
+${c.White}└ ${c.Magenta}--copy${c.White}: If present, copy compiled templates to the clipboard instead of printing to stdout.
+`
+        )
     }
 }
 

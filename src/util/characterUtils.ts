@@ -1,10 +1,20 @@
 export const COLOR = {
     Red: "\x1B[0;91m",
     Yellow: "\x1B[0;93m",
+    LightYellow: "\x1B[38;5;228m",
+    Magenta: "\x1B[0;95m",
+    BrightCyan: "\x1B[38;5;51m",
     White: "\x1B[0;37m",
     Gray: "\x1B[38;5;248m",
     DarkGray: "\x1B[38;5;240m",
+
     Reset: "\x1B[0m",
+    Bold: "\x1B[1m",
+    Italic: "\x1B[3m",
+    Underline: "\x1B[4m",
+    Strikethrough: "\x1B[9m",
+    EndStrikethrough: "\x1B[29m",
+    Blink: "\x1B[5m"
 }
 
 export class CharUtils {
