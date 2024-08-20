@@ -608,6 +608,37 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 if (SCRIPT_CONTENTS[index + 2] == "n") {
                     //newline from \n
                     string += "\n"
+                } else if (SCRIPT_CONTENTS[index + 2] == "u") {
+                    let initIndex = index + 1
+                    let sequence: string
+
+                    //unicode character with variable number of digits
+                    if (SCRIPT_CONTENTS[index+3] == "{") {
+                        let sequenceResults = cu.GetCharactersUntil(index+4,["}","\"","\n"],true)
+                        sequence = sequenceResults[1]
+                        if (SCRIPT_CONTENTS[sequenceResults[0]+1] != "}") {
+                            throw new TCError("Unicode escape sequence was never closed",-1,initIndex,initIndex+1)
+                        }
+                        if (sequence.length == 0) {
+                            throw new TCError("Expected hexadecimal digits inside unicode escape brackets",-1,initIndex,initIndex + 3)
+                        }
+                        index += sequence.length+2
+                    //unicode character with only 4 digits
+                    } else {
+                        sequence = cu.GetNextCharacters(index+2,4,false)
+                        index += 4
+                    }
+                    
+                    //throw error for non-hexadecimal characters
+                    if (sequence.match(/[^A-f0-9]/g)) {
+                        throw new TCError(`Invalid unicode codepoint: '${sequence}'`,-1,initIndex,index + 2)
+                    }
+
+                    try {
+                        string += String.fromCodePoint(parseInt(sequence,16))
+                    } catch {
+                        throw new TCError(`Invalid unicode character: '${sequence}'`,-1,initIndex,index + 2)
+                    }
                 } else {
                     //add char after backslash into the value without parsing it
                     string += SCRIPT_CONTENTS[index + 2]
