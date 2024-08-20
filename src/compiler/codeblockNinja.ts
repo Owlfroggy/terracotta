@@ -80,6 +80,10 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
             to[name]! += 1
         }
 
+        if (block.Block == "call_func" || block.Block == "start_process") {
+            TextCode.GetAllVariables(block.Action).forEach(addVariableName)
+        }
+
         block.Arguments.forEach(arg => {
             if (arg instanceof VariableItem) {
                 if (arg.Scope == "line") {
