@@ -6,6 +6,7 @@ import { parseArgs } from "node:util"
 import * as path from "path"
 import { StartServer } from "./languageServer/languageServer"
 import { COLOR as c } from "./util/characterUtils"
+import { pathToFileURL } from "node:url"
 const ncp = require("copy-paste")
 
 export const DEBUG_MODE = {
@@ -108,7 +109,7 @@ async function Main() {
             let results = ProjectCompiler.CompileFile(script,plotsize,values.outmode as "gzip" | "json")
 
             if (results.error) {
-                ErrorHandler.PrintError(results.error, script, new URL(values.file).pathname.split('/').pop()!)
+                ErrorHandler.PrintError(results.error, script, pathToFileURL(values.file).pathname.split('/').pop()!)
                 return
             }
 
