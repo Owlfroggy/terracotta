@@ -580,6 +580,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
     }
 
+    const escapableCharacters = ["'","\"","n","\\","&"]
     //returned number will be index of closing char
     //ERR1 = string was not closed
     function GetString(index: number, openingChar: string, closingChar: string = openingChar, features: Array<"ampersandConversion"> = [], ignoreContexts: boolean = false): [number, string] | null {
@@ -639,9 +640,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     } catch {
                         throw new TCError(`Invalid unicode character: '${sequence}'`,-1,initIndex,index + 2)
                     }
-                } else {
-                    //add char after backslash into the value without parsing it
+                } else if (escapableCharacters.includes(SCRIPT_CONTENTS[index + 1])) {
                     string += SCRIPT_CONTENTS[index + 2]
+                } else {
+                    throw new TCError(`Invalid escape sequence: '\\${SCRIPT_CONTENTS[index+2]}'`,-1,index+1,index+2)
                 }
 
                 index += 2
