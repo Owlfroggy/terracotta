@@ -25,7 +25,8 @@
             "LaunchProj": "LaunchProjectile"
         },
         "if_game": {
-            "HasPlayer": "HasPlayer"
+            "HasPlayer": "HasPlayer",
+            "IsChunkLoaded": "ChunkIsLoaded"
         },
         "entity_action": {
             "SetBaby": "SetIsBaby",
@@ -141,7 +142,8 @@
             "SetItemColor": "SetColor",
             "SetItemFlags": "SetVisiblityFlags",
             "GetItemEffects": "GetPotionEffects",
-            " SetItemLore ": "SetItemLore",
+            " SetItemLore ": "SetLore",
+            "AddItemLore": "AddLore",
             "SetItemEffects": "SetPotionEffects",
             "GetItemTag": "GetTag",
             "ClearEnchants": "ClearEnchantments",
@@ -192,7 +194,7 @@
             "GetParticleType": "GetType",
             "SetParticleMat": "SetMaterial",
             "SetParticleSize": "SetSize",
-            "GetParticleSpread": "GetSpread",
+            "GetParticleSprd": "GetSpread",
             "GetParticleColor": "GetColor",
             "SetParticleRoll": "SetRoll",
             "GetParticleSize": "GetSize",
@@ -321,6 +323,7 @@
             "SetItemType": "item",
             " SetItemName ": "item",
             " SetItemLore ": "item",
+            "AddItemLore": "item",
             "SetItemAmount": "item",
             "SetItemDurability": "item",
             "SetItemBreakability": "item",
