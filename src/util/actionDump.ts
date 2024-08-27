@@ -408,7 +408,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     let returnValues: Parameter[] = []
     if (actionJson.icon?.returnValues) { returnValues = parseArgumentValueThingies(actionJson.icon?.returnValues) }
     
-    let descriptionString = actionJson.icon.description.join(" ")
+    let descriptionString = deColorizeString(actionJson.icon.description.join(" "))
 
     let additionalInfo = actionJson.icon.additionalInfo ? actionJson.icon.additionalInfo.map(entry => {
         return entry.join(" ")  
