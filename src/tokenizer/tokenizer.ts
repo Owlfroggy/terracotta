@@ -13,6 +13,8 @@ import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VAL
 import { CompletionItemKind, InsertTextMode } from "vscode-languageserver"
 import { slog } from "../languageServer/languageServer"
 
+type ExpressionList = (ExpressionToken | null)[]
+
 //==========[ tokens ]=========\\
 export class Token {
     constructor(metadata: [number, number]) {
@@ -71,16 +73,16 @@ export class NumberToken extends Token {
     itemtype = "num"
 }
 export class VectorToken extends TypeCreationToken {
-    constructor(meta,x: ExpressionToken, y: ExpressionToken, z: ExpressionToken, rawArgs: any[]) {
+    constructor(meta,x: ExpressionToken | null, y: ExpressionToken | null, z: ExpressionToken | null, rawArgs: any[]) {
         super(meta, rawArgs)
         this.X = x
         this.Y = y
         this.Z = z
     }
 
-    X: ExpressionToken
-    Y: ExpressionToken
-    Z: ExpressionToken
+    X: ExpressionToken | null
+    Y: ExpressionToken | null
+    Z: ExpressionToken | null
 
     itemtype = "vec"
 }
@@ -94,7 +96,7 @@ export class TextToken extends Token {
     itemtype = "txt"
 }
 export class SoundToken extends TypeCreationToken {
-    constructor(meta,id: ExpressionToken, volume: ExpressionToken | null, pitch: ExpressionToken | null, variant: ExpressionToken | null, isCustom: boolean, rawArgs: any[]) {
+    constructor(meta,id: ExpressionToken | null, volume: ExpressionToken | null, pitch: ExpressionToken | null, variant: ExpressionToken | null, isCustom: boolean, rawArgs: any[]) {
         super(meta,rawArgs)
         this.SoundId = id
         this.Volume = volume
@@ -103,7 +105,7 @@ export class SoundToken extends TypeCreationToken {
         this.IsCustom = isCustom
     }
 
-    SoundId: ExpressionToken
+    SoundId: ExpressionToken | null
     Variant: ExpressionToken | null
     Volume: ExpressionToken | null
     Pitch: ExpressionToken | null
@@ -113,7 +115,7 @@ export class SoundToken extends TypeCreationToken {
     itemtype = "snd"
 }
 export class LocationToken extends TypeCreationToken {
-    constructor(meta,x: ExpressionToken, y: ExpressionToken, z: ExpressionToken, pitch: ExpressionToken | null = null, yaw: ExpressionToken | null = null, rawArgs: any[]) {
+    constructor(meta,x: ExpressionToken | null, y: ExpressionToken | null, z: ExpressionToken | null, pitch: ExpressionToken | null = null, yaw: ExpressionToken | null = null, rawArgs: any[]) {
         super(meta,rawArgs)
         this.X = x
         this.Y = y
@@ -122,30 +124,30 @@ export class LocationToken extends TypeCreationToken {
         this.Yaw = yaw
     }
 
-    X: ExpressionToken
-    Y: ExpressionToken
-    Z: ExpressionToken
+    X: ExpressionToken | null
+    Y: ExpressionToken | null
+    Z: ExpressionToken | null
     Pitch: ExpressionToken | null
     Yaw: ExpressionToken | null
 
     itemtype = "loc"
 }
 export class PotionToken extends TypeCreationToken {
-    constructor(meta,pot: ExpressionToken, amp: ExpressionToken | null, dur: ExpressionToken | null, rawArgs: any[]) {
+    constructor(meta,pot: ExpressionToken | null, amp: ExpressionToken | null, dur: ExpressionToken | null, rawArgs: any[]) {
         super(meta,rawArgs)
         this.Potion = pot
         this.Amplifier = amp
         this.Duration = dur
     }
 
-    Potion: ExpressionToken
+    Potion: ExpressionToken | null
     Amplifier: ExpressionToken | null
     Duration: ExpressionToken | null
 
     itemtype = "pot"
 }
 export class ItemToken extends TypeCreationToken {
-    constructor(meta,id: ExpressionToken, count: ExpressionToken | null = null, nbt: ExpressionToken | undefined, library: ExpressionToken | undefined, rawArgs: any[]) {
+    constructor(meta,id: ExpressionToken | null, count: ExpressionToken | null = null, nbt: ExpressionToken | null, library: ExpressionToken | null, rawArgs: any[]) {
         super(meta, rawArgs)
         this.Id = id
         this.Count = count
@@ -159,10 +161,10 @@ export class ItemToken extends TypeCreationToken {
         }
     }
 
-    Id: ExpressionToken
-    Library: ExpressionToken | undefined
+    Id: ExpressionToken | null
+    Library: ExpressionToken | null
     Count: ExpressionToken | null
-    Nbt: ExpressionToken | undefined
+    Nbt: ExpressionToken | null
 
     Mode: "basic" | "library"
 
@@ -170,14 +172,14 @@ export class ItemToken extends TypeCreationToken {
 }
 
 export class ParticleToken extends TypeCreationToken {
-    constructor(meta, type: ExpressionToken, data: ExpressionToken, rawArgs: any[]) {
+    constructor(meta, type: ExpressionToken | null, data: ExpressionToken | null, rawArgs: any[]) {
         super(meta, rawArgs)
         this.Type = type
         this.Data = data
     }
 
-    Type: ExpressionToken
-    Data: ExpressionToken
+    Type: ExpressionToken | null
+    Data: ExpressionToken | null
 
     itemtype = "par"
 }
@@ -212,11 +214,11 @@ export class DictionaryToken extends Token {
     itemtype = "dict"
 }
 export class ListToken extends Token {
-    constructor(meta,items: Array<ExpressionToken>) {
+    constructor(meta,items: ExpressionList) {
         super(meta)
         this.Items = items
     }
-    Items: ExpressionToken[]
+    Items: ExpressionList
 
     itemtype = "list"
 }
@@ -1183,10 +1185,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //basic item
         if (identifierResults[1] == "item") {
-            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], undefined, args)]
+            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], null, args)]
             //library item
         } else if (identifierResults[1] == "litem") {
-            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[1],args[2],undefined,args[0], args)]
+            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[1],args[2],null,args[0], args)]
         }
 
         return [argResults[0],new ItemToken([keywordInitIndex,argResults[0]],args[0],args[1],args[2],args[3],args)]
@@ -1435,7 +1437,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //move to opening char
         index += cu.GetWhitespaceAmount(index) + 1
 
-        let items: Array<ExpressionToken> = []
+        let items: ExpressionList = []
 
         let i = 0
         while (SCRIPT_CONTENTS[index] != closingChar && index < SCRIPT_CONTENTS.length) {
@@ -1485,17 +1487,23 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 }
             }
             
-            
             if (expressionResults == null) {
                 //the only situation this can happen is when the list is empty eg. ()
                 //move to closing char so loop finishes:
                 index += cu.GetWhitespaceAmount(index) + 1
+                items.push(null)
+                i++
             } 
             else if (expressionResults != null) {
                 i++
                 index = expressionResults[0] + cu.GetWhitespaceAmount(expressionResults[0]) + 1
                 items.push(expressionResults[1])
             }
+        }
+
+        //remove trailing nulls
+        while (items[items.length-1] === null) {
+            items.pop()
         }
 
         //error if list is unclosed because of EOF

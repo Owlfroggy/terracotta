@@ -289,7 +289,7 @@ export class ProcessBlock extends CodeBlock {
 }
 
 export class ActionBlock extends CodeBlock {
-    constructor(block: string, action: string, args: Array<CodeItem> = [], tags: TagItem[] = [], target: string | null = null) {
+    constructor(block: string, action: string, args: (CodeItem | null)[] = [], tags: TagItem[] = [], target: string | null = null) {
         super(block)
         this.Action = action
         this.Arguments = args
@@ -297,8 +297,8 @@ export class ActionBlock extends CodeBlock {
         this.Target = target
     }
     Action: string
-    Arguments: Array<CodeItem>
-    Tags: Array<TagItem>
+    Arguments: (CodeItem | null)[]
+    Tags: TagItem[]
     Target: string | null = null
     
     //what key to use for action name when compiling to json
@@ -315,7 +315,7 @@ export class IfActionBlock extends ActionBlock {
 }
 
 export class SubActionBlock extends ActionBlock {
-    constructor(block: string, action: string, args: Array<CodeItem>, tags: TagItem[], not: boolean, subaction: string | null = null) {
+    constructor(block: string, action: string, args: (CodeItem | null)[], tags: TagItem[], not: boolean, subaction: string | null = null) {
         super(block,action,args,tags,null)
         this.Subaction = subaction
         this.Not = not
@@ -499,8 +499,10 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
         return varitem
     }
 
-    function GetType(item: CodeItem): string {
-        if (item instanceof GameValueItem) {
+    function GetType(item: CodeItem | null): string {
+        if (item == null) {
+            return "none"
+        } else if (item instanceof GameValueItem) {
             return AD.DFGameValueMap[item.Value]!.ReturnType || "any"
         } else if (item instanceof VariableItem) {
             if (item.StoredType) {
@@ -710,7 +712,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                 throw new TCError(`Sound takes at most 4 arguments, ${token.RawArgs.length} were provided instead`, 3, token.CharStart, token.CharEnd)
             }
             if (token.RawArgs[0] == null) {
-                throw new TCError("Sound is missing ID", 2, token.CharStart, token.CharEnd)
+                throw new TCError("Sound must specify an ID (str)", 2, token.CharStart, token.CharEnd)
             }
 
             for (const component of ["SoundId","Volume","Pitch","Variant"]) {
@@ -747,7 +749,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
             } else {
                 //error for invalid sound id
                 if (!token.IsCustom && !AD.Sounds.has(components.SoundId.Value)) {
-                    throw new TCError(`Invalid sound type '${components.SoundId.Value}'`,0,token.SoundId.CharStart,token.SoundId.CharEnd)
+                    throw new TCError(`Invalid sound type '${components.SoundId.Value}'`,0,token.SoundId!.CharStart,token.SoundId!.CharEnd)
                 }
                 item[token.IsCustom ? "CustomKey" : "SoundId"] = components.SoundId.Value
             }
@@ -1128,7 +1130,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                         throw new TCError(`Expected list [horizontal, vertical] for spread`,0,spread.CharStart,spread.CharEnd) 
                     }
                 }
-                if (list.Items.length != 2) {
+                if (list.Items.length != 2 || list.Items[0] == null || list.Items[1] == null) {
                     throw new TCError(`Spread list must contain 2 values, ${list.Items.length} were provided`,0,spread.CharStart,spread.CharEnd)
                 }
 
@@ -1164,6 +1166,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
             let i = -1 //curent index in the list token
             for (let expression of token.Items) {
                 i++
+                if (expression == null) { continue }
                 let expressionResults = SolveExpression(expression)
                 code.push(...expressionResults[0])
                 currentChest.push(expressionResults[1])
@@ -1660,7 +1663,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                 //a temporary variable is automatically inserted as the first chest slot to get the returned value of the function
                 let tempVar = NewTempVar("num")//num is just a placeholder type and is reassigned after return type is gotten
                 
-                let args: CodeItem[] = [tempVar] 
+                let args: (CodeItem | null)[] = [tempVar] 
                 if (action.Params) {
                     let argResults = SolveArgs(action.Params)
                     code.push(...argResults[0])
@@ -1774,14 +1777,19 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
         return [code, expression[0]]
     }
 
-    function SolveArgs(list: ListToken): [CodeBlock[], CodeItem[]] {
+    function SolveArgs(list: ListToken): [CodeBlock[], (CodeItem | null)[]] {
         let code: CodeBlock[] = []
-        let args: CodeItem[] = []
+        let args: (CodeItem | null)[] = []
         for (let v of list.Items!) {
+            if (v == null) { 
+                args.push(null)
+                continue 
+            }
             let expressionResults = SolveExpression(v)
             code.push(...expressionResults[0])
             args.push(expressionResults[1])
         }
+
 
         return [code,args]
     }
@@ -2151,7 +2159,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                 if (AD.TCActionMap.repeat![action.Action] == null) {
                     throw new TCError(`Invalid repeat action '${action.Action}'`, 0, action.CharStart, action.CharEnd)
                 }
-                let args = line[0].Variables.map( (token) => ToItem(token)[1] )
+                let args: (CodeItem | null)[] = line[0].Variables.map( (token) => ToItem(token)[1] )
                 if (action.Arguments) {
                     let argResults = SolveArgs(action.Arguments)
                     CodeLine.push(...argResults[0])
@@ -2676,7 +2684,13 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
 
             //error if chest item count surpasses 27
             if (combinedChest.length > 27) {
-                throw new TCError("Chest item count cannot surpass 27 (including tags)", 0, args[28 - tags.length - 1].CharStart, args[args.length - 1].CharEnd)
+                let deNulledArgs = args.filter(x => x) as CodeItem[]
+                //if chest is entirely null items for some reason, ignore it
+                if (deNulledArgs.length == 0) {
+                    return
+                }
+
+                throw new TCError("Chest item count cannot surpass 27 (including tags)", 0, deNulledArgs[28 - tags.length - 1].CharStart, deNulledArgs[args.length - 1].CharEnd)
             }
         }
     ]
@@ -2825,12 +2839,16 @@ export function JSONize(code: Array<CodeBlock>): string {
     for (let block of code) {
         if (block instanceof ActionBlock) {
             let chest: any[] = []
+            let slotIndex = 0
             //convert items
             for (const item of block.Arguments) {
-                chest.push({
-                    "item": JSONizeItem(item),
-                    "slot": chest.length
-                })
+                if (item != null) {
+                    chest.push({
+                        "item": JSONizeItem(item),
+                        "slot": slotIndex
+                    })
+                }
+                slotIndex++
             }
 
             //convert tags
