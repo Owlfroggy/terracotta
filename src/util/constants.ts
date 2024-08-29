@@ -58,7 +58,7 @@ export const VALID_HEADER_KEYWORDS = ["LAGSLAYER_CANCEL"]
 export const VALID_LINE_STARTERS = ["PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION"]
 
 //operators that can be used to assign a value to a variable
-export const VALID_ASSIGNMENT_OPERATORS = ["=", "+=", "-=", "*=", "/=", "%="]
+export const VALID_ASSIGNMENT_OPERATORS = ["=", "+=", "-=", "*=", "/=", "^=", "%="]
 
 //operators that can be used in expressions
 export const VALID_MATH_OPERATORS = ["+", "-", "*", "/", "^", "%"]

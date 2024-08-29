@@ -2295,6 +2295,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                         assignmentOpr.Operator == "-=" ? "-" :
                         assignmentOpr.Operator == "*=" ? "*" :
                         assignmentOpr.Operator == "/=" ? "/" :
+                        assignmentOpr.Operator == "^=" ? "^" :
                         assignmentOpr.Operator == "%=" ? "%" :
                         "INVALID OPERATOR"
 
