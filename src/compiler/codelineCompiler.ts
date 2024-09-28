@@ -575,6 +575,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
             Motion: new VectorItem([], 1, 0, 0),
             "Motion Variation": new NumberItem([],"100"),
             Color: new StringItem([],"#FF0000"),
+            "Fade Color": new StringItem([],"#000000"),
             "Color Variation": new NumberItem([],"0"),
             Material: new StringItem([],"oak_log"),
             Size: new NumberItem([], "1"),
@@ -588,6 +589,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
         Motion: "vec",
         "Motion Variation": "num",
         Color: "str",
+        "Fade Color": "str",
         "Color Variation": "num",
         Material: "str",
         Size: "num",
@@ -1066,6 +1068,20 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
             else {
                 item.Data.rgb = IntegerizeHexColor(fields["Color"] || ITEM_PARAM_DEFAULTS.par.Color)
                 item.Data.colorVariation = fields["Color Variation"]?.Value || ITEM_PARAM_DEFAULTS.par["Color Variation"].Value
+            }
+
+            // fade color
+
+            if (variableComponents.includes("Fade Color")) {
+                item.Data.rgb_fade = 0
+                code.push(
+                    new ActionBlock("set_var","SetParticleFade",[tempVar,latestItem,fields["Fade Color"] || ITEM_PARAM_DEFAULTS.par["Fade Color"]])
+                )
+
+                latestItem = tempVar
+            }
+            else {
+                item.Data.rgb_fade = IntegerizeHexColor(fields["Fade Color"] || ITEM_PARAM_DEFAULTS.par["Fade Color"])
             }
 
             // material
