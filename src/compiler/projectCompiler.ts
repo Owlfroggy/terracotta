@@ -4,6 +4,7 @@ import * as ErrorHandler from "../util/errorHandler"
 import * as LineCompiler from "./codelineCompiler"
 import * as fs from "node:fs/promises"
 import * as CodeblockNinja from "./codeblockNinja"
+import { COLOR } from "../util/characterUtils"
 
 export type CompiledTemplate = string | Dict<any>
 
@@ -118,7 +119,10 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
         //ignore any files that aren't .tc
         if (!file.endsWith(".tc")) { return }
         try {
-            let fileContents = (await fs.readFile(new URL(folderUrl+file))).toString()
+            let fileContents: string
+            try { fileContents = (await fs.readFile(new URL(folderUrl+file))).toString() } 
+            catch (e) { process.stderr.write(`Error while reading file '${file}': ${e} (this file will be skipped)\n`); return }
+
             let compileResults = CompileFile(fileContents,data.maxCodeLineSize,"gzip")
             //if this tc script has an error, print it and move on
             if (compileResults.error) {
@@ -139,8 +143,10 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
                 results[categoryMap[result.type]][result.name] = result.template
             }
         } catch (e) {
-            process.stderr.write(`Error while reading file '${file}': ${e} (this file will be skipped)\n`)
-            return
+            process.stderr.write(`\n${COLOR.White}${"#".repeat(50)}\n${COLOR.Red}There was an internal error while compiling ${file}.\nPlease file a bug report containing the the below output and, if possible, the script that caused this error.\n${COLOR.White}${"#".repeat(50)}${COLOR.Reset}\n`)
+            console.error(e)
+            // throw e
+            process.exit(1)
         }
     }));
 
