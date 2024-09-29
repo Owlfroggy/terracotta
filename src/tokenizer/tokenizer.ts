@@ -585,11 +585,13 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     const escapableCharacters = ["'","\"","n","\\","&"]
     //returned number will be index of closing char
     //ERR1 = string was not closed
-    function GetString(index: number, openingChar: string, closingChar: string = openingChar, features: Array<"ampersandConversion"> = [], ignoreContexts: boolean = false): [number, string] | null {
+    function GetString(index: number, features: Array<"ampersandConversion"> = [], ignoreContexts: boolean = false): [number, string] | null {
         let initIndex = index + cu.GetWhitespaceAmount(index) + 1
 
+        let openingChar = cu.GetNextCharacters(index, 1)
+        let closingChar = openingChar
         //if not a string, return
-        if (cu.GetNextCharacters(index, 1) != openingChar) { return null }
+        if (!["'",'"'].includes(openingChar)) { return null }
 
         //move to start of string contents (after opening "")
         index += 1 + cu.GetWhitespaceAmount(index)
@@ -683,7 +685,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
             OfferContext(index + cu.GetWhitespaceAmount(index),ContextType.PureUser,{})
 
-            let nameResults = GetString(index, '"', '"')
+            let nameResults = GetString(index)
             
             if (nameResults == null) {
                 throw new TCError("Expected string following '['",0,index,index)
@@ -818,7 +820,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     //litearlly just GetString but it returns a string token
     function ParseString(index: number, openingChar: string, closingChar: string = openingChar): [number, StringToken] | null {
         let results
-        results = GetString(index, openingChar, closingChar,["ampersandConversion"])
+        results = GetString(index, ["ampersandConversion"])
         if (results) {
             return [results[0], new StringToken([index + cu.GetWhitespaceAmount(index) + 1,results[0]],results[1])]
         }
@@ -977,7 +979,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         index = identifierResults[0]
 
         //parse value (string)
-        let stringResults = GetString(index, '"', '"')
+        let stringResults = GetString(index)
         if (stringResults == null) {
             throw new TCError("Expected string following 'txt' keyword", 1, keywordInitIndex, index)
         }
@@ -1860,7 +1862,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                     //parse tag name
                     //try catch is to prevent the string context from getting offered
-                    let tagNameResults = GetString(index,'"','"',[],true)
+                    let tagNameResults = GetString(index,[],true)
 
                     if (tagNameResults) {
                         OfferContext(tagNameResults[0],ContextType.String,{"addons": {"actionTagString": Object.keys(validTags)}, "charStart": tagInitIndex, "charEnd": tagNameResults[0]})
@@ -1915,7 +1917,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                     let valueInitIndex = index + cu.GetWhitespaceAmount(index) + 1
                     //parse tag value
-                    let tagValueResults = GetString(index,'"','"',[],true)
+                    let tagValueResults = GetString(index,[],true)
 
                     if (tagValueResults) {
                         OfferContext(tagValueResults[0],ContextType.String,{"addons":{"actionTagString":validTags[tagName] ? validTags[tagName]!.Options : []},"canHaveVariable":false,"charStart": valueInitIndex,"charEnd": tagValueResults[0]})
