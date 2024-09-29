@@ -71,6 +71,9 @@ export const VALID_COMPARISON_OPERATORS = ["==", "!=", "<", ">", "<=", ">="]
 //game values that cannot be applied to entities
 export const PLAYER_ONLY_GAME_VALUES = ["Food Level","Food Saturation","Food Exhaustion","Attack Damage","Attack Speed","Attack Cooldown","Attack Cooldown Ticks","Experience Level","Experience Progress","Held Slot","Ping","Steer Sideways Movement","Steer Forward Movement","Hotbar Items","Inventory Items","Cursor Item","Inventory Menu Items","Game Mode","Open Inventory Title"]
 
+//all characters that turn into a formatting code when proceeded by §/&
+export const VALID_FORMATTING_CODES = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f','k','m','n','o','r','l']
+
 //==========[ domain lists ]=========\\
 
 //actions present in this list can be used with (for x on action) syntax

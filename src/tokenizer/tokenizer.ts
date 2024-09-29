@@ -9,7 +9,7 @@ import { DEBUG_MODE, print } from "../main"
 import { CharUtils } from "../util/characterUtils"
 import * as AD from "../util/actionDump"
 
-import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS} from "../util/constants"
+import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, VALID_FORMATTING_CODES} from "../util/constants"
 import { CompletionItemKind, InsertTextMode } from "vscode-languageserver"
 import { slog } from "../languageServer/languageServer"
 
@@ -652,10 +652,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                 index += 2
             }
-            //if chunk stopped due to &
+            //if chunk stopped due to formatting code
             else if (SCRIPT_CONTENTS[index + 1] == "&") {
                 //insert § if that's enabled
-                string += features.includes("ampersandConversion") ? "\u00A7" : "&"
+                string += features.includes("ampersandConversion") && VALID_FORMATTING_CODES.includes(SCRIPT_CONTENTS[index + 2]) ? "\u00A7" : "&"
 
                 index++
             }
