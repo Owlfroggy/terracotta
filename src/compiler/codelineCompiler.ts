@@ -2624,8 +2624,6 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
             }
         },
 
-
-
         // Condense incremeter contents (combine constants & line vars) \\
         function(block: CodeBlock) {
             //require this block to be action with arguments
@@ -2659,6 +2657,26 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
             //combine expression
             if (total > 0) { expressionEntries.push(String(total)) }
             block.Arguments.push(new NumberItem([], `%math(${expressionEntries.join("+")})`))
+        },
+
+        // Condense setting a temp var to a value and immediately setting a var to that temp var \\
+        function(block: CodeBlock, nextBlock: CodeBlock) {
+            //make sure blocks are the right type
+            if (!(block instanceof ActionBlock)) { return }
+            if (!(nextBlock instanceof ActionBlock && nextBlock.Block == "set_var" && nextBlock.Action == "=")) { return }
+
+            //make sure this is an action that sets a value
+            let returnType = AD.DFActionMap[block.Block]![block.Action]?.ReturnType
+            if (returnType) {
+                //make sure variables match up
+                if (block.Arguments[0] instanceof VariableItem && nextBlock.Arguments[1] instanceof VariableItem && nextBlock.Arguments[0] instanceof VariableItem && block.Arguments[0].Name == nextBlock.Arguments[1].Name) {
+                    //replace temp var here with the var thats actually being set
+                    block.Arguments[0] = nextBlock.Arguments[0]
+                    //remove = block
+                    CodeLine.splice(codeIndex+1,1)
+                }
+            }
+
         },
 
         // Split incrementers that are longer than 27 items \\ (this isn't technically optimization but i don't care)
