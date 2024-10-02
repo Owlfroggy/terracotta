@@ -1583,6 +1583,9 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
             else if (token instanceof CallToken && token.Type == "process") {
                 throw new TCError("Processes cannot be started from within expressions",0,token.CharStart,token.CharEnd)
             }
+            else if (!(token instanceof IndexerToken) && exprToken.Expression.length > i + 1 && !(exprToken.Expression[i+1] instanceof OperatorToken || exprToken.Expression[i+1] instanceof TypeOverrideToken || exprToken.Expression[i+1] instanceof IndexerToken)) {
+                throw new TCError("Expected operator between values",0,exprToken.CharStart,exprToken.Expression[i+1].CharEnd)
+            }
         }
 
         //if an index is present as a key in here, item conversion will skip it
