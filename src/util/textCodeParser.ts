@@ -417,7 +417,7 @@ export function TokenizeString(input: string): StringToken {
 //does not search nested expressions!!!!
 export function FindVariable(varName: string, expression: Token[]): number | null {
     let i = -1
-    for (const token of this.Tokens) {
+    for (const token of expression) {
         i++
         if (token instanceof VariableToken) {
             if (token.Name == varName) {
