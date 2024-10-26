@@ -1558,6 +1558,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             index = identifierResults[0]
 
 
+            let listInitIndex = index + cu.GetWhitespaceAmount(index) + 1
             let listResults: [number, ListToken] | null = null
             try {
                 listResults = ParseList(index,"(",")",",")
@@ -1577,10 +1578,13 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 throw e
             }
 
-            if (listResults == null) {
-                throw new TCError("Expected arguments following 'wait'",0,initIndex,index)
+            let args: ListToken
+            if (listResults) {
+                index = listResults[0]
+                args = listResults[1]
+            } else {
+                args = new ListToken([listInitIndex, -1], [])
             }
-            index = listResults[0]
 
             let tagResults = ParseTags(index, AD.DFActionMap.control!.Wait!.Tags)
             let tags
@@ -1589,7 +1593,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 tags = tagResults[1]
             }
 
-            return [index, new ControlBlockToken([initIndex,index],"Wait",listResults[1],tags)]
+            print("dingus")
+            return [index, new ControlBlockToken([initIndex,index],"Wait",args,tags)]
         }   
 
         return null
