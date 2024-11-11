@@ -271,7 +271,7 @@
             "ListValueEq": "ValueEquals",
         
 
-            "HasKey": "HasKey",
+            "DictHasKey": "HasKey",
             "DictValueEquals": "ValueEquals"
         },
         "select_obj": {
