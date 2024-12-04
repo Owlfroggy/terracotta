@@ -1,8 +1,10 @@
-import * as rpc from "vscode-jsonrpc/node"
+import * as rpc from "vscode-jsonrpc"
 import * as fs from "node:fs/promises"
-import { Tokenize, VariableToken } from "../tokenizer/tokenizer"
+import { Tokenize, VariableToken } from "../tokenizer/tokenizer.ts"
 import { CreateFilesParams, DeleteFilesParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidRenameFilesNotification, DocumentLinkResolveRequest, DocumentUri, InitializeParams, MessageType, RenameFilesParams, TextDocumentContentChangeEvent } from "vscode-languageserver"
-import { LinePositionToIndex, slog, snotif } from "./languageServer"
+import { LinePositionToIndex, slog, snotif } from "./languageServer.ts"
+import { Dict } from "../util/dict.ts"
+import { URL } from "node:url"
 
 function fixUriComponent(str: string): string {
     return encodeURIComponent(str).replaceAll("%2F","/")

@@ -1,4 +1,5 @@
-import { CharUtils, COLOR } from "./characterUtils"
+import { CharUtils, COLOR } from "./characterUtils.ts"
+import { Dict } from "./dict.ts"
 
 export function PrintError(e: Error, SCRIPT_CONTENTS: string, fileName: string) {
     if (e instanceof TCError) {

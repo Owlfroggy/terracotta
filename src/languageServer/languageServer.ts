@@ -1,10 +1,11 @@
-import * as rpc from "vscode-jsonrpc/node"
-import * as domains from "../util/domains"
-import * as AD from "../util/actionDump"
+import * as rpc from "vscode-jsonrpc/node.js"
+import * as domains from "../util/domains.ts"
+import * as AD from "../util/actionDump.ts"
 import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures, SignatureHelpParams, SignatureInformation, SignatureHelp, ParameterInformation } from "vscode-languageserver";
-import { CodeContext, ContextType, GetLineIndexes, Tokenize } from "../tokenizer/tokenizer";
-import { DocumentTracker } from "./documentTracker";
-import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, REPEAT_ON_ACTIONS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants";
+import { CodeContext, ContextType, GetLineIndexes, Tokenize } from "../tokenizer/tokenizer.ts";
+import { DocumentTracker } from "./documentTracker.ts";
+import { CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, REPEAT_ON_ACTIONS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants.ts";
+import { Dict } from "../util/dict.ts"
 
 enum CompletionItemType {
     CodeblockAction,

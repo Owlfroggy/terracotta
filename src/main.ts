@@ -1,13 +1,13 @@
-import * as Tokenizer from "./tokenizer/tokenizer"
-import * as ErrorHandler from "./util/errorHandler"  
-import * as LineCompiler from "./compiler/codelineCompiler"
-import * as ProjectCompiler from "./compiler/projectCompiler"
+import * as Tokenizer from "./tokenizer/tokenizer.ts"
+import * as ErrorHandler from "./util/errorHandler.ts"  
+import * as LineCompiler from "./compiler/codelineCompiler.ts"
+import * as ProjectCompiler from "./compiler/projectCompiler.ts"
+import * as fs from "node:fs/promises"
 import { parseArgs } from "node:util"
-import * as path from "path"
-import { StartServer } from "./languageServer/languageServer"
-import { COLOR as c } from "./util/characterUtils"
+import { StartServer } from "./languageServer/languageServer.ts"
+import { COLOR as c } from "./util/characterUtils.ts"
 import { pathToFileURL } from "node:url"
-const ncp = require("copy-paste")
+import * as ncp from "copy-paste"
 
 export const DEBUG_MODE = {
     enableDebugFunctions: true,
@@ -23,7 +23,7 @@ const SPLASH_TEXTS = [
     "Never touch %math ever again!",
     "If your plot isn't open source, I'm not playing it.",
     "Who needs long codespaces anyway?",
-    "Expression items were canceled? Fine. I'll do it myself.",
+    "Expression items were canceled? Oh no",
     "Revolutionary new df features such as: Readable Code",
     "Revolutionary new df features such as: Copy & Paste",
     "Revolutionary new df features such as: Comments",
@@ -105,7 +105,7 @@ async function Main() {
                 process.stderr.write("Error: --outmode must be either 'gzip' or 'json'\n")
                 process.exit(1)
             }
-            let script = await Bun.file(values.file).text()
+            let script = (await fs.readFile(values.file)).toString()
             let results = ProjectCompiler.CompileFile(script,plotsize,values.outmode as "gzip" | "json")
 
             if (results.error) {

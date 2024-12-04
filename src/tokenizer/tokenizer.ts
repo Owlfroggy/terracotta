@@ -3,15 +3,14 @@
 //may result from smart peoiple looking at my goofy ass code
 
 
-import { Domain, DomainList, TargetDomain, GenericDomains, GenericTargetDomains, PublicDomains } from "../util/domains"
-import { PrintError, TCError } from "../util/errorHandler"
-import { DEBUG_MODE, print } from "../main"
-import { CharUtils } from "../util/characterUtils"
-import * as AD from "../util/actionDump"
-
-import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, VALID_FORMATTING_CODES} from "../util/constants"
+import { Domain, DomainList, TargetDomain, GenericDomains, GenericTargetDomains, PublicDomains } from "../util/domains.ts"
+import { PrintError, TCError } from "../util/errorHandler.ts"
+import { DEBUG_MODE, print } from "../main.ts"
+import { CharUtils } from "../util/characterUtils.ts"
+import * as AD from "../util/actionDump.ts"
+import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, VALID_FORMATTING_CODES} from "../util/constants.ts"
 import { CompletionItemKind, InsertTextMode } from "vscode-languageserver"
-import { slog } from "../languageServer/languageServer"
+import { Dict } from "../util/dict.ts"
 
 type ExpressionList = (ExpressionToken | null)[]
 
@@ -755,7 +754,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //parse variable name
         try {
             nameResults = GetComplexName(index)
-        } catch (e) {
+        } catch (e: any) {
             if (e instanceof CodeContext) {
                 if (e.Type == ContextType.String || e.Type == ContextType.PureUser) {
                     e.Data.inComplex = true
@@ -1480,7 +1479,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                 //if no other contexts were offered, default to general
                 OfferContext(itemInitIndex,ContextType.General,{})
-            } catch (e) {
+            } catch (e: any) {
                 if (e.message == "Expression was never closed") {
                     throw new TCError("List was never closed", 1, initIndex + 1, cu.GetLineEnd(index) - 1)
                 }
@@ -2092,7 +2091,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         try {
             nameResults = GetComplexName(index)
         }
-        catch (e) {
+        catch (e: any) {
             if (e.Code == 1) {
                 throw new TCError(`${mode == "function" ? "Function" : "Process"} name was never closed`, 1, e.CharStart, e.CharLoc)
             } else if (e.Code == 2) {

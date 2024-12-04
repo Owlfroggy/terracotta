@@ -1,3 +1,5 @@
+import { Dict } from "./dict.ts"
+
 export const ITEM_DF_NBT = 3705
 export const TC_HEADER = `@__TC_`
 

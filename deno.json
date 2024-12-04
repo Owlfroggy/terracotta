@@ -1,0 +1,13 @@
+{
+  "lint": {
+    "exclude": ["src/"]
+  },
+  "compilerOptions": {
+    "noImplicitAny": false,
+    "strictPropertyInitialization": false,
+    "noImplicitOverride": false
+  },
+  "imports": {
+    "@std/fs": "jsr:@std/fs@^1.0.5"
+  }
+}

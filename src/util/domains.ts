@@ -1,5 +1,6 @@
-import * as AD from "./actionDump"
-import { TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "./constants"
+import * as AD from "./actionDump.ts"
+import { TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "./constants.ts"
+import { Dict } from "./dict.ts"
 
 //list of all registered domain ids
 export var DomainList: Dict<Domain> = {}

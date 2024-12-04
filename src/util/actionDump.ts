@@ -1,6 +1,9 @@
-const ACTION_DUMP_JSON = await Bun.file("actiondump.json").json()
-const OVERRIDES_JSON = await Bun.file("src/overrides.json").json()
-import { ValueType, PLAYER_ONLY_GAME_VALUES } from "./constants"
+import * as fs from "node:fs/promises"
+import { ValueType, PLAYER_ONLY_GAME_VALUES } from "./constants.ts"
+import { Dict } from "./dict.ts"
+
+const ACTION_DUMP_JSON = JSON.parse((await fs.readFile("actiondump.json")).toString())
+const OVERRIDES_JSON = JSON.parse((await fs.readFile("src/overrides.json")).toString())
 
 //==========[ classes ]=========\\
 

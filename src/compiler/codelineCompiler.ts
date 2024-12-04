@@ -1,11 +1,12 @@
-import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer"
-import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER } from "../util/constants"
-import { DEBUG_MODE, print } from "../main"
-import { Domain, DomainList, TargetDomain, TargetDomains } from "../util/domains"
+import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
+import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER } from "../util/constants.ts"
+import { DEBUG_MODE, print } from "../main.ts"
+import { Domain, DomainList, TargetDomain, TargetDomains } from "../util/domains.ts"
 import * as fflate from "fflate"
-import { TCError } from "../util/errorHandler"
-import * as AD from "../util/actionDump"
-import * as TextCode from "../util/textCodeParser"
+import { TCError } from "../util/errorHandler.ts"
+import * as AD from "../util/actionDump.ts"
+import * as TextCode from "../util/textCodeParser.ts"
+import { Dict } from "../util/dict.ts"
 
 //fill in missing tags with their default values
 function FillMissingTags(codeblockIdentifier: string, actionDFName: string, tags: TagItem[]): TagItem[] {

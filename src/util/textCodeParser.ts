@@ -1,5 +1,5 @@
-import { CharUtils } from "./characterUtils"
-import { print } from "../main"
+import { CharUtils } from "./characterUtils.ts"
+import { print } from "../main.ts"
 
 enum TextCodeType {
     "math" = "math",

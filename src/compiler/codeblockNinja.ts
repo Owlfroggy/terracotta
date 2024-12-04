@@ -3,10 +3,11 @@
  * also, due to the nature of codeline splitting, it is not safe to use control:ReturnNTimes on a plot with split codelines
  */
 
-import { TC_HEADER } from "../util/constants";
-import { ActionBlock, BracketBlock, CodeBlock, ElseBlock, EventBlock, FunctionBlock, GZIP, IfActionBlock, JSONize, NumberItem, ParamItem, ProcessBlock, StringItem, TextItem, VariableItem } from "./codelineCompiler";
-import * as TextCode from "../util/textCodeParser"
-import * as tokenizer from "../tokenizer/tokenizer"
+import { TC_HEADER } from "../util/constants.ts";
+import { ActionBlock, BracketBlock, CodeBlock, ElseBlock, EventBlock, FunctionBlock, GZIP, IfActionBlock, JSONize, NumberItem, ParamItem, ProcessBlock, StringItem, TextItem, VariableItem } from "./codelineCompiler.ts";
+import * as TextCode from "../util/textCodeParser.ts"
+import * as tokenizer from "../tokenizer/tokenizer.ts"
+import { Dict } from "../util/dict.ts"
 
 /**the maximum number of line vars that can be shared between the parent codeline and a slice */
 const MAX_LINE_VARS = 27

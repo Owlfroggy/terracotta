@@ -1,10 +1,13 @@
 import { pathToFileURL } from "node:url"
-import * as Tokenizer from "../tokenizer/tokenizer"
-import * as ErrorHandler from "../util/errorHandler"
-import * as LineCompiler from "./codelineCompiler"
+import * as Tokenizer from "../tokenizer/tokenizer.ts"
+import * as ErrorHandler from "../util/errorHandler.ts"
+import * as LineCompiler from "./codelineCompiler.ts"
 import * as fs from "node:fs/promises"
-import * as CodeblockNinja from "./codeblockNinja"
-import { COLOR } from "../util/characterUtils"
+import * as CodeblockNinja from "./codeblockNinja.ts"
+import { COLOR } from "../util/characterUtils.ts"
+import { URL } from "node:url"
+import { Dict } from "../util/dict.ts"
+import { walk } from "@std/fs"
 
 export type CompiledTemplate = string | Dict<any>
 
@@ -49,7 +52,7 @@ export function CompileFile(fileContents: string, maxLineLength: number, mode: "
 
     try {
         tokenResults = Tokenizer.Tokenize(script, { "mode": "getTokens" }) as Tokenizer.TokenizerResults
-    } catch (e) {
+    } catch (e: any) {
         return {error: e}
     }
 
@@ -57,7 +60,7 @@ export function CompileFile(fileContents: string, maxLineLength: number, mode: "
     let compiledResults: LineCompiler.CompileResults
     try {
         compiledResults = LineCompiler.CompileLines(tokenResults.Lines)
-    } catch (e) {
+    } catch (e: any) {
         return {error: e}
     }
 
@@ -67,7 +70,7 @@ export function CompileFile(fileContents: string, maxLineLength: number, mode: "
     let slicedResults: LineCompiler.CodeBlock[][]
     try {
         slicedResults = CodeblockNinja.SliceCodeLine(compiledResults.code,maxLineLength)
-    } catch (e) {
+    } catch (e: any) {
         return {error: e}
     }
 
@@ -92,13 +95,15 @@ export function CompileFile(fileContents: string, maxLineLength: number, mode: "
 export async function CompileProject(path: string, data: ProjectCompileData): Promise<CompiledProjectTemplates> {
     if (!path.endsWith("/")) {path += "/"}
     let folderUrl = pathToFileURL(path)
+    
     //error checking
-    if (!(await fs.exists(folderUrl))) { 
+    try {
+        if (!(await fs.stat(folderUrl)).isDirectory()) { 
+            process.stderr.write("\nError: Provided path is not a folder\n") 
+            process.exit(1)
+        }
+    } catch (e) {
         process.stderr.write("\nError: Provided path does not exist\n") 
-        process.exit(1)
-    }
-    if (!(await fs.stat(folderUrl)).isDirectory()) { 
-        process.stderr.write("\nError: Provided path is not a folder\n") 
         process.exit(1)
     }
 
@@ -112,15 +117,19 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
     let failed = false
 
     //compilation
-
-    const files = await fs.readdir(folderUrl,{recursive: true},);
+    const files: string[] = []
+    for (const fileInfo of await Array.fromAsync(walk(folderUrl))) {
+        if (fileInfo.isFile) {
+            files.push(fileInfo.path)
+        }
+    }
 
     await Promise.all(files.map(async (file) => {
         //ignore any files that aren't .tc
         if (!file.endsWith(".tc")) { return }
         try {
             let fileContents: string
-            try { fileContents = (await fs.readFile(new URL(folderUrl+file))).toString() } 
+            try { fileContents = (await fs.readFile(file)).toString() } 
             catch (e) { process.stderr.write(`Error while reading file '${file}': ${e} (this file will be skipped)\n`); return }
 
             let compileResults = CompileFile(fileContents,data.maxCodeLineSize,"gzip")
