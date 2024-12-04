@@ -921,8 +921,8 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                 } else {
                     let val = Number(components.Count.Value)
                     //throw error for stack size being too high
-                    if (val > 64) {
-                        throw new TCError("Stack size cannot be greater than 64",0,token.Count?.CharStart!,token.Count?.CharEnd!)
+                    if (val > 99) {
+                        throw new TCError("Stack size cannot be greater than 99",0,token.Count?.CharStart!,token.Count?.CharEnd!)
                     }
 
                     //throw error for non-integer stack size
