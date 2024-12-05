@@ -1,12 +1,14 @@
 import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
-import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER } from "../util/constants.ts"
+import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER, ITEM_DF_NBT } from "../util/constants.ts"
 import { DEBUG_MODE, print } from "../main.ts"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "../util/domains.ts"
 import * as fflate from "fflate"
+import { Dict } from "../util/dict.ts"
 import { TCError } from "../util/errorHandler.ts"
 import * as AD from "../util/actionDump.ts"
 import * as TextCode from "../util/textCodeParser.ts"
-import { Dict } from "../util/dict.ts"
+import * as NBT from "nbtify"
+import { CompilationEnvironment, CompileProject, ItemLibrary } from "./projectCompiler.ts"
 
 //fill in missing tags with their default values
 function FillMissingTags(codeblockIdentifier: string, actionDFName: string, tags: TagItem[]): TagItem[] {
@@ -193,13 +195,17 @@ export class GameValueItem extends CodeItem {
 }
 
 export class ItemItem extends CodeItem {
-    constructor(meta,id: string,count: number) {
+    constructor(meta,id: string,count: number, nbt: string | undefined = undefined, dfNbt: number = ITEM_DF_NBT) {
         super("item",meta)
         this.Id = id
         this.Count = count
+        this.Nbt = nbt
+        this.DFNbt = dfNbt
     }
     Id: string
     Count: number
+    Nbt: string | undefined
+    DFNbt: number
 }
 
 export class ParticleItem extends CodeItem {
@@ -292,6 +298,9 @@ export class ProcessBlock extends CodeBlock {
 export class ActionBlock extends CodeBlock {
     constructor(block: string, action: string, args: (CodeItem | null)[] = [], tags: TagItem[] = [], target: string | null = null) {
         super(block)
+        if (block == "call_func") {
+            this.ActionNameField = "data"
+        }
         this.Action = action
         this.Arguments = args
         this.Tags = FillMissingTags(block,action,tags)
@@ -371,7 +380,7 @@ class Context {
     HeldPostBracketCode: CodeBlock[] = []
 }
 
-export function CompileLines(lines: Array<Array<Token>>): CompileResults {
+export function CompileLines(lines: Array<Array<Token>>, environment: CompilationEnvironment): CompileResults {
     let tempVarCounter = 0
 
     //context to actually read var types from
@@ -882,9 +891,45 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
         //items
         else if (token instanceof ItemToken) {
             let components: Dict<any> = {}
+            let item: ItemItem | VariableItem = new ItemItem([token.CharStart,token.CharEnd],"minecraft:stone",1)
+            let tempVar = NewTempVar("item")
+            let latestItem: ItemItem | VariableItem = item
+
             if (token.Mode == "library") {
+                for (const component of ["Library","Id","Count"]) {
+                    let defaultValue = ITEM_PARAM_DEFAULTS.item[component]
+                    if (defaultValue !== undefined && !token[component]) { 
+                        components[component] = defaultValue
+                        continue
+                    }
+
+                    let solved = solveArg(token[component],component,component == "Count" ? "num" : "str")
+                    components[component] = solved[1]
+                }
+                //make sure stuff actually exists
+                let library = environment.itemLibraries?.[components.Library.Value]
+                if (!library) {
+                    throw new TCError(`Invalid library id '${components.Library.Value}'`,0,token.Library?.CharStart!,token.Library?.CharEnd!)
+                }
+                let itemData = library.items?.[components.Id.Value]
+                if (!item) {
+                    throw new TCError(`Invalid item id '${components.Id.Value}' for library '${components.Library.Value}'`,0,token.Id?.CharStart!,token.Id?.CharEnd!)
+                }
+
+                //insert by variable
+                if (library.compilationMode == "insertByVar" || variableComponents.includes("Library") || variableComponents.includes("Id")) {
+                    item = new VariableItem([],"unsaved",`@__TC_ITEM:${library.id}:${components.Id.Value}`)
+                    latestItem = item
+                }
+                //insert directly
+                else {
+                    item.Id = itemData?.material!
+                    item.Nbt = itemData?.componentsString
+                    item.DFNbt = itemData?.version!
+                }
+
                 //implement this AFTER the client mod is done
-                throw new TCError("Library items are not implemented yet",0,token.CharStart,token.CharEnd)
+                // throw new TCError("Library items are not implemented yet",0,token.CharStart,token.CharEnd)
             } else {
                 if (token.Nbt) { throw new TCError("NBT on item constructors is not implemented yet",0,token.Nbt.CharStart,token.Nbt.CharEnd)}
 
@@ -896,13 +941,9 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                         continue
                     }
 
-                    let solved = solveArg(token[component],component,component == "Id" ? "str" : "num")
+                    let solved = solveArg(token[component],component,component == "Count" ? "num" : "str")
                     components[component] = solved[1]
                 }
-
-                let item = new ItemItem([token.CharStart,token.CharEnd],"minecraft:stone",1)
-                let tempVar = NewTempVar("item")
-                let latestItem: ItemItem | VariableItem = item
                 
                 if (variableComponents.includes("Id")) {
                     code.push(
@@ -913,28 +954,30 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
                     item.Id = components.Id.Value
                 }
 
-                if (variableComponents.includes("Count")) {
+            }
+            if (variableComponents.includes("Count") || item instanceof VariableItem) {
+                if (components.Count.Value != 1) {
                     code.push(
                         new ActionBlock("set_var","SetItemAmount",[tempVar,latestItem,components.Count])
                     )
                     latestItem = tempVar
-                } else {
-                    let val = Number(components.Count.Value)
-                    //throw error for stack size being too high
-                    if (val > 99) {
-                        throw new TCError("Stack size cannot be greater than 99",0,token.Count?.CharStart!,token.Count?.CharEnd!)
-                    }
-
-                    //throw error for non-integer stack size
-                    if (Math.floor(val) != val) {
-                        throw new TCError("Stack size must be a whole number",0,token.Count?.CharStart!,token.Count?.CharEnd!)
-                    }
-
-                    item.Count = Number(val)
+                }
+            } else {
+                let val = Number(components.Count.Value)
+                //throw error for stack size being too high
+                if (val > 99) {
+                    throw new TCError("Stack size cannot be greater than 99",0,token.Count?.CharStart!,token.Count?.CharEnd!)
                 }
 
-                return [code,latestItem]
+                //throw error for non-integer stack size
+                if (Math.floor(val) != val) {
+                    throw new TCError("Stack size must be a whole number",0,token.Count?.CharStart!,token.Count?.CharEnd!)
+                }
+
+                item.Count = Number(val)
             }
+
+            return [code,latestItem]
         }
         else if (token instanceof ParticleToken) {
             //error for missing particle type
@@ -1858,10 +1901,10 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
     let CodeLine: Array<CodeBlock> = []
 
     let headerMode = true
-    let headerData: Dict<any> = {
-        codeblock: null,
-        lsCancel: false,
-        params: []
+    let headerData = {
+        codeblock: undefined as undefined | EventHeaderToken,
+        lsCancel: false as false | KeywordHeaderToken,
+        params: [] as ParamItem[]
     }
     let existingParams: string[] = []
 
@@ -2050,7 +2093,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
             }
 
             let actionBlock = new ActionBlock(action.Type == "function" ? "call_func" : "start_process",action.Name,args,tags)
-            actionBlock.ActionNameField = "data"
+            actionBlock.ActionNameField = "data" //WARNING! EVEN THOUGH THIS SEEMS REDUNDANT, EVERYTHING BREAKS IF YOU REMOVE IT!!
 
             CodeLine.push(actionBlock)
         }
@@ -2475,7 +2518,19 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
         throw new TCError(`${HighestContext.BracketType == "if" ? "If" : "Repeat"} statement never closed`,0,HighestContext.CreatorToken?.CharStart!,HighestContext.CreatorToken?.CharEnd!)
     }
 
-    //optimization passes
+    //== code injections ==\\
+    let injections = environment.codeInjections[
+        headerData.codeblock?.Codeblock == "PLAYER_EVENT" ? "playerEvents" :
+        headerData.codeblock?.Codeblock == "ENTITY_EVENT" ? "entityEvents" :
+        headerData.codeblock?.Codeblock == "FUNCTION" ? "functions" :
+        "processes"
+    ][headerData.codeblock?.Event!]
+    if (injections) {
+        CodeLine.splice(1,0,...injections.before.flat())
+        CodeLine.push(...injections.after.flat())
+    }
+
+    //== optimization passes ==\\
     //the order they appear in the array is the order they will be executed
 
     function OptimizePercentMath(block: CodeBlock) {
@@ -2746,7 +2801,7 @@ export function CompileLines(lines: Array<Array<Token>>): CompileResults {
 
     let results: CompileResults = {
         code: CodeLine,
-        type: headerData.codeblock?.Codeblock,
+        type: headerData.codeblock!.Codeblock as any,
         name: headerData.codeblock?.Event
     }
 
@@ -2845,11 +2900,10 @@ function JSONizeItem(item: CodeItem) {
         }
     }
     else if (item instanceof ItemItem) {
-        //this is gonna need to heavily overhauled at some point to actually parse nbt
         return {
             "id": "item",
             "data": {
-                "item": `{ Count:${item.Count}b,DF_NBT:3700,id:"${item.Id}"}`
+                "item": `{count:${item.Count}b,DF_NBT:${item.DFNbt},id:"${item.Id}",components:${item.Nbt}}`
             }
         }
     }
@@ -3020,4 +3074,25 @@ export function GZIP(json: string) {
     const output = fflate.gzipSync(enc.encode(json), { level: 9, mtime: 0});
 
     return uint8ToBase64(output)
+}
+
+//compiles insertByVar type libraries into their setup functions
+//this assumes the library has already been validated; it does not do its own validation of items
+export function CompileLibrary(library: ItemLibrary) {
+    let funcName = `@__TC_IL_${library.id}`
+    let CodeLine: Array<CodeBlock> = [
+        new FunctionBlock(funcName,[])
+    ]
+    for (const [itemId, item] of Object.entries(library.items)) {
+        if (itemId == "dummy") {print(item?.componentsString)}
+        CodeLine.push(
+            new ActionBlock("set_var","=",[new VariableItem([],"unsaved",`@__TC_ITEM:${library.id}:${itemId}`), new ItemItem([],item?.material!,1,item?.componentsString, item?.version)])
+        )
+    }
+
+    return {
+        code: CodeLine,
+        type: "FUNCTION",
+        name: funcName
+    } as CompileResults
 }

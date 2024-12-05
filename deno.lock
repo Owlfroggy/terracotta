@@ -7,6 +7,7 @@
     "npm:@types/node@^22.9.0": "22.9.0",
     "npm:copy-paste@^1.5.3": "1.5.3",
     "npm:fflate@~0.8.2": "0.8.2",
+    "npm:nbtify@^2.2.0": "2.2.0",
     "npm:vscode-jsonrpc@^8.2.1": "8.2.1",
     "npm:vscode-languageserver@^9.0.1": "9.0.1"
   },
@@ -44,6 +45,15 @@
       "integrity": "sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==",
       "dependencies": [
         "safer-buffer"
+      ]
+    },
+    "mutf-8@1.1.4": {
+      "integrity": "sha512-zyVV1mk9eO99NOdBq0CR7Wg+hkRcDCpaNsf6hRHYw4LgWTPh9GjJpQxRlRkgEAx+rtcy11SBtjpY70Kt6AosVQ=="
+    },
+    "nbtify@2.2.0": {
+      "integrity": "sha512-xlMI29ZAB4ZCBJRnoa+L8al8uKMTLSwrcx13LbdhFLc3KwJb0sWS4/OcKEN2UcjQOVNyk+CqDWfYvPLOo8of/g==",
+      "dependencies": [
+        "mutf-8"
       ]
     },
     "safer-buffer@2.1.2": {
@@ -85,6 +95,7 @@
         "npm:@types/node@^22.9.0",
         "npm:copy-paste@^1.5.3",
         "npm:fflate@~0.8.2",
+        "npm:nbtify@^2.2.0",
         "npm:vscode-jsonrpc@^8.2.1",
         "npm:vscode-languageserver@^9.0.1"
       ]

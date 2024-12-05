@@ -106,7 +106,7 @@ async function Main() {
                 process.exit(1)
             }
             let script = (await fs.readFile(values.file)).toString()
-            let results = ProjectCompiler.CompileFile(script,plotsize,values.outmode as "gzip" | "json")
+            let results = ProjectCompiler.CompileFile(script,plotsize,values.outmode as "gzip" | "json",{itemLibraries: {}})
 
             if (results.error) {
                 ErrorHandler.PrintError(results.error, script, pathToFileURL(values.file).pathname.split('/').pop()!)

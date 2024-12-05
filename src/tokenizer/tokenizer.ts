@@ -1592,7 +1592,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 tags = tagResults[1]
             }
 
-            print("dingus")
             return [index, new ControlBlockToken([initIndex,index],"Wait",args,tags)]
         }   
 

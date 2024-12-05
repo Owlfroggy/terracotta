@@ -1,10 +1,3 @@
 {
-  // The path to the `bun` executable.
-  "bun.runtime": "${workspaceFolder}/node_modules/.bin/bun",
-
-  // If support for Bun should be added to the default "JavaScript Debug Terminal".
-  "bun.debugTerminal.enabled": false,
-  
-  // If the debugger should stop on the first line of the program.
-  "bun.debugTerminal.stopOnEntry": false,
+  "deno.enable": true,
 }
