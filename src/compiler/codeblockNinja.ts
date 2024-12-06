@@ -10,7 +10,7 @@ import * as tokenizer from "../tokenizer/tokenizer.ts"
 import { Dict } from "../util/dict.ts"
 
 /**the maximum number of line vars that can be shared between the parent codeline and a slice */
-const MAX_LINE_VARS = 27
+const MAX_LINE_VARS = 26
 
 interface InProgressSlice {
     blocks: CodeBlock[],
