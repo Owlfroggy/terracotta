@@ -9,6 +9,7 @@ import * as AD from "../util/actionDump.ts"
 import * as TextCode from "../util/textCodeParser.ts"
 import * as NBT from "nbtify"
 import { CompilationEnvironment, CompileProject, ItemLibrary } from "./projectCompiler.ts"
+import { DiagnosticRefreshRequest } from "vscode-languageserver";
 
 //fill in missing tags with their default values
 function FillMissingTags(codeblockIdentifier: string, actionDFName: string, tags: TagItem[]): TagItem[] {
@@ -627,7 +628,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
 
             //if this component is a %mathing number
-            if (type == "num" && solved[1] instanceof NumberItem && Number.isNaN(Number(solved[1].Value))) {
+            if ((type == "num" || type == "any") && solved[1] instanceof NumberItem && Number.isNaN(Number(solved[1].Value))) {
                 variableComponentsList.push(paramName)
             }
 
@@ -640,7 +641,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
 
             let resultType = GetType(solved[1])
-            if (resultType != type) {
+            if (resultType != type && type != "any") {
                 throw new TCError(`Expected ${type} for ${paramName}, got ${resultType}`,0,expr.CharStart,expr.CharEnd)
             }
             return [solved[0],solved[1]]
@@ -903,22 +904,42 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                         continue
                     }
 
-                    let solved = solveArg(token[component],component,component == "Count" ? "num" : "str")
+                    let solved = solveArg(token[component],component,component == "Count" ? "num" : component == "Id" ? "any" : "str")
                     components[component] = solved[1]
                 }
                 //make sure stuff actually exists
                 let library = environment.itemLibraries?.[components.Library.Value]
-                if (!library) {
+                if (!library && !variableComponents.includes("Library")) {
                     throw new TCError(`Invalid library id '${components.Library.Value}'`,0,token.Library?.CharStart!,token.Library?.CharEnd!)
                 }
-                let itemData = library.items?.[components.Id.Value]
-                if (!item) {
+                let itemData = library?.items?.[components.Id.Value]
+                if (library && !itemData && !variableComponents.includes("Id")) {
                     throw new TCError(`Invalid item id '${components.Id.Value}' for library '${components.Library.Value}'`,0,token.Id?.CharStart!,token.Id?.CharEnd!)
                 }
 
                 //insert by variable
-                if (library.compilationMode == "insertByVar" || variableComponents.includes("Library") || variableComponents.includes("Id")) {
-                    item = new VariableItem([],"unsaved",`@__TC_ITEM:${library.id}:${components.Id.Value}`)
+                if (library?.compilationMode == "insertByVar" || variableComponents.includes("Library") || variableComponents.includes("Id")) {
+                    let values = {
+                        "Library": "",
+                        "Id": ""
+                    }
+                    for (const field of ["Library","Id"]) {
+                        if (components[field] instanceof VariableItem) {
+                            if (components[field].Scope == "line") {
+                                values[field] = `%var(${components[field].Name})`
+                            } else {
+                                let tempVar = NewTempVar(undefined)
+                                CodeLine.push(
+                                    new ActionBlock("set_var","=",[tempVar,components[field]])
+                                )
+                                values[field] = `%var(${tempVar.Name})`
+                            }
+                        } else {
+                            values[field] = components[field].Value
+                        }
+                    }
+                    
+                    item = new VariableItem([],"unsaved",`@__TC_ITEM:${values.Library}:${values.Id}`)
                     latestItem = item
                 }
                 //insert directly

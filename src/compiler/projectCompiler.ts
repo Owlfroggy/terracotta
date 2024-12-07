@@ -261,23 +261,21 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
             if (itemId == "dummy"){print(item.componentsString)}
         }
 
-        //if this library has the "insertByVar" compilation mode, compile its template
-        if (library.compilationMode == "insertByVar") {
-            let compileResults = CompileFile(library,data.maxCodeLineSize,"gzip",environment)
-            if (compileResults.error) {
-                failAndPrintError(`Error compiling library at ${file}: ${compileResults.error}`)
+        //compile this library's setup template
+        let compileResults = CompileFile(library,data.maxCodeLineSize,"gzip",environment)
+        if (compileResults.error) {
+            failAndPrintError(`Error compiling library at ${file}: ${compileResults.error}`)
+            return
+        }
+
+        //add all templates produced by the file to final result
+        for (const result of compileResults.templates!) {
+            if (results[categoryMap[result.type]][result.name] !== undefined) {
+                failAndPrintError(`Error: Duplicate ${result.type} '${result.name}'\n`)
                 return
             }
 
-            //add all templates produced by the file to final result
-            for (const result of compileResults.templates!) {
-                if (results[categoryMap[result.type]][result.name] !== undefined) {
-                    failAndPrintError(`Error: Duplicate ${result.type} '${result.name}'\n`)
-                    return
-                }
-    
-                results[categoryMap[result.type]][result.name] = result.template
-            }
+            results[categoryMap[result.type]][result.name] = result.template
         }
     }))
 
