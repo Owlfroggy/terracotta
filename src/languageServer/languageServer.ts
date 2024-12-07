@@ -93,7 +93,7 @@ function getParamString(parameters: AD.Parameter[], yesHeader: string, noHeader:
 
 var paramTypeKeywords = generateCompletions(["plural","optional"],CompletionItemKind.Keyword)
 var headerKeywords = generateCompletions(["LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM"],CompletionItemKind.Keyword)
-var genericKeywords = generateCompletions(["if","else","repeat","in","to","on","not","while","break","continue","return","returnmult","endthread","select","filter","optional","plural"],CompletionItemKind.Keyword)
+var genericKeywords = generateCompletions(["if","else","repeat","in","to","on","not","while","break","continue","return","returnmult","endthread","select","filter","optional","plural","litem","csnd"],CompletionItemKind.Keyword)
 genericKeywords.push({
     "label": "wait",
     "kind": CompletionItemKind.Function,
