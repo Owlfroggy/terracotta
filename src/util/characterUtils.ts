@@ -147,6 +147,7 @@ export class CharUtils {
             if (
                 (this.SCRIPT_CONTENTS[index] == "\t") ||
                 (this.SCRIPT_CONTENTS[index] == " ") ||
+                (this.SCRIPT_CONTENTS[index] == "\r") ||
                 (this.SCRIPT_CONTENTS[index] == "\n" && newlinesAreWhitespace)
             ) {
                 count += 1
