@@ -1,10 +1,11 @@
 import * as rpc from "vscode-jsonrpc"
 import * as fs from "node:fs/promises"
 import { Tokenize, VariableToken } from "../tokenizer/tokenizer.ts"
-import { CreateFilesParams, DeleteFilesParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidRenameFilesNotification, DocumentLinkResolveRequest, DocumentUri, InitializeParams, MessageType, RenameFilesParams, TextDocumentContentChangeEvent } from "vscode-languageserver"
+import { ChangeAnnotation, CreateFilesParams, DeleteFilesParams, DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidRenameFilesNotification, DocumentLinkResolveRequest, DocumentUri, FileChangeType, InitializeParams, MessageType, RenameFilesParams, TextDocumentContentChangeEvent } from "vscode-languageserver"
 import { LinePositionToIndex, slog, snotif } from "./languageServer.ts"
 import { Dict } from "../util/dict.ts"
-import { URL } from "node:url"
+import { fileURLToPath, pathToFileURL, URL } from "node:url"
+import { getAllFilesInFolder } from "../util/utils.ts";
 
 function fixUriComponent(str: string): string {
     return encodeURIComponent(str).replaceAll("%2F","/")
@@ -30,30 +31,6 @@ export type VariableScope = "global" | "saved" | "local" | "line"
 //every tracked variable should have EXACTLY ONE instance of this class
 //and all the places that need to keep track of tracked variables should reference that instance
 
-export class TrackedVariable {
-    constructor(scope: VariableScope, name: string, parent: DocumentTracker) {
-        this.ParentTracker = parent
-        this.Scope = scope
-        this.Name = name
-    }
-
-    //the document tracker that this variable is a part of
-    ParentTracker: DocumentTracker
-
-    readonly Scope: VariableScope
-    readonly Name: string
-
-    //key: uri of the document this variable is in
-    //value: the number of times this variable appears in that document
-    InDocuments: Dict<number> = {}
-
-    TryUntrack() {
-        if (Object.keys(this.InDocuments).length == 0) {
-            delete this.ParentTracker.Variables[this.Scope][this.Name]
-        }
-    }
-}
-
 export class TrackedDocument {
     constructor(uri: string, parent: DocumentTracker) {
         this.Uri = uri
@@ -71,112 +48,34 @@ export class TrackedDocument {
     IsOpen: Boolean = false
     //only used if the document is opened
     Version: number = 0
-    
-    //variables that are in this document
-    Variables: VariableTable = {global: {}, saved: {}, local: {}, line: {}}
-    //key = line number, value = array of variables that exist on that line
-    //if there are no variables on a line, it will not have an entry in this table
-    VariablesByLine: TrackedVariable[][] = []
 
     //all folders that this document is a descendant of
     AncestorFolders: Dict<TrackedFolder> = {}
     //the tracker that has authority over this document
     OwnedBy: TrackedFolder | null = null
 
-    
-    //yeah i've kinda given up on the names
-    DealWithRemovedVariableLine(line: TrackedVariable[]) {
-        if (line == undefined) { return }
-        line.forEach(variable => {
-            if (variable.InDocuments[this.Uri] !== undefined) {
-                //why do must i ! it?? it says ^^^^^^^^^^^^^ literally right there that it cannot be undefined!!! grrrrrrrr
-                //(maybe typescript just forgot its glasses)
-                variable.InDocuments[this.Uri]! -= 1
-                if (variable.InDocuments[this.Uri]! <= 0) {
-                    delete this.Variables[variable.Scope][variable.Name]
-                    
-                    delete variable.InDocuments[this.Uri]
-                    variable.TryUntrack()
-                }
-            }
-        })
-    }
 
-    UpdateVariables(topLine: number, bottomLine: number) {
-        let lineVariableInfo = Tokenize(this.Text,{mode: "getVariables", startFromLine: bottomLine, goUntilLine: topLine, fromLanguageServer: true}) as Dict<VariableToken[]>
-        for (let [lineString, vars] of Object.entries(lineVariableInfo)) {
-            let lineNum = Number(lineString)
-            //remove old line state
-            if (this.VariablesByLine[lineNum]) {
-                this.DealWithRemovedVariableLine(this.VariablesByLine[lineNum])
-                this.VariablesByLine[lineNum].length = 0
-            }
-            
-            //apply new line state
-            if (vars != null && vars.length > 0) {
-                this.VariablesByLine[lineNum] = []
-                vars.forEach(varToken => {
-                    let trackedVar = this.ParentTracker.AccessVariable(varToken.Scope,varToken.Name)
-                    
-                    this.VariablesByLine[lineNum]!.push(trackedVar)
-                    
-                    if (trackedVar.InDocuments[this.Uri] == undefined) {
-                        trackedVar.InDocuments[this.Uri] = 0
-                    }
-
-                    trackedVar.InDocuments[this.Uri]! += 1
-                    
-                    if (this.Variables[trackedVar.Scope][trackedVar.Name] == undefined) {
-                        this.Variables[trackedVar.Scope][trackedVar.Name] = trackedVar
-                    }
-                })
-            } else {
-                delete this.VariablesByLine[lineNum]
-            }
-        }
-    }
-
-    ApplyChanges(param) {
-        let ranges: [number,number][] = []
-        param.contentChanges.forEach(change => {
-            //= update text =\\
-            let startIndex = LinePositionToIndex(this.Text,change.range.start)!
-            let endIndex = LinePositionToIndex(this.Text,change.range.end)!
-            this.Text = this.Text.substring(0,startIndex) + change.text + this.Text.substring(endIndex);
-
-            //= update variables =\\
-            //remove lines that were removed in the change
-            let removedLines = this.VariablesByLine.splice(change.range.start.line,change.range.end.line - change.range.start.line + 1)
-
-            removedLines.forEach((line: TrackedVariable[]) => {
-                this.DealWithRemovedVariableLine(line)
-            })
-
-            //make space in the array for the new content
-            let changeLineCount = change.text.split("\n").length
-            for (let i = 0; i < changeLineCount; i++) {
-                this.VariablesByLine.splice(change.range.start.line,0,[])
-            }
-
-            //update those lines
-            this.UpdateVariables(change.range.start.line,change.range.start.line + changeLineCount - 1)
-        });
-
+    ApplyChanges(param: DidChangeTextDocumentParams | null = null, forEachChangeCallback: ((change: TextDocumentContentChangeEvent, startIndex: number, endIndex: number) => void) | null = null) {
+        if (param === null) { return }
         this.Version = param.textDocument.version
 
-        
-        //just gonna leave this useful logging stuff here in case my terrible variable tracker code ever introduces me to the consequences of my actions
-
-        // slog ("\n\n\n\n\n\n\n\n")
-        // Object.keys(this.VariablesByLine).forEach(i => {
-        //     if (this.VariablesByLine[i]) {
-        //         let varnames: string[] = []
-        //         this.VariablesByLine[i].forEach(variable => { varnames.push(variable.Name) });
-        //         slog (`> ${i} (${Number(i)+1}): ${varnames.join(", ")}`)
-        //     }
-        // });
-
-        // printvars(this.Variables)
+        param.contentChanges.forEach(change => {
+            if (TextDocumentContentChangeEvent.isIncremental(change)) {
+                //= update text =\\
+                let startIndex = LinePositionToIndex(this.Text,change.range.start)!
+                let endIndex = LinePositionToIndex(this.Text,change.range.end)!
+                this.Text = this.Text.substring(0,startIndex) + change.text + this.Text.substring(endIndex);
+    
+                if (forEachChangeCallback) {
+                    forEachChangeCallback(change,startIndex,endIndex)
+                }
+            } else {
+                this.Text = change.text
+                if (forEachChangeCallback) {
+                    forEachChangeCallback(change,0,change.text.length)
+                }
+            }
+        });
     }
 
     Open(info: {text: string, version: number}) {
@@ -191,30 +90,23 @@ export class TrackedDocument {
         this.IsOpen = false
     }
 
+    Create() {
+
+    }
+
     Remove() {
         Object.values(this.AncestorFolders).forEach(folder => {
             delete folder?.Documents[this.Uri]
             delete folder?.OwnedDocuments[this.Uri]
         });
-
-        this.VariablesByLine.forEach(line => {
-            this.DealWithRemovedVariableLine(line)
-        })
+        
+        this.OwnedBy = null
 
         delete this.ParentTracker.Documents[this.Uri]
     }
 
-    Rename(newUri: string) {
-        let oldUri = this.Uri
+    Rename(newUri: string,oldUri: string) {
         this.Uri = newUri
-
-        //update variables
-        Object.values(this.Variables).forEach(scopedict => {
-            Object.values(scopedict).forEach(variable => {
-                variable!.InDocuments[newUri] = variable!.InDocuments[oldUri]
-                delete variable!.InDocuments[oldUri]
-            })
-        });
 
         //update in master doc list
         delete this.ParentTracker.Documents[oldUri]
@@ -267,6 +159,213 @@ export class TrackedDocument {
     }
 }
 
+export class TrackedItemLibrary extends TrackedDocument {
+    Id: string
+    ItemIds: string[] = []
+
+    private cleanupTracking() {
+        if (this.OwnedBy && this.OwnedBy.Libraries[this.Id]) {
+            this.OwnedBy.Libraries[this.Id]?.delete(this)
+            if (this.OwnedBy.Libraries[this.Id]?.size == 0) {
+                delete this.OwnedBy.Libraries[this.Id]
+            }
+        }
+    }
+
+    UpdateOwnership(oldUri?: string | null, newId?: string): void {
+        //remove from old location
+        this.cleanupTracking()
+
+        if (newId) {
+            this.Id = newId
+        }
+        super.UpdateOwnership(oldUri)
+        
+        //add to new location
+        if (this.OwnedBy) {
+            if (!this.OwnedBy.Libraries[this.Id]) {
+                this.OwnedBy.Libraries[this.Id] = new Set()
+            }
+            this.OwnedBy.Libraries[this.Id]?.add(this)
+        }
+    }
+
+    Remove(): void {
+        this.cleanupTracking()
+        super.Remove()
+    }
+
+    ApplyChanges(param): void {
+        super.ApplyChanges(param)
+        try {
+            let contents = JSON.parse(this.Text)
+            if (!contents.id) { return }
+            if (!contents.items) { return }
+            this.ItemIds = Object.keys(contents.items)
+            this.UpdateOwnership(this.Uri,contents.id)
+        } catch {}
+    }
+}
+
+export class TrackedVariable {
+    constructor(scope: VariableScope, name: string, parent: DocumentTracker) {
+        this.ParentTracker = parent
+        this.Scope = scope
+        this.Name = name
+    }
+
+    //the document tracker that this variable is a part of
+    ParentTracker: DocumentTracker
+
+    readonly Scope: VariableScope
+    readonly Name: string
+
+    //key: uri of the document this variable is in
+    //value: the number of times this variable appears in that document
+    InDocuments: Dict<number> = {}
+
+    TryUntrack() {
+        if (Object.keys(this.InDocuments).length == 0) {
+            delete this.ParentTracker.Variables[this.Scope][this.Name]
+        }
+    }
+}
+
+export class TrackedScript extends TrackedDocument {
+    //variables that are in this document
+    Variables: VariableTable = {global: {}, saved: {}, local: {}, line: {}}
+    //key = line number, value = array of variables that exist on that line
+    //if there are no variables on a line, it will not have an entry in this table
+    VariablesByLine: TrackedVariable[][] = []
+
+    private lines: number = 0
+
+    //yeah i've kinda given up on the names
+    DealWithRemovedVariableLine(line: TrackedVariable[]) {
+        if (line == undefined) { return }
+        line.forEach(variable => {
+            if (variable.InDocuments[this.Uri] !== undefined) {
+                //why do must i ! it?? it says ^^^^^^^^^^^^^ literally right there that it cannot be undefined!!! grrrrrrrr
+                //(maybe typescript just forgot its glasses)
+                variable.InDocuments[this.Uri]! -= 1
+                if (variable.InDocuments[this.Uri]! <= 0) {
+                    delete this.Variables[variable.Scope][variable.Name]
+                    
+                    delete variable.InDocuments[this.Uri]
+                    variable.TryUntrack()
+                }
+            }
+        })
+    }
+
+    UpdateVariables(topLine: number, bottomLine: number) {
+        let lineVariableInfo = Tokenize(this.Text,{mode: "getVariables", startFromLine: bottomLine, goUntilLine: topLine, fromLanguageServer: true}) as Dict<VariableToken[]>
+        for (let [lineString, vars] of Object.entries(lineVariableInfo)) {
+            let lineNum = Number(lineString)
+            //remove old line state
+            if (this.VariablesByLine[lineNum]) {
+                this.DealWithRemovedVariableLine(this.VariablesByLine[lineNum])
+                this.VariablesByLine[lineNum].length = 0
+            }
+            
+            //apply new line state
+            if (vars != null && vars.length > 0) {
+                this.VariablesByLine[lineNum] = []
+                vars.forEach(varToken => {
+                    let trackedVar = this.ParentTracker.AccessVariable(varToken.Scope,varToken.Name)
+                    
+                    this.VariablesByLine[lineNum]!.push(trackedVar)
+                    
+                    if (trackedVar.InDocuments[this.Uri] == undefined) {
+                        trackedVar.InDocuments[this.Uri] = 0
+                    }
+
+                    trackedVar.InDocuments[this.Uri]! += 1
+                    
+                    if (this.Variables[trackedVar.Scope][trackedVar.Name] == undefined) {
+                        this.Variables[trackedVar.Scope][trackedVar.Name] = trackedVar
+                    }
+                })
+            } else {
+                delete this.VariablesByLine[lineNum]
+            }
+        }
+    }
+
+    ApplyChanges(param: DidChangeTextDocumentParams, forEachChangeCallback: (change: TextDocumentContentChangeEvent, startIndex: number, endIndex: number) => void = () => {}) {
+        super.ApplyChanges(param, (change: TextDocumentContentChangeEvent, startIndex: number, endIndex: number) => {
+            if (TextDocumentContentChangeEvent.isIncremental(change)) {
+                //= update variables =\\
+                //remove lines that were removed in the change
+                let removedLines = this.VariablesByLine.splice(change.range.start.line,change.range.end.line - change.range.start.line + 1)
+    
+                removedLines.forEach((line: TrackedVariable[]) => {
+                    this.DealWithRemovedVariableLine(line)
+                })
+    
+                //make space in the array for the new content
+                let changeLineCount = change.text.split("\n").length
+                for (let i = 0; i < changeLineCount; i++) {
+                    this.VariablesByLine.splice(change.range.start.line,0,[])
+                }
+                this.lines += changeLineCount - 1
+                this.lines -= change.range.end.line - change.range.start.line
+    
+                //update those lines
+                this.UpdateVariables(change.range.start.line,change.range.start.line + changeLineCount - 1)
+            } else {
+                let lines = (this.Text.match(/\n/g) || '').length
+                this.UpdateVariables(0,this.lines > lines ? this.lines : lines)
+                this.lines = lines + 1
+            }
+        })
+        //just gonna leave this useful logging stuff here in case my terrible variable tracker code ever introduces me to the consequences of my actions
+
+        // slog ("\n\n\n\n\n\n\n\n")
+        // Object.keys(this.VariablesByLine).forEach(i => {
+        //     if (this.VariablesByLine[i]) {
+        //         let varnames: string[] = []
+        //         this.VariablesByLine[i].forEach(variable => { varnames.push(variable.Name) });
+        //         slog (`> ${i} (${Number(i)+1}): ${varnames.join(", ")}`)
+        //     }
+        // });
+
+        // printvars(this.Variables)
+    }
+
+    Create(): void {
+        if (this.Text.length < 1000000) {
+            let lines = (this.Text.match(/\n/g) || '').length
+            this.UpdateVariables(0,lines)
+            this.lines = lines + 1
+        } else {
+            let split = new URL(this.Uri).pathname.split("/")
+            snotif(`Some language features were disabled on '${decodeURIComponent(split[split.length-1])}' because of its size.`)
+        }
+        super.Create()
+    }
+
+    Remove(): void {
+        this.VariablesByLine.forEach(line => {
+            this.DealWithRemovedVariableLine(line)
+        })
+
+        super.Remove()
+    }
+
+    Rename(newUri: string, oldUri: string): void {
+        //update variables
+        Object.values(this.Variables).forEach(scopedict => {
+            Object.values(scopedict).forEach(variable => {
+                variable!.InDocuments[newUri] = variable!.InDocuments[oldUri]
+                delete variable!.InDocuments[oldUri]
+            })
+        });
+
+        super.Rename(newUri,oldUri)
+    }
+}
+
 export class TrackedFolder {
     constructor(uri: string, parent: DocumentTracker) {
         this.Uri = uri
@@ -278,6 +377,9 @@ export class TrackedFolder {
 
     Uri: string
     Name: string
+
+    //key: library id
+    Libraries: Dict<Set<TrackedItemLibrary>> = {}
 
     //all documents that are descendents of this folder
     Documents: Dict<TrackedDocument> = {}
@@ -301,7 +403,7 @@ export class DocumentTracker {
             param.files.forEach(file => {
                 let doc = this.Documents[file.oldUri]
                 if (doc) {
-                    doc.Rename(file.newUri)
+                    doc.Rename(file.newUri,file.oldUri)
                 }
             })
         })
@@ -340,6 +442,23 @@ export class DocumentTracker {
                 doc.Close()
             }
         })
+
+        connection.onNotification("workspace/didChangeWatchedFiles", async (param: DidChangeWatchedFilesParams) => {
+            for (const change of param.changes) {
+                let uri = change.uri
+
+                let doc = this.Documents[uri]
+                if (doc && change.type == FileChangeType.Changed) {
+                    if (doc.IsOpen) { return }
+                    let text = await fs.readFile(new URL(uri))
+                    doc.ApplyChanges({textDocument: {uri: uri, version: doc.Version},contentChanges: [{text: text.toString()}]})
+                } else if (doc && change.type == FileChangeType.Deleted) {
+                    doc.Remove()
+                } else if (change.type == FileChangeType.Created) {
+                    this.AddDocument(new URL(uri).toString())
+                }
+            }
+        })
     }
 
     Connection: rpc.MessageConnection
@@ -352,11 +471,11 @@ export class DocumentTracker {
     //key (in one of the scope dicts dicts): variable name
     Variables: VariableTable = {global: {}, saved: {}, local: {}, line: {}}
 
-    Initialize(param: InitializeParams) {
+    async Initialize(param: InitializeParams) {
         if (param.workspaceFolders) {
-            param.workspaceFolders.forEach(folder => {
-                this.AddFolder(folder.uri,folder.name)
-            })
+            for (const folder of param.workspaceFolders) {
+                await this.AddFolder(folder.uri,folder.name)
+            }
         }
     }
 
@@ -372,24 +491,28 @@ export class DocumentTracker {
     //leave `text` as null to read file contents and use that
     //if the document is already tracked, this function does nothing
     async AddDocument(uri: string, text: string | null = null) {
-        if (this.Documents[uri] != undefined) { return }
+        //i dont wanna talk about it
+        if (uri.startsWith("file:///c:")) { 
+            uri = uri.replace("file:///c:","file:///c%3A")
+        }
+
+        if (this.Documents[uri] != undefined) { 
+            //it literally says ^^ RIGHT THERE THAT ITS NOT UNDEFINED WHY DO I NEED A ! ADFJKGN,MVX
+            this.Documents[uri]!.UpdateOwnership()
+            return 
+        }
         let urlified = new URL(uri)
-
-        let doc = new TrackedDocument(uri, this)
         if (text == null) {
-            text = (await fs.readFile(urlified)).toString("utf-8")
+            text = (await fs.readFile(fileURLToPath(urlified))).toString("utf-8")
+            // text = (await fs.readFile(urlified)).toString("utf-8")
         }
 
-        doc.Text = text
+        let doc = uri.endsWith(".tc") ? new TrackedScript(uri, this) : new TrackedItemLibrary(uri, this)
+
+        doc.ApplyChanges({textDocument: {uri: uri, version: 0},contentChanges: [{text: text}]})
         doc.UpdateOwnership()
-        if (doc.Text.length < 1000000) {
-            let lines = (doc.Text.match(/\n/g) || '').length
-            doc.UpdateVariables(0,lines)
-        } else {
-            let split = urlified.pathname.split("/")
-            snotif(`Some language features were disabled on '${decodeURIComponent(split[split.length-1])}' because of its size.`)
-        }
-
+        doc.Create()
+        
         this.Documents[uri] = doc
     }
 
@@ -400,14 +523,21 @@ export class DocumentTracker {
         this.Folders[uri] = folder
 
         try {
-            const files = await fs.readdir(new URL(uri),{recursive: true},);
-            for (const relativeFilePath of files) {
-                if (relativeFilePath.endsWith(".tc")) {
-                    this.AddDocument(uri+"/"+fixUriComponent(relativeFilePath))
+            const files = await getAllFilesInFolder(new URL(uri));
+            for (const filePath of files) {
+                if (filePath.endsWith(".tc") || filePath.endsWith(".tcil")) {
+                    await this.AddDocument(pathToFileURL(filePath).toString())
                 }
             }
-        } catch (err) {
-            console.error(err);
+            // for (const relativeFilePath of files) {
+            //     if (relativeFilePath.endsWith(".tc") || relativeFilePath.endsWith(".tcil")) {
+            //         slog(`adding ${uri}; found path at `,relativeFilePath)
+            //         this.AddDocument(uri+"/"+fixUriComponent(relativeFilePath))
+            //     }
+            // }
+        } catch (err)  {
+            throw err
+            // console.error(err);
         }
     }
 

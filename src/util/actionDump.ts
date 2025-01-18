@@ -1,9 +1,14 @@
 import * as fs from "node:fs/promises"
 import { ValueType, PLAYER_ONLY_GAME_VALUES } from "./constants.ts"
 import { Dict } from "./dict.ts"
+import { pathToFileURL } from "node:url";
+import { DATA_PATH } from "./utils.ts";
 
-const ACTION_DUMP_JSON = JSON.parse((await fs.readFile("actiondump.json")).toString())
-const OVERRIDES_JSON = JSON.parse((await fs.readFile("src/overrides.json")).toString())
+const ACTION_DUMP_JSON      = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"actiondump.json") )).toString())
+const OVERRIDES_JSON        = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"overrides.json") )).toString())
+const SOUND_VARIANTS_JSON   = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"sound_variants.json") )).toString())
+const ITEM_IDS_JSON         = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"item_ids.json") )).toString())
+
 
 //==========[ classes ]=========\\
 
@@ -66,6 +71,7 @@ export class Particle {
 export class Tag {
     Name: string
     Options: string[]
+    OptionDescriptions: string[]
     Default: string
     //chest slot this tag should be placed in
     ChestSlot: number
@@ -164,6 +170,13 @@ export var Particles: Dict<Particle> = {}
 
 //valid sound names
 export var Sounds: Set<string> = new Set([])
+export var SoundInternalIds: Dict<string> = {}
+
+//valid sound variants
+export var SoundVariants: Dict<string[]> = SOUND_VARIANTS_JSON
+
+//valid item ids
+export var ItemMaterialIds: Set<string> = new Set(ITEM_IDS_JSON)
 
 //valid potion names
 export var Potions: string[] = []
@@ -176,7 +189,7 @@ export const ConstructorSignatures = {
     "vec": [
         new Parameter([[new ParameterValue("NUMBER","X")]]),
         new Parameter([[new ParameterValue("NUMBER","Y")]]),
-        new Parameter([[new ParameterValue("NUMBER","X")]]),
+        new Parameter([[new ParameterValue("NUMBER","Z")]]),
     ],
     "loc": [
         new Parameter([[new ParameterValue("NUMBER","X")]]),
@@ -204,6 +217,7 @@ export const ConstructorSignatures = {
     "item": [
         new Parameter([[new ParameterValue("TEXT","Item")]]),
         new Parameter([[new ParameterValue("NUMBER","Count",true)]]),
+        new Parameter([[new ParameterValue("TEXT","Components",true)]]),
     ],
     "litem": [
         new Parameter([[new ParameterValue("TEXT","Library")]]),
@@ -215,8 +229,6 @@ export const ConstructorSignatures = {
         new Parameter([[new ParameterValue("DICT","Data",true)]]),
     ]
 }
-
-//==========[ private data ]=========\\
 
 //key: how a return type appears in the action dump
 //value: terracotta type name
@@ -240,10 +252,6 @@ export const DFTypeToTC = {
     PROJECTILE: "item",
     VEHICLE: "item",
     SPAWN_EGG: "item",
-}
-
-export const TCTypeToDF = {
-    
 }
 
 export const DFTypeToString = {
@@ -398,6 +406,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
         tag.Action = dfId
         tag.Name = tagJson.name
         tag.Options = tagJson.options.map((optionData) => optionData.name)
+        tag.OptionDescriptions = tagJson.options.map((optionData) => optionData.icon.description?.join("\n"))
         tag.Default = tagJson.defaultOption
         tag.ChestSlot = tagJson.slot
         tags[tagJson.name] = tag
@@ -511,6 +520,7 @@ AllParticleFields = [...new Set(AllParticleFields)]
 // sound pass \\
 for (const soundJson of ACTION_DUMP_JSON.sounds) {
     Sounds.add(deColorizeString(soundJson.icon.name))
+    SoundInternalIds[soundJson.icon.name] = soundJson.sound
 }
 
 // potion pass \\

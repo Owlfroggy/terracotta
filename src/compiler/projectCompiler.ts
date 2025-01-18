@@ -1,4 +1,4 @@
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import * as Tokenizer from "../tokenizer/tokenizer.ts"
 import * as ErrorHandler from "../util/errorHandler.ts"
 import * as LineCompiler from "./codelineCompiler.ts"
@@ -9,7 +9,7 @@ import { COLOR } from "../util/characterUtils.ts"
 import { URL } from "node:url"
 import { Dict } from "../util/dict.ts"
 import { walk } from "@std/fs"
-import { print } from "../main.ts";
+import { getAllFilesInFolder } from "../util/utils.ts";
 
 export type CompiledTemplate = string | Dict<any>
 
@@ -67,6 +67,7 @@ export interface CompilationEnvironment {
         functions: Dict<CodeInjections>,
         processes: Dict<CodeInjections>,
     }
+    skipConstructorValidation?: boolean
 }
 
 
@@ -183,13 +184,8 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
         }
     }
 
-    //compilation
-    const files: string[] = []
-    for (const fileInfo of await Array.fromAsync(walk(folderUrl))) {
-        if (fileInfo.isFile) {
-            files.push(fileInfo.path)
-        }
-    }
+    const files = await getAllFilesInFolder(folderUrl)
+
     //util functions
     function failAndPrintError(error: string) {
         process.stderr.write(error+"\n");
@@ -258,7 +254,6 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
             }
             item.material = parsed.id as string
             item.componentsString = parsed?.components ? NBT.stringify(parsed.components as NBT.RootTagLike) : "{}"
-            if (itemId == "dummy"){print(item.componentsString)}
         }
 
         //compile this library's setup template
@@ -291,7 +286,6 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
                 
                 //sorted so that the output is deterministic
                 ...Object.keys(itemLibraries).sort().map(libraryId => {
-                    print(libraryId)
                     return new LineCompiler.ActionBlock("call_func",`@__TC_IL_${itemLibraries[libraryId]?.id}`)
                 }),
             new LineCompiler.BracketBlock("close","if")

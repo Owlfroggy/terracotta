@@ -382,6 +382,7 @@ class Context {
 }
 
 export function CompileLines(lines: Array<Array<Token>>, environment: CompilationEnvironment): CompileResults {
+    //if trying to compile an empty file, dont do anything
     let tempVarCounter = 0
 
     //context to actually read var types from
@@ -614,6 +615,12 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         let code: CodeBlock[] = []
         let variableComponents: string[] = []
 
+        function err(error: any) {
+            if (!environment.skipConstructorValidation) {
+                throw error
+            }
+        }
+
         function solveArg(expr: ExpressionToken,paramName: string,type: string, variableComponentsList: any[] = variableComponents): [CodeBlock[],CodeItem] {
             let solved = SolveExpression(expr)
             //if code was required to generate this component
@@ -642,7 +649,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
             let resultType = GetType(solved[1])
             if (resultType != type && type != "any") {
-                throw new TCError(`Expected ${type} for ${paramName}, got ${resultType}`,0,expr.CharStart,expr.CharEnd)
+                err(new TCError(`Expected ${type} for ${paramName}, got ${resultType}`,0,expr.CharStart,expr.CharEnd))
             }
             return [solved[0],solved[1]]
         }
@@ -662,7 +669,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
             //error for too many args
             if (token.RawArgs.length > 5) {
-                throw new TCError(`Location takes at most 5 arguments, ${token.RawArgs.length} were provided instead`, 3, token.CharStart, token.CharEnd)
+                err(new TCError(`Location takes at most 5 arguments, ${token.RawArgs.length} were provided instead`, 3, token.CharStart, token.CharEnd))
             }
 
             for (const component of ["X","Y","Z","Pitch","Yaw"]) {
@@ -673,7 +680,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                         components[component] = defaultValue
                         continue
                     } else { 
-                        throw new TCError(`Location is missing ${component} coordinate`,0,token.CharStart,token.CharEnd)
+                        err(new TCError(`Location is missing ${component} coordinate`,0,token.CharStart,token.CharEnd))
                     }
                 }
 
@@ -695,12 +702,12 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             let components: Dict<any> = {}
 
             if (token.RawArgs.length > 3) {
-                throw new TCError(`Vector takes at most 3 arguments, ${token.RawArgs.length} were provided instead`, 0, token.CharStart, token.CharEnd)
+                err(new TCError(`Vector takes at most 3 arguments, ${token.RawArgs.length} were provided instead`, 0, token.CharStart, token.CharEnd))
             }
             
             let i = 0
             for (const component of ["X","Y","Z"]) {
-                if (token.RawArgs[i] == null) { throw new TCError(`Vector is missing ${component} coordinate`, 3, token.CharStart, token.CharEnd) }
+                if (token.RawArgs[i] == null) { err(new TCError(`Vector is missing ${component} coordinate`, 3, token.CharStart, token.CharEnd)) }
 
                 let solved = solveArg(token[component],component,"num")
                 components[component] = solved[1]
@@ -722,10 +729,10 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
             //error handling
             if (token.RawArgs.length > 4) {
-                throw new TCError(`Sound takes at most 4 arguments, ${token.RawArgs.length} were provided instead`, 3, token.CharStart, token.CharEnd)
+                err(new TCError(`Sound takes at most 4 arguments, ${token.RawArgs.length} were provided instead`, 3, token.CharStart, token.CharEnd))
             }
             if (token.RawArgs[0] == null) {
-                throw new TCError("Sound must specify an ID (str)", 2, token.CharStart, token.CharEnd)
+                err(new TCError("Sound must specify an ID (str)", 2, token.CharStart, token.CharEnd))
             }
 
             for (const component of ["SoundId","Volume","Pitch","Variant"]) {
@@ -742,7 +749,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
             //error for trying to apply key to custom sound
             if (token.IsCustom && components.Variant) {
-                throw new TCError(`Custom sounds cannot specify variant`,0,token.CharStart,token.CharEnd)
+                err(new TCError(`Custom sounds cannot specify variant`,0,token.CharStart,token.CharEnd))
             }
 
             let item = new SoundItem([token.CharStart,token.CharEnd],null,null,1,1)
@@ -762,7 +769,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             } else {
                 //error for invalid sound id
                 if (!token.IsCustom && !AD.Sounds.has(components.SoundId.Value)) {
-                    throw new TCError(`Invalid sound type '${components.SoundId.Value}'`,0,token.SoundId!.CharStart,token.SoundId!.CharEnd)
+                    err(new TCError(`Invalid sound type '${components.SoundId.Value}'`,0,token.SoundId!.CharStart,token.SoundId!.CharEnd))
                 }
                 item[token.IsCustom ? "CustomKey" : "SoundId"] = components.SoundId.Value
             }
@@ -802,20 +809,20 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 if (domain instanceof TargetDomain) {
                     if (domain.SupportsGameValues == false) {
                         //throw special error if this domain doesnt support game values
-                        throw new TCError(`Target '${domain.Identifier}' does not support game values`, 2, token.Segments.valueName![0], token.Segments.valueName![1])
+                        err(new TCError(`Target '${domain.Identifier}' does not support game values`, 2, token.Segments.valueName![0], token.Segments.valueName![1]))
                         //throw special error if this gv is valid for players but not entities and the target is an entity
                     } else if (!AD.TCEntityGameValues[token.Value] && domain.ActionType == "entity") {
-                        throw new TCError(`Invalid entity game value: '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1])
+                        err(new TCError(`Invalid entity game value: '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1]))
                     } else {
-                        throw new TCError(`Invalid targeted game value: '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1])
+                        err(new TCError(`Invalid targeted game value: '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1]))
                     }
                 }
                 else {
                     if (domain.Identifier == "game") {
                         //throw special error for game game values
-                        throw new TCError(`Invalid game value: '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1])
+                        err(new TCError(`Invalid game value: '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1]))
                     } else {
-                        throw new TCError(`'${domain.Identifier}' does not contain value '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1])
+                        err(new TCError(`'${domain.Identifier}' does not contain value '${token.Value}'`, 2, token.Segments.valueName![0], token.Segments.valueName![1]))
                     }
                 }
             }
@@ -836,7 +843,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
             //error for missing potion type
             if (!token.Potion) {
-                throw new TCError(`Potion effect must specify a type (str)`,0,token.CharStart,token.CharEnd)
+                err(new TCError(`Potion effect must specify a type (str)`,0,token.CharStart,token.CharEnd))
             }
 
             for (const component of ["Potion","Amplifier","Duration"]) {
@@ -910,11 +917,11 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 //make sure stuff actually exists
                 let library = environment.itemLibraries?.[components.Library.Value]
                 if (!library && !variableComponents.includes("Library")) {
-                    throw new TCError(`Invalid library id '${components.Library.Value}'`,0,token.Library?.CharStart!,token.Library?.CharEnd!)
+                    err(new TCError(`Invalid library id '${components.Library.Value}'`,0,token.Library?.CharStart!,token.Library?.CharEnd!))
                 }
                 let itemData = library?.items?.[components.Id.Value]
                 if (library && !itemData && !variableComponents.includes("Id")) {
-                    throw new TCError(`Invalid item id '${components.Id.Value}' for library '${components.Library.Value}'`,0,token.Id?.CharStart!,token.Id?.CharEnd!)
+                    err(new TCError(`Invalid item id '${components.Id.Value}' for library '${components.Library.Value}'`,0,token.Id?.CharStart!,token.Id?.CharEnd!))
                 }
 
                 //insert by variable
@@ -950,9 +957,9 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 }
 
                 //implement this AFTER the client mod is done
-                // throw new TCError("Library items are not implemented yet",0,token.CharStart,token.CharEnd)
+                // err(new TCError("Library items are not implemented yet",0,token.CharStart,token.CharEnd))
             } else {
-                if (token.Nbt) { throw new TCError("NBT on item constructors is not implemented yet",0,token.Nbt.CharStart,token.Nbt.CharEnd)}
+                if (token.Nbt) { err(new TCError("NBT on item constructors is not implemented yet",0,token.Nbt.CharStart,token.Nbt.CharEnd))}
 
 
                 for (const component of ["Id","Count"]) {
@@ -987,12 +994,12 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 let val = Number(components.Count.Value)
                 //throw error for stack size being too high
                 if (val > 99) {
-                    throw new TCError("Stack size cannot be greater than 99",0,token.Count?.CharStart!,token.Count?.CharEnd!)
+                    err(new TCError("Stack size cannot be greater than 99",0,token.Count?.CharStart!,token.Count?.CharEnd!))
                 }
 
                 //throw error for non-integer stack size
                 if (Math.floor(val) != val) {
-                    throw new TCError("Stack size must be a whole number",0,token.Count?.CharStart!,token.Count?.CharEnd!)
+                    err(new TCError("Stack size must be a whole number",0,token.Count?.CharStart!,token.Count?.CharEnd!))
                 }
 
                 item.Count = Number(val)
@@ -1003,7 +1010,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         else if (token instanceof ParticleToken) {
             //error for missing particle type
             if (!token.Type) {
-                throw new TCError(`Particle effect must specify a type (str)`,0,token.CharStart,token.CharEnd)
+                err(new TCError(`Particle effect must specify a type (str)`,0,token.CharStart,token.CharEnd))
             }
             
             let item = new ParticleItem([token.CharStart,token.CharEnd],"Rain",{Amount: 1, HorizontalSpread: 0, VerticalSpread: 0},{})
@@ -1011,7 +1018,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             let latestItem: ParticleItem | VariableItem = item
             
             //if particle type needs to be set with code
-            let solvedType = solveArg(token.Type,"Type","str")[1] as StringItem
+            let solvedType = solveArg(token.Type!,"Type","str")[1] as StringItem
             if (variableComponents.includes("Type")) {
                 code.push(
                     new ActionBlock("set_var","SetParticleType",[tempVar,latestItem,solvedType])
@@ -1020,7 +1027,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             } else {
                 //error for invalid particle type
                 if (!AD.Particles[solvedType.Value]) {
-                    throw new TCError(`Invalid particle type '${solvedType.Value}'`,0,token.Type.CharStart,token.Type.CharEnd)
+                    err(new TCError(`Invalid particle type '${solvedType.Value}'`,0,token.Type!.CharStart,token.Type!.CharEnd))
                 }
 
                 item.Particle = solvedType.Value
@@ -1035,7 +1042,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 data = token.Data.Expression[0]
             }
             else {
-                throw new TCError("Particle data must be a compile-time constant dictionary",0,token.Data.CharStart,token.Data.CharEnd)
+                err(new TCError("Particle data must be a compile-time constant dictionary",0,token.Data.CharStart,token.Data.CharEnd))
             }
             
             let fields: Dict<any> = {}
@@ -1047,22 +1054,22 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             }
 
             let i = -1
-            for (const fieldExpression of data.Keys) {
+            for (const fieldExpression of data!.Keys) {
                 i++; 
                 if (!(fieldExpression.Expression.length == 1 && fieldExpression.Expression[0] instanceof StringToken)) {
-                    throw new TCError("Particle data key must be a compile-time constant string",0,fieldExpression.CharStart,fieldExpression.CharEnd)
+                    err(new TCError("Particle data key must be a compile-time constant string",0,fieldExpression.CharStart,fieldExpression.CharEnd))
                 }
                 
-                let key = fieldExpression.Expression[0].String
-                let value = data.Values[i]
+                let key = (fieldExpression.Expression[0] as StringToken).String
+                let value = data!.Values[i]
 
                 //error for invalid key
                 if (!validFields.includes(key)) {
                     if (solvedType instanceof StringItem) {
-                        throw new TCError(`'${key}' is not a valid field of particle '${solvedType.Value}'`,0,fieldExpression.CharStart,fieldExpression.CharEnd)
+                        err(new TCError(`'${key}' is not a valid field of particle '${solvedType.Value}'`,0,fieldExpression.CharStart,fieldExpression.CharEnd))
                     }
                     else {
-                        throw new TCError(`'${key}' is not a valid particle field`,0,fieldExpression.CharStart,fieldExpression.CharEnd)
+                        err(new TCError(`'${key}' is not a valid particle field`,0,fieldExpression.CharStart,fieldExpression.CharEnd))
                     }
                 }
 
@@ -1198,26 +1205,26 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 item.Cluster.VerticalSpread = 0
             }
             else {
-                let list = spread.Expression[0]
+                let list = spread.Expression[0] as ListToken
                 let spreadVariableComponents: number[] = [];
 
                 //validation
                 if (!(spread.Expression.length == 1 && list instanceof ListToken)) {
                     if (list instanceof VariableToken) {
-                        throw new TCError("Expected list [horizontal, vertical] for spread (the list itself cannot yet be a variable, however min and max can be variables)",0,spread.CharStart,spread.CharEnd) 
+                        err(new TCError("Expected list [horizontal, vertical] for spread (the list itself cannot yet be a variable, however min and max can be variables)",0,spread.CharStart,spread.CharEnd)) 
                     } else if (list instanceof ExpressionToken && list.Expression.length == 1 && list.Expression[0] instanceof ListToken) {
-                        throw new TCError("Expected list [horizontal, vertical] for spread (the list cannot be wrapped in parentheses because i'm too lazy to actually parse it and you should know better. in fact shame on you for even trying. i hope you waste the next 30 minutes parkouring on your compiled code.)",0,spread.CharStart,spread.CharEnd) 
+                        err(new TCError("Expected list [horizontal, vertical] for spread (the list cannot be wrapped in parentheses because i'm too lazy to actually parse it and you should know better. in fact shame on you for even trying. i hope you waste the next 30 minutes parkouring on your compiled code.)",0,spread.CharStart,spread.CharEnd)) 
                     } else {
-                        throw new TCError(`Expected list [horizontal, vertical] for spread`,0,spread.CharStart,spread.CharEnd) 
+                        err(new TCError(`Expected list [horizontal, vertical] for spread`,0,spread.CharStart,spread.CharEnd)) 
                     }
                 }
                 if (list.Items.length != 2 || list.Items[0] == null || list.Items[1] == null) {
-                    throw new TCError(`Spread list must contain 2 values, ${list.Items.length} were provided`,0,spread.CharStart,spread.CharEnd)
+                    err(new TCError(`Spread list must contain 2 values, ${list.Items.length} were provided`,0,spread.CharStart,spread.CharEnd))
                 }
 
                 //solve
-                let horizontal = solveArg(list.Items[0],"Horizontal Spread", "num",spreadVariableComponents)[1] as NumberItem
-                let vertical = solveArg(list.Items[1],"Vertical Spread", "num",spreadVariableComponents)[1] as NumberItem
+                let horizontal = solveArg(list.Items[0]!,"Horizontal Spread", "num",spreadVariableComponents)[1] as NumberItem
+                let vertical = solveArg(list.Items[1]!,"Vertical Spread", "num",spreadVariableComponents)[1] as NumberItem
 
                 //apply
                 if (spreadVariableComponents.length > 0) {
@@ -2820,10 +2827,14 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         }
     }
 
+    if (!headerData.codeblock) {
+        throw new TCError("File is neither a function, process, or event.",0,-1,-1)
+    }
+
     let results: CompileResults = {
         code: CodeLine,
-        type: headerData.codeblock!.Codeblock as any,
-        name: headerData.codeblock?.Event
+        type: headerData.codeblock.Codeblock as any,
+        name: headerData.codeblock.Event
     }
 
     return results

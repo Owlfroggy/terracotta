@@ -9,6 +9,9 @@ import { COLOR as c } from "./util/characterUtils.ts"
 import { pathToFileURL } from "node:url"
 import * as ncp from "copy-paste"
 
+// process.stderr.write(`dingus ${typeof ()}\n`)
+// throw "hands"
+
 export const DEBUG_MODE = {
     enableDebugFunctions: true,
     disableOptimization: false,
@@ -106,7 +109,7 @@ async function Main() {
                 process.exit(1)
             }
             let script = (await fs.readFile(values.file)).toString()
-            let results = ProjectCompiler.CompileFile(script,plotsize,values.outmode as "gzip" | "json",{itemLibraries: {}})
+            let results = ProjectCompiler.CompileFile(script,plotsize,values.outmode as "gzip" | "json",{itemLibraries: {},codeInjections:{playerEvents:{},entityEvents:{},functions:{},processes:{}}})
 
             if (results.error) {
                 ErrorHandler.PrintError(results.error, script, pathToFileURL(values.file).pathname.split('/').pop()!)
@@ -150,7 +153,7 @@ async function Main() {
     }
     else if (command == undefined) {
         console.log(
-`${c.BrightCyan}${c.Bold}Terracotta${c.Reset} - ${c.LightYellow}${c.Blink}${SPLASH_TEXTS[Math.floor(Math.random() * SPLASH_TEXTS.length)]}${c.Reset}
+`${c.BrightCyan}${c.Bold}Terracotta${c.Reset} - ${c.LightYellow}${SPLASH_TEXTS[Math.floor(Math.random() * SPLASH_TEXTS.length)]}${c.Reset}
 ${c.Gray}version ${c.Italic}${VERSION}${c.Reset}
 
 ${c.White}${c.Underline}Commands:${c.Reset}

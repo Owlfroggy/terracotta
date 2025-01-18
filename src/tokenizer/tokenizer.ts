@@ -9,8 +9,8 @@ import { DEBUG_MODE, print } from "../main.ts"
 import { CharUtils } from "../util/characterUtils.ts"
 import * as AD from "../util/actionDump.ts"
 import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, VALID_FORMATTING_CODES} from "../util/constants.ts"
-import { CompletionItemKind, InsertTextMode } from "vscode-languageserver"
 import { Dict } from "../util/dict.ts"
+import { SelectionContext, AssigneeContext, DictionaryContext, CodeContext, CodelineContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, StandaloneFunctionContext, TagsContext, TypeContext, UserCallContext, VariableContext, RepeatContext } from "../languageServer/codeContext.ts";
 
 type ExpressionList = (ExpressionToken | null)[]
 
@@ -466,49 +466,6 @@ export class TokenizerResults {
     Lines: Array<Array<Token>>
 }
 
-
-export class CodeContext {
-    constructor(type: ContextType, data: Dict<any>, from: number) {
-        this.Type = type
-        this.Data = data
-        this.FromIndex = from
-    }
-    Type: ContextType
-    Data: Dict<any> = {}
-    FromIndex: number //index this context was thrown at AFTER auto-extending
-}
-
-export enum ContextType {
-    "PureUser",
-    "String",
-    "General",
-    "PotionType",
-    "VariableName",
-
-    "TypeAssignment",
-    "ParamType",
-
-    "RepeatAction",
-
-    /*data for the domain contexts: {
-        //domain name
-        domain: string
-    }*/
-    "DomainMethod",
-    "DomainValue",
-    "DomainCondition",
-
-    /*data: {
-        type: "select" | "filter"
-    }*/
-    "SelectionAction",
-
-    /*data: {
-        type: "player" | "entity"
-    }*/
-    "EventDeclaration"
-}
-
 export interface TokenizeMode {
     "mode": "getTokens" | "getContext" | "getVariables",
 
@@ -528,6 +485,7 @@ export interface TokenizeMode {
 //key: line number
 //value: character index right before the first char of that line ()
 export function GetLineIndexes(text: string): number[] {
+    // text = text.replaceAll(/\r\n/g, "\n")
     let result: number[] = [-1]
 
     let i = 0;
@@ -543,7 +501,6 @@ export function GetLineIndexes(text: string): number[] {
 
 //THIS FUNCTION WILL NEVER RETURN UNDEFINED! IT JUST SAYS THAT BECAUSE TYPESCRIPT IS SPECIAL
 export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults | CodeContext | Dict<VariableToken[]> | undefined {
-
     //==========[ constants ]=========\\
 
     let LineIndexes = GetLineIndexes(script)
@@ -553,6 +510,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     let CurrentLine: Array<Token> = []
     let SCRIPT_CONTENTS = script
     let CurrentlyGrabbingContexts: boolean = false
+    let TopLevelContext: CodeContext = new CodelineContext()
+    let BottomLevelContext: CodeContext = TopLevelContext
 
     let cu: CharUtils = new CharUtils(SCRIPT_CONTENTS,true)
 
@@ -561,23 +520,26 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     //does nothing by default, implemented down at the bottom if in get vars mode
     let ReportVariable = function (variable: VariableToken) {}
 
-    function OfferContext(currentIndex: number, type: ContextType, data: Dict<any> = {}, autoExtend: boolean = true) {
+    function OfferContext(currentIndex: number, autoExtend: "whitespace" | "whitespaceAndIdentifier" | false = "whitespace") {
         if (!CurrentlyGrabbingContexts) { return }
-        if (autoExtend) {   
+        if (autoExtend == "whitespaceAndIdentifier") {   
             currentIndex += cu.GetWhitespaceAmount(currentIndex) + 1
             currentIndex += cu.GetIdentifier(currentIndex,true)[1].length
+        } else if (autoExtend == "whitespace") {
+            currentIndex += cu.GetWhitespaceAmount(currentIndex) + 1
         }
         if (currentIndex >= mode.contextTestPosition!) {
+            BottomLevelContext.from = currentIndex
             //utilizing error throwing to stop parsing and send the context up 
             //to the top is possibly the most sinful thing i've ever done
-            throw new CodeContext(type,data,currentIndex)
+            throw BottomLevelContext
         }
     }
 
-    //used for when contexts need to be caught, modified, then passed along
-    function OfferRawContext(context: CodeContext) {
-        if (context.FromIndex >= mode.contextTestPosition!) {
-            throw context
+    function DiscardContextBranch(branch: CodeContext) {
+        let newBottomLevel = branch.discardBranch()
+        if (newBottomLevel) {
+            BottomLevelContext = newBottomLevel
         }
     }
 
@@ -660,16 +622,25 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
             //if chunk stopped due to closing char
             else if (SCRIPT_CONTENTS[index + 1] == closingChar) {
-                if (!ignoreContexts) { OfferContext(index + 1,ContextType.String,{charStart: initIndex, charEnd: index + 1, contents: string},false) }
+                if (index + 1 >= mode.contextTestPosition!) {
+                    BottomLevelContext.stringInfo = {startIndex: initIndex, endIndex: index + 1, openingChar: openingChar, value: string}
+                }
+                OfferContext(index + 1)
                 return [index + 1, string]
             }
             //if chunk stopped due to newline
             else if (SCRIPT_CONTENTS[index + 1] == "\n") {
-                if (!ignoreContexts) { OfferContext(index + 1, ContextType.String,{charStart: initIndex, contents: string},false) }
+                if (index + 1 >= mode.contextTestPosition!) {
+                    BottomLevelContext.stringInfo = {startIndex: initIndex, endIndex: index, openingChar: openingChar, value: string, unclosed: true}
+                }
+                OfferContext(index + 1)
                 throw new TCError("String was never closed", 1, initIndex, index)
             }
         }
-        if (!ignoreContexts) { OfferContext(index, ContextType.String,{charStart: initIndex, contents: string},false) }
+        if (index >= mode.contextTestPosition!) {
+            BottomLevelContext.stringInfo = {startIndex: initIndex, endIndex: index, value: string, openingChar: openingChar, unclosed: true}
+        }
+        OfferContext(index)
         throw new TCError("String was never closed", 1, initIndex, index)
     }
 
@@ -680,24 +651,27 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //if theres a [, use the inside of the [] as name
         if (cu.GetNextCharacters(index,1) == "[") {
             index += cu.GetWhitespaceAmount(index) + 1
+                BottomLevelContext.inComplexName = true
+            OfferContext(index)
             let initIndex = index
-
-            OfferContext(index + cu.GetWhitespaceAmount(index),ContextType.PureUser,{})
 
             let nameResults = GetString(index)
             
             if (nameResults == null) {
+                BottomLevelContext.inComplexName = false
                 throw new TCError("Expected string following '['",0,index,index)
             }
 
             index = nameResults[0]
-
+            OfferContext(nameResults[0])
+            BottomLevelContext.inComplexName = false
             if (cu.GetNextCharacters(index,1) != "]") {
                 throw new TCError("Name was never closed",1,initIndex,index)
             }
-
+            
             index += cu.GetWhitespaceAmount(index) + 1
             
+            OfferContext(index,false)
             return [index, nameResults[1]]
         }
         //otherwise, use identifier as name
@@ -708,6 +682,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             //get name of variable
             let variableNameResults = cu.GetIdentifier(index)
             if (variableNameResults == null || variableNameResults[1] == "") {
+                OfferContext(index)
                 throw new TCError(`Expected name`, 2, index,-1)
             }
 
@@ -749,26 +724,17 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         
         let keywordEndIndex = index// used for error messages
         
+        let context = new VariableContext()
+        BottomLevelContext = BottomLevelContext.setChild(context)
+        context.scope = scope
         let nameResults
         
         //parse variable name
         try {
             nameResults = GetComplexName(index)
         } catch (e: any) {
-            if (e instanceof CodeContext) {
-                if (e.Type == ContextType.String || e.Type == ContextType.PureUser) {
-                    e.Data.inComplex = true
-                    if (e.Data.contents) {
-                        e.Data.name = e.Data.contents
-                    }
-                    e.Data.inString = e.Type === ContextType.String
-                    e.Data.scope = scopeKeyword
-                    e.Type = ContextType.VariableName
-                }
-            }
-
-            OfferContext(index,ContextType.VariableName,{"scope": scopeKeyword})
-
+            if (e instanceof CodeContext) {throw e}
+            DiscardContextBranch(context)
             if (e.Code == 1) {
                 throw new TCError("Variable name was never closed", 1, e.CharStart, e.CharLoc)
             } else if (e.Code == 2) {
@@ -777,10 +743,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 throw e
             }
         }
-
-        OfferContext(index,ContextType.VariableName,{"scope": scopeKeyword, "name": nameResults[1]})
-
+        
         index = nameResults[0]
+        context.name = nameResults[1]
+        OfferContext(index+1,false)
 
         let type: string | null = null
         //if theres a : after the variable, parse its type
@@ -788,19 +754,27 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             //move to :
             index += cu.GetWhitespaceAmount(index) + 1
             let colonIndex = index //used for errors
+            let typeContext = new TypeContext()
+            BottomLevelContext = BottomLevelContext.setChild(typeContext)
 
-            OfferContext(index,ContextType.TypeAssignment)
-
+            
             //move to start of type
             index += cu.GetWhitespaceAmount(index) + 1
             
             //actually get type
             let typeResults = cu.GetIdentifier(index)
             if (typeResults[1] == "") {
+                OfferContext(index,"whitespaceAndIdentifier")
+                DiscardContextBranch(context)
                 throw new TCError("Expected type following ':'",0,initIndex,colonIndex)
             }
+
+            OfferContext(typeResults[0]+1,false)
+            DiscardContextBranch(typeContext)
+
             //error for invalid type
             if (!ValueType[typeResults[1]]) {
+                DiscardContextBranch(context)
                 throw new TCError(`Invalid type '${typeResults[1]}'`,0,index,typeResults[0])
             }
 
@@ -810,7 +784,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //im making a new one cuz im scared that some funny reference shenanigans will happen if i use the one thats returned
         ReportVariable(new VariableToken([initIndex,index],scopeKeyword, nameResults[1], type))
-
+        DiscardContextBranch(context)
         return [index, new VariableToken([initIndex,index],scopeKeyword, nameResults[1], type)]
     }
     
@@ -854,11 +828,15 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         index += 1 + cu.GetWhitespaceAmount(index)
 
+        let context = new NumberContext()
+        BottomLevelContext = BottomLevelContext.setChild(context)
+
         while (index < SCRIPT_CONTENTS.length) {
             //if this char is a .
             if (SCRIPT_CONTENTS[index] == ".") {
                 //if there has already been a . throw error
                 if (decimalFound) {
+                    DiscardContextBranch(context)
                     throw new TCError("Multiple decimal points in one number", 2, index, index)
                 }
 
@@ -880,9 +858,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             //allow underscores to seperate digits
             else if (SCRIPT_CONTENTS[index] == "_") {
                 if (string.length == 0) {
+                    DiscardContextBranch(context)
                     return null
                 }
                 if (SCRIPT_CONTENTS[index+1] == "." || SCRIPT_CONTENTS[index-1] == "." || SCRIPT_CONTENTS[index-1] == "-") {
+                    OfferContext(index+1)
+                    DiscardContextBranch(context)
                     throw new TCError(`Underscores are only allowed in numbers when seperating digits`, 1, index, index)
                 }
                 index++
@@ -890,6 +871,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
             //if character is some other thing that shouldnt be allowed in numbers
             else if (cu.IsCharacterValidIdentifier(SCRIPT_CONTENTS[index])) {
+                OfferContext(index)
+                DiscardContextBranch(context)
                 throw new TCError(`'${SCRIPT_CONTENTS[index]}' is not a valid character in a number`, 1, index, index)
             }
             //if this character is the end of the number
@@ -901,7 +884,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
 
         //a single . on its own is not a number
-        if (string == "." && forceToBeNumber == false) { return null }
+        if (string == "." && forceToBeNumber == false) { 
+            DiscardContextBranch(context)
+            return null 
+        }
 
         //add one leading 0 if starting with decimal
         if (string == "" || string.charAt(0) == ".") { string = "0" + string }
@@ -909,7 +895,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //remove trailing decimal if nothing's after it
         if (string[string.length - 1] == ".") { string = string.substring(0, string.length - 1) }
 
-        OfferContext(index,ContextType.PureUser,{},false)
+        OfferContext(index,false)
+        DiscardContextBranch(context)
 
         return [index - 1, new NumberToken([initIndex,index - 1],string)]
     }
@@ -929,34 +916,22 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //if no vec keyword, this is not a vector
         if (identifierResults == null || identifierResults[1] != "vec") { return null }
 
-        //move to end of vec keyword
         index = identifierResults[0]
+        OfferContext(index)
+        let context = new ConstructorContext("vec")
+        BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse arguments
-        let argResults: [number, ListToken] | null = null
-        try {
-            argResults = ParseList(index, "[", "]", ",")
-        }
-        catch (e) {
-            if (e instanceof CodeContext) {
-                if (!e.Data.functionSignature) {
-                    e.Data.functionSignature = {
-                        "type": "constructor",
-                        "constructor": "vec",
-                    }
-                    OfferRawContext(e)
-                }
-            } else {
-                throw e
-            }
-        }
-
+        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
+        
+        DiscardContextBranch(context)
         if (argResults == null) {
             throw new TCError("Expected arguments following vector constructor", 1, keywordInitIndex, index)
         }
         let args = argResults[1].Items
-
+        
         //successful vector creation
+        OfferContext(argResults[0])
         return [argResults[0], new VectorToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2],args)]
     }
 
@@ -974,7 +949,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //if no txt keyword, this is not a text
         if (identifierResults == null || identifierResults[1] != "s") { return null }
 
-        //move to end of txt keyword
         index = identifierResults[0]
 
         //parse value (string)
@@ -1001,29 +975,16 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         let isCustom = identifierResults[1] == "csnd"
 
-
         //move to end of snd keyword
         index = identifierResults[0]
+        OfferContext(index)
+        let context = new ConstructorContext(identifierResults[1])
+        BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse arguments
-        let argResults: [number, ListToken] | null = null
-        try {
-            argResults = ParseList(index, "[", "]", ",")
-        }
-        catch (e) {
-            if (e instanceof CodeContext) {
-                if (!e.Data.functionSignature) {
-                    e.Data.functionSignature = {
-                        "type": "constructor",
-                        "constructor": identifierResults[1],
-                    }
-                    OfferRawContext(e)
-                }
-            } else {
-                throw e
-            }
-        }
+        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
 
+        DiscardContextBranch(context)
         if (argResults == null) {
             throw new TCError("Expected arguments following sound constructor", 1, keywordInitIndex, index)
         }
@@ -1031,6 +992,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let args = argResults[1].Items
 
         //successful sound creation
+        OfferContext(argResults[0])
         return [argResults[0], new SoundToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], args[3],isCustom,args)]
     }
 
@@ -1051,34 +1013,22 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //if no loc keyword, this is not a location
         if (identifierResults == null || identifierResults[1] != "loc") { return null }
 
-        //move to end of loc keyword
         index = identifierResults[0]
+        OfferContext(index)
+        let context = new ConstructorContext("loc")
+        BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse arguments
-        let argResults: [number, ListToken] | null = null
-        try {
-            argResults = ParseList(index, "[", "]", ",")
-        }
-        catch (e) {
-            if (e instanceof CodeContext) {
-                if (!e.Data.functionSignature) {
-                    e.Data.functionSignature = {
-                        "type": "constructor",
-                        "constructor": "loc",
-                    }
-                    OfferRawContext(e)
-                }
-            } else {
-                throw e
-            }
-        }
+        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
 
+        DiscardContextBranch(context)
         if (argResults == null) {
             throw new TCError("Expected arguments following location constructor", 1, keywordInitIndex, index)
         }
         let args = argResults[1].Items
 
         //successful location creation
+        OfferContext(argResults[0])
         return [argResults[0], new LocationToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], args[3], args[4],args)]
     }
 
@@ -1095,50 +1045,21 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //if no pot keyword, this is not a potion
         if (identifierResults == null || identifierResults[1] != "pot") { return null }
         
-        //move to end of pot keyword
         index = identifierResults[0]
-        
-        //add potion types to autocomplete
-        function typeContextHandler(startIndex: number, expressionResults: [number,ExpressionToken] | null, contextResults: CodeContext) {
-            let data = contextResults ? structuredClone(contextResults.Data) : {}
-            if (!data.addons) {data.addons = {}}
-            data.addons.potionTypes = true
-            
-            if (!expressionResults) {
-                OfferContext(startIndex,ContextType.General,data,expressionResults ? false : true)
-            }
-            else if (expressionResults[1].Expression[0] && expressionResults[1].Expression[0] instanceof StringToken) {
-                OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.String,data)
-            }
-            else if (contextResults) {
-                OfferContext(contextResults.FromIndex,contextResults.Type,data,false)
-            }
-        }
+        OfferContext(index)
+        let context = new ConstructorContext("pot")
+        BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse arguments
-        let argResults: [number, ListToken] | null = null
-        try {
-            argResults = ParseList(index, "[", "]", ",",{0: typeContextHandler})
-        }
-        catch (e) {
-            if (e instanceof CodeContext) {
-                if (!e.Data.functionSignature) {
-                    e.Data.functionSignature = {
-                        "type": "constructor",
-                        "constructor": "pot",
-                    }
-                    OfferRawContext(e)
-                }
-            } else {
-                throw e
-            }
-        }
+        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
 
+        DiscardContextBranch(context)
         if (argResults == null) {
             throw new TCError("Expected arguments following potion constructor", 1, keywordInitIndex, index)
         }
         let args = argResults[1].Items
-
+        
+        OfferContext(argResults[0])
         return [argResults[0],new PotionToken([keywordInitIndex,argResults[0]],args[0],args[1],args[2],args)]
     }
 
@@ -1157,33 +1078,21 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //if no item keyword, this is not an item
         if (identifierResults == null || !(identifierResults[1] == "item" || identifierResults[1] == "litem")) { return null }
 
-        //move to end of item keyword
         index = identifierResults[0]
+        OfferContext(index)
+        let context = new ConstructorContext(identifierResults[1])
+        BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse arguments
-        let argResults: [number, ListToken] | null = null
-        try {
-            argResults = ParseList(index, "[", "]", ",")
-        }
-        catch (e) {
-            if (e instanceof CodeContext) {
-                if (!e.Data.functionSignature) {
-                    e.Data.functionSignature = {
-                        "type": "constructor",
-                        "constructor": identifierResults[1],
-                    }
-                    OfferRawContext(e)
-                }
-            } else {
-                throw e
-            }
-        }
+        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
 
+        DiscardContextBranch(context)
         if (argResults == null) {
             throw new TCError("Expected arguments following item constructor", 1, keywordInitIndex, index)
         }
         let args = argResults[1].Items
 
+        OfferContext(argResults[0])
         //basic item
         if (identifierResults[1] == "item") {
             return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], null, args)]
@@ -1191,7 +1100,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         } else if (identifierResults[1] == "litem") {
             return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[1],args[2],null,args[0], args)]
         }
-
+        
         return [argResults[0],new ItemToken([keywordInitIndex,argResults[0]],args[0],args[1],args[2],args[3],args)]
     }
 
@@ -1204,74 +1113,24 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //parse par keyword
         let identifierResults = cu.GetIdentifier(index)
         if (identifierResults == null || identifierResults[1] != "par") { return null }
+
+
         index = identifierResults[0]
-
-        //add particle types to autocomplete
-        function typeContextHandler(startIndex: number, expressionResults: [number,ExpressionToken] | null, contextResults: CodeContext) {
-            let data = contextResults ? structuredClone(contextResults.Data) : {}
-            if (!data.addons) {data.addons = {}}
-            data.addons.particleTypes = true
-            
-            if (!expressionResults) {
-                OfferContext(startIndex,ContextType.General,data,expressionResults ? false : true)
-            }
-            else if (expressionResults[1].Expression[0] && expressionResults[1].Expression[0] instanceof StringToken) {
-                OfferContext(expressionResults[1].Expression[0].CharEnd,ContextType.String,data)
-            }
-            else if (contextResults) {
-                OfferContext(contextResults.FromIndex,contextResults.Type,data,false)
-            }
-        }
-
-        //autocomplete keys in field dict
-        function fieldsContextHandler(startIndex: number, expressionResults: [number,ExpressionToken] | null, contextResults: CodeContext, listItems: ExpressionToken[]) {
-            let data = contextResults ? structuredClone(contextResults.Data) : {}
-            if (!data.addons) {data.addons = {}}
-
-            if (contextResults) {
-                if (data.isDictionaryKey) {
-                    if (listItems[0]?.Expression[0] && listItems[0].Expression[0] instanceof StringToken) {
-                        data.addons.particleFields = listItems[0].Expression[0].String
-                    }
-                    else {
-                        data.addons.particleFields = "$all"
-                    }
-                    if (data.charEnd) {
-                        OfferContext(data.charEnd || data.charStart || startIndex, contextResults.Type, data,false)
-                    } else {
-                        OfferContext(contextResults.FromIndex, contextResults.Type, data, false)
-                    }
-                }
-                else {
-                    OfferContext(contextResults.FromIndex,contextResults.Type,contextResults.Data,false)
-                }
-            }
-        }
+        OfferContext(index)
+        let context = new ConstructorContext(identifierResults[1])
+        BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse args
-        let argResults: [number, ListToken] | null = null
-        try {
-            argResults = ParseList(index, "[", "]", ",", {0: typeContextHandler, 1: fieldsContextHandler})
-        }
-        catch (e) {
-            if (e instanceof CodeContext) {
-                if (!e.Data.functionSignature && !e.Data.addons.particleFields) {
-                    e.Data.functionSignature = {
-                        "type": "constructor",
-                        "constructor": "par",
-                    }
-                }
-                OfferRawContext(e)
-            } else {
-                throw e
-            }
-        }
+        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
 
         if (argResults == null) {
+            DiscardContextBranch(context)
             throw new TCError("Expected arguments following particle constructor",1,keywordInitIndex,index)
         }
+        DiscardContextBranch(context)
+        OfferContext(argResults[0])
         let args = argResults[1].Items
-
+        
         return [argResults[0],new ParticleToken([keywordInitIndex,argResults[0]],args[0],args[1],args)]
     }
 
@@ -1363,52 +1222,54 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         
         //move to opening char
         index += cu.GetWhitespaceAmount(index) + 1
+        let context = new DictionaryContext()
+        BottomLevelContext = BottomLevelContext.setChild(context)
 
         let keys: Array<ExpressionToken> = []
         let values: Array<ExpressionToken> = []
         
         while (SCRIPT_CONTENTS[index] != closingChar && index < SCRIPT_CONTENTS.length) {
+            context.in = ContextDictionaryLocation.Key
             //= key =\\
             let keyInitIndex = index + cu.GetWhitespaceAmount(index) + 1 //used for errors
-            let keyResults: [number, ExpressionToken] | null = null
+            let keyResults: [number, ExpressionToken] | null = ParseExpression(index,[closingChar,assignmentChar,";"],false) 
 
-            try { 
-                keyResults = ParseExpression(index,[closingChar,assignmentChar,";"],false) 
-            }
-            catch (e) {
-                if (e instanceof CodeContext) {
-                    e.Data.isDictionaryKey = true
-                }
-                throw e
-            }
-
-            OfferContext(index,ContextType.General,{isDictionaryKey: true})
-
+            
+            OfferContext(index,"whitespaceAndIdentifier")
             //if empty dictionary, stop
             if (keyResults == null) { 
                 index += cu.GetWhitespaceAmount(index) + 1
                 break 
             }
+            
             //move to end of key
             index = keyResults[0]
+            OfferContext(index,"whitespaceAndIdentifier")
+
             //add to key list
             keys.push(keyResults[1])
 
             //= assignment char =\\
             //throw error if missing assignment char
             if (cu.GetNextCharacters(index,1) != assignmentChar) {
+                DiscardContextBranch(context)
                 throw new TCError(`Expected '${assignmentChar}' following key`,0,keyInitIndex,index)
             }
             //move to assignment char
             index += cu.GetWhitespaceAmount(index) + 1
+            context.in = ContextDictionaryLocation.Value
             
             //= value =\\
             let valueResults = ParseExpression(index,[closingChar,seperatingChar,";"],false)
             if (valueResults == null) {
+                OfferContext(index,"whitespaceAndIdentifier")
+                DiscardContextBranch(context)
                 throw new TCError(`Expected value following '${assignmentChar}'`,0,keyInitIndex,index)
             }
             //move to end of value
             index = valueResults[0]
+            OfferContext(index,"whitespaceAndIdentifier")
+
             //add value to list
             values.push(valueResults[1])
 
@@ -1417,6 +1278,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 index += cu.GetWhitespaceAmount(index) + 1
             }
         }
+
+        DiscardContextBranch(context)
+        OfferContext(index,"whitespaceAndIdentifier")
 
         //error if list is unclosed because of EOF
         if (index + cu.GetWhitespaceAmount(index) + 1 >= SCRIPT_CONTENTS.length) {
@@ -1429,7 +1293,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     //= ListToken =\\
     
     //ERR1 = list was never closed
-    function ParseList(index, openingChar: string, closingChar: string, seperatingChar: string, contextHandlers: Dict<(...any) => void> = {}): [number, ListToken] | null {
+    function ParseList(index, openingChar: string, closingChar: string, seperatingChar: string): [number, ListToken] | null {
         index += cu.GetWhitespaceAmount(index)
         let initIndex = index
 
@@ -1437,49 +1301,27 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //move to opening char
         index += cu.GetWhitespaceAmount(index) + 1
-
+        let context = new ListContext()
+        BottomLevelContext = BottomLevelContext.setChild(context)
+        
         let items: ExpressionList = []
+        context.prevoiusElements = items
 
         let i = 0
         while (SCRIPT_CONTENTS[index] != closingChar && index < SCRIPT_CONTENTS.length) {
+            context.elementIndex = i
             //error for unclosed list if theres a semicolon in the middle of it
             if (SCRIPT_CONTENTS[index] == ";") {
+                OfferContext(index-1)
                 throw new TCError("List was never closed",1,initIndex + 1,index - 1)
             }
             let expressionResults
             try {
-                let itemInitIndex = index
-                //yeah i've given up on having good code
-                
-                //if there's special code for handling this list entry's context, get a copy
-                //of the expression item *and* the context it would have otherwise thrown
-                if (i in contextHandlers && CurrentlyGrabbingContexts) {
-                    //get what the expression would return
-                    CurrentlyGrabbingContexts = false
-                    //wrap it in try catch so that CurrentlyGrabbingContexts always gets turned back on
-                    try {expressionResults = ParseExpression(index, [seperatingChar, closingChar,";"], false,[])} catch {}
-                    CurrentlyGrabbingContexts = true
-                    
-                    //get the context that would be thrown
-                    let contextResults: CodeContext | null = null
-                    try {ParseExpression(index, [seperatingChar, closingChar,";"], false,[])}
-                    catch (e) {
-                        if (e instanceof CodeContext) {
-                            contextResults = e
-                        }
-                        else {
-                            throw e
-                        }
-                    }
-
-                    contextHandlers[i]!(index,expressionResults,contextResults,items)
-                } else {
-                    expressionResults = ParseExpression(index, [seperatingChar, closingChar,";"], false,[])
-                }
-
-                //if no other contexts were offered, default to general
-                OfferContext(itemInitIndex,ContextType.General,{})
+                expressionResults = ParseExpression(index, [seperatingChar, closingChar,";"], false,[])
             } catch (e: any) {
+                if (e instanceof CodeContext) { throw e }
+                OfferContext(index)
+                DiscardContextBranch(context)
                 if (e.message == "Expression was never closed") {
                     throw new TCError("List was never closed", 1, initIndex + 1, cu.GetLineEnd(index) - 1)
                 }
@@ -1492,15 +1334,21 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 //the only situation this can happen is when the list is empty eg. ()
                 //move to closing char so loop finishes:
                 index += cu.GetWhitespaceAmount(index) + 1
-                items.push(null)
-                i++
+                OfferContext(index-1)
+                if (cu.GetNextCharacters(index,1) == seperatingChar) {
+                    items.push(null)
+                    i++
+                }
             } 
-            else if (expressionResults != null) {
+            else {
                 i++
                 index = expressionResults[0] + cu.GetWhitespaceAmount(expressionResults[0]) + 1
+                OfferContext(index-1)
                 items.push(expressionResults[1])
             }
         }
+
+        DiscardContextBranch(context)
 
         //remove trailing nulls
         while (items[items.length-1] === null) {
@@ -1555,28 +1403,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         // }
         else if (identifierResults[1] == "wait") {
             index = identifierResults[0]
-
+            OfferContext(index)
+            let context = new StandaloneFunctionContext("wait")
+            BottomLevelContext = BottomLevelContext.setChild(context)
 
             let listInitIndex = index + cu.GetWhitespaceAmount(index) + 1
-            let listResults: [number, ListToken] | null = null
-            try {
-                listResults = ParseList(index,"(",")",",")
-            }
-            catch (e) {
-                if (e instanceof CodeContext) {
-                    //dont replace an existing function signature since the one lowest down the expression tree is usually the one you're interested n
-                    if (!e.Data.functionSignature) {
-                        e.Data.functionSignature = {
-                            "type": "codeblock",
-                            "codeblock": "control",
-                            "actionDFId": "Wait"
-                        }
-                        OfferRawContext(e)
-                    }
-                }
-                throw e
-            }
-
+            let listResults: [number, ListToken] | null = ParseList(index,"(",")",",")
             let args: ListToken
             if (listResults) {
                 index = listResults[0]
@@ -1592,6 +1424,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 tags = tagResults[1]
             }
 
+            DiscardContextBranch(context)
             return [index, new ControlBlockToken([initIndex,index],"Wait",args,tags)]
         }   
 
@@ -1629,6 +1462,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
 
         index += cu.GetWhitespaceAmount(index) + 1
+        let context = new ConditionContext()
+        BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse expression
         let expressionResults = ParseExpression(index,[")",";"],true,["comparisons"])
@@ -1636,6 +1471,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             throw new TCError("Expected condition following 'if'",0,initIndex,identifierResults[0])
         }
         
+        DiscardContextBranch(context)
         return [expressionResults[0],new IfToken([initIndex,expressionResults[0]],expressionResults[1])]
     }
 
@@ -1650,7 +1486,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //repeat n times or repeat forever
         if (keywordResults[1] == "repeat") {
-            OfferContext(index,ContextType.General,{"addItems":[{"label": "Forever", "kind": CompletionItemKind.Keyword}]})
             //repeat Forever
             let foreverResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
             if (foreverResults[1] == "Forever") {
@@ -1661,11 +1496,16 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             if (cu.GetNextCharacters(index,1) != "(") {
                 throw new TCError("Expected '(' following 'repeat'",0,initIndex,index)
             }
+            OfferContext(index)
             index += cu.GetWhitespaceAmount(index) + 1
+            let context = new RepeatContext()
+            BottomLevelContext = BottomLevelContext.setChild(context)
+            OfferContext(index)
 
             //variable
             let variableResults = ParseVariable(index)
             if (variableResults) {
+                OfferContext(variableResults[0])
                 let toResults = cu.GetIdentifier(variableResults[0] + cu.GetWhitespaceAmount(variableResults[0]) + 1)
                 
                 //if there's a "to", use this variable as the index getter
@@ -1678,12 +1518,15 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 }
             }
 
-
             //expression
+            OfferContext(index)
             let expressionResults = ParseExpression(index,[")",";"],true)
+            
             if (expressionResults == null) {
+                DiscardContextBranch(context)
                 throw new TCError("Expected an actual expression",0,initIndex,index+1)
             }
+
 
             //success
             return [expressionResults[0],new RepeatMultipleToken([initIndex,expressionResults[0]],expressionResults[1],variableResults ? variableResults[1] : null)]
@@ -1694,12 +1537,15 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             if (cu.GetNextCharacters(index,1) != "(") {
                 throw new TCError("Expected condition wrapped in parentheses following 'while'",0,initIndex,keywordResults[0])
             }
+            
             index += cu.GetWhitespaceAmount(index) + 1
-
-            OfferContext(index,ContextType.General,{"addons":{"genericDomains":"true"}})
-
+            let context = new ConditionContext()
+            BottomLevelContext = BottomLevelContext.setChild(context)
+            OfferContext(index)
             //expression
             let expressionResults = ParseExpression(index,[")",";"],true,["comparisons","genericTargetComparisons"])
+
+            DiscardContextBranch(context)
             if (expressionResults == null) {
                 throw new TCError("Expected condition following 'while'",0,initIndex,keywordResults[0])
             }
@@ -1718,7 +1564,11 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             if (cu.GetNextCharacters(index,1) != "(") {
                 throw new TCError(`Expected '(' following 'for'`,0,initIndex,index)
             }
+            
             index += cu.GetWhitespaceAmount(index) + 1
+            let context = new ForLoopContext()
+            context.variables = variables
+            BottomLevelContext = BottomLevelContext.setChild(context)
             
             //accumulate variables until either the 'in' or 'on' keyword
             while (true) { //scary!!
@@ -1726,6 +1576,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 //error for invalid variable
                 if (variableResults == null) {
                     let identifierResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
+                    OfferContext(identifierResults[0])
+                    DiscardContextBranch(context)
                     throw new TCError(`Expected variable(s) following 'for'`,0,initIndex,identifierResults[0])
                 }
 
@@ -1738,13 +1590,15 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 let keywordResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
                 if (keywordResults[1] == "in" || keywordResults[1] == "on") {
                     mode = keywordResults[1]
-                    //move to end of keyword
+                    context.mode = mode
                     index = keywordResults[0]
                     break
                 }
 
                 //throw error if next character isnt a comma
                 if (cu.GetNextCharacters(index,1) != ",") {
+                    OfferContext(index,"whitespaceAndIdentifier")
+                    DiscardContextBranch(context)
                     throw new TCError("Expected comma, 'in', or 'on'",0,initIndex,index)
                 }
 
@@ -1761,6 +1615,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 //parse expression inside the ()
                 let expressionResults = ParseExpression(index,[")",";"],true)
                 if (expressionResults == null) {
+                    OfferContext(index,"whitespaceAndIdentifier")
+                    DiscardContextBranch(context)
                     throw new TCError("Expected list or dictionary inside parentheses",0,initIndex,index)
                 }
 
@@ -1771,40 +1627,23 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             else if (mode == "on") {
                 //parse action name
                 let actionNameInitIndex = index + cu.GetWhitespaceAmount(index) + 1
-                OfferContext(index,ContextType.RepeatAction)
                 let actionNameResults = cu.GetIdentifier(actionNameInitIndex)
                 //error for missing action name
                 if (actionNameResults[1] == "") {
+                    OfferContext(actionNameResults[0],"whitespaceAndIdentifier")
+                    DiscardContextBranch(context)
                     throw new TCError("Missing action name", 0, initIndex, actionNameResults[0])
                 }
 
                 //move to end of action name
                 index = actionNameResults[0]
+                context.action = actionNameResults[1]
+                OfferContext(index)
 
                 //parse args
-                let argResults: [number, ListToken] | null
-                try {
-                    argResults = ParseList(index, "(", ")", ",")
-                }
-                catch (e) {
-                    if (e instanceof CodeContext) {
-                        //dont replace an existing function signature since the one lowest down the expression tree is usually the one you're interested n
-                        if (!e.Data.functionSignature) {
-                            let action = AD.TCActionMap.repeat![actionNameResults[1]]
-                            if (action) {
-                                e.Data.functionSignature = {
-                                    "type": "codeblock",
-                                    "codeblock": "repeat",
-                                    "actionDFId": action.DFId
-                                }
-                            }
-                            OfferRawContext(e)
-                        }
-                    }
-                    throw e
-                }
-
+                let argResults: [number, ListToken] | null = ParseList(index, "(", ")", ",")
                 if (argResults == null) {
+                    DiscardContextBranch(context)
                     throw new TCError("Expected arguments following action name", 0, actionNameInitIndex, index)
                 }
                 //move to end of args
@@ -1818,8 +1657,11 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     tags = tagResults[1]
                 }
 
+                
                 //parse closing bracket
                 if (cu.GetNextCharacters(index, 1) != ")") {
+                    OfferContext(index)
+                    DiscardContextBranch(context)
                     throw new TCError("Repeat action never closed", 0, actionInitIndex, index)
                 }
 
@@ -1829,15 +1671,14 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 returnToken = new RepeatForActionToken([initIndex,index],variables,actionNameResults[1],argResults[1],tags)
             }
 
-            //return [index,new RepeatForToken([initIndex,index],variables,argResults[1],tags)]
+            OfferContext(index)
+            DiscardContextBranch(context)
             return [index,returnToken!]
         }
         //not a repeat statement
         else {
             return null
         }
-
-        return null
     }
 
     //= Brackets =\\
@@ -1847,19 +1688,26 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let tags = {}
 
         if (cu.GetNextCharacters(index, 1) == "{") {
+            let context = new TagsContext()
+            BottomLevelContext = BottomLevelContext.setChild(context)
+
             //move to opening {
             index += 1 + cu.GetWhitespaceAmount(index)
 
             //if empty tag list
             if (cu.GetNextCharacters(index, 1) == "}") {
-                OfferContext(index+cu.GetWhitespaceAmount(index),ContextType.PureUser,{"addons": {"actionTagString": Object.keys(validTags)}},true)
+                context.in = ContextDictionaryLocation.Key
+                OfferContext(index,"whitespaceAndIdentifier")
+                DiscardContextBranch(context)
                 index += 1 + cu.GetWhitespaceAmount(index)
                 return [index,{}]
             } else {
                 let tagsListInitIndex = index
 
                 while (SCRIPT_CONTENTS[index] != "}") {
-                    OfferContext(index,ContextType.PureUser,{"addons": {"actionTagString": Object.keys(validTags)}})
+                    context.in = ContextDictionaryLocation.Key
+                    context.keyName = undefined
+                    OfferContext(index,"whitespaceAndIdentifier")
 
                     let tagInitIndex = index + 1 + cu.GetWhitespaceAmount(index)
 
@@ -1867,45 +1715,48 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //try catch is to prevent the string context from getting offered
                     let tagNameResults = GetString(index,[],true)
 
-                    if (tagNameResults) {
-                        OfferContext(tagNameResults[0],ContextType.String,{"addons": {"actionTagString": Object.keys(validTags)}, "charStart": tagInitIndex, "charEnd": tagNameResults[0]})
-                    } 
-                    else {
+                    if (tagNameResults == null) {
                         // let tags have trailing comma
                         if (cu.GetNextCharacters(index,1) == "}") { 
                             index += cu.GetWhitespaceAmount(index) + 1
                             break 
                         }
-
+                        OfferContext(index,"whitespaceAndIdentifier")
+                        DiscardContextBranch(context)
                         throw new TCError("Missing tag name", 3, index, index)
                     }
 
 
                     let tagName = tagNameResults[1]
-
+                    
                     //move to end of tag name
                     index = tagNameResults[0]
-
+                    context.keyName = tagName
+                    OfferContext(index)
+                    
                     //error if next char isn't =
                     if (cu.GetNextCharacters(index, 1) != "=") {
+                        DiscardContextBranch(context)
                         throw new TCError("Expected '=' following tag name", 6, index + 1, index + 1)
                     }
 
                     //move to =
                     index += 1 + cu.GetWhitespaceAmount(index)
-
-                    OfferContext(index,ContextType.PureUser,{"addons":{"actionTagString":validTags[tagName] ? validTags[tagName]!.Options : []},"canHaveVariable":true})
+                    context.in = ContextDictionaryLocation.Value
+                    OfferContext(index,"whitespaceAndIdentifier")
 
                     //parse variable
                     let variableResults = ParseVariable(index)
                     let variable: VariableToken | null = null
                     if (variableResults) {
-                        let variableInitIndex = index
+                        context.isVariable = true
                         //move to end of variable
                         index = variableResults[0]
 
                         //throw error if next character isn't a ?
                         if (cu.GetNextCharacters(index, 1) != "?") {
+                            OfferContext(index,"whitespaceAndIdentifier")
+                            DiscardContextBranch(context)
                             throw new TCError(`Expected '?' following variable '${variableResults[1].Name}'`, 9, index + 1, index + 1)
                         }
 
@@ -1914,7 +1765,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         //move to ?
                         index += 1 + cu.GetWhitespaceAmount(index)
 
-                        OfferContext(index,ContextType.PureUser,{"addons":{"actionTagString":validTags[tagName] ? validTags[tagName]!.Options : []},"canHaveVariable":false})
                     }
                     let lastCharIndex = index
 
@@ -1922,11 +1772,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //parse tag value
                     let tagValueResults = GetString(index,[],true)
 
-                    if (tagValueResults) {
-                        OfferContext(tagValueResults[0],ContextType.String,{"addons":{"actionTagString":validTags[tagName] ? validTags[tagName]!.Options : []},"canHaveVariable":false,"charStart": valueInitIndex,"charEnd": tagValueResults[0]})
-                    } 
-                    //error if missing tag value
-                    else {
+                    if (tagValueResults == null) {
+                        OfferContext(index,"whitespaceAndIdentifier")
+                        DiscardContextBranch(context)
                         if (variable) {
                             throw new TCError("Expected tag value following '?'", 7, lastCharIndex, lastCharIndex)
                         } else {
@@ -1940,6 +1788,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                     //throw error if next character is end of line
                     if (cu.GetNextCharacters(index, 1) == "\n" || index + 1 + cu.GetWhitespaceAmount(index) >= SCRIPT_CONTENTS.length) {
+                        DiscardContextBranch(context)
                         throw new TCError("Tags list never closed", 5, tagsListInitIndex, cu.GetLineEnd(index) - 1)
                     }
 
@@ -1950,10 +1799,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     index += 1 + cu.GetWhitespaceAmount(index)
                 }
 
+                OfferContext(index)
+                DiscardContextBranch(context)
+
                 return [index,tags]
             }
         }
-
         return null
     }
 
@@ -1991,6 +1842,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         ) {
             return null
         }
+
         let isComparison = false
         let actions = domain.Actions
         if (accessor == "?") {
@@ -2000,14 +1852,17 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //move to the accessor
         index += 1 + cu.GetWhitespaceAmount(index)
-        
-        OfferContext(index,accessor == ":" ? ContextType.DomainMethod : ContextType.DomainCondition,{"domain":domainResults[1]})
+        let context = new DomainAccessContext(isComparison ? ContextDomainAccessType.Condition : ContextDomainAccessType.Action,domain.Identifier) 
+        BottomLevelContext = BottomLevelContext.setChild(context)
+        OfferContext(index,"whitespaceAndIdentifier")
 
         //= parse action =\\
         let actionNameInitIndex = index + cu.GetWhitespaceAmount(index) + 1
         let actionResults = cu.GetIdentifier(actionNameInitIndex)
         //error for missing action
         if (actionResults == null || actionResults[1] == "") {
+            OfferContext(index,"whitespaceAndIdentifier")
+            DiscardContextBranch(context)
             if (domain instanceof TargetDomain) {
                 throw new TCError(`Expected name for ${domain.ActionType} action`, 1, initIndex, index)
             }
@@ -2018,46 +1873,36 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         
         //move to the end of the action name
         index = actionResults[0]
+        context.name = actionResults[1]
+        OfferContext(index)
 
-        //parse params
-        let listInitIndex = index + cu.GetWhitespaceAmount(index) + 1
-        let paramResults: [number, ListToken] | null = null 
         try {
-            paramResults = ParseList(index, "(", ")", ",")
-        }
-        catch (e) {
-            if (e instanceof CodeContext) {
-                //dont replace an existing function signature since the one lowest down the expression tree is usually the one you're interested n
-                if (!e.Data.functionSignature) {
-                    let action = domain.Actions[actionResults[1]]
-                    if (action) {
-                        e.Data.functionSignature = {
-                            "type": "codeblock",
-                            "codeblock": domain[isComparison ? "ConditionCodeblock" : "ActionCodeblock"],
-                            "actionDFId": action.DFId,
-                            "canHideGetterVariable": CurrentLine.length != 0
-                        }
-                    }
-                    OfferRawContext(e)
-                }
+            //parse params
+            let listInitIndex = index + cu.GetWhitespaceAmount(index) + 1
+            let paramResults: [number, ListToken] | null = ParseList(index, "(", ")", ",")
+            let params: ListToken
+            if (paramResults) {
+                index = paramResults[0]
+                params = paramResults[1]
+            } else {
+                params = new ListToken([listInitIndex,-1],[])
             }
-            throw e
+    
+            let tags
+            let tagResults = ParseTags(index, actions[actionResults[1]] != undefined ? actions[actionResults[1]]!.Tags : {})
+            if (tagResults != null) {
+                tags = tagResults[1]
+                index = tagResults[0]
+            }
+    
+            DiscardContextBranch(context)
+            OfferContext(index)
+            return [index, new ActionToken([initIndex,index,actionNameInitIndex,actionResults[0]],domain.Identifier, actionResults[1], params, isComparison, tags!)]
+        } catch (e) {
+            if (e instanceof CodeContext) { throw e }
+            DiscardContextBranch(context)
+            return null
         }
-        let params: ListToken
-        if (paramResults) {
-            index = paramResults[0]
-            params = paramResults[1]
-        } else {
-            params = new ListToken([listInitIndex,-1],[])
-        }
-
-        let tags
-        let tagResults = ParseTags(index, actions[actionResults[1]] != undefined ? actions[actionResults[1]]!.Tags : {})
-        if (tagResults != null) {
-            tags = tagResults[1]
-            index = tagResults[0]
-        }
-        return [index, new ActionToken([initIndex,index,actionNameInitIndex,actionResults[0]],domain.Identifier, actionResults[1], params, isComparison, tags!)]
     }
 
     //= Call function/start process =\\
@@ -2078,19 +1923,21 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             return null
         }
 
-        //parse function name (totally not copy pasted from ParseVariable)
-        let name
         //move into position to parse function name
         index = keywordResults[0]
-
+        let context = new UserCallContext(mode)
+        BottomLevelContext = BottomLevelContext.setChild(context)
+        OfferContext(index,"whitespaceAndIdentifier")
         let keywordEndIndex = index// used for error messages
-
-        //get name
+        
+        
+        //parse function name (totally not copy pasted from ParseVariable)
         let nameResults
         try {
             nameResults = GetComplexName(index)
         }
         catch (e: any) {
+            DiscardContextBranch(context)
             if (e.Code == 1) {
                 throw new TCError(`${mode == "function" ? "Function" : "Process"} name was never closed`, 1, e.CharStart, e.CharLoc)
             } else if (e.Code == 2) {
@@ -2099,11 +1946,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
 
         index = nameResults[0]
-        name = nameResults[1]
-
+        context.name = nameResults[1]
+        OfferContext(index)
+        
         let args
         let tags
-
+        
         //parse arguments
         if (mode == "function") {
             let argsResults = ParseList(index,"(",")",",")
@@ -2112,7 +1960,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 args = argsResults[1]
             }
         }
-
+        
         //parse tags
         if (mode == "process") {
             let tagsResults = ParseTags(index,AD.DFActionMap.start_process!.dynamic!.Tags)
@@ -2121,8 +1969,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 tags = tagsResults[1]
             }
         }
-
-        return [index, new CallToken([initIndex,index],mode,name,args,tags)]
+        
+        OfferContext(index)
+        DiscardContextBranch(context)
+        return [index, new CallToken([initIndex,index],mode,nameResults[1],args,tags)]
     }
 
     //======== SPECIAL CODE ITEMS ========\\
@@ -2149,12 +1999,16 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //move to the accessor
         index += 1 + cu.GetWhitespaceAmount(index)
-
-        OfferContext(index,ContextType.DomainValue,{"domain":domainResults[1]})
+        let context = new DomainAccessContext(ContextDomainAccessType.Value,domain.Identifier)
+        BottomLevelContext = BottomLevelContext.setChild(context)
+        OfferContext(index,"whitespaceAndIdentifier")
 
         //= parse value =\\
         let valueInitIndex = index + cu.GetWhitespaceAmount(index) + 1
         let valueResults = cu.GetIdentifier(valueInitIndex)
+
+        DiscardContextBranch(context)
+        OfferContext(valueResults[0])
         //error for missing action
         if (valueResults == null || valueResults[1] == "") {
             if (domain instanceof TargetDomain) {
@@ -2167,7 +2021,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //move to the end of the action name
         index = valueResults[0]
-
         return [index, new GameValueToken([initIndex,index,valueInitIndex,index],valueResults[1], domain.Identifier)]
     }
 
@@ -2185,11 +2038,14 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         
         //move to start of type
         index += cu.GetWhitespaceAmount(index) + 1
-
-        OfferContext(index,ContextType.TypeAssignment)
-
+        let context = new TypeContext()
+        BottomLevelContext = BottomLevelContext.setChild(context)
+        OfferContext(index,"whitespaceAndIdentifier")
+        
         //parse type
         let typeResults = cu.GetIdentifier(index)
+        OfferContext(index[0])
+        DiscardContextBranch(context)
         if (typeResults[1] == "") {throw new TCError("Expected type following ':'",0,initIndex,initIndex)}
 
         //error for invalid type
@@ -2239,6 +2095,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         index += cu.GetWhitespaceAmount(index)
         while (!terminateAt.includes(cu.GetNextCharacters(index, 1)) && index + cu.GetWhitespaceAmount(index) + 1 < SCRIPT_CONTENTS.length) {
+            OfferContext(index,"whitespace")
             try {
                 let valueInitIndex = index
 
@@ -2267,7 +2124,15 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 if (results == null) { results = ParseAction(index, true, features.includes("genericTargetComparisons")) }
 
                 //try select action
-                if (results == null && features.includes("selectionActions")) { results = ParseSelectAction(index) }
+                if (results == null && (features.includes("selectionActions") || mode.mode == "getContext")) { results = ParseSelectAction(index) }
+                
+                //try a bunch of stuff for autocomplete's sake
+                if (mode.mode == "getContext") {
+                    //keep results local to here so that tokens aren't added to the actual expressions
+                    //since none of these tokens are made for that
+                    let results
+                    if (results == null) { results = ParseRepeat(index) }
+                }
 
                 //try string
                 if (results == null) { results = ParseString(index, "\"") }
@@ -2351,7 +2216,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         index += cu.GetWhitespaceAmount(index)
                         lastErrorEnd = index
                     }
-                    OfferContext(index,ContextType.General)
                 } else {
                     throw e
                 }
@@ -2396,14 +2260,16 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let identifierResults = cu.GetIdentifier(index)
         if (identifierResults == null || !VALID_LINE_STARTERS.includes(identifierResults[1])) { return null }
         index = identifierResults[0]
-
-        if (identifierResults[1] == "PLAYER_EVENT" || identifierResults[1] == "ENTITY_EVENT") {
-            OfferContext(index,ContextType.EventDeclaration,{"type": identifierResults[1] == "PLAYER_EVENT" ? "player" : "entity"})
-        }
-        else {
-            OfferContext(index,ContextType.PureUser)
-        }
-
+        
+        
+        // if (!(identifierResults[1] == "PLAYER_EVENT" || identifierResults[1] == "ENTITY_EVENT")) { return null }
+        
+        OfferContext(identifierResults[0]+1,false)
+        let context = new EventContext(identifierResults[1] == "PLAYER_EVENT" ? "player" : "entity")
+        BottomLevelContext = BottomLevelContext.setChild(context)
+        OfferContext(identifierResults[0]+1,"whitespaceAndIdentifier")
+        DiscardContextBranch(context)
+        
         let nameResults = GetComplexName(index)
         return [nameResults[0], new EventHeaderToken([initIndex,index],identifierResults[1],nameResults[1])]
     }
@@ -2417,19 +2283,31 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //make sure its the right header typre
         let identifierResults = cu.GetIdentifier(index)
         if (identifierResults == null || identifierResults[1] != "PARAM") { return null }
+        
         index = identifierResults[0]
-
+        let context = new ParameterContext()
+        BottomLevelContext = BottomLevelContext.setChild(context)
+        OfferContext(index,"whitespaceAndIdentifier")
+        
         //parse name
         let nameResults = GetComplexName(index)
         index = nameResults[0]
+        context.name = nameResults[1]
+        OfferContext(index)
 
         //if next character isn't a ':' then finish param parsing now
         if (cu.GetNextCharacters(index,1) != ":") {
+            DiscardContextBranch(context)
             return [index, new ParamHeaderToken([initIndex,index],nameResults[1],"any",false,false,null)]
         }
 
         //move to :
         index += cu.GetWhitespaceAmount(index) + 1
+        
+        let typeContext = new TypeContext()
+        BottomLevelContext = BottomLevelContext.setChild(typeContext)
+        OfferContext(index,"whitespaceAndIdentifier")
+        
         let modifiersInitIndex = index //used for errors
 
         let modifiers: Array<string> = []
@@ -2438,14 +2316,14 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         while (!["\n","="].includes(cu.GetNextCharacters(index,1))) {
             let modInitIndex = index + cu.GetWhitespaceAmount(index) + 1 //used for error messages
 
-            OfferContext(modInitIndex, ContextType.ParamType)
-
             let identifierResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
             if (identifierResults == null) {
+                OfferContext(index,"whitespaceAndIdentifier")
                 throw new TCError("Malformed param type",0,index,-1)
             }
 
             index = identifierResults[0]
+            OfferContext(identifierResults[0],"whitespaceAndIdentifier")
 
             //type has been found
             if (ValueType[identifierResults[1]] || identifierResults[1] == "") {
@@ -2456,6 +2334,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             } else {
                 //error for invalid modifier
                 if (!VALID_PARAM_MODIFIERS.includes(identifierResults[1])) {
+                    OfferContext(identifierResults[0],false)
+                    DiscardContextBranch(context)
                     throw new TCError(`Invalid param modifier: ${identifierResults[1]}`,0,modInitIndex,identifierResults[0])
                 }
 
@@ -2463,6 +2343,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 modifiers.push(identifierResults[1])
             }
         }
+
+        DiscardContextBranch(context)
 
         if (!type) {
             if (modifiers.length > 0) {
@@ -2486,29 +2368,36 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         if (cu.GetNextCharacters(index,1) == "=") {
             //move to =
             index += cu.GetWhitespaceAmount(index) + 1
+            let assigneeContext = new AssigneeContext()
+            BottomLevelContext = BottomLevelContext.setChild(assigneeContext)
+            OfferContext(index,"whitespaceAndIdentifier")
             let equalSignIndex = index //used for errors
-
+            
             //parse default value
             let expressionResults = ParseExpression(index,[";"],false)
             if (expressionResults == null) {
+                DiscardContextBranch(assigneeContext)
                 throw new TCError("Expected param default value following '='",0,equalSignIndex,equalSignIndex)
             }
 
             //throw error if param is required
             if (!modifiers.includes("optional")) {
+                DiscardContextBranch(assigneeContext)
                 throw new TCError("Only optional parameters can have default values",0,index,expressionResults[0])
             }
             //throw error if param is optional, but plural
             if (modifiers.includes("plural")) {
+                DiscardContextBranch(assigneeContext)
                 throw new TCError("Plural parameters cannot have default values",0,index,expressionResults[0])
             }
             
             index = expressionResults[0]
             defaultValue = expressionResults[1]
+            OfferContext(index)
+            DiscardContextBranch(assigneeContext)
         }
-
+        
         ReportVariable(new VariableToken([initIndex,index],"line",nameResults[1],type))
-
         return [index, new ParamHeaderToken([initIndex,index],nameResults[1],type,modifiers.includes("plural"),modifiers.includes("optional"),defaultValue)]
     }
 
@@ -2526,22 +2415,26 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //move to end of select keyword
         index = keywordResults[0]
-        let actionInitIndex = index + cu.GetWhitespaceAmount(index) + 1 //used for errors
-
-        OfferContext(index,ContextType.SelectionAction,{"type": keywordResults[1]})
+        let context = new SelectionContext()
+        context.type = keywordResults[1]
+        BottomLevelContext = BottomLevelContext.setChild(context)
+        OfferContext(index,"whitespaceAndIdentifier")
 
         let actionResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
         let action = actionResults[1]
         //error for no action given
         if (action == "") {
+            DiscardContextBranch(context)
             throw new TCError("Expected action following 'select'",0,initIndex,index)
         }
+        context.action = actionResults[1]
 
         //get action data
         let actionData = AD.TCActionMap.select_obj![action]!
 
         //error for invalid action
         if (!actionData || !(keyword == "select" ? CREATE_SELECTION_ACTIONS : FILTER_SELECTION_ACTIONS).includes(actionData.DFId)) {
+            DiscardContextBranch(context)
             throw new TCError(`Invalid select action: '${action}'`,0,index + cu.GetWhitespaceAmount(index) + 1, actionResults[0])
         }
 
@@ -2549,9 +2442,14 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //parse condition (if applicable)
         if (action == "PlayersByCondition" || action == "EntitiesByCondition" || action == "ByCondition") {
-            OfferContext(index,ContextType.General,{"addons":{"genericDomains":"true"}})
+            let conditionContext = new ConditionContext()
+            BottomLevelContext = BottomLevelContext.setChild(conditionContext)
+            OfferContext(index)
+
             //parse expression
             let expressionResults = ParseExpression(index,[";"],false,["comparisons","genericTargetComparisons"])
+            OfferContext(index,"whitespaceAndIdentifier")
+            DiscardContextBranch(conditionContext)
             if (expressionResults == null) { 
                 throw new TCError(`Expected condition following 'select ${action}'`,0,initIndex,index)
             }
@@ -2560,27 +2458,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             return [expressionResults[0], new SelectActionToken([initIndex,expressionResults[0]],actionResults[1],null,null,expressionResults[1])]
         } else {
             //parse arguments
-            let argResults: [number, ListToken] | null = null
-            try {
-                argResults = ParseList(index, "(", ")", ",")
-            }
-            catch (e) {
-                if (e instanceof CodeContext) {
-                    //dont replace an existing function signature since the one lowest down the expression tree is usually the one you're interested n
-                    if (!e.Data.functionSignature) {
-                        if (actionData) {
-                            e.Data.functionSignature = {
-                                "type": "codeblock",
-                                "codeblock": "select_obj",
-                                "actionDFId": actionData.DFId
-                            }
-                        }
-                    }
-                    OfferRawContext(e)
-                } else {
-                    throw e
-                }
-            }
+            let argResults: [number, ListToken] | null = ParseList(index, "(", ")", ",")
 
             let args
             if (argResults != null) {
@@ -2595,7 +2473,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 index = tagResults[0]
                 tags = tagResults[1]
             }
-
+            
+            DiscardContextBranch(context)
             return [index, new SelectActionToken([initIndex,index],actionResults[1],args,tags)]
         }
     }
@@ -2634,6 +2513,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         }
 
         CurrentLine = []
+        TopLevelContext = new CodelineContext()
+        BottomLevelContext = TopLevelContext
     }
 
     //main logic goes here
@@ -2712,7 +2593,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         // if current line is empty
         if (CurrentLine.length == 0) {
-            OfferContext(CharIndex,ContextType.General)
+            TopLevelContext = new CodelineContext()
+            BottomLevelContext = TopLevelContext
+            OfferContext(CharIndex)
 
             let results
 
@@ -2753,13 +2636,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
             //closing brackets
             if (cu.GetNextCharacters(CharIndex, 1) == "}") {
-                //push current line (since closing bracket shoudl always be treated as its own line)
+                //push current line since closing bracket shoudl always be treated as its own line
                 PushLineAsIs()
-                //move char index to closing bracket
                 CharIndex += cu.GetWhitespaceAmount(CharIndex) + 1
-                //add closing bracket to new line
                 CurrentLine.push(new BracketToken([CharIndex,CharIndex],"close"))
-                //push closing bracket line
                 PushLineAsIs()
 
                 return
@@ -2775,13 +2655,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         if (CurrentLine[0] instanceof IfToken || CurrentLine[0] instanceof RepeatToken) {
             //parse opening bracket
             if (cu.GetNextCharacters(CharIndex,1) == "{") {
-                //push current line (since brackets are always treated as their own line)
+                //push current line since brackets are always treated as their own line
                 PushLineAsIs()
-                //move to bracket
                 CharIndex += cu.GetWhitespaceAmount(CharIndex) + 1
-                //add bracket to new line
                 CurrentLine.push(new BracketToken([CharIndex,CharIndex],"open"))
-                //push new line with bracket
                 PushLineAsIs()
             } else {
                 throw new TCError(`${CurrentLine[0] instanceof IfToken ? "If" : "Repeat"} statement missing opening bracket`, 0, cu.GetLineStart(CharIndex), cu.GetLineEnd(CharIndex))
@@ -2812,12 +2689,20 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                 //get expression assignment
                 if (VALID_ASSIGNMENT_OPERATORS.includes(operatorResults[1].Operator)) {
+                    let context = new AssigneeContext()
+                    BottomLevelContext = BottomLevelContext.setChild(context)
+                    
                     let expressionResults = ParseExpression(CharIndex, [";"], false)
+
                     if (expressionResults) {
+                        OfferContext(expressionResults[0])
+                        // DiscardContextBranch(context)
                         ApplyResults(expressionResults)
                         return
                     } 
                     else {
+                        OfferContext(CharIndex,"whitespaceAndIdentifier")
+                        // DiscardContextBranch(context)
                         throw new TCError("Expected expression following assignment",0,CurrentLine[CurrentLine.length-1].CharStart,CurrentLine[CurrentLine.length-1].CharEnd)
                     }
                 }
@@ -2859,25 +2744,27 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     }
     else if (mode.mode == "getContext") {
         let currentLineNumber = mode.startFromLine == null ? 0 : mode.startFromLine
-        let currentContext: CodeContext = new CodeContext(ContextType.General,{},SCRIPT_CONTENTS.length)
+        let currentContext: CodeContext | undefined
         let firstControlTokenFound = false
         
         CurrentlyGrabbingContexts = true
 
         // kill me now
         while (currentLineNumber > -1) {
-            // lets be honest, if the completion context of any of your code depends on something 
-            // more than 1000 lines above it you deserve to have your autocomplete request canceled
-            
             CharIndex = mode.startFromLine == null ? -1 : LineIndexes[currentLineNumber]!
             Lines = []
             CurrentLine = []
-            Running = true            
+            TopLevelContext = new CodelineContext()
+            BottomLevelContext = TopLevelContext
+            Running = true   
+            
             while (Running) {
                 try {
                     try { TokenizationLogic(currentLineNumber) }
                     catch (e) {
                         if (e instanceof TCError) {
+                            TopLevelContext = new CodelineContext()
+                            BottomLevelContext = TopLevelContext
                             ParseExpression(CharIndex,["\n","#"],true,["lineTolerance","selectionActions"])
                         }
                         throw e
@@ -2892,7 +2779,13 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
             //i'm pretty sure that if more than one control token (if,repeat,while,etc.) is passed then 
             //its impossible for any above code to affect the context of the test pos
-            if (Lines[0] && (Lines[0][0] instanceof RepeatToken || Lines[0][0] instanceof IfToken || Lines[0][0] instanceof ElseToken)) {
+            if (
+                Lines[0] && (
+                (Lines[0][0] instanceof RepeatToken || Lines[0][0] instanceof IfToken || Lines[0][0] instanceof ElseToken)
+                || (Lines[0][0] instanceof VariableToken && Lines[0][1] instanceof OperatorToken)
+                )
+            ) {
+                break
                 if (!firstControlTokenFound) {
                     firstControlTokenFound = true
                 } else {
@@ -2902,13 +2795,15 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
             currentLineNumber -= 1
         }
+        if (!currentContext) {
+            return BottomLevelContext
+        }
         return currentContext
     }
     else if (mode.mode == "getVariables") {
         //key: line number, value: array of all variables on that line
         let lineVariableInfo: Dict<VariableToken[]> = {}
         let currentLineNumber = mode.startFromLine == null ? 0 : mode.startFromLine
-        let firstControlTokenFound = false
 
         ReportVariable = function(variable: VariableToken) {
             if (variable.CharStart > LineIndexes[currentLineNumber] && variable.CharEnd < LineIndexes[currentLineNumber+1]) {
@@ -2921,6 +2816,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             CharIndex = mode.startFromLine == null ? -1 : LineIndexes[currentLineNumber]!
             Lines = []
             CurrentLine = []
+            TopLevelContext = new CodelineContext()
+            BottomLevelContext = TopLevelContext
             Running = true
             
             lineVariableInfo[currentLineNumber] = []
