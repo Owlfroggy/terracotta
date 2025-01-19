@@ -150,6 +150,8 @@ let generalKeywords = generateCompletions([
     STATEMENT_KEYWORDS,
     ADDITIONAL_CONSTRUCTORS,
     VALID_BOOLEAN_OPERATORS,
+    "call",
+    "start",
 ].flat(),CompletionItemKind.Keyword)
 
 let domainKeywords = Object.values(Domains.PublicDomains).map(domain => {
