@@ -3,7 +3,7 @@ import * as Domains from "../util/domains.ts"
 import * as AD from "../util/actionDump.ts"
 import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures, SignatureHelpParams, SignatureInformation, SignatureHelp, ParameterInformation, Range, FileOperationRegistrationOptions } from "vscode-languageserver";
 import { EventHeaderToken, ExpressionToken, GetLineIndexes, OperatorToken, SelectActionToken, StringToken, Tokenize, VariableToken } from "../tokenizer/tokenizer.ts";
-import { DocumentTracker, TrackedItemLibrary, TrackedScript } from "./documentTracker.ts";
+import { DocumentTracker, TrackedDocument, TrackedItemLibrary, TrackedScript } from "./documentTracker.ts";
 import { ADDITIONAL_CONSTRUCTORS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, PLAYER_ONLY_GAME_VALUES, REPEAT_ON_ACTIONS, STATEMENT_KEYWORDS, VALID_BOOLEAN_OPERATORS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants.ts";
 import { Dict } from "../util/dict.ts"
 import { AssigneeContext, CodeContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DictionaryContext, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, RepeatContext, SelectionContext, TagsContext, TypeContext, UserCallContext, VariableContext } from "./codeContext.ts";
@@ -317,12 +317,11 @@ export function StartServer() {
     }
 
     function getFunctionCompletions(documentUri: string, context: CodeContext): CompletionItem[] {
-        try {
-        let document = documentTracker.Documents[documentUri] as TrackedScript
         let categories = 
               context instanceof UserCallContext && context.mode == "function" ? ["Functions"]
             : context instanceof UserCallContext && context.mode == "process" ?  ["Processes"]
             : ["Functions", "Processes"]
+        let document = documentTracker.Documents[documentUri] as TrackedScript
         let ownerFolder = document?.OwnedBy
         if (document && ownerFolder) {
             let items: CompletionItem[] = []
@@ -362,7 +361,6 @@ export function StartServer() {
             }
             return items
         }
-        } catch(e) {console.error(e)}
         return []
     }
 
@@ -510,7 +508,7 @@ export function StartServer() {
 
         //travel up the context tree until an arguments list context is found
         while (context.parent) {
-            if (context instanceof ListContext && (context.parent instanceof DomainAccessContext || context.parent instanceof ConstructorContext || context.parent instanceof SelectionContext)) {
+            if (context instanceof ListContext && (context.parent instanceof UserCallContext || context.parent instanceof DomainAccessContext || context.parent instanceof ConstructorContext || context.parent instanceof SelectionContext)) {
                 break
             }
             context = context.parent
@@ -547,6 +545,16 @@ export function StartServer() {
                 tagAmount = Object.keys(action.Tags).length
                 paramData = action.Parameters
             } else { return }
+        } else if (context.parent instanceof UserCallContext) {
+            let category = context.parent.mode == "function" ? "Functions" : "Processes"
+            let document = documentTracker.Documents[param.textDocument.uri] as TrackedScript
+            let ownerFolder = document?.OwnedBy
+            prefix = context.parent.name + "("
+            if (document && ownerFolder && ownerFolder[category][context.parent.name]) {
+                paramData = ([...ownerFolder[category][context.parent.name]?.values()][0] as TrackedScript).FunctionSignature
+            } else {
+                return
+            }
         } else if (context.parent instanceof ConstructorContext) {
             prefix = context.parent.name + "["
             paramData = AD.ConstructorSignatures[context.parent.name]

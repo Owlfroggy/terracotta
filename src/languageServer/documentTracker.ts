@@ -1,5 +1,6 @@
 import * as rpc from "vscode-jsonrpc"
 import * as fs from "node:fs/promises"
+import * as AD from "../util/actionDump.ts";
 import { EventHeaderToken, ParamHeaderToken, Tokenize, TokenizerResults, VariableToken } from "../tokenizer/tokenizer.ts"
 import { ChangeAnnotation, CreateFilesParams, DeleteFilesParams, DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidRenameFilesNotification, DocumentLinkResolveRequest, DocumentUri, FileChangeType, InitializeParams, MessageType, RenameFilesParams, TextDocumentContentChangeEvent } from "vscode-languageserver"
 import { LinePositionToIndex, slog, snotif } from "./languageServer.ts"
@@ -241,6 +242,7 @@ export class TrackedScript extends TrackedDocument {
     HeaderCategory: "Functions" | "Processes" | undefined
     CodeLineType: "PLAYER_EVENT" | "ENTITY_EVENT" | "PROCESS" | "FUNCTION" | undefined
     CodeLineName: string | undefined
+    FunctionSignature: AD.Parameter[]
 
     private lines: number = 0
 
@@ -336,6 +338,8 @@ export class TrackedScript extends TrackedDocument {
 
         let eventHeaderDone = false;
 
+        let signature: AD.Parameter[] = []
+
         for (const line of headers.Lines) {
             for (const header of line) {
                 if (header instanceof EventHeaderToken && !eventHeaderDone) {
@@ -343,13 +347,19 @@ export class TrackedScript extends TrackedDocument {
                     if (header.Event != this.CodeLineName || header.Codeblock != this.CodeLineType) {
                         this.UpdateOwnership(null,header.Event ?? false,(header.Codeblock ?? false) as any)
                     }
+                } else if (header instanceof ParamHeaderToken) {
+                    let type = header.Type || "any"
+                    signature.push(new AD.Parameter([
+                        [new AD.ParameterValue(AD.TCTypeToDF[type],header.Name,header.Optional,header.Plural,[])]
+                    ]))
                 }
             }
         }
 
-        if (!eventHeaderDone) {
+        if (!eventHeaderDone && (this.CodeLineName || this.CodeLineType)) {
             this.UpdateOwnership(null,false,false)
         }
+        this.FunctionSignature = signature
     }
 
     ApplyChanges(param: DidChangeTextDocumentParams, forEachChangeCallback: (change: TextDocumentContentChangeEvent, startIndex: number, endIndex: number) => void = () => {}) {

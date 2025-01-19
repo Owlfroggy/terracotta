@@ -254,6 +254,21 @@ export const DFTypeToTC = {
     SPAWN_EGG: "item",
 }
 
+export const TCTypeToDF = {
+    num: "NUMBER",
+    loc: "LOCATION",
+    vec: "VECTOR",
+    item: "ITEM",
+    pot: "POTION",
+    par: "PARTICLE",
+    snd: "SOUND",
+    txt: "COMPONENT",
+    str: "TEXT",
+    dict: "DICT",
+    var: "VARIABLE",
+    any: "ANY_TYPE",
+}
+
 export const DFTypeToString = {
     NUMBER: "Number",
     LOCATION: "Location",
