@@ -1,7 +1,7 @@
 import * as rpc from "vscode-jsonrpc"
 import * as fs from "node:fs/promises"
 import * as AD from "../util/actionDump.ts";
-import { EventHeaderToken, ParamHeaderToken, Tokenize, TokenizerResults, VariableToken } from "../tokenizer/tokenizer.ts"
+import { DescriptionHeaderToken, EventHeaderToken, ParamHeaderToken, Tokenize, TokenizerResults, VariableToken } from "../tokenizer/tokenizer.ts"
 import { ChangeAnnotation, CreateFilesParams, DeleteFilesParams, DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidRenameFilesNotification, DocumentLinkResolveRequest, DocumentUri, FileChangeType, InitializeParams, MessageType, RenameFilesParams, TextDocumentContentChangeEvent } from "vscode-languageserver"
 import { LinePositionToIndex, slog, snotif } from "./languageServer.ts"
 import { Dict } from "../util/dict.ts"
@@ -243,6 +243,7 @@ export class TrackedScript extends TrackedDocument {
     CodeLineType: "PLAYER_EVENT" | "ENTITY_EVENT" | "PROCESS" | "FUNCTION" | undefined
     CodeLineName: string | undefined
     FunctionSignature: AD.Parameter[]
+    FunctionDescription: string
 
     private lines: number = 0
 
@@ -337,6 +338,7 @@ export class TrackedScript extends TrackedDocument {
         let headers = Tokenize(this.Text,{mode: "getHeaders", fromLanguageServer: true}) as TokenizerResults
 
         let eventHeaderDone = false;
+        let heldDescription: string | undefined = undefined
 
         let signature: AD.Parameter[] = []
 
@@ -347,11 +349,18 @@ export class TrackedScript extends TrackedDocument {
                     if (header.Event != this.CodeLineName || header.Codeblock != this.CodeLineType) {
                         this.UpdateOwnership(null,header.Event ?? false,(header.Codeblock ?? false) as any)
                     }
+                    if (heldDescription) {
+                        this.FunctionDescription = heldDescription
+                        heldDescription = undefined
+                    }
                 } else if (header instanceof ParamHeaderToken) {
                     let type = header.Type || "any"
                     signature.push(new AD.Parameter([
-                        [new AD.ParameterValue(AD.TCTypeToDF[type],header.Name,header.Optional,header.Plural,[])]
+                        [new AD.ParameterValue(AD.TCTypeToDF[type],header.Name,header.Optional,header.Plural,heldDescription ? [heldDescription] : [])]
                     ]))
+                    heldDescription = undefined
+                } else if (header instanceof DescriptionHeaderToken) {
+                    heldDescription = header.Description
                 }
             }
         }

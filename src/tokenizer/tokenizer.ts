@@ -436,6 +436,13 @@ export class ParamHeaderToken extends HeaderToken {
     Optional: boolean
     DefaultValue: ExpressionToken | null
 }
+export class DescriptionHeaderToken extends HeaderToken {
+    constructor(meta,description?: string) {
+        super(meta)
+        this.Description = description
+    }
+    Description?: string
+}
 export class SelectActionToken extends Token {
     constructor(meta,action: string, args: ListToken | null = null, tags: Dict<ActionTag> | null = null, conditionExpr: ExpressionToken | null = null, conditionNot: boolean = false) {
         super(meta)
@@ -2241,14 +2248,30 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     }
 
     //= Headers ==\\
-   
-
     function ParseKeywordHeaderToken(index): [number, KeywordHeaderToken] | null {
         index += cu.GetWhitespaceAmount(index) + 1
         let identifierResults = cu.GetIdentifier(index)
         if (VALID_HEADER_KEYWORDS.includes(identifierResults[1])) {
             //if valid keyword
             return [identifierResults[0],new KeywordHeaderToken([index,identifierResults[0]],identifierResults[1])]
+        } else {
+            return null
+        }
+    }
+
+    function ParseDescriptionHeaderToken(index): [number, DescriptionHeaderToken] | null {
+        index += cu.GetWhitespaceAmount(index) + 1
+        let startIndex = index
+        let identifierResults = cu.GetIdentifier(index)
+        if (identifierResults[1] == "DESC") {
+            index = identifierResults[0]
+            let stringResults = GetString(index)
+            let desc: string | undefined = undefined
+            if (stringResults) {
+                index = stringResults[0]
+                desc = stringResults[1]
+            }
+            return [index,new DescriptionHeaderToken([startIndex,index],desc)]
         } else {
             return null
         }
@@ -2610,6 +2633,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             if (results == null) { results = ParseParamHeader(CharIndex) }
 
             if (results == null) { results = ParseKeywordHeaderToken(CharIndex) }
+            
+            if (results == null) { results = ParseDescriptionHeaderToken(CharIndex) }
 
             //debug
             if (DEBUG_MODE.enableDebugFunctions) {
