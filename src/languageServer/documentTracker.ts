@@ -1,6 +1,6 @@
 import * as rpc from "vscode-jsonrpc"
 import * as fs from "node:fs/promises"
-import { Tokenize, VariableToken } from "../tokenizer/tokenizer.ts"
+import { EventHeaderToken, ParamHeaderToken, Tokenize, TokenizerResults, VariableToken } from "../tokenizer/tokenizer.ts"
 import { ChangeAnnotation, CreateFilesParams, DeleteFilesParams, DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidRenameFilesNotification, DocumentLinkResolveRequest, DocumentUri, FileChangeType, InitializeParams, MessageType, RenameFilesParams, TextDocumentContentChangeEvent } from "vscode-languageserver"
 import { LinePositionToIndex, slog, snotif } from "./languageServer.ts"
 import { Dict } from "../util/dict.ts"
@@ -238,7 +238,46 @@ export class TrackedScript extends TrackedDocument {
     //if there are no variables on a line, it will not have an entry in this table
     VariablesByLine: TrackedVariable[][] = []
 
+    HeaderCategory: "Functions" | "Processes" | undefined
+    CodeLineType: "PLAYER_EVENT" | "ENTITY_EVENT" | "PROCESS" | "FUNCTION" | undefined
+    CodeLineName: string | undefined
+
     private lines: number = 0
+
+    private cleanupTracking() {
+        if (this.HeaderCategory && this.CodeLineName && this.OwnedBy && this.OwnedBy[this.HeaderCategory][this.CodeLineName]) {
+            this.OwnedBy[this.HeaderCategory][this.CodeLineName]?.delete(this)
+            if (this.OwnedBy[this.HeaderCategory][this.CodeLineName]?.size == 0) {
+                delete this.OwnedBy[this.HeaderCategory][this.CodeLineName]
+            }
+        }
+    }
+
+    // to set newName or newCodeblock to undefined, pass in null
+    // do NOT question why
+    UpdateOwnership(oldUri?: string | null, newName: string | null | false = null, newCodeblock: "PLAYER_EVENT" | "ENTITY_EVENT" | "PROCESS" | "FUNCTION" | null | false = null): void {
+        //remove from old location
+        this.cleanupTracking()
+        
+        if (newName !== null) {
+            this.CodeLineName = newName == false ? undefined : newName
+        }
+        if (newCodeblock !== null) {
+            this.CodeLineType = newCodeblock == false ? undefined : newCodeblock
+            this.HeaderCategory = this.CodeLineType == "FUNCTION" ? "Functions" : this.CodeLineType == "PROCESS" ? "Processes" : undefined
+        }
+        super.UpdateOwnership(oldUri)
+        
+        //add to new location
+        if (this.CodeLineType && this.CodeLineName && this.CodeLineName.length > 0) {
+            if (this.HeaderCategory && this.OwnedBy) {
+                if (!this.OwnedBy[this.HeaderCategory][this.CodeLineName]) {
+                    this.OwnedBy[this.HeaderCategory][this.CodeLineName] = new Set()
+                }
+                this.OwnedBy[this.HeaderCategory][this.CodeLineName]?.add(this)
+            }
+        }
+    }
 
     //yeah i've kinda given up on the names
     DealWithRemovedVariableLine(line: TrackedVariable[]) {
@@ -292,6 +331,27 @@ export class TrackedScript extends TrackedDocument {
         }
     }
 
+    UpdateHeaders() {
+        let headers = Tokenize(this.Text,{mode: "getHeaders", fromLanguageServer: true}) as TokenizerResults
+
+        let eventHeaderDone = false;
+
+        for (const line of headers.Lines) {
+            for (const header of line) {
+                if (header instanceof EventHeaderToken && !eventHeaderDone) {
+                    eventHeaderDone = true
+                    if (header.Event != this.CodeLineName || header.Codeblock != this.CodeLineType) {
+                        this.UpdateOwnership(null,header.Event ?? false,(header.Codeblock ?? false) as any)
+                    }
+                }
+            }
+        }
+
+        if (!eventHeaderDone) {
+            this.UpdateOwnership(null,false,false)
+        }
+    }
+
     ApplyChanges(param: DidChangeTextDocumentParams, forEachChangeCallback: (change: TextDocumentContentChangeEvent, startIndex: number, endIndex: number) => void = () => {}) {
         super.ApplyChanges(param, (change: TextDocumentContentChangeEvent, startIndex: number, endIndex: number) => {
             if (TextDocumentContentChangeEvent.isIncremental(change)) {
@@ -319,6 +379,7 @@ export class TrackedScript extends TrackedDocument {
                 this.lines = lines + 1
             }
         })
+        this.UpdateHeaders()
         //just gonna leave this useful logging stuff here in case my terrible variable tracker code ever introduces me to the consequences of my actions
 
         // slog ("\n\n\n\n\n\n\n\n")
@@ -349,7 +410,7 @@ export class TrackedScript extends TrackedDocument {
         this.VariablesByLine.forEach(line => {
             this.DealWithRemovedVariableLine(line)
         })
-
+        this.cleanupTracking()
         super.Remove()
     }
 
@@ -380,6 +441,10 @@ export class TrackedFolder {
 
     //key: library id
     Libraries: Dict<Set<TrackedItemLibrary>> = {}
+
+    //key: function/process name
+    Functions: Dict<Set<TrackedScript>> = {}
+    Processes: Dict<Set<TrackedScript>> = {}
 
     //all documents that are descendents of this folder
     Documents: Dict<TrackedDocument> = {}

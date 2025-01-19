@@ -6,7 +6,7 @@ import { EventHeaderToken, ExpressionToken, GetLineIndexes, OperatorToken, Selec
 import { DocumentTracker, TrackedItemLibrary, TrackedScript } from "./documentTracker.ts";
 import { ADDITIONAL_CONSTRUCTORS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, PLAYER_ONLY_GAME_VALUES, REPEAT_ON_ACTIONS, STATEMENT_KEYWORDS, VALID_BOOLEAN_OPERATORS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants.ts";
 import { Dict } from "../util/dict.ts"
-import { AssigneeContext, CodeContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DictionaryContext, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, RepeatContext, SelectionContext, TagsContext, TypeContext, VariableContext } from "./codeContext.ts";
+import { AssigneeContext, CodeContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DictionaryContext, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, RepeatContext, SelectionContext, TagsContext, TypeContext, UserCallContext, VariableContext } from "./codeContext.ts";
 import { VALID_VAR_SCOPES, VAR_SCOPE_TC_NAMES } from "../util/constants.ts";
 import { FOR_LOOP_MODES } from "../util/constants.ts";
 import { print } from "../main.ts";
@@ -314,6 +314,56 @@ export function StartServer() {
 
     function log(...message: string[]) {
         connection.sendNotification("window/logMessage",{message: message.join(" "), type: MessageType.Log})
+    }
+
+    function getFunctionCompletions(documentUri: string, context: CodeContext): CompletionItem[] {
+        try {
+        let document = documentTracker.Documents[documentUri] as TrackedScript
+        let categories = 
+              context instanceof UserCallContext && context.mode == "function" ? ["Functions"]
+            : context instanceof UserCallContext && context.mode == "process" ?  ["Processes"]
+            : ["Functions", "Processes"]
+        let ownerFolder = document?.OwnedBy
+        if (document && ownerFolder) {
+            let items: CompletionItem[] = []
+            for (const category of categories) {
+                items.push(...Object.keys(ownerFolder[category]).map(name => {
+                    let item: CompletionItem
+                    item = {
+                        label: name,
+                        kind: CompletionItemKind.Function,
+                        commitCharacters: [";"],
+                        data: {}
+                    }
+
+                    //if name has special characters and needs ["akjhdgffkj"] syntax
+                    if ((name.match(/[^a-z_0-9]/gi) || name.match(/^[0-9]/gi)) && !context.inComplexName && !context.stringInfo) {
+                        item.insertText = `["${name.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"]`
+                    } else {
+                        item.insertText = name
+                    }
+
+                    if (context instanceof UserCallContext) {
+                        if (context.stringInfo || context.inComplexName) {
+                            item.data.isString = true
+                        }
+                    } else {
+                        item.insertText = (category == "Functions" ? "call " : "start ") + item.insertText
+                    }
+
+                    if (category == "Functions") {
+                        item.commitCharacters?.push("(")
+                    } else {
+                        item.commitCharacters?.push("{")
+                    }
+                    
+                    return item
+                }))
+            }
+            return items
+        }
+        } catch(e) {console.error(e)}
+        return []
     }
 
     function getVariableCompletions(documentUri: string, context: CodeContext) {
@@ -829,8 +879,12 @@ export function StartServer() {
                         data: {isString: true},
                         sortText: "\u0000\u0000\u0000\u0000\u0000"+item
                     }
-                })) 
+                }))
             }
+        }
+        else if (context instanceof UserCallContext) {
+            includeGeneralKeywords = false
+            items.push(getFunctionCompletions(param.textDocument.uri,context))
         }
         else if (context instanceof DictionaryContext) {
             // particle fields
@@ -861,7 +915,7 @@ export function StartServer() {
         }
 
         if (includeGeneralKeywords) {
-            items.push(generalKeywords, variableScopeKeywords, domainKeywords, getVariableCompletions(param.textDocument.uri,context)!)
+            items.push(generalKeywords, variableScopeKeywords, domainKeywords, getVariableCompletions(param.textDocument.uri,context)!, getFunctionCompletions(param.textDocument.uri,context))
         }
         
         scuffedContextDebugPrint(context)
@@ -897,7 +951,7 @@ export function StartServer() {
             }
         }
 
-        slog("Returned",items.length,"items")
+        slog ("Returned",items.length,"items")
         let response: CompletionList = {
             isIncomplete: true,
             items: items as CompletionItem[]

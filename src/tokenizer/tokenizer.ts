@@ -467,7 +467,7 @@ export class TokenizerResults {
 }
 
 export interface TokenizeMode {
-    "mode": "getTokens" | "getContext" | "getVariables",
+    "mode": "getTokens" | "getContext" | "getVariables" | "getHeaders",
 
     //starts at startFromLine, moving up until it reaches goThroughLine
     "startFromLine"?: number,
@@ -1927,7 +1927,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         index = keywordResults[0]
         let context = new UserCallContext(mode)
         BottomLevelContext = BottomLevelContext.setChild(context)
-        OfferContext(index,"whitespaceAndIdentifier")
+        if (cu.GetWhitespaceAmount(index,false) > 0) {
+            OfferContext(index,"whitespaceAndIdentifier")
+        }
         let keywordEndIndex = index// used for error messages
         
         
@@ -1937,6 +1939,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             nameResults = GetComplexName(index)
         }
         catch (e: any) {
+            if (e instanceof CodeContext) { throw e }
             DiscardContextBranch(context)
             if (e.Code == 1) {
                 throw new TCError(`${mode == "function" ? "Function" : "Process"} name was never closed`, 1, e.CharStart, e.CharLoc)
@@ -1947,7 +1950,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         index = nameResults[0]
         context.name = nameResults[1]
-        OfferContext(index)
+        OfferContext(index,false)
         
         let args
         let tags
@@ -2735,6 +2738,26 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     if (mode.mode == "getTokens") {
         while (Running) {
             TokenizationLogic(0)
+        }
+    
+        let results = new TokenizerResults()
+        results.Lines = Lines
+    
+        return results
+    }
+    else if (mode.mode == "getHeaders") {
+        while (Running) {
+            let failed = false
+            try {
+                TokenizationLogic(0)
+            } catch {
+                failed = true
+                Running = false
+            }
+            if (!failed && Lines.length > 0 && Lines[Lines.length - 1].length > 0 && !(Lines[Lines.length - 1]?.[0] instanceof HeaderToken)) {
+                Running = false
+                Lines.pop()
+            }
         }
     
         let results = new TokenizerResults()
