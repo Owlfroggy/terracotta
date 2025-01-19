@@ -356,7 +356,7 @@ export class TrackedScript extends TrackedDocument {
                 } else if (header instanceof ParamHeaderToken) {
                     let type = header.Type || "any"
                     signature.push(new AD.Parameter([
-                        [new AD.ParameterValue(AD.TCTypeToDF[type],header.Name,header.Optional,header.Plural,heldDescription ? [heldDescription] : [])]
+                        [new AD.ParameterValue(AD.TCTypeToDF[type],header.Name,header.Optional,header.Plural,heldDescription ? heldDescription.split("\n") : [])]
                     ]))
                     heldDescription = undefined
                 } else if (header instanceof DescriptionHeaderToken) {

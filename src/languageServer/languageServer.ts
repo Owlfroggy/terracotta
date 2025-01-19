@@ -19,6 +19,7 @@ enum CompletionItemType {
     DomainCondition,
     DomainValue,
     EventName,
+    UserCall,
 }
 
 //function that other things can call to log to the language server output when debugging
@@ -280,7 +281,9 @@ function getParamString(parameters: AD.Parameter[], header: string, noParamsFall
                 // notes
                 let notesString = ""
                 for (const note of value.Notes) {
-                    notesString += `\\\n  ⏵ ${note}`
+                    if (note.length > 0) {
+                        notesString += `\\\n  ⏵ ${note}`
+                    }
                 }
 
                 // main string
@@ -332,7 +335,10 @@ export function StartServer() {
                         label: name,
                         kind: CompletionItemKind.Function,
                         commitCharacters: [";"],
-                        data: {}
+                        data: {
+                            type: CompletionItemType.UserCall,
+                            documentUri: documentUri
+                        }
                     }
 
                     //if name has special characters and needs ["akjhdgffkj"] syntax
@@ -352,9 +358,13 @@ export function StartServer() {
 
                     if (category == "Functions") {
                         item.commitCharacters?.push("(")
+                        item.data.category = "Functions"
                     } else {
                         item.commitCharacters?.push("{")
+                        item.data.category = "Processes"
                     }
+
+                    item.data.name = name
                     
                     return item
                 }))
@@ -729,12 +739,27 @@ export function StartServer() {
 
             documentation = `${description}${worksWithString}${info}${returnType}`
         }
+        // event name
         else if (item.data.type == CompletionItemType.EventName) {
             let event = AD.DFActionMap[`${item.data.eventType == "player" ? '' : 'entity_'}event`]![item.data.eventDFId]
             if (!event) { return item }
             let info = event.AdditionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
             let cancelInfo = event.Cancellable ? "\n\n∅ Cancellable" : event.CancelledAutomatically ? "\n\n∅ Cancelled automatically" : ""
             documentation = `${event.Description}${info}${cancelInfo}`
+        }
+        // custom function
+        else if (item.data.type == CompletionItemType.UserCall) {
+            let category = item.data.category
+            let document = documentTracker.Documents[item.data.documentUri] as TrackedScript
+            let ownerFolder = document?.OwnedBy
+            if (!(document && ownerFolder && ownerFolder[category][item.data.name])) { return item }
+
+            let calledDoc = ([...ownerFolder[category][item.data.name]?.values()][0] as TrackedScript)
+            
+            documentation = `${getParamString(calledDoc.FunctionSignature,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")}`
+            if (calledDoc.FunctionDescription) {
+                documentation = calledDoc.FunctionDescription + "\n\n" + documentation
+            }
         }
         
         if (documentation === "") { return item }
