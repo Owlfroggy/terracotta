@@ -567,7 +567,7 @@ export function StartServer() {
         let isAssignee = false
         let level: CodeContext = context
         while (level?.parent) {
-            if (level instanceof AssigneeContext || level instanceof ForLoopContext) {
+            if (level instanceof AssigneeContext || level instanceof ForLoopContext || level instanceof ConditionContext) {
                 isAssignee = true
                 break
             }
