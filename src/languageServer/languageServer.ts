@@ -1,7 +1,7 @@
 import * as rpc from "vscode-jsonrpc/node.js"
 import * as Domains from "../util/domains.ts"
 import * as AD from "../util/actionDump.ts"
-import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures, SignatureHelpParams, SignatureInformation, SignatureHelp, ParameterInformation, Range, FileOperationRegistrationOptions } from "vscode-languageserver";
+import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures, SignatureHelpParams, SignatureInformation, SignatureHelp, ParameterInformation, Range, FileOperationRegistrationOptions, DefinitionParams, Location } from "vscode-languageserver";
 import { EventHeaderToken, ExpressionToken, GetLineIndexes, OperatorToken, SelectActionToken, StringToken, Tokenize, VariableToken } from "../tokenizer/tokenizer.ts";
 import { DocumentTracker, TrackedDocument, TrackedItemLibrary, TrackedScript } from "./documentTracker.ts";
 import { ADDITIONAL_CONSTRUCTORS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, PLAYER_ONLY_GAME_VALUES, REPEAT_ON_ACTIONS, STATEMENT_KEYWORDS, VALID_BOOLEAN_OPERATORS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants.ts";
@@ -12,6 +12,7 @@ import { FOR_LOOP_MODES } from "../util/constants.ts";
 import { print } from "../main.ts";
 import { ActionBlock, CodeItem, CompileLines, VariableItem } from "../compiler/codelineCompiler.ts";
 import { GameValueItem } from "../compiler/codelineCompiler.ts";
+import { CharUtils } from "../util/characterUtils.ts";
 
 enum CompletionItemType {
     SelectionAction,
@@ -493,6 +494,7 @@ export function StartServer() {
                         didDelete: yesIWouldLikeToKnowAboutThat,
                     }
                 },
+                definitionProvider: true,
                 //completion
                 completionProvider: {
                     resolveProvider: true,
@@ -509,6 +511,26 @@ export function StartServer() {
         }
 
         return response
+    })
+
+    connection.onRequest("textDocument/definition",(param: DefinitionParams) => {
+        let script = documentTracker.GetFileText(param.textDocument.uri)
+        let cu = new CharUtils(script,true)
+
+        let lineIndexes = GetLineIndexes(script)
+        let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": cu.GetIdentifier(lineIndexes[param.position.line]+param.position.character + 1)[0],"startFromLine": param.position.line, "fromLanguageServer": true}) as CodeContext
+
+        if (context instanceof UserCallContext) {
+            let category = context.mode == "function" ? "Functions" : "Processes"
+            let document = documentTracker.Documents[param.textDocument.uri] as TrackedScript
+            let ownerFolder = document?.OwnedBy
+            if (document && ownerFolder && ownerFolder[category][context.name]) {
+                return {
+                    uri: ([...ownerFolder[category][context.name]?.values()][0] as TrackedScript).Uri,
+                    range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}}
+                } as Location
+            }
+        }
     })
 
     connection.onRequest("textDocument/signatureHelp",(param: SignatureHelpParams) => {

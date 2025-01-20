@@ -1934,9 +1934,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         index = keywordResults[0]
         let context = new UserCallContext(mode)
         BottomLevelContext = BottomLevelContext.setChild(context)
-        if (cu.GetWhitespaceAmount(index,false) > 0) {
-            OfferContext(index,"whitespaceAndIdentifier")
-        }
         let keywordEndIndex = index// used for error messages
         
         
@@ -1980,7 +1977,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
         }
         
-        OfferContext(index)
+        OfferContext(index,false)
         DiscardContextBranch(context)
         return [index, new CallToken([initIndex,index],mode,nameResults[1],args,tags)]
     }
