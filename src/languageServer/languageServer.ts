@@ -21,6 +21,7 @@ enum CompletionItemType {
     DomainValue,
     EventName,
     UserCall,
+    ForLoopAction,
 }
 
 //function that other things can call to log to the language server output when debugging
@@ -143,7 +144,7 @@ let forLoopModeKeywords = FOR_LOOP_MODES.map(mode => {
     return {
         label: mode,
         kind: CompletionItemKind.Keyword,
-        sortText: "\u0000" + mode
+        sortText: "\u0000" + mode,
     }
 })
 
@@ -265,7 +266,11 @@ let forOnActionCompletionEntries: CompletionItem[] = REPEAT_ON_ACTIONS.map(dfId 
     return {
         label: action.TCId,
         kind: CompletionItemKind.Function,
-        commitCharacters: ["("]
+        commitCharacters: ["("],
+        data: {
+            type: CompletionItemType.ForLoopAction,
+            actionDFId: dfId
+        }
     } as CompletionItem
 });
 
@@ -547,7 +552,8 @@ export function StartServer() {
                 context.parent instanceof DomainAccessContext || 
                 context.parent instanceof ConstructorContext || 
                 context.parent instanceof SelectionContext ||
-                context.parent instanceof StandaloneFunctionContext
+                context.parent instanceof StandaloneFunctionContext ||
+                context.parent instanceof ForLoopContext
             )) {
                 break
             }
@@ -561,7 +567,7 @@ export function StartServer() {
         let isAssignee = false
         let level: CodeContext = context
         while (level?.parent) {
-            if (level instanceof AssigneeContext || (level instanceof ForLoopContext && level.mode == "in")) {
+            if (level instanceof AssigneeContext || level instanceof ForLoopContext) {
                 isAssignee = true
                 break
             }
@@ -605,6 +611,16 @@ export function StartServer() {
             } else {
                 return
             }
+        } else if (context.parent instanceof ForLoopContext) {
+            if (context.parent.mode == "in") { return }
+            let action = AD.TCActionMap.repeat![context.parent.action!]
+            prefix = context.parent.action + "("
+            if (action) {
+                tagAmount = Object.keys(action.Tags).length
+                paramData = action.Parameters
+            } else {
+                return
+            }
         } else {
             return
         }
@@ -618,7 +634,7 @@ export function StartServer() {
             for (const group of parameter.Groups) {
                 let values = [...group]
                 //if being assigned to a variable, exclude first var param from signature
-                if (values[0].DFType == "VARIABLE" && values[0].Description == "Variable to set" && isAssignee) {
+                if (values[0].DFType == "VARIABLE" && (values[0].Description == "Variable to set" || values[0].Description.match(/Gets the current .+ each iteration/g)) && isAssignee) {
                     values.shift()
                     if (values.length == 0) {
                         continue
@@ -727,9 +743,10 @@ export function StartServer() {
 
         let documentation: string = ""
         // domain action
-        if (itemType == CompletionItemType.DomainAction || itemType == CompletionItemType.DomainCondition || itemType == CompletionItemType.SelectionAction) {
+        if (itemType == CompletionItemType.DomainAction || itemType == CompletionItemType.DomainCondition || itemType == CompletionItemType.SelectionAction || itemType == CompletionItemType.ForLoopAction) {
             let action: AD.Action = 
-                itemType == CompletionItemType.SelectionAction ? AD.DFActionMap.select_obj![item.data.actionDFId]!
+                  itemType == CompletionItemType.SelectionAction ? AD.DFActionMap.select_obj![item.data.actionDFId]!
+                : itemType == CompletionItemType.ForLoopAction ? AD.DFActionMap.repeat![item.data.actionDFId]!
                 : domain![itemType == CompletionItemType.DomainAction ? "Actions" : "Conditions"][item.data.memberId]!
             if (!action) { return item }
 
@@ -874,6 +891,10 @@ export function StartServer() {
             } else if (context.parent instanceof StandaloneFunctionContext) {
                 if (context.parent.name == "wait") {
                     action = AD.DFActionMap.control?.Wait!
+                }
+            } else if (context.parent instanceof ForLoopContext) {
+                if (context.parent.mode == "on") {
+                    action = AD.TCActionMap.repeat![context.parent.action!]
                 }
             }
             if (action) {
