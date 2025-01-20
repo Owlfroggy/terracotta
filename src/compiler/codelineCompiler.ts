@@ -795,6 +795,10 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 code.push(new ActionBlock("set_var","SetSoundVariant",[tempVar,latestItem,components.Variant]))
                 latestItem = tempVar
             } else if (components.Variant) {
+                //error for invalid variant id
+                if (!token.IsCustom && !variableComponents.includes("SoundId") && !AD.SoundVariants[AD.SoundInternalIds?.[components.SoundId.Value!]!]?.includes(components.Variant.Value)) {
+                    err(new TCError(`Invalid variant '${components.Variant.Value}' for sound '${components.SoundId.Value}'`,0,token.Variant!.CharStart,token.Variant!.CharEnd))
+                }
                 item.Variant = components.Variant.Value
             }
 
