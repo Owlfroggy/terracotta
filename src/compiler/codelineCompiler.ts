@@ -492,6 +492,8 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                             }
                         }
                         return firstType || "any"
+                    case "CellularNoise":
+                        return getValueOfTag("Return Type") == "Origin" ? "vec" : "num"
                 }
             }
         }
