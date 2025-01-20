@@ -1494,14 +1494,14 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //repeat n times or repeat forever
         if (keywordResults[1] == "repeat") {
             //repeat Forever
-            let foreverResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
-            if (foreverResults[1] == "Forever") {
-                return [foreverResults[0], new RepeatForeverToken([initIndex,foreverResults[0]])]
+            // let foreverResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
+            if (cu.GetNextCharacters(index + cu.GetWhitespaceAmount(index),1) == "{") {
+                return [index + cu.GetWhitespaceAmount(index), new RepeatForeverToken([initIndex,index + cu.GetWhitespaceAmount(index)])]
             }
             //anything below this is for repeat multiple
             //(n)
             if (cu.GetNextCharacters(index,1) != "(") {
-                throw new TCError("Expected '(' following 'repeat'",0,initIndex,index)
+                throw new TCError("Expected '(' or '{' following 'repeat'",0,initIndex,index)
             }
             OfferContext(index)
             index += cu.GetWhitespaceAmount(index) + 1
