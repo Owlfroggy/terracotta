@@ -6,7 +6,7 @@ import { EventHeaderToken, ExpressionToken, GetLineIndexes, OperatorToken, Selec
 import { DocumentTracker, TrackedDocument, TrackedItemLibrary, TrackedScript } from "./documentTracker.ts";
 import { ADDITIONAL_CONSTRUCTORS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, PLAYER_ONLY_GAME_VALUES, REPEAT_ON_ACTIONS, STATEMENT_KEYWORDS, VALID_BOOLEAN_OPERATORS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants.ts";
 import { Dict } from "../util/dict.ts"
-import { AssigneeContext, CodeContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DictionaryContext, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, RepeatContext, SelectionContext, TagsContext, TypeContext, UserCallContext, VariableContext } from "./codeContext.ts";
+import { AssigneeContext, CodeContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DictionaryContext, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, RepeatContext, SelectionContext, StandaloneFunctionContext, TagsContext, TypeContext, UserCallContext, VariableContext } from "./codeContext.ts";
 import { VALID_VAR_SCOPES, VAR_SCOPE_TC_NAMES } from "../util/constants.ts";
 import { FOR_LOOP_MODES } from "../util/constants.ts";
 import { print } from "../main.ts";
@@ -542,7 +542,13 @@ export function StartServer() {
 
         //travel up the context tree until an arguments list context is found
         while (context.parent) {
-            if (context instanceof ListContext && (context.parent instanceof UserCallContext || context.parent instanceof DomainAccessContext || context.parent instanceof ConstructorContext || context.parent instanceof SelectionContext)) {
+            if (context instanceof ListContext && (
+                context.parent instanceof UserCallContext || 
+                context.parent instanceof DomainAccessContext || 
+                context.parent instanceof ConstructorContext || 
+                context.parent instanceof SelectionContext ||
+                context.parent instanceof StandaloneFunctionContext
+            )) {
                 break
             }
             context = context.parent
@@ -592,6 +598,13 @@ export function StartServer() {
         } else if (context.parent instanceof ConstructorContext) {
             prefix = context.parent.name + "["
             paramData = AD.ConstructorSignatures[context.parent.name]
+        } else if (context.parent instanceof StandaloneFunctionContext) {
+            if (context.parent.name == "wait") {
+                prefix = "wait("
+                paramData = AD.DFActionMap.control?.Wait!.Parameters!
+            } else {
+                return
+            }
         } else {
             return
         }
@@ -857,6 +870,10 @@ export function StartServer() {
             } else if (context.parent instanceof UserCallContext) {
                 if (context.parent.mode == "process") {
                     action = AD.DFActionMap.start_process?.dynamic!
+                }
+            } else if (context.parent instanceof StandaloneFunctionContext) {
+                if (context.parent.name == "wait") {
+                    action = AD.DFActionMap.control?.Wait!
                 }
             }
             if (action) {
