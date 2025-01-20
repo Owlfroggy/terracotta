@@ -2541,7 +2541,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         }
         //debug print variable
         else if (line[0] instanceof DebugPrintVarTypeToken) {
-            process.stderr.write(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[line[0].Variable.Scope]!][line[0].Variable.Name]}\n`)
+            throw new TCError(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[line[0].Variable.Scope]!][line[0].Variable.Name]}\n`,0,line[0].CharStart,line[0].CharEnd)
         }
     }
 
