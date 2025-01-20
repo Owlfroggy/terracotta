@@ -380,6 +380,13 @@
             "RGBColor": "str",
             "HSBColor": "str",
             "HSLColor": "str"
+        },
+        "repeat": {
+            " Range ": "num",
+            "Grid": "loc",
+            "Adjacent": "loc",
+            "Path": "loc",
+            "Sphere": "loc"
         }
     }
 }

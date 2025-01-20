@@ -2248,6 +2248,10 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                     code[code.length-1] = new SubActionBlock("repeat","While",ifBlock.Arguments,ifBlock.Tags,ifBlock.Not,ifBlock.Action)
                     CodeLine.push(...code)
                 }
+
+                if (ifBlock.Arguments[0] instanceof VariableItem) {
+                    SetVarType(ifBlock.Arguments[0],ifBlock.Arguments[0].StoredType ?? "any")
+                }
             }
             //repeat on action
             else if (line[0] instanceof RepeatForActionToken) {
@@ -2256,6 +2260,8 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 if (AD.TCActionMap.repeat![action.Action] == null) {
                     throw new TCError(`Invalid repeat action '${action.Action}'`, 0, action.CharStart, action.CharEnd)
                 }
+                let dfId = AD.TCActionMap.repeat![action.Action]?.DFId!
+
                 let args: (CodeItem | null)[] = line[0].Variables.map( (token) => ToItem(token)[1] )
                 if (action.Arguments) {
                     let argResults = SolveArgs(action.Arguments)
@@ -2266,13 +2272,16 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 //tags
                 let tags
                 if (action.Tags) {
-                    let tagResults = SolveTags(action.Tags,"repeat",action.Action)
+                    let tagResults = SolveTags(action.Tags,"repeat",dfId)
                     CodeLine.push(...tagResults[0])
                     tags = tagResults[1]
                 }
 
+                let codeBlock = new ActionBlock("repeat",dfId,args,tags)
+                SetVarType(line[0].Variables[0],GetReturnType(codeBlock)!)
+
                 //push action
-                CodeLine.push(new ActionBlock("repeat",action.Action,args,tags))
+                CodeLine.push(codeBlock)
             }
             //iterate over list/dictionary
             else if (line[0] instanceof RepeatForInToken) {
@@ -2290,6 +2299,14 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 //error for wrong amount of variables
                 else if (line[0].Variables.length != variableAmounts[iterableType]) {
                     throw new TCError(`Iterating over ${iterableType} returns ${variableAmounts[iterableType]} ${variableAmounts[iterableType] == 1 ? "variable" : "variables"}, ${line[0].Variables.length} ${line[0].Variables.length == 1 ? "was" : "were"} provided instead.`,0,line[0].Variables[0].CharStart,line[0].Variables[line[0].Variables.length - 1].CharEnd)
+                }
+
+
+                if (iterableType == "dict") {
+                    SetVarType(line[0].Variables[0],"str")
+                    SetVarType(line[0].Variables[1],line[0].Variables[1].Type ?? "any")
+                } else if (iterableType == "list") {
+                    SetVarType(line[0].Variables[0],line[0].Variables[1].Type ?? "any")
                 }
 
                 let variableItems = line[0].Variables.map( (token) => ToItem(token)[1] )
