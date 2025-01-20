@@ -848,43 +848,49 @@ export function StartServer() {
         }
         else if (context instanceof TagsContext) {
             includeGeneralKeywords = false
-            let accessContext = (context.parent as DomainAccessContext)
-            let domain = Domains.DomainList[accessContext.domainId]
-            if (domain && accessContext.name) {
-                let action = domain[accessContext.type == ContextDomainAccessType.Action ? "Actions" : "Conditions"][accessContext.name] as AD.Action
-                if (action) {
-                    // tag names
-                    if (context.in == ContextDictionaryLocation.Key) {
-                        for (const tag of Object.values(action.Tags)) {
+            let action: AD.Action | undefined = undefined
+            if (context.parent instanceof DomainAccessContext) {
+                let domain = Domains.DomainList[context.parent.domainId]
+                if (domain && context.parent.name) {
+                    action = domain[context.parent.type == ContextDomainAccessType.Action ? "Actions" : "Conditions"][context.parent.name] as AD.Action
+                }
+            } else if (context.parent instanceof UserCallContext) {
+                if (context.parent.mode == "process") {
+                    action = AD.DFActionMap.start_process?.dynamic!
+                }
+            }
+            if (action) {
+                // tag names
+                if (context.in == ContextDictionaryLocation.Key) {
+                    for (const tag of Object.values(action.Tags)) {
+                        items.push({
+                            label: tag?.Name!,
+                            data: {isString: true},
+                            sortText: "\u0000" + tag?.Name,
+                            documentation: {
+                                kind: "markdown",
+                                value: `**Default value:** \`${tag?.Default}\``
+                            }
+                        })
+                    }
+                }
+                //tag values
+                else if (context.keyName) {
+                    let tag = action.Tags[context.keyName]
+                    if (tag) {
+                        let i = -1
+                        for (const option of tag.Options) {
+                            i++
                             items.push({
-                                label: tag?.Name!,
+                                label: option!,
                                 data: {isString: true},
-                                sortText: "\u0000" + tag?.Name,
-                                documentation: {
-                                    kind: "markdown",
-                                    value: `**Default value:** \`${tag?.Default}\``
-                                }
+                                sortText: "\u0000" + option,
+                                documentation: tag.OptionDescriptions[i]
                             })
                         }
                     }
-                    //tag values
-                    else if (context.keyName) {
-                        let tag = action.Tags[context.keyName]
-                        if (tag) {
-                            let i = -1
-                            for (const option of tag.Options) {
-                                i++
-                                items.push({
-                                    label: option!,
-                                    data: {isString: true},
-                                    sortText: "\u0000" + option,
-                                    documentation: tag.OptionDescriptions[i]
-                                })
-                            }
-                        }
-                        if (!context.isVariable) {
-                            items.push(variableScopeKeywords,getVariableCompletions(param.textDocument.uri,context)!)
-                        }
+                    if (!context.isVariable) {
+                        items.push(variableScopeKeywords,getVariableCompletions(param.textDocument.uri,context)!)
                     }
                 }
             }

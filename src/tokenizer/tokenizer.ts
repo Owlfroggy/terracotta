@@ -1954,7 +1954,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         index = nameResults[0]
         context.name = nameResults[1]
-        OfferContext(index,false)
+        OfferContext(index+1,false)
         
         let args
         let tags
