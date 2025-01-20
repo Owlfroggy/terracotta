@@ -961,9 +961,9 @@ export function StartServer() {
                             //try to get lib id from first list arg
                             if (context.prevoiusElements.length >= 1 && context.prevoiusElements[0]?.Expression[0] instanceof StringToken) {
                                 let libraryId = context.prevoiusElements[0]?.Expression[0].String
-                                let library = [...ownerFolder.Libraries[libraryId]?.values()!][0] as TrackedItemLibrary
-                                if (library) {
-                                    values = library.ItemIds
+                                let libraries = ownerFolder.Libraries[libraryId]?.values() 
+                                if (libraries) {
+                                    values = ([...libraries][0] as TrackedItemLibrary).ItemIds
                                 }
                             }
                         }

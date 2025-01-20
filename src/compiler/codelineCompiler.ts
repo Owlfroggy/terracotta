@@ -909,7 +909,6 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             let tempVar = NewTempVar("item")
             let latestItem: ItemItem | VariableItem = item
 
-            print("> ",token.Mode)
             if (token.Mode == "library") {
                 // error for missing fields
                 if (!token.Library) {
