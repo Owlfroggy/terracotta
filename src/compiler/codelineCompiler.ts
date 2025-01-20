@@ -909,7 +909,16 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             let tempVar = NewTempVar("item")
             let latestItem: ItemItem | VariableItem = item
 
+            print("> ",token.Mode)
             if (token.Mode == "library") {
+                // error for missing fields
+                if (!token.Library) {
+                    err(new TCError(`Library item must specify a library id (str)`,0,token.CharStart,token.CharEnd))
+                }
+                if (!token.Id) {
+                    err(new TCError(`Library item must specify an item id (str)`,0,token.CharStart,token.CharEnd))
+                }
+                
                 for (const component of ["Library","Id","Count"]) {
                     let defaultValue = ITEM_PARAM_DEFAULTS.item[component]
                     if (defaultValue !== undefined && !token[component]) { 
