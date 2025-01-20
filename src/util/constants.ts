@@ -92,7 +92,8 @@ export const STATEMENT_KEYWORDS = [
     "if","else","repeat","while","for",
     ...VALID_CONTROL_KEYWORDS,
     "select","filter",
-    "LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM"
+    "call","start",
+    "LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM","RETURNS","DESC"
 ]
 
 export const ADDITIONAL_CONSTRUCTORS = ["litem", "csnd"]

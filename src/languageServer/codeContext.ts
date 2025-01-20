@@ -75,7 +75,11 @@ export class ConditionContext extends CodeContext {}
 //uni
 export class AssigneeContext extends CodeContext {}
 //uni
-export class TypeContext extends CodeContext {}
+export class TypeContext extends CodeContext {
+    constructor(
+        public excludeVar: boolean = false
+    ) {super()}
+}
 
 export class RepeatContext extends CodeContext {}
 //uni
@@ -151,6 +155,6 @@ export class UserCallContext extends CodeContext {
 
 export class EventContext extends CodeContext {
     constructor(
-        public mode: "player" | "entity"
+        public mode: "player" | "entity" | "function" | "process"
     ) {super()}
 }

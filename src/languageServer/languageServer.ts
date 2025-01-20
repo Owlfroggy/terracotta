@@ -100,37 +100,6 @@ function indexToLinePosition(script: string,index: number): Position {
     return {} as Position
 }
 
-// warning: this function is stupid
-// the idea here is we create a dummy script with our expression token and then compile it to see what comes out
-// its the objectively wrong way of coding this but that basically describes this entire codebase so i dont care
-function getExpressionType(expression: ExpressionToken): string {
-    /**
-     * FUNCTION dummyScript;
-     * line dummyVariable = expression;
-     */
-    let dummyScript = [
-        [new EventHeaderToken([],"FUNCTION","dummyScript")],
-        [new VariableToken([],"line","dummyVariable",null),new OperatorToken([],"="),expression]
-    ]
-
-    try {
-        let compilationResults = CompileLines(dummyScript,{
-            codeInjections: {playerEvents: {}, entityEvents: {}, functions: {}, processes: {}}, itemLibraries: {}, 
-            skipConstructorValidation: true
-        })
-        let item: CodeItem = (compilationResults.code[1] as ActionBlock).Arguments[1]!
-        if (item instanceof VariableItem) {
-            return item.StoredType ?? "any"
-        } else if (item instanceof GameValueItem) {
-            return AD.DFGameValueMap[item.Value]!.ReturnType ?? "any"
-        } else {
-            return item.itemtype
-        }
-    } catch {
-        return "any"
-    }
-}
-
 // keyword aggregation
 let variableScopeKeywords = generateCompletions(Object.keys(VALID_VAR_SCOPES),CompletionItemKind.Keyword)
 let typeKeywords = generateCompletions(Object.keys(ValueType),CompletionItemKind.Keyword)
@@ -152,8 +121,6 @@ let generalKeywords = generateCompletions([
     STATEMENT_KEYWORDS,
     ADDITIONAL_CONSTRUCTORS,
     VALID_BOOLEAN_OPERATORS,
-    "call",
-    "start",
 ].flat(),CompletionItemKind.Keyword)
 
 let domainKeywords = Object.values(Domains.PublicDomains).map(domain => {
@@ -325,6 +292,52 @@ export function StartServer() {
 
     function log(...message: string[]) {
         connection.sendNotification("window/logMessage",{message: message.join(" "), type: MessageType.Log})
+    }
+
+    // warning: this function is stupid
+    // the idea here is we create a dummy script with our expression token and then compile it to see what comes out
+    // its the objectively wrong way of coding this but that basically describes this entire codebase so i dont care
+    function getExpressionType(expression: ExpressionToken, expressionInDocUri: string): string {
+        /**
+         * FUNCTION dummyScript;
+         * line dummyVariable = expression;
+         */
+        let dummyScript = [
+            [new EventHeaderToken([], "FUNCTION", "dummyScript")],
+            [new VariableToken([], "line", "dummyVariable", null), new OperatorToken([], "="), expression]
+        ]
+
+        let document = documentTracker.Documents[expressionInDocUri] as TrackedScript
+        let ownerFolder = document?.OwnedBy
+
+        let returnTypes = {}
+        if (ownerFolder) {
+            for (const id of Object.keys(ownerFolder.Functions)) {
+                let docs = ownerFolder.Functions[id]
+                let doc = docs?.values().toArray()[0]
+                if (doc?.CodeLineName && doc.FunctionReturnType) {
+                    returnTypes[doc?.CodeLineName] = doc?.FunctionReturnType
+                }
+            }
+        }
+
+        try {
+            let compilationResults = CompileLines(dummyScript, {
+                codeInjections: { playerEvents: {}, entityEvents: {}, functions: {}, processes: {} }, itemLibraries: {},
+                skipConstructorValidation: true,
+                funcReturnTypes: returnTypes
+            })
+            let item: CodeItem = (compilationResults.code[1] as ActionBlock).Arguments[1]!
+            if (item instanceof VariableItem) {
+                return item.StoredType ?? "any"
+            } else if (item instanceof GameValueItem) {
+                return AD.DFGameValueMap[item.Value]!.ReturnType ?? "any"
+            } else {
+                return item.itemtype
+            }
+        } catch {
+            return "any"
+        }
     }
 
     function getFunctionCompletions(documentUri: string, context: CodeContext): CompletionItem[] {
@@ -567,7 +580,7 @@ export function StartServer() {
         let isAssignee = false
         let level: CodeContext = context
         while (level?.parent) {
-            if (level instanceof AssigneeContext || level instanceof ForLoopContext || level instanceof ConditionContext) {
+            if (level instanceof AssigneeContext || level instanceof ForLoopContext || level instanceof ConditionContext || level instanceof ListContext || level instanceof DictionaryContext) {
                 isAssignee = true
                 break
             }
@@ -706,7 +719,7 @@ export function StartServer() {
                 if (
                     signature.length < elementIndex ||
                     signature[signature.length - 1].DFType == "NONE" ||
-                    expression && AD.DFTypeToTC[signature[elementIndex].DFType] != getExpressionType(expression)
+                    expression && AD.DFTypeToTC[signature[elementIndex].DFType] != getExpressionType(expression,param.textDocument.uri)
                 ) {
                     if (candidateIndexes.length - candidatesToRemove.length > 1) {
                         candidatesToRemove.push(i)
@@ -808,9 +821,20 @@ export function StartServer() {
             let ownerFolder = document?.OwnedBy
             if (!(document && ownerFolder && ownerFolder[category][item.data.name])) { return item }
 
-            let calledDoc = ([...ownerFolder[category][item.data.name]?.values()][0] as TrackedScript)
             
-            documentation = `${getParamString(calledDoc.FunctionSignature,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")}`
+            let calledDoc = ([...ownerFolder[category][item.data.name]?.values()][0] as TrackedScript)
+            //creating a parameter object so that it can work with the existing string gen is kinda a hack but whatever
+            let returnType: string = ""
+            if (calledDoc.FunctionReturnType) {
+                let returnV = new AD.ParameterValue()
+                returnV.DFType = AD.TCTypeToDF[calledDoc.FunctionReturnType]
+                returnV.Description = calledDoc.FunctionReturnDescription ?? ""
+                let returnP = new AD.Parameter()
+                returnP.Groups[0] = [returnV]
+                returnType = getParamString([returnP],"\n\n**Returns Value:**\n\n","")
+            }
+            
+            documentation = `${getParamString(calledDoc.FunctionSignature,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")}${returnType}`
             if (calledDoc.FunctionDescription) {
                 documentation = calledDoc.FunctionDescription + "\n\n" + documentation
             }
@@ -840,7 +864,9 @@ export function StartServer() {
         } 
         else if (context instanceof EventContext) {
             includeGeneralKeywords = false
-            items.push(eventNameCompletionEntries[context.mode])
+            if (context.mode == "player" || context.mode == "entity") {
+                items.push(eventNameCompletionEntries[context.mode])
+            }
         }
         else if (context instanceof SelectionContext) {
             includeGeneralKeywords = false
@@ -853,7 +879,12 @@ export function StartServer() {
         }
         else if (context instanceof TypeContext) {
             includeGeneralKeywords = false
-            items.push(typeKeywords)
+            for (const item of typeKeywords) {
+                if (context.excludeVar && item.label == "var") {
+                    continue
+                }
+                items.push(item)
+            }
             if (context.parent instanceof ParameterContext) {
                 items.push(paramModifierKeywords)
             }

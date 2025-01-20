@@ -67,6 +67,7 @@ export interface CompilationEnvironment {
         functions: Dict<CodeInjections>,
         processes: Dict<CodeInjections>,
     }
+    funcReturnTypes: Dict<string>
     skipConstructorValidation?: boolean
 }
 
@@ -90,24 +91,14 @@ function getInjections(environment: CompilationEnvironment,header: "playerEvents
     }
 }
 
-export function CompileFile(fileContents: string | ItemLibrary, maxLineLength: number, mode: "gzip" | "json" = "gzip", environment: CompilationEnvironment): FileCompileResults {
+export function CompileFile(fileContents: Tokenizer.TokenizerResults | ItemLibrary, maxLineLength: number, mode: "gzip" | "json" = "gzip", environment: CompilationEnvironment): FileCompileResults {
     let compiledResults: LineCompiler.CompileResults
 
     //for compiling .tc files
-    if (typeof fileContents === "string") {
-        let script = fileContents
-        let tokenResults: Tokenizer.TokenizerResults
-        
-        //tokenize
-        try {
-            tokenResults = Tokenizer.Tokenize(script, { "mode": "getTokens" }) as Tokenizer.TokenizerResults
-        } catch (e: any) {
-            return {error: e}
-        }
-    
+    if (fileContents instanceof Tokenizer.TokenizerResults) {
         //compile
         try {
-            compiledResults = LineCompiler.CompileLines(tokenResults.Lines,environment)
+            compiledResults = LineCompiler.CompileLines(fileContents.Lines,environment)
         } catch (e: any) {
             return {error: e}
         }
@@ -181,7 +172,8 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
             entityEvents: {},
             functions: {},
             processes: {},
-        }
+        },
+        funcReturnTypes: {}
     }
 
     const files = await getAllFilesInFolder(folderUrl)
@@ -293,30 +285,38 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
         injections.push(codeLine)
     }
 
-    //compile .tc scripts
+    let tcTokenizerResults: Dict<Tokenizer.TokenizerResults> = {}
+    let tcFileContents: Dict<string> = {}
+
+    //tokenize and preprocess .tc scripts
     await Promise.all(scriptFiles.map(async (file) => {
         try {
+            // read file
             let fileContents: string
             try { fileContents = (await fs.readFile(file)).toString() } 
             catch (e) { process.stderr.write(`Error while reading file '${file}': ${e} (this file will be skipped)\n`); return }
-
-            let compileResults = CompileFile(fileContents,data.maxCodeLineSize,"gzip",environment)
-            //if this tc script has an error, print it and move on
-            if (compileResults.error) {
+            tcFileContents[file] = fileContents
+            
+            //tokenize
+            let tokenResults: Tokenizer.TokenizerResults
+            try {
+                tokenResults = Tokenizer.Tokenize(fileContents, { "mode": "getTokens" }) as Tokenizer.TokenizerResults
+            } catch (e: any) {
                 if (failed) {process.stderr.write("\n\n")}
-                ErrorHandler.PrintError(compileResults.error,fileContents,file.slice(path.length))
+                ErrorHandler.PrintError(e,fileContents,file.slice(path.length))
                 failed = true
                 return
             }
+            tcTokenizerResults[file] = tokenResults
 
-            //add all templates produced by the file to final result
-            for (const result of compileResults.templates!) {
-                if (results[categoryMap[result.type]][result.name] !== undefined) {
-                    failAndPrintError(`Error: Duplicate ${result.type} '${result.name}'\n`)
-                    return
-                }
-    
-                results[categoryMap[result.type]][result.name] = result.template
+            // preprocess
+            try {
+                LineCompiler.PreProcess(tokenResults.Lines,environment)
+            } catch (e: any) {
+                if (failed) {process.stderr.write("\n\n")}
+                ErrorHandler.PrintError(e,fileContents,file.slice(path.length))
+                failed = true
+                return
             }
         } catch (e) {
             process.stderr.write(`\n${COLOR.White}${"#".repeat(50)}\n${COLOR.Red}There was an internal error while compiling ${file}.\nPlease file a bug report containing the the below output and, if possible, the script that caused this error.\n${COLOR.White}${"#".repeat(50)}${COLOR.Reset}\n`)
@@ -324,6 +324,38 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
             process.exit(1)
         }
     }));
+
+    //compile .tc scripts
+    if (!failed) {
+        await Promise.all(scriptFiles.map(async (file) => {
+            try {
+                if (!tcFileContents[file]) { return }
+                if (!tcTokenizerResults[file]) { return }
+                let compileResults = CompileFile(tcTokenizerResults[file],data.maxCodeLineSize,"gzip",environment)
+                //if this tc script has an error, print it and move on
+                if (compileResults.error) {
+                    if (failed) {process.stderr.write("\n\n")}
+                    ErrorHandler.PrintError(compileResults.error,tcFileContents[file],file.slice(path.length))
+                    failed = true
+                    return
+                }
+    
+                //add all templates produced by the file to final result
+                for (const result of compileResults.templates!) {
+                    if (results[categoryMap[result.type]][result.name] !== undefined) {
+                        failAndPrintError(`Error: Duplicate ${result.type} '${result.name}'\n`)
+                        return
+                    }
+        
+                    results[categoryMap[result.type]][result.name] = result.template
+                }
+            } catch (e) {
+                process.stderr.write(`\n${COLOR.White}${"#".repeat(50)}\n${COLOR.Red}There was an internal error while compiling ${file}.\nPlease file a bug report containing the the below output and, if possible, the script that caused this error.\n${COLOR.White}${"#".repeat(50)}${COLOR.Reset}\n`)
+                console.error(e)
+                process.exit(1)
+            }
+        }));
+    }
 
     if (failed) {
         process.exit(1)

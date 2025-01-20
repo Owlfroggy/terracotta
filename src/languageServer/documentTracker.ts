@@ -1,12 +1,13 @@
 import * as rpc from "vscode-jsonrpc"
 import * as fs from "node:fs/promises"
 import * as AD from "../util/actionDump.ts";
-import { DescriptionHeaderToken, EventHeaderToken, ParamHeaderToken, Tokenize, TokenizerResults, VariableToken } from "../tokenizer/tokenizer.ts"
+import { DescriptionHeaderToken, EventHeaderToken, ParamHeaderToken, ReturnsHeaderToken, Tokenize, TokenizerResults, VariableToken } from "../tokenizer/tokenizer.ts"
 import { ChangeAnnotation, CreateFilesParams, DeleteFilesParams, DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, DidRenameFilesNotification, DocumentLinkResolveRequest, DocumentUri, FileChangeType, InitializeParams, MessageType, RenameFilesParams, TextDocumentContentChangeEvent } from "vscode-languageserver"
 import { LinePositionToIndex, slog, snotif } from "./languageServer.ts"
 import { Dict } from "../util/dict.ts"
 import { fileURLToPath, pathToFileURL, URL } from "node:url"
 import { getAllFilesInFolder } from "../util/utils.ts";
+import { ValueType } from "../util/constants.ts";
 
 function fixUriComponent(str: string): string {
     return encodeURIComponent(str).replaceAll("%2F","/")
@@ -244,6 +245,8 @@ export class TrackedScript extends TrackedDocument {
     CodeLineName: string | undefined
     FunctionSignature: AD.Parameter[]
     FunctionDescription: string
+    FunctionReturnDescription: string | undefined
+    FunctionReturnType: string | undefined
 
     private lines: number = 0
 
@@ -342,6 +345,9 @@ export class TrackedScript extends TrackedDocument {
 
         let signature: AD.Parameter[] = []
 
+        this.FunctionReturnType = undefined
+        this.FunctionReturnDescription = undefined
+
         for (const line of headers.Lines) {
             for (const header of line) {
                 if (header instanceof EventHeaderToken && !eventHeaderDone) {
@@ -359,6 +365,16 @@ export class TrackedScript extends TrackedDocument {
                         [new AD.ParameterValue(AD.TCTypeToDF[type],header.Name,header.Optional,header.Plural,heldDescription ? heldDescription.split("\n") : [])]
                     ]))
                     heldDescription = undefined
+                } else if (header instanceof ReturnsHeaderToken) {
+                    if (header.Type != "var" && ValueType[header.Type]) {
+                        this.FunctionReturnType = header.Type
+                        if (heldDescription) {
+                            this.FunctionReturnDescription = heldDescription
+                            heldDescription = undefined
+                        }
+                    } else {
+                        this.FunctionReturnType = undefined
+                    }
                 } else if (header instanceof DescriptionHeaderToken) {
                     heldDescription = header.Description
                 }

@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
+import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DescriptionHeaderToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, ReturnsHeaderToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
 import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER, ITEM_DF_NBT } from "../util/constants.ts"
 import { DEBUG_MODE, print } from "../main.ts"
 import { Domain, DomainList, TargetDomain, TargetDomains } from "../util/domains.ts"
@@ -10,6 +10,7 @@ import * as TextCode from "../util/textCodeParser.ts"
 import * as NBT from "nbtify"
 import { CompilationEnvironment, CompileProject, ItemLibrary } from "./projectCompiler.ts"
 import { DiagnosticRefreshRequest } from "vscode-languageserver";
+import { MAX_LINE_VARS } from "./codeblockNinja.ts";
 
 //fill in missing tags with their default values
 function FillMissingTags(codeblockIdentifier: string, actionDFName: string, tags: TagItem[]): TagItem[] {
@@ -381,6 +382,48 @@ class Context {
     HeldPostBracketCode: CodeBlock[] = []
 }
 
+export function PreProcess(lines: Token[][], environment: CompilationEnvironment) {
+    let lineStarter: string | undefined = undefined
+    let lineName: string
+
+    let seenReturnType = false
+
+    for (let line of lines) { 
+        if (line.length == 0) { continue }
+        // stop after getting past headers
+        if (line[0] && !(line[0] instanceof HeaderToken)) {
+            break
+        }
+
+        if (line[0] instanceof EventHeaderToken) {
+            lineStarter = line[0].Codeblock
+            lineName = line[0].Event
+        } 
+        // throw error for headers other than event header coming first
+        else if (!lineStarter && !(
+               (line[0] instanceof KeywordHeaderToken && line[0].Keyword == "LAGSLAYER_CANCEL")
+            || (line[0] instanceof DescriptionHeaderToken)
+        )) {
+            throw new TCError("Codeline type header must always come before other headers.",0,line[0].CharStart,line[0].CharEnd)
+        }
+        // return type
+        else if (line[0] instanceof ReturnsHeaderToken) {
+            if (seenReturnType) {
+                throw new TCError("Functions can only have one 'RETURNS' header.",0,line[0].CharStart,line[0].CharEnd)
+            }
+            seenReturnType = true
+            let type = line[0].Type
+            if (type == "var") {
+                throw new TCError("Functions cannot return type 'var'.",0,line[0].CharStart,line[0].CharEnd)
+            }
+            if (lineStarter != "FUNCTION") {
+                throw new TCError("Only functions can return values.",0,line[0].CharStart,line[0].CharEnd)
+            }
+            environment.funcReturnTypes[lineName!] = type
+        }
+    }
+}
+
 export function CompileLines(lines: Array<Array<Token>>, environment: CompilationEnvironment): CompileResults {
     //if trying to compile an empty file, dont do anything
     let tempVarCounter = 0
@@ -498,6 +541,10 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             }
         }
 
+        if (action.Block == "call_func") {
+            return environment.funcReturnTypes[action.Action] ?? "any"
+        }
+
         if (AD.DFActionMap[action.Block] && AD.DFActionMap[action.Block]![action.Action]) {
             return AD.DFActionMap[action.Block]![action.Action]?.ReturnType!
         } else {
@@ -522,7 +569,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             if (item.StoredType) {
                 return item.StoredType
             } else {
-                return CombinedVarContext.VariableTypes[item.Scope][item.Name] || "num"
+                return CombinedVarContext.VariableTypes[item.Scope][item.Name] || "any"
             }
         } else {
             return item.itemtype
@@ -1666,9 +1713,6 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                     throw new TCError("Invalid type override placement",0,token.CharStart,token.CharEnd)
                 }
             }
-            else if (token instanceof CallToken && token.Type == "process") {
-                throw new TCError("Processes cannot be started from within expressions",0,token.CharStart,token.CharEnd)
-            }
             else if (!(token instanceof IndexerToken) && exprToken.Expression.length > i + 1 && !(exprToken.Expression[i+1] instanceof OperatorToken || exprToken.Expression[i+1] instanceof TypeOverrideToken || exprToken.Expression[i+1] instanceof IndexerToken)) {
                 throw new TCError("Expected operator between values",0,exprToken.CharStart,exprToken.Expression[i+1].CharEnd)
             }
@@ -1818,6 +1862,31 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 code.push(actionBlock)
                 //add the temporary variable containing the action's result to the expression in place of the action
                 expression.push(tempVar)
+            } else if (token instanceof CallToken) {
+                if (token.Type == "process") {
+                    throw new TCError("Processes cannot be started from within expressions.",0,token.CharStart,token.CharEnd)
+                }
+                
+                //arguments
+                //a temporary variable is automatically inserted as the first chest slot to get the returned value of the function
+                let tempVar = NewTempVar("num")//num is just a placeholder type and is reassigned after return type is gotten
+                
+                let args: (CodeItem | null)[] = [tempVar] 
+                if (token.Arguments) {
+                    let argResults = SolveArgs(token.Arguments)
+                    code.push(...argResults[0])
+                    args.push(...argResults[1])
+                }
+
+                let actionBlock = new ActionBlock("call_func",token.Name,args)
+                let returnType = environment.funcReturnTypes[token.Name]
+                if (!returnType) {
+                    throw new TCError(`Only functions which return values can be used in expressions.`,0,token.CharStart,token.CharEnd)
+                }
+
+                SetVarType(tempVar,returnType)
+                code.push(actionBlock)
+                expression.push(tempVar)
             } else {
                 let toItemResults = ToItem(token)
                 code.push(...toItemResults[0])
@@ -1946,7 +2015,8 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
     let headerData = {
         codeblock: undefined as undefined | EventHeaderToken,
         lsCancel: false as false | KeywordHeaderToken,
-        params: [] as ParamItem[]
+        params: [] as ParamItem[],
+        returnParams: [] as ParamItem[]
     }
     let existingParams: string[] = []
 
@@ -2007,7 +2077,10 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                     new ParamItem([header.CharStart,header.CharEnd],header.Name,header.Type,header.Plural,header.Optional,results ? results[1] : null)
                 )
             }
-            
+            else if (header instanceof ReturnsHeaderToken) {
+                headerData.returnParams.unshift(new ParamItem([header.CharStart,header.CharEnd],"@__TC_RV_1","var",false,false))
+            }
+
             //done with headers, apply them
             if (!(header instanceof HeaderToken) || i == lines.length-1) {
                 if (headerData.codeblock) {
@@ -2021,9 +2094,18 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                     else if (headerData.lsCancel) {
                         throw new TCError("Lagslayer cancel can only be applied to events",0,headerData.lsCancel.CharStart,headerData.lsCancel.CharEnd)
                     }
+
+                    // error for too many params
+                    if (headerData.params.length + headerData.returnParams.length > MAX_LINE_VARS) {
+                        if (headerData.returnParams.length > 0) {
+                            throw new TCError(`The combined total number of parameters and return values that a function has cannot exceed ${MAX_LINE_VARS}.`,0,-1,-1)
+                        } else {
+                            throw new TCError(`The total number of parameters that a function has cannot exceed ${MAX_LINE_VARS}.`,0,-1,-1)
+                        }
+                    }
                     
                     if (headerData.codeblock.Codeblock == "FUNCTION") {
-                        block = new FunctionBlock(headerData.codeblock.Event, headerData.params)
+                        block = new FunctionBlock(headerData.codeblock.Event, [...headerData.returnParams,...headerData.params])
                     }
                     else if (headerData.codeblock.Codeblock == "PROCESS") {
                         block = new ProcessBlock(headerData.codeblock.Event)    
@@ -2141,6 +2223,27 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         }
         //control
         else if (line[0] instanceof ControlBlockToken) {
+            // set return value
+            if (line[0].ReturnValue) {
+                if (headerData.codeblock?.Codeblock != "FUNCTION") {
+                    throw new TCError("Only functions can return values.",0,line[0].CharStart,line[0].CharEnd)
+                } 
+                let declaredReturnType = environment.funcReturnTypes[headerData.codeblock.Event]
+                if (!declaredReturnType) {
+                    throw new TCError("Return type must be declared using the 'RETURNS' header to return values.",0,line[0].CharStart,line[0].CharEnd)
+                }
+
+                let solved = SolveExpression(line[0].ReturnValue)
+                let solvedType = GetType(solved[1])
+                if (solvedType != "any" && declaredReturnType != "any" && solvedType != declaredReturnType) {
+                    throw new TCError(`Value type (${solvedType}) does not match the declared return type (${declaredReturnType})`,0,line[0].ReturnValue.CharStart,line[0].ReturnValue.CharEnd)
+                }
+                CodeLine.push(
+                    ...solved[0],
+                    new ActionBlock("set_var","=",[new VariableItem([],"line","@__TC_RV_1"),solved[1]])
+                )
+            }
+
             let action = line[0]
             let args
             if (action.Params) {
@@ -2784,7 +2887,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             if (!(nextBlock instanceof ActionBlock && nextBlock.Block == "set_var" && nextBlock.Action == "=")) { return }
 
             //make sure this is an action that sets a value
-            let returnType = AD.DFActionMap[block.Block]![block.Action]?.ReturnType
+            let returnType = GetReturnType(block)
             if (returnType) {
                 //make sure variables match up
                 if (block.Arguments[0] instanceof VariableItem && nextBlock.Arguments[1] instanceof VariableItem && nextBlock.Arguments[0] instanceof VariableItem && block.Arguments[0].Name == nextBlock.Arguments[1].Name) {

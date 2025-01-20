@@ -264,6 +264,7 @@ export const TCTypeToDF = {
     snd: "SOUND",
     txt: "COMPONENT",
     str: "TEXT",
+    list: "LIST",
     dict: "DICT",
     var: "VARIABLE",
     any: "ANY_TYPE",

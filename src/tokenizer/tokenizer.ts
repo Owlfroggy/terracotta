@@ -217,16 +217,18 @@ export class ListToken extends Token {
     itemtype = "list"
 }
 export class ControlBlockToken extends Token {
-    constructor(meta,action: string, params: ListToken | null = null, tags: Dict<ActionTag> | null = null) {
+    constructor(meta,action: string, params: ListToken | null = null, tags: Dict<ActionTag> | null = null, returnValue: ExpressionToken | null = null) {
         super(meta)
         this.Action = action
         this.Params = params
         this.Tags = tags
+        this.ReturnValue = returnValue
     }
 
     Action: string
     Params: ListToken | null
     Tags: Dict<ActionTag> | null
+    ReturnValue: ExpressionToken | null
 }
 export class ElseToken extends Token {
     constructor(meta) {
@@ -405,6 +407,14 @@ export class KeywordHeaderToken extends HeaderToken {
         this.Keyword = keyword
     }
     Keyword: string
+}
+
+export class ReturnsHeaderToken extends HeaderToken {
+    constructor(meta,type: string) {
+        super(meta)
+        this.Type = type
+    }
+    Type: string
 }
 export class EventHeaderToken extends HeaderToken {
     constructor(meta,codeblock: string, event: string) {
@@ -1391,7 +1401,13 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             return [identifierResults[0], new ControlBlockToken([initIndex,index],"End")]
         }
         else if (identifierResults[1] == "return") {
-            return [identifierResults[0], new ControlBlockToken([initIndex,index],"Return")]
+            index = identifierResults[0]
+            let expressionResults = ParseExpression(index,[";"],false)
+            if (expressionResults) {
+                return [expressionResults[0], new ControlBlockToken([initIndex,expressionResults[0]],"Return",null,null,expressionResults[1])]
+            } else {
+                return [identifierResults[0], new ControlBlockToken([initIndex,identifierResults[0]],"Return")]
+            }
         }
         // else if (identifierResults[1] == "returnmult") {
         //     //parse number for how many times to return
@@ -1926,6 +1942,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //move into position to parse function name
         index = keywordResults[0]
+        OfferContext(index+1,false)
         let context = new UserCallContext(mode)
         BottomLevelContext = BottomLevelContext.setChild(context)
         let keywordEndIndex = index// used for error messages
@@ -2252,7 +2269,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
     function ParseDescriptionHeaderToken(index): [number, DescriptionHeaderToken] | null {
         index += cu.GetWhitespaceAmount(index) + 1
-        let startIndex = index
+        let initIndex = index
         let identifierResults = cu.GetIdentifier(index)
         if (identifierResults[1] == "DESC") {
             index = identifierResults[0]
@@ -2262,10 +2279,37 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 index = stringResults[0]
                 desc = stringResults[1]
             }
-            return [index,new DescriptionHeaderToken([startIndex,index],desc)]
+            return [index,new DescriptionHeaderToken([initIndex,index],desc)]
         } else {
             return null
         }
+    }
+
+    function ParseReturnsHeaderToken(index: number): [number, ReturnsHeaderToken] | null {
+        index += cu.GetWhitespaceAmount(index) + 1
+        let initIndex = index
+
+        //make sure its the right header type
+        let identifierResults = cu.GetIdentifier(index)
+        if (identifierResults[1] != "RETURNS") { return null }
+        index = identifierResults[0]
+
+        OfferContext(identifierResults[0]+1,false)
+        let context = new TypeContext(true)
+        BottomLevelContext = BottomLevelContext.setChild(context)
+        OfferContext(identifierResults[0]+1,"whitespaceAndIdentifier")
+        DiscardContextBranch(context)
+
+        index += cu.GetWhitespaceAmount(index) + 1
+
+        // error for missing type
+        let typeResults = cu.GetIdentifier(index)
+        if (typeResults[1].length == 0) { throw new TCError("Expected type following 'RETURNS'",0,initIndex,identifierResults[0]) }
+
+        // error for invalid type
+        if (!ValueType[typeResults[1]]) { throw new TCError(`Invalid type '${typeResults[1]}'`,0,index,typeResults[0])}
+
+        return [typeResults[0], new ReturnsHeaderToken([initIndex,typeResults[0]],typeResults[1])]
     }
 
     //functiosn and processes also use this
@@ -2282,7 +2326,12 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         // if (!(identifierResults[1] == "PLAYER_EVENT" || identifierResults[1] == "ENTITY_EVENT")) { return null }
         
         OfferContext(identifierResults[0]+1,false)
-        let context = new EventContext(identifierResults[1] == "PLAYER_EVENT" ? "player" : "entity")
+        let context = new EventContext(
+              identifierResults[1] == "PLAYER_EVENT" ? "player"
+            : identifierResults[1] == "ENTITY_EVENT" ? "entity"
+            : identifierResults[1] == "FUNCTION" ? "function"
+            : "process"
+        )
         BottomLevelContext = BottomLevelContext.setChild(context)
         OfferContext(identifierResults[0]+1,"whitespaceAndIdentifier")
         DiscardContextBranch(context)
@@ -2626,6 +2675,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             if (results == null) { results = ParseKeywordHeaderToken(CharIndex) }
             
             if (results == null) { results = ParseDescriptionHeaderToken(CharIndex) }
+            
+            if (results == null) { results = ParseReturnsHeaderToken(CharIndex) }
 
             //debug
             if (DEBUG_MODE.enableDebugFunctions) {
