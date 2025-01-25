@@ -2417,7 +2417,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                     SetVarType(line[0].Variables[0],"str")
                     SetVarType(line[0].Variables[1],line[0].Variables[1].Type ?? "any")
                 } else if (iterableType == "list") {
-                    SetVarType(line[0].Variables[0],line[0].Variables[1].Type ?? "any")
+                    SetVarType(line[0].Variables[0],line[0].Variables[0].Type ?? "any")
                 }
 
                 let variableItems = line[0].Variables.map( (token) => ToItem(token)[1] )
