@@ -2361,7 +2361,10 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 }
 
                 if (ifBlock.Arguments[0] instanceof VariableItem) {
-                    SetVarType(ifBlock.Arguments[0],ifBlock.Arguments[0].StoredType ?? "any")
+                    let storedType = ifBlock.Arguments[0].StoredType ?? "any"
+                    if (storedType != "any") {
+                        SetVarType(ifBlock.Arguments[0],storedType)
+                    }
                 }
             }
             //repeat on action
@@ -2415,9 +2418,15 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
                 if (iterableType == "dict") {
                     SetVarType(line[0].Variables[0],"str")
-                    SetVarType(line[0].Variables[1],line[0].Variables[1].Type ?? "any")
+                    let storedType = line[0].Variables[1].Type ?? "any"
+                    if (storedType != "any") {
+                        SetVarType(line[0].Variables[1],storedType)
+                    }
                 } else if (iterableType == "list") {
-                    SetVarType(line[0].Variables[0],line[0].Variables[0].Type ?? "any")
+                    let storedType = line[0].Variables[0].Type ?? "any"
+                    if (storedType != "any") {
+                        SetVarType(line[0].Variables[0],line[0].Variables[0].Type ?? "any")
+                    }
                 }
 
                 let variableItems = line[0].Variables.map( (token) => ToItem(token)[1] )
