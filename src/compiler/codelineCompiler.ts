@@ -462,7 +462,14 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         //update var types
         for (let [scope, list] of Object.entries(poppedContext.VariableTypes)) {
             for (let [name, type] of Object.entries(list)) {
-                let lowerValue = ContextStack[ContextStack.length-1].VariableTypes[scope][name]
+                let lowerValue: string | undefined = undefined
+                for (let i = ContextStack.length-1; i >= 0; i--) {
+                    let val = ContextStack[i].VariableTypes[scope][name]
+                    if (val) {
+                        lowerValue = val
+                        break
+                    }
+                }
                 if (lowerValue) {
                     CombinedVarContext.VariableTypes[scope][name] = lowerValue
                 } else {
