@@ -1363,7 +1363,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
     //operations
     function OPR_NumOnNum(left, right, opr: string, blockopr: string): [CodeBlock[],CodeItem] {
         //if at least one thing is a variable
-        if (left instanceof VariableItem || right instanceof VariableItem) {
+        if (left instanceof VariableItem || right instanceof VariableItem || left instanceof GameValueItem || right instanceof GameValueItem) {
             let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
             let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
 
@@ -1391,7 +1391,6 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             let code = new ActionBlock("set_var", blockopr, [returnvar, left, right],blockopr == "%" ? [new TagItem([],"Remainder Mode","Modulo","set_var","%")] : [] )
             return [[code], returnvar]
         }
-
         let leftnum = Number(left.Value)
         let rightnum = Number(right.Value)
         //if both numbers are numerical then just add them together
