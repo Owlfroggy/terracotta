@@ -1648,6 +1648,11 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 }
             }
         },
+        snd: {
+            "+": {
+                txt: OPR_TextAdd
+            }
+        },
         pot: {
             "+": {
                 txt: OPR_TextAdd
@@ -1680,6 +1685,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 txt: OPR_TextAdd,
                 loc: OPR_TextAdd,
                 vec: OPR_TextAdd,
+                snd: OPR_TextAdd,
                 pot: OPR_TextAdd,
                 par: OPR_TextAdd,
                 list: OPR_TextAdd,
