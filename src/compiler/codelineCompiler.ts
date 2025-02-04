@@ -1449,22 +1449,6 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             (left instanceof VariableItem || !(left instanceof TextItem || left instanceof StringItem)) || 
             (right instanceof VariableItem || !(right instanceof TextItem || right instanceof StringItem))
         ) {
-            let leftIsLine = (left instanceof VariableItem && left.Scope == "line")
-            let rightIsLine = (right instanceof VariableItem && right.Scope == "line")
-
-            //%conditions where %var is supported
-            if (leftIsLine && rightIsLine) {
-                return [[], new TextItem([left.CharStart, right.CharEnd], `%var(${left.Name})%var(${right.Name})`)]
-            }
-            else if (leftIsLine && right instanceof TextItem) {
-                return [[], new TextItem([left.CharStart, right.CharEnd], `%var(${left.Name})${right.Value}`)]
-            }
-            else if (left instanceof TextItem && rightIsLine) {
-                return [[], new TextItem([left.CharStart, right.CharEnd], `${left.Value}%var(${right.Name})`)]
-            }
-
-            //otherwise use set var
-
             let returnvar = NewTempVar("txt")
             let code = new ActionBlock("set_var", "StyledText", [returnvar, left, right])
             return [[code], returnvar]
