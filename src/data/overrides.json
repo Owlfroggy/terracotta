@@ -240,7 +240,7 @@
         "if_var": {
             "=": "Equals",
             "!=": "DoesNotEqual",
-            "InRange": "IsInRange",
+            " InRange ": "IsInRange",
             "VarExists": "Exists",
             "VarIsType": "IsType",
         
