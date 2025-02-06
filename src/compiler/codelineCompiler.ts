@@ -9,7 +9,7 @@ import * as AD from "../util/actionDump.ts"
 import * as TextCode from "../util/textCodeParser.ts"
 import * as NBT from "nbtify"
 import { CompilationEnvironment, CompileProject, ItemLibrary } from "./projectCompiler.ts"
-import { DiagnosticRefreshRequest } from "vscode-languageserver";
+import { CodeLensRefreshRequest, DiagnosticRefreshRequest } from "vscode-languageserver";
 import { MAX_LINE_VARS } from "./codeblockNinja.ts";
 
 //fill in missing tags with their default values
@@ -648,7 +648,8 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             Material: new StringItem([],"oak_log"),
             Size: new NumberItem([], "1"),
             "Size Variation": new NumberItem([], "0"),
-            Roll: new NumberItem([], "0")
+            Roll: new NumberItem([], "0"),
+            Opacity: new NumberItem([],"100")
         }
     }
 
@@ -662,7 +663,8 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         Material: "str",
         Size: "num",
         "Size Variation": "num",
-        Roll: "num"
+        Roll: "num",
+        Opacity: "num",
     }
 
     //takes in a Token from the parser and converts it to a CodeItem
@@ -1266,6 +1268,20 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             }
             else {
                 item.Data.roll = fields.Roll?.Value || ITEM_PARAM_DEFAULTS.par.Roll.Value
+            }
+
+            // opacity
+
+            if (variableComponents.includes("Opacity")) {
+                item.Data.opacity = 10
+                code.push(
+                    new ActionBlock("set_var","SetParticleOpac",[tempVar,latestItem,fields.Opacity || ITEM_PARAM_DEFAULTS.par.Opacity])
+                )
+
+                latestItem = tempVar
+            }
+            else {
+                item.Data.opacity = fields.Opacity?.Value ?? ITEM_PARAM_DEFAULTS.par.Opacity.Value
             }
 
             if (spread == null) {

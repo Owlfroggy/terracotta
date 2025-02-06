@@ -198,6 +198,8 @@
             "GetParticleColor": "GetColor",
             "SetParticleRoll": "SetRoll",
             "GetParticleSize": "GetSize",
+            "SetParticleOpac": "SetOpacity",
+            "GetParticleOpac": "GetOpacity",
         
 
             "MultiplyVector": "Multiply",
@@ -366,6 +368,7 @@
             "SetParticleColor": "par",
             "SetParticleMotion": "par",
             "SetParticleRoll": "par",
+            "SetParticleOpac": "par",
             "VectorBetween": "vec",
             "SetVectorComp": "vec",
             "SetVectorLength": "vec",
