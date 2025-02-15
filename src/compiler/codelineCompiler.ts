@@ -2057,7 +2057,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 }
             }
             else if (header instanceof ParamHeaderToken) {
-                if (header.Type == "dict" || header.Type == "list" && header.DefaultValue) {
+                if ((header.Type == "dict" || header.Type == "list") && header.DefaultValue) {
                     throw new TCError(`Parameters of type '${header.Type}' cannot have default values`,0,header.DefaultValue!.CharStart,header.DefaultValue!.CharEnd)
                 }
                 //solve default value
