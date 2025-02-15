@@ -2914,8 +2914,14 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 if (block.Arguments[0] instanceof VariableItem && nextBlock.Arguments[1] instanceof VariableItem && nextBlock.Arguments[0] instanceof VariableItem && block.Arguments[0].Name == nextBlock.Arguments[1].Name) {
                     //make sure this block is actually a setter and not a modifier
                     let firstParameter = AD.DFActionMap["set_var"]?.[block.Action]?.Parameters[0]?.Groups[0][0]
-                    if ((block.Block == "call_func" && block.Arguments[0].IsTemporary && nextBlock.Arguments[0].Scope != "saved") || (firstParameter?.DFType == "VARIABLE" && firstParameter?.Description == "Variable to set")) {
-                        //replace temp var here with the var thats actually being set
+                    let secondParameter = AD.DFActionMap["set_var"]?.[block.Action]?.Parameters[1]?.Groups[0][0]
+                    if (secondParameter?.Description.match(/.+ to change/g)) {
+                        return
+                    }
+                    if (
+                        (block.Block == "call_func" && block.Arguments[0].IsTemporary && nextBlock.Arguments[0].Scope != "saved") ||
+                        (firstParameter?.DFType == "VARIABLE" && firstParameter?.Description == "Variable to set")
+                    ) {
                         block.Arguments[0] = nextBlock.Arguments[0]
                         //remove = block
                         CodeLine.splice(codeIndex+1,1)
