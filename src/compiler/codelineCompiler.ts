@@ -48,11 +48,11 @@ function ActionNameErrorChecks(domain: Domain, action: ActionToken) {
 }
 
 function IntegerizeHexColor(color: StringItem) {
-    let string = color.Value.substring(color.Value.startsWith("#") ? 1 : 0, color.Value.length)
-    if (string.length == 3) {
-        string = string[0].repeat(2) + string[1].repeat(2) + string[2].repeat(2)
+    if (!color.Value.startsWith("#")) {
+        throw new TCError(`Hex color must start with a hashtag.`,0,color.CharStart,color.CharEnd)
     }
-    else if (string.length != 6) {
+    let string = color.Value.substring(1, color.Value.length)
+    if (string.length != 6) {
         throw new TCError(`Invalid hex color: '${color.Value}'`,0,color.CharStart,color.CharEnd)
     }
 
