@@ -687,7 +687,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 variableComponentsList.push(paramName)
             }
             //if this component is a variable
-            if (solved[1] instanceof VariableItem) {
+            if (solved[1] instanceof VariableItem || solved[1] instanceof GameValueItem) {
                 variableComponentsList.push(paramName)
             }
 
