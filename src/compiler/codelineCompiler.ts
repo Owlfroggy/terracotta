@@ -2878,7 +2878,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             let total = 0
             let expressionEntries: string[] = []
 
-            for (let i = block.Arguments.length - 1; i > -1; i--) {
+            for (let i = block.Arguments.length - 1; i > 0; i--) {
                 let item = block.Arguments[i]
 
                 if (item instanceof NumberItem) {
@@ -2900,7 +2900,9 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
             //combine expression
             if (total > 0) { expressionEntries.push(String(total)) }
-            block.Arguments.push(new NumberItem([], `%math(${expressionEntries.join("+")})`))
+            if (expressionEntries.length > 0) {
+                block.Arguments.push(new NumberItem([], `%math(${expressionEntries.join("+")})`))
+            }
         },
 
         // Condense setting a temp var to a value and immediately setting a var to that temp var \\
