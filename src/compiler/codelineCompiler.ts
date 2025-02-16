@@ -2671,7 +2671,8 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                     let left = NewTempVar(typeleft)
                     CodeLine.push(
                         ...indexerExprCode,
-                        new ActionBlock("set_var",indexeeType == "dict" ? "GetDictValue" : "GetListValue",[left,indexeeItem,finalIndexerItem])
+                        new ActionBlock("set_var",indexeeType == "dict" ? "GetDictValue" : "GetListValue",[left,indexeeItem,finalIndexerItem]),
+                        ...valueExprCode,
                     )
 
                     // run the operation
@@ -2681,10 +2682,11 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                     CodeLine.push(...result[0])
 
                     valueItem = result[1]
+                } else {
+                    CodeLine.push(...valueExprCode)
                 }
 
                 CodeLine.push(
-                    ...valueExprCode,
                     new ActionBlock("set_var",indexeeType == "dict" ? "SetDictValue" : "SetListValue",[indexeeItem,indexerItem!,valueItem]),
                     ...reinsertionBlocks
                 )
