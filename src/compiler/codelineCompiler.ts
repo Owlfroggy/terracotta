@@ -1466,7 +1466,13 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             (right instanceof VariableItem || !(right instanceof TextItem || right instanceof StringItem))
         ) {
             let returnvar = NewTempVar("txt")
-            let code = new ActionBlock("set_var", "StyledText", [returnvar, left, right])
+            let args = [returnvar, left, right]
+            // if the first arg is a list, SetToStyledText unwraps the list and uses it as its args, ignores all later values.
+            if (GetType(left) == "list") {
+                // in order to counteract that, insert a "" before the list
+                args.splice(1,0,new TextItem([],""))
+            }
+            let code = new ActionBlock("set_var", "StyledText", args)
             return [[code], returnvar]
         }
 
