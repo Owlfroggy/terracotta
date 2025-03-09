@@ -2217,6 +2217,11 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 let argResults = SolveArgs(action.Arguments)
                 CodeLine.push(...argResults[0])
                 args = argResults[1]
+
+                // insert an unused variable for return value arg if applicable because df always requires var params to be filled in
+                if (environment.funcReturnTypes[action.Name] !== undefined) {
+                    args.unshift(new VariableItem([],"line","@__TC_BLACKHOLE"))
+                }
             }
 
             //tags
