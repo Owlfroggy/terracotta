@@ -113,6 +113,7 @@
             "SetCoord": "SetCoordinate",
             "ShiftToward": "ShiftToward",
             "ShiftAllDirections": "ShiftAllDirections",
+            "ClampLoc": "Clamp",
         
 
             "ClearItemTag": "ClearTags",
@@ -135,6 +136,7 @@
             "RemoveItemTag": "RemoveTag",
             "GetLodestoneLoc": "GetLodestoneLocation",
             "GetMaxAmount": "GetMaxStackSize",
+            "SetMaxAmount": "SetMaxStackSize",
             " SetItemEnchants ": "SetEnchantments",
             "SetItemType": "SetMaterial",
             "GetItemColor": "GetColor",
@@ -149,7 +151,9 @@
             "ClearEnchants": "ClearEnchantments",
             "RemItemEnchant": "RemoveEnchantment",
             "GetAllItemTags": "GetAllTags",
-        
+            "SetItemGlowing": "SetGlowing",
+            "SetItemMaxDura": "SetMaxDurablity",
+            "GetBlockDrops": "GetBlockDrops",
 
             "AppendValue": "Append",
             "PopListValue": "Pop",
@@ -200,6 +204,8 @@
             "GetParticleSize": "GetSize",
             "SetParticleOpac": "SetOpacity",
             "GetParticleOpac": "GetOpacity",
+            "SetParticleFade": "SetFade",
+            "GetParticleFade": "GetFade",
         
 
             "MultiplyVector": "Multiply",
