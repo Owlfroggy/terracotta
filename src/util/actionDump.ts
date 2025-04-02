@@ -103,6 +103,8 @@ export class Action {
     //will be true or false for events, undefined for non-events
     Cancellable: boolean | undefined
     CancelledAutomatically: boolean | undefined
+
+    IsLegacy: boolean
     
     //type this action returns
     ReturnType: ValueType | null = null
@@ -129,6 +131,7 @@ export class GameValue {
 //actions grouped by the code block they belong to
 //first level keys are df codeblock identifier (e.g. "player_action")
 //second level keys are terracotta action names
+//DOES NOT CONTAIN LEGACY ACTIONS UNLESS AN OVERRIDE IS SPECIFICALLY PROVIDED FOR THEM!
 export var TCActionMap: Dict<Dict<Action>> = {}
 
 //second level keys are diamondfire action names
@@ -456,8 +459,11 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     normalAction.ReturnValues = returnValues
     normalAction.Cancellable = actionJson.icon.cancellable
     normalAction.CancelledAutomatically = actionJson.icon.cancelledAutomatically
+    normalAction.IsLegacy = actionJson.icon.name === "" && actionJson.icon.material === "STONE"
     
-    TCActionMap[codeblockId]![tcId] = normalAction
+    if (!normalAction.IsLegacy || actionJson.name in nameOverrides) {
+        TCActionMap[codeblockId]![tcId] = normalAction
+    }
     DFActionMap[codeblockId]![dfId] = normalAction
     
     //differentiated action
