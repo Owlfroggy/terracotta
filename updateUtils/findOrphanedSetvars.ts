@@ -16,10 +16,15 @@ let found = 0;
 
 for (const action of Object.values(DFActionMap.set_var!)) {
     if (!action) {continue}
+    if (action?.DFId == "VoronoiNoise" || action?.DFId == "PerlinNoise" || action.DFId == "WorleyNoise") {continue} //these are legacy but for whatever reason the actiondump doesn't say so
     if (!existingActions.has(action.DFId)) {
         if (!values.l && action.IsLegacy) {continue}
         found += 1;
         console.log(action.DFId, action.IsLegacy ? "(legacy)" : "")
     }
 }
-console.log(`${COLOR.Red}The above actions are inaccessible in Terracotta.`)
+if (found > 0) {
+    console.log(`${COLOR.Red}The above actions are inaccessible in Terracotta.`)
+} else {
+    console.log(`${COLOR.Green}No orphaned setvars found!`)
+}

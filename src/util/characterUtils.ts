@@ -1,6 +1,7 @@
 export const COLOR = {
     Red: "\x1B[0;91m",
     Yellow: "\x1B[0;93m",
+    Green: "\x1B[0;92m",
     LightYellow: "\x1B[38;5;228m",
     Magenta: "\x1B[0;95m",
     BrightCyan: "\x1B[38;5;51m",
