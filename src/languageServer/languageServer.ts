@@ -873,7 +873,7 @@ export function StartServer() {
             items.push(selectionActionCompletionEntries[context.type])
         }
         else if (context instanceof ConditionContext) {
-            if (context.parent instanceof SelectionContext) {
+            if (context.genericTargets === true) {
                 items.push(genericDomainKeywords)
             }
         }

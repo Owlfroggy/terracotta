@@ -11,6 +11,7 @@ import * as AD from "../util/actionDump.ts"
 import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, VALID_FORMATTING_CODES} from "../util/constants.ts"
 import { Dict } from "../util/dict.ts"
 import { SelectionContext, AssigneeContext, DictionaryContext, CodeContext, CodelineContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, StandaloneFunctionContext, TagsContext, TypeContext, UserCallContext, VariableContext, RepeatContext } from "../languageServer/codeContext.ts";
+import { slog } from "../languageServer/languageServer.ts";
 
 type ExpressionList = (ExpressionToken | null)[]
 
@@ -1556,12 +1557,11 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
             
             index += cu.GetWhitespaceAmount(index) + 1
-            let context = new ConditionContext()
+            let context = new ConditionContext(true)
             BottomLevelContext = BottomLevelContext.setChild(context)
-            OfferContext(index)
             //expression
             let expressionResults = ParseExpression(index,[")",";"],true,["comparisons","genericTargetComparisons"])
-
+            OfferContext(expressionResults?.[0] ?? index,"whitespaceAndIdentifier")
             DiscardContextBranch(context)
             if (expressionResults == null) {
                 throw new TCError("Expected condition following 'while'",0,initIndex,keywordResults[0])
@@ -2508,7 +2508,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //parse condition (if applicable)
         if (action == "PlayersByCondition" || action == "EntitiesByCondition" || action == "ByCondition") {
-            let conditionContext = new ConditionContext()
+            let conditionContext = new ConditionContext(true)
             BottomLevelContext = BottomLevelContext.setChild(conditionContext)
             OfferContext(index)
 

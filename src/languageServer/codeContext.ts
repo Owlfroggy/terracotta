@@ -71,7 +71,11 @@ export class CodeContext {
 //uni
 export class CodelineContext extends CodeContext {}
 
-export class ConditionContext extends CodeContext {}
+export class ConditionContext extends CodeContext {
+    constructor(
+        public genericTargets: boolean = false
+    ) {super()}
+}
 //uni
 export class AssigneeContext extends CodeContext {}
 //uni
