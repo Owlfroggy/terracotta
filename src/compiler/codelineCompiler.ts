@@ -622,6 +622,12 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                     }
                 }
                 SetVarType(variable,varType!)
+                break
+            default:
+                let firstParamDFType = AD.DFActionMap.if_var![action.Action]?.Parameters[0]?.Groups[0]?.[0]?.DFType
+                if (firstParamDFType !== undefined && firstParamDFType !== "VARIABLE" && firstParamDFType !== "ANY_TYPE") {
+                    SetVarType(variable,AD.DFTypeToTC[firstParamDFType])
+                }
         }
     }
 
