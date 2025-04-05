@@ -710,7 +710,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
 
             let resultType = GetType(solved[1])
-            if (resultType != type && type != "any") {
+            if (resultType != type && type != "any" && resultType != "any") {
                 err(new TCError(`Expected ${type} for ${paramName}, got ${resultType}`,0,expr.CharStart,expr.CharEnd))
             }
             return [solved[0],solved[1]]
