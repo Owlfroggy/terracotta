@@ -1880,7 +1880,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 //if this action doesn't have a return type, throw error
                 if (!returnType) {
                     throw new TCError("Only actions which return a value can be used in expressions",0,token.CharStart,token.CharEnd)
-                } else if (returnType == "any") {
+                } else if (returnType == "any" && exprToken.Expression.length > 1) {
                     throw new TCError("Expected return type must be manually specified to use this action in expressions (e.g. action(): str)",0,token.CharStart,token.CharEnd)
                 }
 
