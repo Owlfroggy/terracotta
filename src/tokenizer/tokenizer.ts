@@ -2337,7 +2337,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         DiscardContextBranch(context)
         
         let nameResults = GetComplexName(index)
-        return [nameResults[0], new EventHeaderToken([initIndex,index],identifierResults[1],nameResults[1])]
+        return [nameResults[0], new EventHeaderToken([initIndex,nameResults[0]],identifierResults[1],nameResults[1])]
     }
 
    

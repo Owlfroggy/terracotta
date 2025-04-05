@@ -2113,8 +2113,12 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             if (!(header instanceof HeaderToken) || i == lines.length-1) {
                 if (headerData.codeblock) {
                     let block
+                    let actionData = AD.DFActionMap[headerData.codeblock.Codeblock == "PLAYER_EVENT" ? "event" : "entity_event"]![headerData.codeblock.Event]!
                     if (headerData.codeblock.Codeblock == "PLAYER_EVENT" || headerData.codeblock.Codeblock == "ENTITY_EVENT") {
-                        if (!AD.DFActionMap[headerData.codeblock.Codeblock == "PLAYER_EVENT" ? "event" : "entity_event"]![headerData.codeblock.Event]!.Cancellable && headerData.lsCancel) {
+                        if (!actionData) {
+                            throw new TCError(`Invalid ${headerData.codeblock.Codeblock == "PLAYER_EVENT" ? "player" : "entity"} event '${headerData.codeblock.Event}'`,0,headerData.codeblock.CharStart,headerData.codeblock.CharEnd)
+                        }
+                        if (!actionData.Cancellable && headerData.lsCancel) {
                             throw new TCError(`${headerData.codeblock.Codeblock == "PLAYER_EVENT" ? "Player" : "Entity"} event '${headerData.codeblock.Event}' is not cancellable`,0,headerData.lsCancel.CharStart,headerData.lsCancel.CharEnd)
                         }
                         block = new EventBlock(headerData.codeblock.Codeblock, headerData.codeblock.Event, headerData.lsCancel == false ? false : true)
