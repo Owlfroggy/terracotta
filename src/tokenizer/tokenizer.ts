@@ -1294,8 +1294,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         DiscardContextBranch(context)
         OfferContext(index,"whitespaceAndIdentifier")
 
-        //error if list is unclosed because of EOF
-        if (index + cu.GetWhitespaceAmount(index) + 1 >= SCRIPT_CONTENTS.length) {
+        //error if dict is unclosed because of EOF
+        if (index + cu.GetWhitespaceAmount(index) >= SCRIPT_CONTENTS.length) {
             throw new TCError("Dictionary was never closed", 1, initIndex + 1, cu.GetLineEnd(index) - 1)
         }
 
