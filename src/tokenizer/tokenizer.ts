@@ -1441,7 +1441,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 index = tagResults[0]
                 tags = tagResults[1]
             }
-
             DiscardContextBranch(context)
             return [index, new ControlBlockToken([initIndex,index],"Wait",args,tags)]
         }   
@@ -2150,6 +2149,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //since none of these tokens are made for that
                     let results
                     if (results == null) { results = ParseRepeat(index) }
+                    if (results == null) { results = ParseControlBlock(index) }
                 }
 
                 //try string
