@@ -1,7 +1,7 @@
 import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DescriptionHeaderToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, ReturnsHeaderToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
 import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER, ITEM_DF_NBT } from "../util/constants.ts"
 import { DEBUG_MODE, print } from "../main.ts"
-import { Domain, DomainList, TargetDomain, TargetDomains } from "../util/domains.ts"
+import { Domain, DomainList, GenericTargetDomains, TargetDomain, TargetDomains } from "../util/domains.ts"
 import * as fflate from "fflate"
 import { Dict } from "../util/dict.ts"
 import { TCError } from "../util/errorHandler.ts"
@@ -36,7 +36,11 @@ function ActionNameErrorChecks(domain: Domain, action: ActionToken) {
     //error for invalid action
     if (domain[action.Type == "comparison" ? "Conditions" : "Actions"][action.Action] == undefined) {
         if (domain instanceof TargetDomain) {
-            throw new TCError(`Invalid ${action.Type == "comparison" ? 'if ' : ''}${domain.ActionType} action: '${action.Action}'`, 2, action.Segments.actionName![0], action.Segments.actionName![1])
+            if (domain.Identifier in GenericTargetDomains) {
+                throw new TCError(`Target '${domain.Identifier}' cannot call actions.`, 2, action.Segments.actionName![0], action.Segments.actionName![1])
+            } else {
+                throw new TCError(`Invalid ${action.Type == "comparison" ? 'if ' : ''}${domain.ActionType} action: '${action.Action}'`, 2, action.Segments.actionName![0], action.Segments.actionName![1])
+            }
         }
         else if (domain.Identifier == "game") {
             throw new TCError(`Invalid ${action.Type == "comparison" ? 'if ' : ''}game action: '${action.Action}'`, 2, action.Segments.actionName![0], action.Segments.actionName![1])

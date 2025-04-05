@@ -99,8 +99,8 @@ export var TargetDomains = { //this feels like a sin
 
 //versions of target domains but generalized to just "player" and "entity"
 export var GenericTargetDomains = {
-    player: new TargetDomain("player","Default","player",playerActions,playerConditions,playerGameValues,["player_action","if_player"],true),
-    entity: new TargetDomain("entity","Default","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"],true),
+    player: new TargetDomain("player","Default","player",{},playerConditions,{},["player_action","if_player"],true),
+    entity: new TargetDomain("entity","Default","entity",{},entityConditions,{},["entity_action","if_entity"],true),
 }
 GenericDomains.entity = GenericTargetDomains.entity
 GenericDomains.player = GenericTargetDomains.player
