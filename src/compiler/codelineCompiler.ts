@@ -637,7 +637,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             Yaw: new NumberItem([],"0")
         },
         snd: {
-            Volume: new NumberItem([],"1"),
+            Volume: new NumberItem([],"2"),
             Pitch: new NumberItem([],"1"),
             Variant: null
         },
