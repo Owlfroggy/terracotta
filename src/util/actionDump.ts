@@ -182,7 +182,7 @@ export var SoundVariants: Dict<string[]> = SOUND_VARIANTS_JSON
 export var ItemMaterialIds: Set<string> = new Set(ITEM_IDS_JSON)
 
 //valid potion names
-export var Potions: string[] = []
+export var Potions: Set<string> = new Set()
 
 //every possible particle field (the other fields are filled when going through action dump)
 export var AllParticleFields: string[] = ["Amount", "Spread"]
@@ -547,5 +547,5 @@ for (const soundJson of ACTION_DUMP_JSON.sounds) {
 
 // potion pass \\
 for (const potJson of ACTION_DUMP_JSON.potions) {
-    Potions.push(deColorizeString(potJson.icon.name))
+    Potions.add(deColorizeString(potJson.icon.name))
 }

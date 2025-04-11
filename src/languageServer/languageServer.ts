@@ -969,7 +969,7 @@ export function StartServer() {
                 let constructor = context.parent.name
                 let values: string[] = []
                 if (constructor == "pot") {
-                    if (context.elementIndex == 0) { values = AD.Potions }
+                    if (context.elementIndex == 0) { values = [...AD.Potions.values()] }
                 } else if (constructor == "par") {
                     if (context.elementIndex == 0) { values = Object.keys(AD.Particles) }
                 } else if (constructor == "snd") {

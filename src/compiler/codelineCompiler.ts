@@ -941,7 +941,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 )
                 latestItem = tempVar
             } else {
-                if (!(components.Potion.value in AD.Potions)) {
+                if (!AD.Potions.has(components.Potion.Value)) {
                     throw new TCError(`Invalid potion type '${components.Potion.Value}'`,0,token.Potion!.CharStart,token.Potion!.CharEnd)
                 }
                 item.Potion = components.Potion.Value
