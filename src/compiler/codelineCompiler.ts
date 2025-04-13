@@ -2553,7 +2553,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
                 if (assignmentOpr.Operator == "=") { 
                     if (line[0].Type) {
-                        if (typeleft != typeright) {
+                        if (typeleft != typeright && !(typeright == "any" || typeright == undefined)) {
                             throw new TCError(`Attempted to set variable explicitly typed as ${typeleft} to ${typeright}`,0,line[0].CharStart,line[2].CharEnd)
                         }
                     } else {
