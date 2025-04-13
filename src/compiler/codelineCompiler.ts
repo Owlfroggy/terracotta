@@ -1008,7 +1008,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 }
 
                 //insert by variable
-                if (library?.compilationMode == "insertByVar" || variableComponents.includes("Library") || variableComponents.includes("Id")) {
+                if (library?.compilationMode == "variable" || variableComponents.includes("Library") || variableComponents.includes("Id")) {
                     let values = {
                         "Library": "",
                         "Id": ""
@@ -3305,7 +3305,7 @@ export function GZIP(json: string) {
     return uint8ToBase64(output)
 }
 
-//compiles insertByVar type libraries into their setup functions
+//compiles variable type libraries into their setup functions
 //this assumes the library has already been validated; it does not do its own validation of items
 export function CompileLibrary(library: ItemLibrary) {
     let funcName = `@__TC_IL_${library.id}`

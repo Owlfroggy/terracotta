@@ -40,7 +40,7 @@ export interface ProjectCompileData {
 }
 
 export interface ItemLibrary {
-    compilationMode: "directInsert" | "insertByVar"
+    compilationMode: "item" | "variable"
     id: string,
     items: Dict<{
         data: string,
