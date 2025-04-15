@@ -2100,8 +2100,10 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 }
 
                 //automatically cast var for this line var
-                if (!(header.Type == "any" || header.Type == "var")) {
-                    SetVarType(["line",header.Name],header.Plural ? "list" : header.Type)
+                if (header.Plural) {
+                    SetVarType(["line",header.Name],"list")
+                } else if (!(header.Type == "any" || header.Type == "var")) {
+                    SetVarType(["line",header.Name],header.Type)
                 }
 
                 headerData.params.push(
