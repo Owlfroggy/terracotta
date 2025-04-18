@@ -4,7 +4,7 @@ import * as AD from "../util/actionDump.ts"
 import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures, SignatureHelpParams, SignatureInformation, SignatureHelp, ParameterInformation, Range, FileOperationRegistrationOptions, DefinitionParams, Location } from "vscode-languageserver";
 import { EventHeaderToken, ExpressionToken, GetLineIndexes, OperatorToken, SelectActionToken, StringToken, Tokenize, VariableToken } from "../tokenizer/tokenizer.ts";
 import { DocumentTracker, TrackedDocument, TrackedItemLibrary, TrackedScript } from "./documentTracker.ts";
-import { ADDITIONAL_CONSTRUCTORS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, PLAYER_ONLY_GAME_VALUES, REPEAT_ON_ACTIONS, STATEMENT_KEYWORDS, VALID_BOOLEAN_OPERATORS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants.ts";
+import { ADDITIONAL_CONSTRUCTORS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, PLAYER_ONLY_GAME_VALUES, REPEAT_ON_ACTIONS, STATEMENT_KEYWORDS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants.ts";
 import { Dict } from "../util/dict.ts"
 import { AssigneeContext, CodeContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DictionaryContext, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, RepeatContext, SelectionContext, StandaloneFunctionContext, TagsContext, TypeContext, UserCallContext, VariableContext } from "./codeContext.ts";
 import { VALID_VAR_SCOPES, VAR_SCOPE_TC_NAMES } from "../util/constants.ts";
