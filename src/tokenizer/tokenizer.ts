@@ -2213,7 +2213,11 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                         throw new TCError(`Invalid character: '${cu.GetNextCharacters(index, 1)}'`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, valueInitIndex + cu.GetWhitespaceAmount(index) + 1)
                     }
                     else {
-                        throw new TCError(`Invalid value: '${cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)![1]}'`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, identifierResults[0])
+                        if (features.includes("genericTargetComparisons") && identifierResults[1] in TargetDomains) {
+                            throw new TCError(`Only generic target conditions are supported here. Try replacing '${identifierResults[1]}' with '${(TargetDomains[identifierResults[1]] as TargetDomain).ActionType}'.`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, identifierResults[0])
+                        } else {
+                            throw new TCError(`Invalid value: '${identifierResults[1]}'`, 2, valueInitIndex + cu.GetWhitespaceAmount(index) + 1, identifierResults[0])
+                        }
                     }
                 }
 
