@@ -1915,6 +1915,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             OfferContext(index)
             return [index, new ActionToken([initIndex,index,actionNameInitIndex,actionResults[0]],domain.Identifier, actionResults[1], params, isComparison, tags!)]
         } catch (e) {
+            if (e instanceof TCError) { throw e }
             if (e instanceof CodeContext) { throw e }
             DiscardContextBranch(context)
             return null
