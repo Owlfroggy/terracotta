@@ -82,6 +82,8 @@ export const PLAYER_ONLY_GAME_VALUES = ["Food Level","Food Saturation","Food Exh
 //all characters that turn into a formatting code when proceeded by §/&
 export const VALID_FORMATTING_CODES = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f','k','m','n','o','r','l']
 
+export const INDEXABLE_TYPES = ["list","dict"]
+
 //==========[ language server stuff ]=========\\
 
 //keywords that aren't relevant to expressions

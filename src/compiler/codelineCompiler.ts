@@ -1,5 +1,5 @@
 import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DescriptionHeaderToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, ReturnsHeaderToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
-import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER, ITEM_DF_NBT } from "../util/constants.ts"
+import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER, ITEM_DF_NBT, INDEXABLE_TYPES } from "../util/constants.ts"
 import { DEBUG_MODE, print } from "../main.ts"
 import { Domain, DomainList, GenericTargetDomains, TargetDomain, TargetDomains } from "../util/domains.ts"
 import * as fflate from "fflate"
@@ -1811,6 +1811,15 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 if (!(referrent instanceof CodeItem)) {
                     throw new TCError("Indexer must immediately follow a list, dictionary, or variable",0,token.CharStart,token.CharEnd)
                 }
+                
+                let referrentType = GetType(referrent)
+                if (!INDEXABLE_TYPES.includes(GetType(referrent))) {
+                    if (referrent instanceof VariableItem && referrentType == "any") {
+                        throw new TCError(`Type '${referrentType}' is not indexable. Try manually specifying this variable's type by putting ':dict' or ':list' after its name.`,0,referrent.CharStart,referrent.CharEnd)
+                    } else {
+                        throw new TCError(`Type '${referrentType}' is not indexable.`,0,referrent.CharStart,referrent.CharEnd)
+                    }
+                }
 
                 //solve expression for index to use
                 let expressionResults = SolveExpression(token.Index)
@@ -1826,7 +1835,6 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
                 let tempVar = NewTempVar(returnType)
 
-                let referrentType = GetType(referrent)
                 code.push(
                     new ActionBlock("set_var",referrentType == "list" ? "GetListValue" : "GetDictValue",[tempVar,referrent,expressionResults[1]])
                 )
