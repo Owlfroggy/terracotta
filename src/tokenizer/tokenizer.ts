@@ -97,19 +97,19 @@ export class TextToken extends Token {
     itemtype = "txt"
 }
 export class SoundToken extends TypeCreationToken {
-    constructor(meta,id: ExpressionToken | null, volume: ExpressionToken | null, pitch: ExpressionToken | null, variant: ExpressionToken | null, isCustom: boolean, rawArgs: any[]) {
+    constructor(meta,id: ExpressionToken | null, pitch: ExpressionToken | null, volume: ExpressionToken | null, variant: ExpressionToken | null, isCustom: boolean, rawArgs: any[]) {
         super(meta,rawArgs)
         this.SoundId = id
-        this.Volume = volume
         this.Pitch = pitch
+        this.Volume = volume
         this.Variant = variant
         this.IsCustom = isCustom
     }
 
     SoundId: ExpressionToken | null
-    Variant: ExpressionToken | null
-    Volume: ExpressionToken | null
     Pitch: ExpressionToken | null
+    Volume: ExpressionToken | null
+    Variant: ExpressionToken | null
 
     IsCustom: boolean
 

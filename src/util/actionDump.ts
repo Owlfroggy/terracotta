@@ -208,8 +208,8 @@ export const ConstructorSignatures = {
     ],
     "snd": [
         new Parameter([[new ParameterValue("TEXT","Sound")]]),
-        new Parameter([[new ParameterValue("NUMBER","Volume",true)]]),
         new Parameter([[new ParameterValue("NUMBER","Pitch",true)]]),
+        new Parameter([[new ParameterValue("NUMBER","Volume",true)]]),
         new Parameter([[new ParameterValue("TEXT","Variant",true)]]),
     ],
     "csnd": [

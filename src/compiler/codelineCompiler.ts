@@ -637,8 +637,8 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             Yaw: new NumberItem([],"0")
         },
         snd: {
-            Volume: new NumberItem([],"2"),
             Pitch: new NumberItem([],"1"),
+            Volume: new NumberItem([],"2"),
             Variant: null
         },
         pot: {
@@ -803,7 +803,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 err(new TCError("Sound must specify an ID (str)", 2, token.CharStart, token.CharEnd))
             }
 
-            for (const component of ["SoundId","Volume","Pitch","Variant"]) {
+            for (const component of ["SoundId","Pitch","Volume","Variant"]) {
                 //defaults
                 let defaultValue = ITEM_PARAM_DEFAULTS.snd[component]
                 if (defaultValue !== undefined && !token[component]) { 
