@@ -12,6 +12,7 @@ import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VAL
 import { Dict } from "../util/dict.ts"
 import { SelectionContext, AssigneeContext, DictionaryContext, CodeContext, CodelineContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, StandaloneFunctionContext, TagsContext, TypeContext, UserCallContext, VariableContext, RepeatContext } from "../languageServer/codeContext.ts";
 import { slog } from "../languageServer/languageServer.ts";
+import { TargetDomains } from "../util/domains.ts";
 
 type ExpressionList = (ExpressionToken | null)[]
 
@@ -2102,9 +2103,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         //not parsing
         if (features.includes("comparisons")) {
-            let identifierResults = cu.GetIdentifier(initIndex)
-            if (identifierResults[1] == "not") {
-                index = identifierResults[0]
+            let symbolResults = SCRIPT_CONTENTS[initIndex];
+            if (symbolResults == "!") {
+                index = initIndex + cu.GetWhitespaceAmount(initIndex)
                 not = true
             }
         }
@@ -2251,6 +2252,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             if (cu.GetNextCharacters(index, 1) != "") {
                 index += 1 + cu.GetWhitespaceAmount(index)
             }
+        }
+        
+        if (expressionSymbols.length > 1 && not) {
+            throw new TCError(`Only if-block style conditions (e.g. default?HasItem) can be inverted using the '!' operator.`,0,initIndex,index)
         }
 
         if (expressionSymbols.length > 0) {

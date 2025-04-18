@@ -74,9 +74,6 @@ export const VALID_MATH_OPERATORS = ["+", "-", "*", "/", "^", "%"]
 //operators that do comparisons
 export const VALID_COMPARISON_OPERATORS = ["==", "!=", "<", ">", "<=", ">="]
 
-//operators that do boolean manipulation even though that isnt implemented yet :(
-export const VALID_BOOLEAN_OPERATORS = ["not"]
-
 //==========[ misc ]=========\\
 
 //game values that cannot be applied to entities

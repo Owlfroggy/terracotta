@@ -120,7 +120,6 @@ let forLoopModeKeywords = FOR_LOOP_MODES.map(mode => {
 let generalKeywords = generateCompletions([
     STATEMENT_KEYWORDS,
     ADDITIONAL_CONSTRUCTORS,
-    VALID_BOOLEAN_OPERATORS,
 ].flat(),CompletionItemKind.Keyword)
 
 let domainKeywords = Object.values(Domains.PublicDomains).map(domain => {
