@@ -76,7 +76,7 @@ let entityGameValues = AD.TCEntityGameValues
 
 export var TargetDomains = { //this feels like a sin
     //players
-    selection: new TargetDomain("selection","Selection","player",playerActions,playerConditions,playerGameValues,["player_action","if_player"]),
+    selected: new TargetDomain("selected","Selection","player",playerActions,playerConditions,playerGameValues,["player_action","if_player"]),
     default: new TargetDomain("default","Default","player",playerActions,playerConditions,playerGameValues,["player_action","if_player"]),
     killer: new TargetDomain("killer","Killer","player",playerActions,playerConditions,playerGameValues,["player_action","if_player"]),
     damager: new TargetDomain("damager","Damager","player",playerActions,playerConditions,playerGameValues,["player_action","if_player"]),
@@ -85,7 +85,7 @@ export var TargetDomains = { //this feels like a sin
     allPlayers: new TargetDomain("allPlayers","AllPlayers","player",playerActions,playerConditions,{},["player_action","if_player"]),
 
     //entities
-    selectionEntity: new TargetDomain("selectionEntity","Selection","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
+    selectedEntity: new TargetDomain("selectedEntity","Selection","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
     defaultEntity: new TargetDomain("defaultEntity","Default","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
     killerEntity: new TargetDomain("killerEntity","Killer","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
     damagerEntity: new TargetDomain("damagerEntity","Damager","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
