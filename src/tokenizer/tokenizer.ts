@@ -697,7 +697,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             let variableNameResults = cu.GetIdentifier(index)
             if (variableNameResults == null || variableNameResults[1] == "") {
                 OfferContext(index)
-                throw new TCError(`Expected name`, 2, index,-1)
+                throw new TCError(`Expected name`, 2, index,index)
             }
 
             return [variableNameResults[0], variableNameResults[1]]
