@@ -1042,9 +1042,6 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 //implement this AFTER the client mod is done
                 // err(new TCError("Library items are not implemented yet",0,token.CharStart,token.CharEnd))
             } else {
-                if (token.Nbt) { err(new TCError("NBT on item constructors is not implemented yet",0,token.Nbt.CharStart,token.Nbt.CharEnd))}
-
-
                 for (const component of ["Id","Count"]) {
                     let defaultValue = ITEM_PARAM_DEFAULTS.item[component]
                     if (defaultValue !== undefined && !token[component]) { 
@@ -1064,7 +1061,6 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 } else {
                     item.Id = components.Id.Value
                 }
-
             }
             if (variableComponents.includes("Count") || item instanceof VariableItem) {
                 if (components.Count.Value != 1) {

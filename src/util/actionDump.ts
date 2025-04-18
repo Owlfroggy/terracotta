@@ -220,7 +220,6 @@ export const ConstructorSignatures = {
     "item": [
         new Parameter([[new ParameterValue("TEXT","Item")]]),
         new Parameter([[new ParameterValue("NUMBER","Count",true)]]),
-        new Parameter([[new ParameterValue("TEXT","Components",true)]]),
     ],
     "litem": [
         new Parameter([[new ParameterValue("TEXT","Library")]]),

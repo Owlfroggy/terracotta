@@ -148,11 +148,10 @@ export class PotionToken extends TypeCreationToken {
     itemtype = "pot"
 }
 export class ItemToken extends TypeCreationToken {
-    constructor(meta,id: ExpressionToken | null, count: ExpressionToken | null = null, nbt: ExpressionToken | null, library: ExpressionToken | null, mode: "library" | "basic", rawArgs: any[]) {
+    constructor(meta,id: ExpressionToken | null, count: ExpressionToken | null = null, library: ExpressionToken | null, mode: "library" | "basic", rawArgs: any[]) {
         super(meta, rawArgs)
         this.Id = id
         this.Count = count
-        this.Nbt = nbt
         this.Library = library
         this.Mode = mode
     }
@@ -160,7 +159,6 @@ export class ItemToken extends TypeCreationToken {
     Id: ExpressionToken | null
     Library: ExpressionToken | null
     Count: ExpressionToken | null
-    Nbt: ExpressionToken | null
 
     Mode: "basic" | "library"
 
@@ -1109,10 +1107,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         OfferContext(argResults[0])
         //basic item
         if (identifierResults[1] == "item") {
-            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[0], args[1], args[2], null, "basic", args)]
+            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[0], args[1], null, "basic", args)]
         //library item
         } else if (identifierResults[1] == "litem") {
-            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[1],args[2],null,args[0], "library", args)]
+            return [argResults[0], new ItemToken([keywordInitIndex,argResults[0]],args[1],args[2],args[0], "library", args)]
         }
         return null
     }
