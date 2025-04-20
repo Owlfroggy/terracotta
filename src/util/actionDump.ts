@@ -6,7 +6,6 @@ import { DATA_PATH } from "./utils.ts";
 
 const ACTION_DUMP_JSON      = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"actiondump.json") )).toString())
 const OVERRIDES_JSON        = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"overrides.json") )).toString())
-const SOUND_VARIANTS_JSON   = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"sound_variants.json") )).toString())
 const ITEM_IDS_JSON         = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"item_ids.json") )).toString())
 
 
@@ -176,7 +175,7 @@ export var Sounds: Set<string> = new Set([])
 export var SoundInternalIds: Dict<string> = {}
 
 //valid sound variants
-export var SoundVariants: Dict<string[]> = SOUND_VARIANTS_JSON
+export var SoundVariants: Dict<string[]> = {}//SOUND_VARIANTS_JSON
 
 //valid item ids
 export var ItemMaterialIds: Set<string> = new Set(ITEM_IDS_JSON)
@@ -542,6 +541,12 @@ AllParticleFields = [...new Set(AllParticleFields)]
 for (const soundJson of ACTION_DUMP_JSON.sounds) {
     Sounds.add(deColorizeString(soundJson.icon.name))
     SoundInternalIds[soundJson.icon.name] = soundJson.sound
+    SoundVariants[soundJson.sound] = []
+    if (soundJson.variants) {
+        for (const variant of soundJson.variants) {
+            SoundVariants[soundJson.sound]?.push(variant.id)
+        }
+    }
 }
 
 // potion pass \\
