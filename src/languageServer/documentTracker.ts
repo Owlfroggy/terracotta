@@ -550,7 +550,7 @@ export class DocumentTracker {
                 let doc = this.Documents[uri]
                 if (doc && change.type == FileChangeType.Changed) {
                     if (doc.IsOpen) { return }
-                    let text = await fs.readFile(new URL(uri))
+                    let text = await fs.readFile(fileURLToPath(new URL(uri)))
                     doc.ApplyChanges({textDocument: {uri: uri, version: doc.Version},contentChanges: [{text: text.toString()}]})
                 } else if (doc && change.type == FileChangeType.Deleted) {
                     doc.Remove()
@@ -604,7 +604,6 @@ export class DocumentTracker {
         let urlified = new URL(uri)
         if (text == null) {
             text = (await fs.readFile(fileURLToPath(urlified))).toString("utf-8")
-            // text = (await fs.readFile(urlified)).toString("utf-8")
         }
 
         let doc = uri.endsWith(".tc") ? new TrackedScript(uri, this) : new TrackedItemLibrary(uri, this)
