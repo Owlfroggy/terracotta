@@ -531,6 +531,7 @@ export function StartServer() {
     })
 
     connection.onRequest("textDocument/definition",(param: DefinitionParams) => {
+        if (!param.textDocument.uri.endsWith(".tc")) {return}
         let script = documentTracker.GetFileText(param.textDocument.uri)
         let cu = new CharUtils(script,true)
 
@@ -551,6 +552,7 @@ export function StartServer() {
     })
 
     connection.onRequest("textDocument/signatureHelp",(param: SignatureHelpParams) => {
+        if (!param.textDocument.uri.endsWith(".tc")) {return}
         let previouslySelectedSignature = param.context?.activeSignatureHelp?.activeSignature
         let script = documentTracker.GetFileText(param.textDocument.uri)
 
@@ -849,6 +851,7 @@ export function StartServer() {
     })
 
     connection.onRequest("textDocument/completion", async (param: CompletionParams) => {
+        if (!param.textDocument.uri.endsWith(".tc")) {return}
         let script = documentTracker.GetFileText(param.textDocument.uri)
 
         let lineIndexes = GetLineIndexes(script)
