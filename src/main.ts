@@ -17,7 +17,7 @@ export const DEBUG_MODE = {
     disableOptimization: false,
 }
 
-export const VERSION = "alpha"
+export const VERSION = "0.0.1"
 
 const SPLASH_TEXTS = [
     "200% productivity boost by stopping code parkour!",
