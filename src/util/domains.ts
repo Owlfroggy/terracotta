@@ -82,6 +82,7 @@ export var TargetDomains = { //this feels like a sin
     damager: new TargetDomain("damager","Damager","player",playerActions,playerConditions,playerGameValues,["player_action","if_player"]),
     shooter: new TargetDomain("shooter","Shooter","player",playerActions,playerConditions,playerGameValues,["player_action","if_player"]),
     victim: new TargetDomain("victim","Victim","player",playerActions,playerConditions,playerGameValues,["player_action","if_player"]),
+    attacker: new TargetDomain("attacker","Attacker","player",playerActions,playerConditions,playerGameValues,["player_action","if_player"]),
     allPlayers: new TargetDomain("allPlayers","AllPlayers","player",playerActions,playerConditions,{},["player_action","if_player"]),
 
     //entities
@@ -91,6 +92,7 @@ export var TargetDomains = { //this feels like a sin
     damagerEntity: new TargetDomain("damagerEntity","Damager","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
     shooterEntity: new TargetDomain("shooterEntity","Shooter","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
     victimEntity: new TargetDomain("victimEntity","Victim","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
+    attackerEntity: new TargetDomain("attackerEntity","Attacker","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
     allEntities: new TargetDomain("allEntities","AllEntities","entity",entityActions,entityConditions,{},["entity_action","if_entity"]),
     allMobs: new TargetDomain("allMobs","AllMobs","entity",entityActions,entityConditions,{},["entity_action","if_entity"]),
     projectile: new TargetDomain("projectile","Projectile","entity",entityActions,entityConditions,entityGameValues,["entity_action","if_entity"]),
