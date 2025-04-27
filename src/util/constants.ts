@@ -124,7 +124,7 @@ export const TYPE_DOMAIN_ACTIONS = {
         //stuff in world category
         "GetBlockType","GetBlockData","GetAllBlockData","GetBlockGrowth","GetBlockPower","GetLight"," GetSignText ","ContainerName","ContainerLock","GetContainerItems","GetLecternBook","GetLecternPage","Raycast",
         //stuff in misc category
-        "BlockHardness","BlockResistance","RGBColor","HSBColor","HSLColor","GetColorChannels"
+        "BlockHardness","BlockResistance","RGBColor","HSBColor","HSLColor","GetColorChannels","WebResponse"
     ],
     num: ["+", "-", "x", "/", "%", "+=", "-=", "Exponent", "Root", "Logarithm", "ParseNumber", "AbsoluteValue", "ClampNumber", "WrapNum", "Average", "RandomNumber", " RoundNumber ", "MinNumber", "MaxNumber", "NormalRandom", "Sine", "Cosine", "Tangent", "Noise", "GradientNoise", "CellularNoise", "ValueNoise", "Bitwise", "BounceNum"],
     str: ["String", "ReplaceString", "RemoveString", "TrimString", "SplitString", "JoinString", "SetCase", "StringLength", "RepeatString", "FormatTime", "TranslateColors"],
