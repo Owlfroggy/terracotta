@@ -10,6 +10,7 @@ import { URL } from "node:url"
 import { Dict } from "../util/dict.ts"
 import { walk } from "@std/fs"
 import { getAllFilesInFolder } from "../util/utils.ts";
+import { DFRank } from "../util/actionDump.ts";
 
 export type CompiledTemplate = string | Dict<any>
 
@@ -36,7 +37,8 @@ export interface FileCompileResults {
 }
 
 export interface ProjectCompileData {
-    maxCodeLineSize: number
+    maxCodeLineSize: number,
+    rank: DFRank
 }
 
 export interface ItemLibrary {
@@ -59,6 +61,7 @@ export interface CodeInjections {
 }
 
 export interface CompilationEnvironment {
+    rank: DFRank
     itemLibraries: Dict<ItemLibrary>
     /**To access the injections for a given line, do codeInjections[header][linename]["before"|"after"] */
     codeInjections: {
@@ -166,6 +169,7 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
     
     let itemLibraries: Dict<ItemLibrary> = {} //key is library id
     let environment: CompilationEnvironment = {
+        rank: data.rank,
         itemLibraries: itemLibraries,
         codeInjections: {
             playerEvents: {},

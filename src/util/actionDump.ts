@@ -8,6 +8,14 @@ const ACTION_DUMP_JSON      = JSON.parse((await fs.readFile( pathToFileURL(DATA_
 const OVERRIDES_JSON        = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"overrides.json") )).toString())
 const ITEM_IDS_JSON         = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"item_ids.json") )).toString())
 
+export type DFRank = "Overlord" | "Mythic" | "Emperor" | "Noble" | ""
+export enum RANK_ORDER {
+    "",
+    "Noble",
+    "Emperor",
+    "Mythic",
+    "Overlord",
+}
 
 //==========[ classes ]=========\\
 
@@ -104,6 +112,7 @@ export class Action {
     CancelledAutomatically: boolean | undefined
 
     IsLegacy: boolean
+    RequiresRank: DFRank = ""
     
     //type this action returns
     ReturnType: ValueType | null = null
@@ -298,6 +307,13 @@ export const DFTypeToString = {
 //value: codeblock identifier (e.g. "player_action")
 const NameToIdentifierMap = {}
 
+/**
+ * returns true if ownedRank >= requiredRank
+ */
+export function RankCheck(ownedRank: DFRank, requiredRank: DFRank) {
+    return RANK_ORDER[ownedRank] >= RANK_ORDER[requiredRank]
+}
+
 //==========[ private functions ]=========\\
 
 function codeifyName(name: string): string {
@@ -443,6 +459,9 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
         return entry.join(" ")  
     }) : []
 
+    
+    let requiresRank = actionJson.icon.requireTokens ? "" : actionJson.icon.requiredRank
+
     //normal action
     let normalAction = new Action()
     normalAction.Codeblock = codeblockId
@@ -458,6 +477,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     normalAction.Cancellable = actionJson.icon.cancellable
     normalAction.CancelledAutomatically = actionJson.icon.cancelledAutomatically
     normalAction.IsLegacy = actionJson.icon.name === "" && actionJson.icon.material === "STONE"
+    normalAction.RequiresRank = requiresRank
     
     if (!normalAction.IsLegacy || actionJson.name in nameOverrides) {
         TCActionMap[codeblockId]![tcId] = normalAction
@@ -478,6 +498,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     differentiatedAction.ReturnValues = returnValues
     differentiatedAction.Cancellable = actionJson.icon.cancellable
     differentiatedAction.CancelledAutomatically = actionJson.icon.cancelledAutomatically
+    differentiatedAction.RequiresRank = requiresRank
     
     //check all aliases
     for (const alias of actionJson.aliases) {

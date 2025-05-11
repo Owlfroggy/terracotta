@@ -32,9 +32,10 @@ function FillMissingTags(codeblockIdentifier: string, actionDFName: string, tags
     return tags
 }
 
-function ActionNameErrorChecks(domain: Domain, action: ActionToken) {
+function ActionNameErrorChecks(domain: Domain, action: ActionToken, rank: AD.DFRank = "Overlord") {
     //error for invalid action
-    if (domain[action.Type == "comparison" ? "Conditions" : "Actions"][action.Action] == undefined) {
+    let actionData = domain[action.Type == "comparison" ? "Conditions" : "Actions"][action.Action]
+    if (actionData == undefined) {
         if (domain instanceof TargetDomain) {
             if (domain.Identifier in GenericTargetDomains) {
                 throw new TCError(`Target '${domain.Identifier}' cannot call actions.`, 2, action.Segments.actionName![0], action.Segments.actionName![1])
@@ -48,6 +49,11 @@ function ActionNameErrorChecks(domain: Domain, action: ActionToken) {
         else {
             throw new TCError(`'${domain.Identifier}' does not contain function '${action.Action}'`, 2, action.Segments.actionName![0], action.Segments.actionName![1])
         }
+    }
+
+    //error for unusable action
+    if (!AD.RankCheck(rank,actionData.RequiresRank)) {
+        throw new TCError(`'${action.Action}' requires ${actionData.RequiresRank} rank to use.`,0,action.CharStart,action.CharEnd)
     }
 }
 
@@ -1753,7 +1759,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             let action = exprToken.Expression[0] as ActionToken
             let domain = DomainList[action.DomainId]!
 
-            ActionNameErrorChecks(domain,action)
+            ActionNameErrorChecks(domain,action,environment.rank)
 
             let codeblock = "if_var"
             if (domain instanceof TargetDomain) {
@@ -1841,7 +1847,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 let action = token
                 let domain: Domain = DomainList[action.DomainId]!
                 
-                ActionNameErrorChecks(domain,action)
+                ActionNameErrorChecks(domain,action,environment.rank)
                 
                 //arguments
                 //a temporary variable is automatically inserted as the first chest slot to get the returned value of the function
@@ -2202,7 +2208,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             let action = line[0]
             let domain: Domain = DomainList[action.DomainId]!
 
-            ActionNameErrorChecks(domain,action)
+            ActionNameErrorChecks(domain,action,environment.rank)
             
             let args
             if (action.Params) {

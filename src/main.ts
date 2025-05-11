@@ -8,6 +8,7 @@ import { StartServer } from "./languageServer/languageServer.ts"
 import { COLOR as c } from "./util/characterUtils.ts"
 import { pathToFileURL } from "node:url"
 import * as ncp from "copy-paste"
+import { DFRank } from "./util/actionDump.ts";
 
 // process.stderr.write(`dingus ${typeof ()}\n`)
 // throw "hands"
@@ -17,29 +18,7 @@ export const DEBUG_MODE = {
     disableOptimization: false,
 }
 
-export const VERSION = "0.0.1"
-
-const SPLASH_TEXTS = [
-    "200% productivity boost by stopping code parkour!",
-    "Making development for mini plots possible!",
-    "Never obliterate an if statement's contents again!",
-    "Never touch %math ever again!",
-    "If your plot isn't open source, I'm not playing it.",
-    "Who needs long codespaces anyway?",
-    "Expression items were canceled? Oh no",
-    "Revolutionary new df features such as: Readable Code",
-    "Revolutionary new df features such as: Copy & Paste",
-    "Revolutionary new df features such as: Comments",
-    "We don't talk about lagslayer.",
-    "It shouldn't exist!",
-    "Feature complete and then some!",
-    `${c.Strikethrough}Communism${c.EndStrikethrough} Text->DF has failed every time it was tried... but not this time!`,
-    "Magic!",
-    "Y'all need to stop with this softcoding stuff",
-    "Making Select Object a grand total of 5% less painful!",
-    "What's that? Collaberating on plots? Uhhhhhhh Shut Up",
-    "Shoutout to CodeClient",
-]
+export const VERSION = "0.0.2"
 
 //function for spamming debug print statements
 //its faster to type and i can search and destroy them after im done debugging without having to worry about nuking actually important log messages
@@ -66,7 +45,9 @@ async function Main() {
         //how long the codespace is in minecraft blocks (used for auto-slicing codelines)
         //default is 99999, basically disabling slicing
         plotsize: { type: "string" },
-
+        //what rank to check actions against
+        //default is overlord
+        rank: { type: "string" },
         
         //the file to take in (does not do anything in server mode)
         file: { type: "string" },
@@ -99,6 +80,18 @@ async function Main() {
         //error handling
         if (values.file && values.project) {
             process.stderr.write("\nError: --file and --project are mutually exclusive\n")
+            process.exit(1)
+        }
+
+        let rank: DFRank = "Overlord"
+        if (values.rank) {
+            rank = values.rank[0].toUpperCase() + values.rank.toLowerCase().substring(1)
+            if (rank == "Unranked") {
+                rank = ""
+            } else if (!(rank == "Noble" || rank == "Emperor" || rank == "Mythic" || rank == "Overlord")) {
+                process.stderr.write(`\nError: ${values.rank} is not a valid rank. Acceptable values are: unranked, noble, emperor, mythic, overlord`)
+                process.exit(1)
+            }
         }
 
         let output: string = ""
@@ -108,8 +101,10 @@ async function Main() {
                 process.stderr.write("Error: --outmode must be either 'gzip' or 'json'\n")
                 process.exit(1)
             }
+            process.stderr.write("File mode is not currently supported, please use project mode instead");
+            process.exit(1)
             let script = (await fs.readFile(values.file)).toString()
-            let results = ProjectCompiler.CompileFile(script,plotsize,values.outmode as "gzip" | "json",{itemLibraries: {},codeInjections:{playerEvents:{},entityEvents:{},functions:{},processes:{}}})
+            let results = ProjectCompiler.CompileFile(script,plotsize,values.outmode as "gzip" | "json",{rank: rank,itemLibraries: {},codeInjections:{playerEvents:{},entityEvents:{},functions:{},processes:{}}})
 
             if (results.error) {
                 ErrorHandler.PrintError(results.error, script, pathToFileURL(values.file).pathname.split('/').pop()!)
@@ -122,7 +117,7 @@ async function Main() {
             })
         }
         else if (values.project) {
-            let results = await ProjectCompiler.CompileProject(values.project,{maxCodeLineSize: plotsize})
+            let results = await ProjectCompiler.CompileProject(values.project,{maxCodeLineSize: plotsize, rank: rank})
 
             if (values.includemeta) {
                 output = JSON.stringify(results)
@@ -152,8 +147,8 @@ async function Main() {
         StartServer()
     }
     else if (command == undefined) {
-        console.log(
-`${c.BrightCyan}${c.Bold}Terracotta${c.Reset} - ${c.LightYellow}${SPLASH_TEXTS[Math.floor(Math.random() * SPLASH_TEXTS.length)]}${c.Reset}
+        console.log (
+`${c.BrightCyan}${c.Bold}Terracotta${c.Reset}${c.Reset}
 ${c.Gray}version ${c.Italic}${VERSION}${c.Reset}
 
 ${c.White}${c.Underline}Commands:${c.Reset}
@@ -166,7 +161,8 @@ ${c.White}├ ${c.Magenta}--file ${c.Gray}path/to/file.tc${c.White}: Compile thi
 ${c.White}├ ${c.Magenta}--outmode ${c.Gray}gzip | json${c.White}: What format to return compiled templates in. Currently only works with --file.
 ${c.White}│
 ${c.White}├ ${c.Magenta}--plotsize ${c.Gray}number${c.White}: Codespace size in minecraft blocks; used for automatic codeline splitting. If not present, disables codeline splitting.
-${c.White}└ ${c.Magenta}--copy${c.White}: If present, copy compiled templates to the clipboard instead of printing to stdout.
+${c.White}├ ${c.Magenta}--copy${c.White}: If present, copy compiled templates to the clipboard instead of printing to stdout.
+${c.White}└ ${c.Magenta}--rank ${c.Gray}unranked | noble | emperor | mythic | overlord${c.White}: Rank to check action usability against. Defaults to overlord.
 `
         )
     }

@@ -1,7 +1,7 @@
 import * as rpc from "vscode-jsonrpc/node.js"
 import * as Domains from "../util/domains.ts"
 import * as AD from "../util/actionDump.ts"
-import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures, SignatureHelpParams, SignatureInformation, SignatureHelp, ParameterInformation, Range, FileOperationRegistrationOptions, DefinitionParams, Location } from "vscode-languageserver";
+import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures, SignatureHelpParams, SignatureInformation, SignatureHelp, ParameterInformation, Range, FileOperationRegistrationOptions, DefinitionParams, Location, SymbolTag } from "vscode-languageserver";
 import { EventHeaderToken, ExpressionToken, GetLineIndexes, OperatorToken, SelectActionToken, StringToken, Tokenize, VariableToken } from "../tokenizer/tokenizer.ts";
 import { DocumentTracker, TrackedDocument, TrackedItemLibrary, TrackedScript } from "./documentTracker.ts";
 import { ADDITIONAL_CONSTRUCTORS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, PLAYER_ONLY_GAME_VALUES, REPEAT_ON_ACTIONS, STATEMENT_KEYWORDS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants.ts";
@@ -13,6 +13,13 @@ import { print } from "../main.ts";
 import { ActionBlock, CodeItem, CompileLines, VariableItem } from "../compiler/codelineCompiler.ts";
 import { GameValueItem } from "../compiler/codelineCompiler.ts";
 import { CharUtils } from "../util/characterUtils.ts";
+import { config } from "node:process";
+import { Server } from "node:http";
+
+type ServerTCConfiguration = {
+    dfRank: AD.DFRank,
+    rankBehavior: "crossOutInaccessible" | "hideInaccessible"
+}
 
 enum CompletionItemType {
     SelectionAction,
@@ -144,45 +151,51 @@ let domainMemberCompletionEntries: Dict<{
     [ContextDomainAccessType.Condition]: CompletionItem[], 
     [ContextDomainAccessType.Value]: CompletionItem[], 
 }> = {}
-for (const domain of Object.values(Domains.DomainList)) {
-    if (!domain) { continue }
-    domainMemberCompletionEntries[domain.Identifier] = {
-        [ContextDomainAccessType.Action]: Object.values(domain.Actions).map(action => {
-            return {
-                label: action?.TCId,
-                kind: CompletionItemKind.Method,
-                commitCharacters: [";","("],
-                data: {
-                    type: CompletionItemType.DomainAction,
-                    domainId: domain.Identifier,
-                    memberId: action?.TCId
-                }
-            } as CompletionItem
-        }), 
-        [ContextDomainAccessType.Condition]: Object.values(domain.Conditions).map(action => {
-            return {
-                label: action?.TCId,
-                kind: CompletionItemKind.Method,
-                commitCharacters: ["(",")"],
-                data: {
-                    type: CompletionItemType.DomainCondition,
-                    domainId: domain.Identifier,
-                    memberId: action?.TCId
-                }
-            } as CompletionItem
-        }), 
-        [ContextDomainAccessType.Value]: Object.values(domain.Values).map(value => {
-            return {
-                label: value?.TCId,
-                kind: CompletionItemKind.Field,
-                commitCharacters: [";"],
-                data: {
-                    type: CompletionItemType.DomainValue,
-                    domainId: domain.Identifier,
-                    memberId: value?.TCId
-                }
-            } as CompletionItem
-        }), 
+function generateDomainMemberCompletions(tcConfig: ServerTCConfiguration) {
+    for (const domain of Object.values(Domains.DomainList)) {
+        if (!domain) { continue }
+        domainMemberCompletionEntries[domain.Identifier] = {
+            [ContextDomainAccessType.Action]: Object.values(domain.Actions).map(action => {
+                let isUnusable = !AD.RankCheck(tcConfig.dfRank,action?.RequiresRank!)
+                if (isUnusable && tcConfig.rankBehavior == "hideInaccessible") { return }
+                return {
+                    label: action?.TCId,
+                    kind: CompletionItemKind.Method,
+                    commitCharacters: [";","("],
+                    data: {
+                        type: CompletionItemType.DomainAction,
+                        domainId: domain.Identifier,
+                        memberId: action?.TCId,
+                    },
+                    sortText: isUnusable ? "\uFFFF"+action?.TCId : undefined,
+                    tags: isUnusable ? [SymbolTag.Deprecated] : undefined
+                } as CompletionItem
+            }).filter(v => !!v), //v => !!v filters out undefineds created from early returns 
+            [ContextDomainAccessType.Condition]: Object.values(domain.Conditions).map(action => {
+                return {
+                    label: action?.TCId,
+                    kind: CompletionItemKind.Method,
+                    commitCharacters: ["(",")"],
+                    data: {
+                        type: CompletionItemType.DomainCondition,
+                        domainId: domain.Identifier,
+                        memberId: action?.TCId
+                    }
+                } as CompletionItem
+            }), 
+            [ContextDomainAccessType.Value]: Object.values(domain.Values).map(value => {
+                return {
+                    label: value?.TCId,
+                    kind: CompletionItemKind.Field,
+                    commitCharacters: [";"],
+                    data: {
+                        type: CompletionItemType.DomainValue,
+                        domainId: domain.Identifier,
+                        memberId: value?.TCId
+                    }
+                } as CompletionItem
+            }), 
+        }
     }
 }
 
@@ -283,6 +296,11 @@ export function StartServer() {
 
     let documentTracker: DocumentTracker = new DocumentTracker(connection)
 
+    let configuration: ServerTCConfiguration = {
+        dfRank: "Overlord",
+        rankBehavior: "crossOutInaccessible"
+    }
+
     //==========[ utility functions ]=========\\
 
     function showText(message: string, messageType: MessageType = MessageType.Info) {
@@ -322,6 +340,7 @@ export function StartServer() {
 
         try {
             let compilationResults = CompileLines(dummyScript, {
+                rank: "Overlord",
                 codeInjections: { playerEvents: {}, entityEvents: {}, functions: {}, processes: {} }, itemLibraries: {},
                 skipConstructorValidation: true,
                 funcReturnTypes: returnTypes
@@ -781,9 +800,10 @@ export function StartServer() {
             }
 
             let returnString = getParamString(action.ReturnValues,"\n\n**Returns:**\n\n","")
-            
 
-            documentation = `${action.Description}${infoString}${worksWithString}${paramString}${tagsString}${returnString}`
+            let rankString = (action.RequiresRank && (!AD.RankCheck(configuration.dfRank,action?.RequiresRank!))) ? `\n\n❌ **(Requires ${action.RequiresRank})**\n\n` : ""
+
+            documentation = `${rankString}${action.Description}${infoString}${worksWithString}${paramString}${tagsString}${returnString}`
         }
         // game value
         else if (itemType == CompletionItemType.DomainValue) {
@@ -1099,5 +1119,15 @@ export function StartServer() {
     connection.onNotification("initialized",(param) => {
         showText("Terracotta language server successfully started!")
         log("Terracotta language server successfully started!")
+        connection.sendNotification("loaded",{});
+    })
+
+    connection.onNotification("terracotta/updateConfiguration", (param: ServerTCConfiguration) => {
+        for (const [k, v] of Object.entries(param)) {
+            configuration[k] = v
+        }
+        if ("dfRank" in param || "rankBehavior" in param) {
+            generateDomainMemberCompletions(configuration)
+        }
     })
 }
