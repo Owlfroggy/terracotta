@@ -361,9 +361,9 @@ export function StartServer() {
                         }
                     }
 
-                    //if name has special characters and needs ["akjhdgffkj"] syntax
+                    //if name has special characters and needs ("akjhdgffkj") syntax
                     if ((name.match(/[^a-z_0-9]/gi) || name.match(/^[0-9]/gi)) && !context.inComplexName && !context.stringInfo) {
-                        item.insertText = `["${name.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"]`
+                        item.insertText = `("${name.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}")`
                     } else {
                         item.insertText = name
                     }
@@ -457,9 +457,9 @@ export function StartServer() {
                     item.label = `${name} (${scope})`
                 }
 
-                //if name has special characters and needs ["akjhdgffkj"] syntax
+                //if name has special characters and needs ("akjhdgffkj") syntax
                 if ((name.match(/[^a-z_0-9]/gi) || name.match(/^[0-9]/gi)) && !context.inComplexName && !context.stringInfo) {
-                    item.insertText = `["${name.replaceAll("\\","\\\\").replaceAll('"','\\"')}"]`
+                    item.insertText = `("${name.replaceAll("\\","\\\\").replaceAll('"','\\"')}")`
                 } else {
                     item.insertText = `${name}`
                 }
@@ -522,7 +522,7 @@ export function StartServer() {
                 },
                 //function signature
                 signatureHelpProvider: {
-                    triggerCharacters: [",","(","["],
+                    triggerCharacters: [",","("],
                 },
             }
         }
@@ -616,7 +616,7 @@ export function StartServer() {
                 return
             }
         } else if (context.parent instanceof ConstructorContext) {
-            prefix = context.parent.name + "["
+            prefix = context.parent.name + "("
             paramData = AD.ConstructorSignatures[context.parent.name]
         } else if (context.parent instanceof StandaloneFunctionContext) {
             if (context.parent.name == "wait") {
@@ -689,7 +689,7 @@ export function StartServer() {
             }
 
             info.label = valueStrings.join(", ")
-            info.label = prefix + info.label + (context.parent instanceof ConstructorContext ? "]" : `)${tagAmount > 0 ? ` + ${tagAmount} tag${tagAmount > 1 ? "s" : ""}` : ""}`)
+            info.label = prefix + info.label + `)${tagAmount > 0 ? ` + ${tagAmount} tag${tagAmount > 1 ? "s" : ""}` : ""}`
             signatureInfos.push(info)
 
             let activeParameter: number = 0

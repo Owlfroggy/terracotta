@@ -660,8 +660,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     //ERR1: complex name never closed
     //ERR2: missing name
     function GetComplexName(index: number): [number, string] {
-        //if theres a [, use the inside of the [] as name
-        if (cu.GetNextCharacters(index,1) == "[") {
+        //if theres a (, use the inside of the () as name
+        if (cu.GetNextCharacters(index,1) == "(") {
             index += cu.GetWhitespaceAmount(index) + 1
                 BottomLevelContext.inComplexName = true
             OfferContext(index)
@@ -671,13 +671,13 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             
             if (nameResults == null) {
                 BottomLevelContext.inComplexName = false
-                throw new TCError("Expected string following '['",0,index,index)
+                throw new TCError("Expected string following '('",0,index,index)
             }
 
             index = nameResults[0]
             OfferContext(nameResults[0])
             BottomLevelContext.inComplexName = false
-            if (cu.GetNextCharacters(index,1) != "]") {
+            if (cu.GetNextCharacters(index,1) != ")") {
                 throw new TCError("Name was never closed",1,initIndex,index)
             }
             
@@ -934,7 +934,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse arguments
-        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
+        let argResults: [number, ListToken] | null = ParseList(index, "(", ")", ",")
         
         DiscardContextBranch(context)
         if (argResults == null) {
@@ -994,7 +994,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse arguments
-        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
+        let argResults: [number, ListToken] | null = ParseList(index, "(", ")", ",")
 
         DiscardContextBranch(context)
         if (argResults == null) {
@@ -1031,7 +1031,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse arguments
-        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
+        let argResults: [number, ListToken] | null = ParseList(index, "(", ")", ",")
 
         DiscardContextBranch(context)
         if (argResults == null) {
@@ -1063,7 +1063,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse arguments
-        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
+        let argResults: [number, ListToken] | null = ParseList(index, "(", ")", ",")
 
         DiscardContextBranch(context)
         if (argResults == null) {
@@ -1096,7 +1096,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse arguments
-        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
+        let argResults: [number, ListToken] | null = ParseList(index, "(", ")", ",")
 
         DiscardContextBranch(context)
         if (argResults == null) {
@@ -1132,7 +1132,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         BottomLevelContext = BottomLevelContext.setChild(context)
 
         //parse args
-        let argResults: [number, ListToken] | null = ParseList(index, "[", "]", ",")
+        let argResults: [number, ListToken] | null = ParseList(index, "(", ")", ",")
 
         if (argResults == null) {
             DiscardContextBranch(context)
