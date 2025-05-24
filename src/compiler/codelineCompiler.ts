@@ -1817,9 +1817,9 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 let referrentType = GetType(referrent)
                 if (!INDEXABLE_TYPES.includes(GetType(referrent))) {
                     if (referrent instanceof VariableItem && referrentType == "any") {
-                        throw new TCError(`Type '${referrentType}' is not indexable. Try manually specifying this variable's type by putting ':dict' or ':list' after its name.`,0,referrent.CharStart,referrent.CharEnd)
+                        throw new TCError(`Type '${referrentType}' is not indexable. Try manually specifying this value's type by putting ':dict' or ':list' after it.`,0,exprToken.Expression[i-1].CharStart,exprToken.Expression[i-1].CharEnd)
                     } else {
-                        throw new TCError(`Type '${referrentType}' is not indexable.`,0,referrent.CharStart,referrent.CharEnd)
+                        throw new TCError(`Type '${referrentType}' is not indexable.`,0,token.CharStart,token.CharEnd)
                     }
                 }
 
