@@ -222,8 +222,8 @@ export const ConstructorSignatures = {
     ],
     "csnd": [
         new Parameter([[new ParameterValue("TEXT","Sound")]]),
-        new Parameter([[new ParameterValue("NUMBER","Volume",true)]]),
-        new Parameter([[new ParameterValue("NUMBER","Pitch",true)]])
+        new Parameter([[new ParameterValue("NUMBER","Pitch",true)]]),
+        new Parameter([[new ParameterValue("NUMBER","Volume",true)]])
     ],
     "item": [
         new Parameter([[new ParameterValue("TEXT","Item")]]),
