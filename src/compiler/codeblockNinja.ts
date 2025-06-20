@@ -452,7 +452,17 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
     }
     fixReturnBlocks(mainLine,0)
 
-
+    //= make sure theres no gaps in slice ids =\\
+    let nextNewId = 0;
+    for (const entry of Object.values(sliceEntriesByName)) {
+        if (!entry?.parent) {continue;}
+        let header = entry.line[0]! as FunctionBlock
+        let caller = entry.parent.line[entry.callIndex] as ActionBlock
+        let newName = `${TC_HEADER}SLC_${headerType}_${nextNewId}_${headerName}`
+        header.Name = newName
+        caller.Action = newName
+        nextNewId++
+    }
 
     let slices = Object.values(sliceEntriesByName).map(entry => entry?.line) as CodeBlock[][]
     slices.unshift(mainLine)
