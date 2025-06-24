@@ -80,7 +80,7 @@
             "ParseNumber": "Parse",
             "Exponent": "Exponent",
             "ClampNumber": "Clamp",
-        
+            "Interpolate": "Interpolate",
 
             "RepeatString": "Repeat",
             "JoinString": "Join",
