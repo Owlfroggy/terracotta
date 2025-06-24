@@ -1,4 +1,4 @@
-// format: deno run updateUtils/dumptiff.ts path/to/old.json path/to/new.json
+// format: deno run updateUtils/dumpdiff.ts path/to/old.json path/to/new.json
 import { parseArgs } from "node:util";
 import process from "node:process"
 import { readFile } from "node:fs/promises";

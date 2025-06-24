@@ -262,6 +262,7 @@ export const DFTypeToTC = {
     PROJECTILE: "item",
     VEHICLE: "item",
     SPAWN_EGG: "item",
+    BYTE: "num"
 }
 
 export const TCTypeToDF = {
@@ -300,6 +301,7 @@ export const DFTypeToString = {
     PROJECTILE: "Projectile",
     VEHICLE: "Vehicle",
     SPAWN_EGG: "Spawn Egg",
+    BYTE: "Byte",
     NONE: "None"
 }
 

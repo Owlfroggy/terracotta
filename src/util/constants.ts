@@ -124,13 +124,15 @@ export const TYPE_DOMAIN_ACTIONS = {
         //stuff in world category
         "GetBlockType","GetBlockData","GetAllBlockData","GetBlockGrowth","GetBlockPower","GetLight"," GetSignText ","ContainerName","ContainerLock","GetContainerItems","GetLecternBook","GetLecternPage","Raycast",
         //stuff in misc category
-        "BlockHardness","BlockResistance","RGBColor","HSBColor","HSLColor","GetColorChannels","WebResponse"
+        "BlockHardness","BlockResistance","RGBColor","HSBColor","HSLColor","GetColorChannels","WebResponse",
+        //other stuff
+        "JsonFromValue", "ValueToJson",
     ],
-    num: ["+", "-", "x", "/", "%", "+=", "-=", "Exponent", "Root", "Logarithm", "ParseNumber", "AbsoluteValue", "ClampNumber", "WrapNum", "Average", "RandomNumber", " RoundNumber ", "MinNumber", "MaxNumber", "NormalRandom", "Sine", "Cosine", "Tangent", "Noise", "GradientNoise", "CellularNoise", "ValueNoise", "Bitwise", "BounceNum"],
-    str: ["String", "ReplaceString", "RemoveString", "TrimString", "SplitString", "JoinString", "SetCase", "StringLength", "RepeatString", "FormatTime", "TranslateColors"],
-    txt: ["StyledText", "ClearFormatting", "GetMiniMessageExpr", "ParseMiniMessageExpr", "TrimStyledText", "ContentLength"],
+    num: ["+", "-", "x", "/", "%", "+=", "-=", "Exponent", "Root", "Logarithm", "ParseNumber", "AbsoluteValue", "ClampNumber", "WrapNum", "Average", "RandomNumber", " RoundNumber ", "MinNumber", "MaxNumber", "NormalRandom", "Sine", "Cosine", "Tangent", "Noise", "GradientNoise", "CellularNoise", "ValueNoise", "Bitwise", "BounceNum", "ArcTangent2", "Interpolate", ],
+    str: ["String", "ReplaceString", "RemoveString", "TrimString", "SplitString", "JoinString", "SetCase", "StringLength", "RepeatString", "FormatTime", "TranslateColors", "Base64Decode", "Base64Encode", "GzipDecompress", "GzipCompress", "SanitizeTags", "BytesToString", "StringToBytes"],
+    txt: ["StyledText", "ClearFormatting", "GetMiniMessageExpr", "ParseMiniMessage", "TrimStyledText", "ContentLength"],
     loc: ["GetCoord", "SetCoord", "SetAllCoords", "ShiftOnAxis", "ShiftAllAxes", "ShiftInDirection", "ShiftAllDirections", "ShiftToward", "ShiftOnVector", "GetDirection", " SetDirection ", "ShiftRotation", "FaceLocation", "AlignLoc", "Distance", "GetCenterLoc", "RandomLoc", "ClampLoc"],
-    item: ["GetItemType", "SetItemType", " GetItemName ", " SetItemName ", " GetItemLore ", "GetLoreLine", " SetItemLore ", "GetItemAmount", "SetItemAmount", "GetMaxAmount", "GetItemDura", "SetItemDura", "SetBreakability", " GetItemEnchants ", " SetItemEnchants ", "AddItemEnchant", "RemItemEnchant", "ClearEnchants", "GetHeadOwner", "SetHeadTexture", " GetBookText ", "SetBookText", "GetItemTag", "GetAllItemTags", "SetItemTag", "RemoveItemTag", "ClearItemTag", "SetModelData", "GetItemEffects", "SetItemEffects", " SetItemFlags ", "GetCanPlaceOn", "SetCanPlaceOn", "GetCanDestroy", "SetCanDestroy", "GetItemRarity", "GetLodestoneLoc", "SetLodestoneLoc", "SetArmorTrim", "GetItemColor", "SetItemColor", "GetItemAttribute", "AddItemAttribute", "SetMapTexture", "GetItemFood", "SetItemFood", "SetMaxAmount", "GetBlockByMCTag", "GetItemByMCTag", "SetItemGlowing", "AddItemToolRule", "SetItemMaxDura", "SetItemTool", "SetItemHideTooltip", "GetBlockDrops", "AddItemLore"],
+    item: ["GetItemType", "SetItemType", " GetItemName ", " SetItemName ", " GetItemLore ", "GetLoreLine", " SetItemLore ", "GetItemAmount", "SetItemAmount", "GetMaxAmount", "GetItemDura", "SetItemDura", "SetBreakability", " GetItemEnchants ", " SetItemEnchants ", "AddItemEnchant", "RemItemEnchant", "ClearEnchants", "GetHeadOwner", "SetHeadTexture", " GetBookText ", "SetBookText", "GetItemTag", "GetAllItemTags", "SetItemTag", "RemoveItemTag", "ClearItemTag", "SetModelData", "GetItemEffects", "SetItemEffects", " SetItemFlags ", "GetCanPlaceOn", "SetCanPlaceOn", "GetCanDestroy", "SetCanDestroy", "GetItemRarity", "GetLodestoneLoc", "SetLodestoneLoc", "SetArmorTrim", "GetItemColor", "SetItemColor", "GetItemAttribute", "AddItemAttribute", "SetMapTexture", "GetItemFood", "SetItemFood", "SetMaxAmount", "GetBlockByMCTag", "GetItemByMCTag", "SetItemGlowing", "AddItemToolRule", "SetItemMaxDura", "SetItemTool", "SetItemHideTooltip", "GetBlockDrops", "AddItemLore", "RemoveItemAttrs", "ClearItemAttrs", "GetCrossbowProj", "SetCrossbowProj", ],
     list: ["CreateList", "AppendValue", "AppendList", "GetListValue", "PopListValue", "SetListValue", "GetValueIndex", "ListLength", "InsertListValue", "RemoveListValue", "RemoveListIndex", "DedupList", "TrimList", "SortList", "ReverseList", "RandomizeList", "FlattenList"],
     dict: ["CreateDict", "SetDictValue", "GetDictValue", "GetDictSize", "RemoveDictEntry", "ClearDict", "GetDictKeys", "GetDictValues", "AppendDict", "SortDict"],
     par: ["GetParticleType", "SetParticleType", "GetParticleAmount", "SetParticleAmount", "GetParticleSprd", "SetParticleSprd", "GetParticleSize", "SetParticleSize", "GetParticleMat", "SetParticleMat", "GetParticleColor", "SetParticleColor", "GetParticleMotion", "SetParticleMotion", "GetParticleRoll", "SetParticleRoll", "SetParticleOpac", "GetParticleOpac", "GetParticleFade", "SetParticleFade"],
@@ -142,13 +144,13 @@ export const TYPE_DOMAIN_ACTIONS = {
 //controls which if var actions go into which domains
 //! IF A IF_VAR ACTION ISN'T PRESENT IN THIS TABLE IT WON'T BE ACCESSIBLE AT ALL !
 export const TYPE_DOMAIN_CONDITIONS = {
-    var: ["=", "!=", " InRange ", "VarExists", "VarIsType"],
+    var: ["=", "!=", " InRange ", "VarExists", "VarIsType", "VarIsEmpty"],
     num: [">=", ">", "<=", "<"],
     str: ["StringMatches", "Contains", "StartsWith", "EndsWith",],
     txt: [],
     loc: ["LocIsNear"],
     item: ["ItemEquals", "ItemIsBlock", "BlockIsSolid", "ItemHasTag", "ItemHasEnchant"],
-    list: ["ListContains", "ListValueEq"],
+    list: ["ListContains", "ListValueEq", "ListSizeEquals"],
     dict: ["DictHasKey", "DictValueEquals"],
     par: [],
     vec: [],

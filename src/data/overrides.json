@@ -51,6 +51,8 @@
             "Raycast": "Raycast",
             "RandomValue": "SetToRandom",
             "GetContainerItems": "GetContainerItems",
+            "JsonFromValue": "FromJSON",
+            "ValueToJson": "ToJSON",
         
 
             "AbsoluteValue": "Abs",
@@ -88,9 +90,16 @@
             "SetCase": "SetCase",
             "RemoveString": "Remove",
             "StringLength": "Len",
-        
-
-            "ParseMiniMessageExpr": "ParseExpression",
+            "GzipCompress": "GzipCompress",
+            "GzipDecompress": "GzipDecompress",
+            "Base64Encode": "Base64Encode",
+            "Base64Decode": "Base64Decode",
+            "SanitizeTags": "SanitizeMiniMessage",
+            "StringToBytes": "ToBytes",
+            "BytesToString": "FromBytes",
+            
+            
+            "ParseMiniMessage": "ParseExpression",
             "TrimStyledText": "Trim",
             "GetMiniMessageExpr": "GetExpression",
             "ContentLength": "Len",
@@ -154,6 +163,8 @@
             "SetItemGlowing": "SetGlowing",
             "SetItemMaxDura": "SetMaxDurablity",
             "GetBlockDrops": "GetBlockDrops",
+            "RemoveItemAttrs": "RemoveAttributes",
+            "ClearItemAttrs": "ClearAttributes",
 
             "AppendValue": "Append",
             "PopListValue": "Pop",
@@ -251,7 +262,7 @@
             " InRange ": "IsInRange",
             "VarExists": "Exists",
             "VarIsType": "IsType",
-        
+            "VarIsEmpty": "IsEmpty",
 
             ">": "GreaterThan",
             ">=": "GreaterThanOrEqualTo",
@@ -277,7 +288,7 @@
 
             "ListContains": "Contains",
             "ListValueEq": "ValueEquals",
-        
+            "ListSizeEquals": "SizeEquals",
 
             "DictHasKey": "HasKey",
             "DictValueEquals": "ValueEquals"
