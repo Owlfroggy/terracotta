@@ -1130,4 +1130,8 @@ export function StartServer() {
             generateDomainMemberCompletions(configuration)
         }
     })
+
+    connection.onNotification("terracotta/exit", param => {
+        process.exit(0)
+    })
 }
