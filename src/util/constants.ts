@@ -126,10 +126,10 @@ export const TYPE_DOMAIN_ACTIONS = {
         //stuff in misc category
         "BlockHardness","BlockResistance","RGBColor","HSBColor","HSLColor","GetColorChannels","WebResponse",
         //other stuff
-        "JsonFromValue", "ValueToJson",
+        "JsonToValue", "ValueToJson",
     ],
     num: ["+", "-", "x", "/", "%", "+=", "-=", "Exponent", "Root", "Logarithm", "ParseNumber", "AbsoluteValue", "ClampNumber", "WrapNum", "Average", "RandomNumber", " RoundNumber ", "MinNumber", "MaxNumber", "NormalRandom", "Sine", "Cosine", "Tangent", "Noise", "GradientNoise", "CellularNoise", "ValueNoise", "Bitwise", "BounceNum", "ArcTangent2", "Interpolate", ],
-    str: ["String", "ReplaceString", "RemoveString", "TrimString", "SplitString", "JoinString", "SetCase", "StringLength", "RepeatString", "FormatTime", "TranslateColors", "Base64Decode", "Base64Encode", "GzipDecompress", "GzipCompress", "SanitizeTags", "BytesToString", "StringToBytes"],
+    str: ["String", "ReplaceString", "RemoveString", "TrimString", "SplitString", "JoinString", "SetCase", "StringLength", "RepeatString", "FormatTime", "TranslateColors", "Base64Decode", "Base64Encode", "GzipDecompress", "GzipCompress", "SanitizeTags", "BytesToString", "StringToBytes", "AllRegexGroups", "GetRegexGroup", "NamedRegexGrps"],
     txt: ["StyledText", "ClearFormatting", "GetMiniMessageExpr", "ParseMiniMessage", "TrimStyledText", "ContentLength"],
     loc: ["GetCoord", "SetCoord", "SetAllCoords", "ShiftOnAxis", "ShiftAllAxes", "ShiftInDirection", "ShiftAllDirections", "ShiftToward", "ShiftOnVector", "GetDirection", " SetDirection ", "ShiftRotation", "FaceLocation", "AlignLoc", "Distance", "GetCenterLoc", "RandomLoc", "ClampLoc"],
     item: ["GetItemType", "SetItemType", " GetItemName ", " SetItemName ", " GetItemLore ", "GetLoreLine", " SetItemLore ", "GetItemAmount", "SetItemAmount", "GetMaxAmount", "GetItemDura", "SetItemDura", "SetBreakability", " GetItemEnchants ", " SetItemEnchants ", "AddItemEnchant", "RemItemEnchant", "ClearEnchants", "GetHeadOwner", "SetHeadTexture", " GetBookText ", "SetBookText", "GetItemTag", "GetAllItemTags", "SetItemTag", "RemoveItemTag", "ClearItemTag", "SetModelData", "GetItemEffects", "SetItemEffects", " SetItemFlags ", "GetCanPlaceOn", "SetCanPlaceOn", "GetCanDestroy", "SetCanDestroy", "GetItemRarity", "GetLodestoneLoc", "SetLodestoneLoc", "SetArmorTrim", "GetItemColor", "SetItemColor", "GetItemAttribute", "AddItemAttribute", "SetMapTexture", "GetItemFood", "SetItemFood", "SetMaxAmount", "GetBlockByMCTag", "GetItemByMCTag", "SetItemGlowing", "AddItemToolRule", "SetItemMaxDura", "SetItemTool", "SetItemHideTooltip", "GetBlockDrops", "AddItemLore", "RemoveItemAttrs", "ClearItemAttrs", "GetCrossbowProj", "SetCrossbowProj", ],
@@ -151,7 +151,7 @@ export const TYPE_DOMAIN_CONDITIONS = {
     loc: ["LocIsNear"],
     item: ["ItemEquals", "ItemIsBlock", "BlockIsSolid", "ItemHasTag", "ItemHasEnchant"],
     list: ["ListContains", "ListValueEq", "ListSizeEquals"],
-    dict: ["DictHasKey", "DictValueEquals"],
+    dict: ["DictHasKey", "DictHasKeys", "DictValueEquals"],
     par: [],
     vec: [],
     pot: [],

@@ -51,7 +51,7 @@
             "Raycast": "Raycast",
             "RandomValue": "SetToRandom",
             "GetContainerItems": "GetContainerItems",
-            "JsonFromValue": "FromJSON",
+            "JsonToValue": "FromJSON",
             "ValueToJson": "ToJSON",
         
 
@@ -97,6 +97,9 @@
             "SanitizeTags": "SanitizeMiniMessage",
             "StringToBytes": "ToBytes",
             "BytesToString": "FromBytes",
+            "GetRegexGroup": "GetRegexGroup",
+            "AllRegexGroups": "GetAllRegexGroups",
+            "NamedRegexGrps": "GetNamedRegexGroups",
             
             
             "ParseMiniMessage": "ParseExpression",
@@ -291,6 +294,7 @@
             "ListSizeEquals": "SizeEquals",
 
             "DictHasKey": "HasKey",
+            "DictHasKeys": "HasKeys",
             "DictValueEquals": "ValueEquals"
         },
         "select_obj": {
