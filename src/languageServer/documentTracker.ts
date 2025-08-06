@@ -62,6 +62,7 @@ export class TrackedDocument {
         this.Version = param.textDocument.version
 
         param.contentChanges.forEach(change => {
+            change.text = change.text.replaceAll(/\r\n/g, "\n")
             if (TextDocumentContentChangeEvent.isIncremental(change)) {
                 //= update text =\\
                 let startIndex = LinePositionToIndex(this.Text,change.range.start)!
@@ -84,7 +85,7 @@ export class TrackedDocument {
         this.IsOpen = true
         if (info.version > this.Version) {
             this.Version = info.version
-            this.Text = info.text
+            this.Text = info.text.replaceAll(/\r\n/g, "\n")
         }
     }
 

@@ -512,6 +512,7 @@ export function GetLineIndexes(text: string): number[] {
 }
 
 //THIS FUNCTION WILL NEVER RETURN UNDEFINED! IT JUST SAYS THAT BECAUSE TYPESCRIPT IS SPECIAL
+//also assumes that script encoding is in LF and NOT CRLF
 export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults | CodeContext | Dict<VariableToken[]> | undefined {
     //==========[ constants ]=========\\
 

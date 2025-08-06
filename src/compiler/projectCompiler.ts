@@ -299,6 +299,7 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
             let fileContents: string
             try { fileContents = (await fs.readFile(file)).toString() } 
             catch (e) { process.stderr.write(`Error while reading file '${file}': ${e} (this file will be skipped)\n`); return }
+            fileContents = fileContents.replaceAll(/\r\n/g, "\n")
             tcFileContents[file] = fileContents
             
             //tokenize
