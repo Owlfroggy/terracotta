@@ -4,7 +4,7 @@
   "description": "diamondfirej",
   "main": "src/main.js",
   "scripts": {},
-  "author": "MrAwesomeOwl",
+  "author": "Owlfroggy",
   "license": "BSD-3-Clause",
   "dependencies": {
     "@pkgjs/parseargs": "^0.11.0",
