@@ -3,6 +3,7 @@ import { ValueType, PLAYER_ONLY_GAME_VALUES } from "./constants.ts"
 import { Dict } from "./dict.ts"
 import { pathToFileURL } from "node:url";
 import { DATA_PATH } from "./utils.ts";
+import { print } from "../main.ts";
 
 const ACTION_DUMP_JSON      = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"actiondump.json") )).toString())
 const OVERRIDES_JSON        = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"overrides.json") )).toString())
@@ -454,6 +455,23 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
 
     let returnValues: Parameter[] = []
     if (actionJson.icon?.returnValues) { returnValues = parseArgumentValueThingies(actionJson.icon?.returnValues) }
+
+    //override set_var item manipulators to return items
+    //even though the action dump says they don't
+    if (
+        actionJson.icon?.arguments?.length >= 2 &&
+        actionJson.icon?.arguments?.[0].type == "VARIABLE" &&
+        actionJson.icon?.arguments?.[1].type == "ITEM" &&
+        actionJson.icon?.arguments?.[1].optional == true &&
+        (actionJson.name as string).startsWith("Set")
+    ) {
+        returnValues = [
+            new Parameter([
+                [new ParameterValue("ITEM","Modified item")]
+            ])
+        ]
+        returnType = ValueType.item
+    }
     
     let descriptionString = deColorizeString(actionJson.icon.description.join(" "))
 
