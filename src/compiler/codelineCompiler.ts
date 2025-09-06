@@ -1048,6 +1048,10 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 //implement this AFTER the client mod is done
                 // err(new TCError("Library items are not implemented yet",0,token.CharStart,token.CharEnd))
             } else {
+                if (!token.Id) {
+                    err(new TCError(`Library item must specify an item id (str)`,0,token.CharStart,token.CharEnd))
+                }
+                
                 for (const component of ["Id","Count"]) {
                     let defaultValue = ITEM_PARAM_DEFAULTS.item[component]
                     if (defaultValue !== undefined && !token[component]) { 
