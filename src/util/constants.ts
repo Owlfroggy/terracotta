@@ -1,6 +1,6 @@
 import { Dict } from "./dict.ts"
 
-export const ITEM_DF_NBT = 3955
+export const ITEM_DF_NBT = 4440
 export const TC_HEADER = `@__TC_`
 
 //valid types
