@@ -100,7 +100,7 @@
             "GetRegexGroup": "GetRegexGroup",
             "AllRegexGroups": "GetAllRegexGroups",
             "NamedRegexGrps": "GetNamedRegexGroups",
-            
+            "IndexOfSubstring": "Find", 
             
             "ParseMiniMessage": "ParseExpression",
             "TrimStyledText": "Trim",
@@ -168,6 +168,21 @@
             "GetBlockDrops": "GetBlockDrops",
             "RemoveItemAttrs": "RemoveAttributes",
             "ClearItemAttrs": "ClearAttributes",
+            "SetBreakSound": "SetBreakSound",
+            "SetTooltipStyle": "SetTooltipStyle",
+            "GetItemLeftover": "GetUseLeftover",
+            "SetModelDataNums": "SetModelDataNumbers",
+            "GetModelDataNums": "GetModelDataNumbers",
+            "SetItemRarity": "SetRarity",
+            "SetModelDataStrs": "SetModelDataStrings",
+            "GetModelDataStrs": "GetModelDataStrings",
+            "SetItemLeftover": "SetUseLeftover",
+            "SetItemModel": "SetModel",
+            "GetTooltipStyle": "GetTooltipStyle",
+            "GetBreakSound": "GetBreakSound",
+            "HiddenComponents": "SetHiddenComponents",
+            "GetItemModel": "GetModel",
+            "SetAllItemTags": "SetAllTags",
 
             "AppendValue": "Append",
             "PopListValue": "Pop",
@@ -220,6 +235,8 @@
             "GetParticleOpac": "GetOpacity",
             "SetParticleFade": "SetFade",
             "GetParticleFade": "GetFade",
+            "SetParticleDur": "SetDuration",
+            "GetParticleDur": "GetDuration",
         
 
             "MultiplyVector": "Multiply",
@@ -265,7 +282,7 @@
             " InRange ": "IsInRange",
             "VarExists": "Exists",
             "VarIsType": "IsType",
-            "VarIsEmpty": "IsEmpty",
+            "ValueIsEmpty": "IsEmpty",
 
             ">": "GreaterThan",
             ">=": "GreaterThanOrEqualTo",
@@ -277,6 +294,7 @@
             "Contains": "Contains",
             "StartsWith": "StartsWith",
             "EndsWith": "EndsWith",
+            "IsFiltered": "IsFiltered",
         
 
             "LocIsNear": "IsNear",
@@ -286,7 +304,8 @@
             "ItemIsBlock": "IsBlock",
             "BlockIsSolid": "IsSolid",
             "ItemHasTag": "HasTag",
-            "ItemHasEnchantment": "HasEnchantment",
+            "ItemHasEnchant": "HasEnchantment",
+            "ItemIsUnbreakable": "IsUnbreakable",
         
 
             "ListContains": "Contains",

@@ -77,7 +77,7 @@ export const VALID_COMPARISON_OPERATORS = ["==", "!=", "<", ">", "<=", ">="]
 //==========[ misc ]=========\\
 
 //game values that cannot be applied to entities
-export const PLAYER_ONLY_GAME_VALUES = ["Food Level","Food Saturation","Food Exhaustion","Attack Damage","Attack Speed","Attack Cooldown","Attack Cooldown Ticks","Experience Level","Experience Progress","Held Slot","Ping","Steer Sideways Movement","Steer Forward Movement","Hotbar Items","Inventory Items","Cursor Item","Inventory Menu Items","Game Mode","Open Inventory Title"]
+export const PLAYER_ONLY_GAME_VALUES = ["Food Level","Food Saturation","Food Exhaustion","Attack Damage","Attack Speed","Attack Cooldown","Attack Cooldown Ticks","Experience Level","Experience Progress","Held Slot","Ping","Steer Sideways Movement","Steer Forward Movement","Hotbar Items","Inventory Items","Cursor Item","Inventory Menu Items","Game Mode","Open Inventory Title", "Weather Type", "Particle Visibility Status", "Pressed Movement Keys"]
 
 //all characters that turn into a formatting code when proceeded by §/&
 export const VALID_FORMATTING_CODES = ['0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f','k','m','n','o','r','l']
@@ -129,13 +129,13 @@ export const TYPE_DOMAIN_ACTIONS = {
         "JsonToValue", "ValueToJson",
     ],
     num: ["+", "-", "x", "/", "%", "+=", "-=", "Exponent", "Root", "Logarithm", "ParseNumber", "AbsoluteValue", "ClampNumber", "WrapNum", "Average", "RandomNumber", " RoundNumber ", "MinNumber", "MaxNumber", "NormalRandom", "Sine", "Cosine", "Tangent", "Noise", "GradientNoise", "CellularNoise", "ValueNoise", "Bitwise", "BounceNum", "ArcTangent2", "Interpolate", ],
-    str: ["String", "ReplaceString", "RemoveString", "TrimString", "SplitString", "JoinString", "SetCase", "StringLength", "RepeatString", "FormatTime", "TranslateColors", "Base64Decode", "Base64Encode", "GzipDecompress", "GzipCompress", "SanitizeTags", "BytesToString", "StringToBytes", "AllRegexGroups", "GetRegexGroup", "NamedRegexGrps"],
+    str: ["String", "ReplaceString", "RemoveString", "TrimString", "SplitString", "JoinString", "SetCase", "StringLength", "RepeatString", "FormatTime", "TranslateColors", "Base64Decode", "Base64Encode", "GzipDecompress", "GzipCompress", "SanitizeTags", "BytesToString", "StringToBytes", "AllRegexGroups", "GetRegexGroup", "NamedRegexGrps", "IndexOfSubstring"],
     txt: ["StyledText", "ClearFormatting", "GetMiniMessageExpr", "ParseMiniMessage", "TrimStyledText", "ContentLength"],
     loc: ["GetCoord", "SetCoord", "SetAllCoords", "ShiftOnAxis", "ShiftAllAxes", "ShiftInDirection", "ShiftAllDirections", "ShiftToward", "ShiftOnVector", "GetDirection", " SetDirection ", "ShiftRotation", "FaceLocation", "AlignLoc", "Distance", "GetCenterLoc", "RandomLoc", "ClampLoc"],
-    item: ["GetItemType", "SetItemType", " GetItemName ", " SetItemName ", " GetItemLore ", "GetLoreLine", " SetItemLore ", "GetItemAmount", "SetItemAmount", "GetMaxAmount", "GetItemDura", "SetItemDura", "SetBreakability", " GetItemEnchants ", " SetItemEnchants ", "AddItemEnchant", "RemItemEnchant", "ClearEnchants", "GetHeadOwner", "SetHeadTexture", " GetBookText ", "SetBookText", "GetItemTag", "GetAllItemTags", "SetItemTag", "RemoveItemTag", "ClearItemTag", "SetModelData", "GetItemEffects", "SetItemEffects", " SetItemFlags ", "GetCanPlaceOn", "SetCanPlaceOn", "GetCanDestroy", "SetCanDestroy", "GetItemRarity", "GetLodestoneLoc", "SetLodestoneLoc", "SetArmorTrim", "GetItemColor", "SetItemColor", "GetItemAttribute", "AddItemAttribute", "SetMapTexture", "GetItemFood", "SetItemFood", "SetMaxAmount", "GetBlockByMCTag", "GetItemByMCTag", "SetItemGlowing", "AddItemToolRule", "SetItemMaxDura", "SetItemTool", "SetItemHideTooltip", "GetBlockDrops", "AddItemLore", "RemoveItemAttrs", "ClearItemAttrs", "GetCrossbowProj", "SetCrossbowProj", ],
+    item: ["GetItemType", "SetItemType", " GetItemName ", " SetItemName ", " GetItemLore ", "GetLoreLine", " SetItemLore ", "GetItemAmount", "SetItemAmount", "GetMaxAmount", "GetItemDura", "SetItemDura", "SetBreakability", " GetItemEnchants ", " SetItemEnchants ", "AddItemEnchant", "RemItemEnchant", "ClearEnchants", "GetHeadOwner", "SetHeadTexture", " GetBookText ", "SetBookText", "GetItemTag", "GetAllItemTags", "SetItemTag", "RemoveItemTag", "ClearItemTag", "GetItemEffects", "SetItemEffects", "GetCanPlaceOn", "SetCanPlaceOn", "GetCanDestroy", "SetCanDestroy", "GetItemRarity", "GetLodestoneLoc", "SetLodestoneLoc", "SetArmorTrim", "GetItemColor", "SetItemColor", "GetItemAttribute", "AddItemAttribute", "SetMapTexture", "GetItemFood", "SetMaxAmount", "GetBlockByMCTag", "GetItemByMCTag", "SetItemGlowing", "AddItemToolRule", "SetItemMaxDura", "SetItemTool", "SetItemHideTooltip", "GetBlockDrops", "AddItemLore", "RemoveItemAttrs", "ClearItemAttrs", "GetCrossbowProj", "SetCrossbowProj", "SetBundleItems", "SetBreakSound", "SetConsumable", "GetItemLeftover", "SetModelDataNums", "SetItemRarity", "GetBundleItems", "SetModelDataStrs", "GetModelDataStrs", "SetItemLeftover", "SetItemModel", "GetTooltipStyle", "GetModelDataNums", "GetBreakSound", "SetItemWeapon", "GetConsumable", "HiddenComponents", "GetItemModel", "SetAllItemTags", "GetItemWeapon", "SetTooltipStyle"],
     list: ["CreateList", "AppendValue", "AppendList", "GetListValue", "PopListValue", "SetListValue", "GetValueIndex", "ListLength", "InsertListValue", "RemoveListValue", "RemoveListIndex", "DedupList", "TrimList", "SortList", "ReverseList", "RandomizeList", "FlattenList"],
     dict: ["CreateDict", "SetDictValue", "GetDictValue", "GetDictSize", "RemoveDictEntry", "ClearDict", "GetDictKeys", "GetDictValues", "AppendDict", "SortDict"],
-    par: ["GetParticleType", "SetParticleType", "GetParticleAmount", "SetParticleAmount", "GetParticleSprd", "SetParticleSprd", "GetParticleSize", "SetParticleSize", "GetParticleMat", "SetParticleMat", "GetParticleColor", "SetParticleColor", "GetParticleMotion", "SetParticleMotion", "GetParticleRoll", "SetParticleRoll", "SetParticleOpac", "GetParticleOpac", "GetParticleFade", "SetParticleFade"],
+    par: ["GetParticleType", "SetParticleType", "GetParticleAmount", "SetParticleAmount", "GetParticleSprd", "SetParticleSprd", "GetParticleSize", "SetParticleSize", "GetParticleMat", "SetParticleMat", "GetParticleColor", "SetParticleColor", "GetParticleMotion", "SetParticleMotion", "GetParticleRoll", "SetParticleRoll", "SetParticleOpac", "GetParticleOpac", "GetParticleFade", "SetParticleFade", "GetParticleDur", "SetParticleDur"],
     vec: ["Vector", "VectorBetween", "GetVectorComp", "SetVectorComp", "GetVectorLength", "SetVectorLength", "MultiplyVector", "AddVectors", "SubtractVectors", "AlignVector", "RotateAroundAxis", "RotateAroundVec", "ReflectVector", "CrossProduct", "DotProduct", "DirectionName"],
     pot: ["GetPotionType", "SetPotionType", "GetPotionAmp", "SetPotionAmp", "GetPotionDur", "SetPotionDur"],
     snd: ["GetSoundType", "SetSoundType", "GetSoundVariant", "SetSoundVariant", "GetCustomSound", "SetCustomSound", "GetSoundPitch", "SetSoundPitch", "GetSoundVolume", "SetSoundVolume"],
@@ -144,12 +144,12 @@ export const TYPE_DOMAIN_ACTIONS = {
 //controls which if var actions go into which domains
 //! IF A IF_VAR ACTION ISN'T PRESENT IN THIS TABLE IT WON'T BE ACCESSIBLE AT ALL !
 export const TYPE_DOMAIN_CONDITIONS = {
-    var: ["=", "!=", " InRange ", "VarExists", "VarIsType", "VarIsEmpty"],
+    var: ["=", "!=", " InRange ", "VarExists", "VarIsType", "ValueIsEmpty"],
     num: [">=", ">", "<=", "<"],
-    str: ["StringMatches", "Contains", "StartsWith", "EndsWith",],
+    str: ["StringMatches", "Contains", "StartsWith", "EndsWith", "IsFiltered"],
     txt: [],
     loc: ["LocIsNear"],
-    item: ["ItemEquals", "ItemIsBlock", "BlockIsSolid", "ItemHasTag", "ItemHasEnchant"],
+    item: ["ItemEquals", "ItemIsBlock", "BlockIsSolid", "ItemHasTag", "ItemHasEnchant", "ItemIsUnbreakable"],
     list: ["ListContains", "ListValueEq", "ListSizeEquals"],
     dict: ["DictHasKey", "DictHasKeys", "DictValueEquals"],
     par: [],
