@@ -39,7 +39,15 @@ export const DF_TYPE_MAP = {
 
 //==========[ keywords ]=========\\
 //keywords that will trigger control block parsing if encountered
-export const VALID_CONTROL_KEYWORDS = ["break","continue","return","returnmult","wait","endthread"]
+export const VALID_CONTROL_KEYWORDS = ["break","continue","return","returnmult","wait","endthread","print","printRaw","printError","printWarning"]
+
+export const STANDALONE_CONTROL_FUNCTIONS = ["wait","print","printRaw","printError","printWarning"]
+export const CONTROL_PRINT_DEBUG_STYLES = {
+    print: "Debug",
+    printRaw: "Custom",
+    printError: "Error",
+    printWarning: "Warning"
+}
 
 //keywords that are valid in a parameter's modifier list
 export const VALID_PARAM_MODIFIERS = ["plural","optional"]

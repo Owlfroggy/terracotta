@@ -8,7 +8,7 @@ import { PrintError, TCError } from "../util/errorHandler.ts"
 import { DEBUG_MODE, print } from "../main.ts"
 import { CharUtils } from "../util/characterUtils.ts"
 import * as AD from "../util/actionDump.ts"
-import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, VALID_FORMATTING_CODES} from "../util/constants.ts"
+import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, VALID_FORMATTING_CODES, STANDALONE_CONTROL_FUNCTIONS, CONTROL_PRINT_DEBUG_STYLES} from "../util/constants.ts"
 import { Dict } from "../util/dict.ts"
 import { SelectionContext, AssigneeContext, DictionaryContext, CodeContext, CodelineContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, StandaloneFunctionContext, TagsContext, TypeContext, UserCallContext, VariableContext, RepeatContext } from "../languageServer/codeContext.ts";
 import { slog } from "../languageServer/languageServer.ts";
@@ -1382,10 +1382,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     }
 
     //= Control =\\
-    //break, skip, endthread, return, returnmult, wait
-
-
-   
+    //break, skip, endthread, return, returnmult, wait, PrintDebug
 
     function ParseControlBlock(index: number): [number, ControlBlockToken] | null {
         index += cu.GetWhitespaceAmount(index) + 1
@@ -1425,11 +1422,24 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         //
         //     return [expressionResults[0], new ControlBlockToken([initIndex,expressionResults[0]],"ReturnNTimes",new ListToken([index,expressionResults[0]],[expressionResults[1]]))]
         // }
-        else if (identifierResults[1] == "wait") {
+        else if (STANDALONE_CONTROL_FUNCTIONS.includes(identifierResults[1])) {
             index = identifierResults[0]
             OfferContext(index)
-            let context = new StandaloneFunctionContext("wait")
+            let context = new StandaloneFunctionContext(identifierResults[1])
             BottomLevelContext = BottomLevelContext.setChild(context)
+
+
+            let tagsTemplate: Dict<AD.Tag> = {}
+            let blockName: string = ""
+
+            if (identifierResults[1] == "wait") {
+                tagsTemplate = AD.DFActionMap.control!.Wait!.Tags
+                blockName = "Wait"
+            }
+            else if (identifierResults[1] in CONTROL_PRINT_DEBUG_STYLES) {
+                tagsTemplate = AD.DFActionMap.control!.PrintDebug!.Tags
+                blockName = "PrintDebug"
+            }
 
             let listInitIndex = index + cu.GetWhitespaceAmount(index) + 1
             let listResults: [number, ListToken] | null = ParseList(index,"(",")",",")
@@ -1441,15 +1451,26 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 args = new ListToken([listInitIndex, -1], [])
             }
 
-            let tagResults = ParseTags(index, AD.DFActionMap.control!.Wait!.Tags)
-            let tags
+            let tagResults = ParseTags(index, tagsTemplate)
+            let tags = {}
             if (tagResults) {
                 index = tagResults[0]
                 tags = tagResults[1]
             }
+            // auto set style tag for different print types
+            if (identifierResults[1] in CONTROL_PRINT_DEBUG_STYLES && !("Message Style" in tags)) {
+                tags["Message Style"] = new ActionTag(
+                    "Message Style",
+                    CONTROL_PRINT_DEBUG_STYLES[identifierResults[1]],
+                    null,
+                    initIndex,
+                    index
+                )
+            }
+
             DiscardContextBranch(context)
-            return [index, new ControlBlockToken([initIndex,index],"Wait",args,tags)]
-        }   
+            return [index, new ControlBlockToken([initIndex,index],blockName,args,tags)]
+        }
 
         return null
     }
