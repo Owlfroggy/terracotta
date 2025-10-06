@@ -29,6 +29,7 @@ enum CompletionItemType {
     EventName,
     UserCall,
     ForLoopAction,
+    Keyword,
 }
 
 //function that other things can call to log to the language server output when debugging
@@ -80,12 +81,16 @@ function scuffedContextDebugPrint(context: CodeContext) {
 }
 
 
-function generateCompletions(entries: (string)[], kind: CompletionItemKind = CompletionItemKind.Property): CompletionItem[] {
+function generateCompletions(entries: (string)[], kind: CompletionItemKind = CompletionItemKind.Property, type: CompletionItemType | null = null): CompletionItem[] {
     let result: CompletionItem[] = []
     for (const v of entries) {
         let item: CompletionItem = {
             label: v,
-            kind: kind
+            kind: kind,
+            data: {
+                value: v,
+                type: type
+            }
         }
         result.push(item)
     }
@@ -127,7 +132,7 @@ let forLoopModeKeywords = FOR_LOOP_MODES.map(mode => {
 let generalKeywords = generateCompletions([
     STATEMENT_KEYWORDS,
     ADDITIONAL_CONSTRUCTORS,
-].flat(),CompletionItemKind.Keyword)
+].flat(),CompletionItemKind.Keyword, CompletionItemType.Keyword)
 
 let domainKeywords = Object.values(Domains.PublicDomains).map(domain => {
     return {
@@ -779,11 +784,22 @@ export function StartServer() {
 
         let documentation: string = ""
         // domain action
-        if (itemType == CompletionItemType.DomainAction || itemType == CompletionItemType.DomainCondition || itemType == CompletionItemType.SelectionAction || itemType == CompletionItemType.ForLoopAction) {
-            let action: AD.Action = 
+        if (itemType == CompletionItemType.DomainAction || itemType == CompletionItemType.DomainCondition || itemType == CompletionItemType.SelectionAction || itemType == CompletionItemType.ForLoopAction || itemType == CompletionItemType.Keyword) {
+            let action: AD.Action | null = 
                   itemType == CompletionItemType.SelectionAction ? AD.DFActionMap.select_obj![item.data.actionDFId]!
                 : itemType == CompletionItemType.ForLoopAction ? AD.DFActionMap.repeat![item.data.actionDFId]!
-                : domain![itemType == CompletionItemType.DomainAction ? "Actions" : "Conditions"][item.data.memberId]!
+                : null
+            if (!action) {
+                if (itemType == CompletionItemType.Keyword) {
+                    if (item.data.value == "wait") {
+                        action = AD.DFActionMap.control!.Wait!
+                    } else if (item.data.value in CONTROL_PRINT_DEBUG_STYLES) {
+                        action = AD.DFActionMap.control!.PrintDebug!
+                    }
+                } else {
+                    action = domain![itemType == CompletionItemType.DomainAction ? "Actions" : "Conditions"][item.data.memberId]!
+                }
+            }
             if (!action) { return item }
 
             let paramString = getParamString(action.Parameters,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")
