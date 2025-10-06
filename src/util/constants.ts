@@ -88,7 +88,7 @@ export const INDEXABLE_TYPES = ["list","dict"]
 
 //keywords that aren't relevant to expressions
 export const STATEMENT_KEYWORDS = [
-    "if","else","repeat","while","for",
+    "if","else","repeat","while","for","do",
     ...VALID_CONTROL_KEYWORDS,
     "select","filter",
     "call","start",

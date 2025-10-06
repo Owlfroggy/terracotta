@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DescriptionHeaderToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, ReturnsHeaderToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
+import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DescriptionHeaderToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatDoToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, ReturnsHeaderToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
 import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER, ITEM_DF_NBT, INDEXABLE_TYPES } from "../util/constants.ts"
 import { DEBUG_MODE, print } from "../main.ts"
 import { Domain, DomainList, GenericTargetDomains, TargetDomain, TargetDomains } from "../util/domains.ts"
@@ -386,6 +386,9 @@ class Context {
     //should be null if bracket type == "none"
     //token that caused this new context
     CreatorToken: IfToken | RepeatToken | null = null
+
+    //set in DoWhile contexts so that the repeat block can be modified when the while token is found
+    CreatorBlock: CodeBlock | null = null
 
     //code that's inserted after the opening bracket of this context
     //should be after the context is created but before brackets are parsed or else it wont have an effect
@@ -2066,8 +2069,10 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
     let existingParams: string[] = []
 
     let i = -1
-    for (let line of lines) {
+    while (i < lines.length) {
         i++
+        let line = lines[i]
+        if (line == undefined) {continue;}
 
         if (ComingFromIfStatement > 0) { ComingFromIfStatement-- }
 
@@ -2179,16 +2184,17 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             throw new TCError("All headers must appear at the top of the file, before any actual code",0,line[0].CharStart,line[0].CharEnd)
         }
 
-        //opening bracket
-        if (HighestContext.BracketType != "none" && HighestContext.OpeningBracketResolved == false) {
-            if (line[0] instanceof BracketToken && line[0].Type == "open") {
-                CodeLine.push(new BracketBlock("open",HighestContext.BracketType))
-                HighestContext.OpeningBracketResolved = true
-                CodeLine.push(...HighestContext.HeldPostBracketCode)
-                continue
+        function requireOpeningBracket() {
+            if (HighestContext.BracketType != "none" && HighestContext.OpeningBracketResolved == false && lines[i+1] != null) {
+                let nextLineToken = lines[i+1][0];
+                if (nextLineToken instanceof BracketToken && nextLineToken.Type == "open") {
+                    CodeLine.push(new BracketBlock("open",HighestContext.BracketType))
+                    HighestContext.OpeningBracketResolved = true
+                    CodeLine.push(...HighestContext.HeldPostBracketCode)
+                    return
+                }
             }
-
-            throw new TCError(`Expected opening bracket following ${HighestContext.BracketType} statement`,0,lines[i-1][0].CharStart,lines[i-1][0].CharEnd)
+            throw new TCError(`Expected opening bracket following ${HighestContext.BracketType} statement`,0,lines[i][0].CharStart,lines[i][0].CharEnd)
         }
 
         //closing bracket
@@ -2198,6 +2204,43 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 throw new TCError(`Closing bracket has no opening counterpart`,0,line[0].CharStart,line[0].CharEnd)
             }
 
+            let skipNextLine = false
+            if (HighestContext.CreatorToken instanceof RepeatDoToken) {
+                //make sure the next token is a while token
+                let whileToken = lines[i+1]?.[0]
+                if (whileToken != null && whileToken instanceof RepeatWhileToken) {
+                    skipNextLine = true
+                    let expressionResults = SolveConditionExpression(whileToken.Condition)
+                    let code = expressionResults[0]
+                    let ifBlock = expressionResults[2]
+                    
+                    let repeatBlock = HighestContext.CreatorBlock as SubActionBlock
+                    //if condition produces multiple blocks, convert the repeat to a Forever
+                    //and handle the exit condition manually
+                    if (code.length > 1) {
+                        repeatBlock.Action = "Forever"
+                        ifBlock.Not = !ifBlock.Not
+                        CodeLine.push(
+                            ...code,
+                            new BracketBlock("open","if"),
+                            new ActionBlock("control","StopRepeat",[]),
+                            new BracketBlock("close","if")
+                        )
+                    } 
+                    // if the condition can be contained within a single if, make the repeat have that condition
+                    else {
+                        repeatBlock.Subaction = ifBlock.Action;
+                        repeatBlock.Arguments = ifBlock.Arguments;
+                        repeatBlock.Tags = ifBlock.Tags;
+                        repeatBlock.Not = ifBlock.Not;
+                    }
+                } else {
+                    throw new TCError(`Expected while condition following closing bracket of do statement`,0,line[0].CharStart,line[0].CharEnd);
+                }
+                // print(JSON.stringify(lines[i+1]))
+                // if ()
+            }
+
             CodeLine.push(new BracketBlock("close",HighestContext.BracketType))
 
             if (HighestContext.CreatorToken instanceof IfToken) {
@@ -2205,6 +2248,10 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             }
 
             PopContext()
+            if (skipNextLine) {
+                i++
+                continue
+            }
         }
 
         //action
@@ -2336,6 +2383,8 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             ApplyIfStatementTypeInferences(expressionResults[0][expressionResults[0].length - 1] as IfActionBlock)
 
             CodeLine.push(...expressionResults[0])
+
+            requireOpeningBracket()
         }
         //else
         else if (line[0] instanceof ElseToken) {
@@ -2362,6 +2411,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 CodeLine.push(
                     new ActionBlock("repeat","Forever",[],[])
                 )
+                requireOpeningBracket()
             }
             //repeat multiple
             else if (line[0] instanceof RepeatMultipleToken) {
@@ -2385,6 +2435,8 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                         new ActionBlock("repeat","Multiple",[expressionResults[1]])
                     )
                 }
+
+                requireOpeningBracket()
             }
             //repeat while
             else if (line[0] instanceof RepeatWhileToken) {
@@ -2422,6 +2474,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                         SetVarType(ifBlock.Arguments[0],storedType)
                     }
                 }
+                requireOpeningBracket()
             }
             //repeat on action
             else if (line[0] instanceof RepeatForActionToken) {
@@ -2452,6 +2505,14 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
                 //push action
                 CodeLine.push(codeBlock)
+                requireOpeningBracket()
+            }
+            //repeat do while
+            else if (line[0] instanceof RepeatDoToken) {
+                let repeatBlock = new SubActionBlock("repeat","DoWhile",[],[],false,null);
+                CodeLine.push(repeatBlock);
+                newContext.CreatorBlock = repeatBlock
+                requireOpeningBracket()
             }
             //iterate over list/dictionary
             else if (line[0] instanceof RepeatForInToken) {
@@ -2489,6 +2550,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 CodeLine.push(
                     new ActionBlock("repeat",iterableType == "list" ? "ForEach" : "ForEachEntry",[...variableItems,expressionResults[1]])
                 )
+                requireOpeningBracket()
             }
         }
         //select

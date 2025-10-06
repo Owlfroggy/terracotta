@@ -302,6 +302,12 @@ export class RepeatWhileToken extends RepeatToken {
     Condition: ExpressionToken
 }
 
+export class RepeatDoToken extends RepeatToken {
+    constructor(meta) {
+        super(meta)
+    }
+}
+
 export class BracketToken extends Token {
     constructor(meta,type: "open" | "close") {
         super(meta)
@@ -1691,6 +1697,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             DiscardContextBranch(context)
             return [index,returnToken!]
         }
+        //do
+        else if (keywordResults[1] == "do") {
+            return [keywordResults[0], new RepeatDoToken([initIndex, keywordResults[0]])];
+        }
         //not a repeat statement
         else {
             return null
@@ -2739,11 +2749,13 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 CharIndex += cu.GetWhitespaceAmount(CharIndex) + 1
                 CurrentLine.push(new BracketToken([CharIndex,CharIndex],"open"))
                 PushLineAsIs()
-            } else {
-                throw new TCError(`${CurrentLine[0] instanceof IfToken ? "If" : "Repeat"} statement missing opening bracket`, 0, cu.GetLineStart(CharIndex), cu.GetLineEnd(CharIndex))
             }
-
-            return
+            // if no open bracket is present, just push the repeat and
+            // let the compiler handle it
+            else {
+                PushLineAsIs()
+            }
+            return;
         }
 
         //if current line starts with a variable
