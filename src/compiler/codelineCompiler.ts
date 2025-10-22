@@ -1072,7 +1072,15 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                     )
                     latestItem = tempVar
                 } else {
-                    item.Id = components.Id.Value
+                    let id: string = components.Id.Value;
+                    id = id.toLowerCase();
+                    if (id.startsWith("minecraft:")) {
+                        id = id.substring(10)
+                    }
+                    if (!AD.ItemMaterialIds.has(id)) {
+                        err(new TCError(`Invalid item material: ${id}`, 0, components.Id.CharStart, components.Id.CharEnd))
+                    }
+                    item.Id = id
                 }
             }
             if (variableComponents.includes("Count") || item instanceof VariableItem) {
