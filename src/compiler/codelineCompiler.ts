@@ -2398,6 +2398,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             }
 
             CodeLine.push(new ElseBlock())
+            requireOpeningBracket()
         }
         //repeat
         else if (line[0] instanceof RepeatToken) {
