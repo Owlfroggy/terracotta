@@ -3219,7 +3219,7 @@ function JSONizeItem(item: CodeItem) {
         return {
             "id": "item",
             "data": {
-                "item": `{count:${item.Count}b,DF_NBT:${item.DFNbt},id:"${item.Id}",components:${item.Nbt}}`
+                "item": `{count:${item.Count}b,DF_NBT:${item.DFNbt},id:"${item.Id}",components:${item.Nbt ?? "{}"}}`
             }
         }
     }
