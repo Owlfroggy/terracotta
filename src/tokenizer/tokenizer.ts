@@ -2677,6 +2677,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         ) {
             let results = ParseElse(CharIndex)
             if (results) {
+                let initIndex = CharIndex + cu.GetWhitespaceAmount(CharIndex) + 1
                 //apply else token
                 ApplyResults(results)
 
@@ -2690,7 +2691,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     //brackets are always their own lines
                     PushLineAsIs()
                 } else {
-                    throw new TCError("Else statement missing opening bracket", 0, CharIndex, -1)
+                    throw new TCError("Else statement missing opening bracket", 0, initIndex, CharIndex)
                 }
 
                 return
