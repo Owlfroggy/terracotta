@@ -18,7 +18,7 @@ export const DEBUG_MODE = {
     disableOptimization: false,
 }
 
-export const VERSION = "0.1.2"
+export const VERSION = "0.2.0"
 
 //function for spamming debug print statements
 //its faster to type and i can search and destroy them after im done debugging without having to worry about nuking actually important log messages
