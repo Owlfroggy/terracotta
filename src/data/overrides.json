@@ -328,6 +328,7 @@
             "AllPlayers": "AllPlayers",
             "Invert": "Inverse",
             "PlayersCond": "PlayersByCondition",
+            "EntityUUID": "EntitiesByUUID",
             
             "FilterRandom": "Randomly",
             "FilterDistance": "ByDistance",

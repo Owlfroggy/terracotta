@@ -116,7 +116,7 @@ export const REPEAT_ON_ACTIONS = ["Adjacent", "Path", "Grid", "Sphere", " Range 
 //controls which select actions go with the create keyword
 //! IF A SELECTION ACTION ISN'T PRESENT IN THESE TABLES IT WON'T BE ACCESSIBLE AT ALL !
 //df id
-export const CREATE_SELECTION_ACTIONS = ["RandomPlayer","LastEntity","EntityName","PlayerName","AllEntities","Reset","EventTarget","EntitiesCond","AllPlayers","Invert","PlayersCond"]
+export const CREATE_SELECTION_ACTIONS = ["RandomPlayer","LastEntity","EntityName","PlayerName","AllEntities","Reset","EventTarget","EntitiesCond","AllPlayers","Invert","PlayersCond","EntityUUID"]
 
 //controls which select actions go with the filter keyword
 //! IF A SELECTION ACTION ISN'T PRESENT IN THESE TABLES IT WON'T BE ACCESSIBLE AT ALL !
