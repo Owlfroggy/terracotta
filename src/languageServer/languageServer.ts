@@ -970,6 +970,8 @@ export function StartServer() {
                 if (context.parent.mode == "on") {
                     action = AD.TCActionMap.repeat![context.parent.action!]
                 }
+            } else if (context.parent instanceof SelectionContext) {
+                action = AD.TCActionMap.select_obj![context.parent.action!];
             }
             if (action) {
                 // tag names
