@@ -39,7 +39,9 @@
             "SendAnimation": "SendAnimation",
             "AttackAnimation": "SendAttackAnimation",
             "RideEntity": "Ride",
-            "SetItem": "SetItem"
+            "SetItem": "SetItem",
+            "SetWitherInvul": "SetWitherInvulnerability",
+            "SetInvulTicks": "SetInvulnerabilityTicks"
         },
         "if_entity": {
             "HasCustomTag": "HasTag",
