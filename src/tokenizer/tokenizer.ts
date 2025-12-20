@@ -1181,6 +1181,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             AssignmentOperatorsLengths.push(v.length)
         }
     }
+    AssignmentOperatorsLengths.sort((a,b) => b-a)
 
     const MathOperatorsLengths: Array<number> = []
     for (const v of VALID_MATH_OPERATORS) {
@@ -1188,6 +1189,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             MathOperatorsLengths.push(v.length)
         }
     }
+    MathOperatorsLengths.sort((a,b) => b-a)
 
     const ComparisonOperatorsLengths: Array<number> = []
     for (const v of VALID_COMPARISON_OPERATORS) {
@@ -1195,6 +1197,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             ComparisonOperatorsLengths.push(v.length)
         }
     }
+    ComparisonOperatorsLengths.sort((a,b) => b-a)
 
     //returned number is final character in the operator
     function ParseOperator(index: number, operatorType: "assignment" | "math" | "comparison"): [number, OperatorToken] | null {

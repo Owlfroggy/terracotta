@@ -77,7 +77,11 @@ export const VALID_LINE_STARTERS = ["PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUN
 export const VALID_ASSIGNMENT_OPERATORS = ["=", "+=", "-=", "*=", "/=", "^=", "%="]
 
 //operators that can be used in expressions
-export const VALID_MATH_OPERATORS = ["+", "-", "*", "/", "^", "%"]
+export const VALID_MATH_OPERATORS = [
+    "+", "-", "*", "/", "**", "%",
+    "|", "&", "~", "^", "<<", ">>", ">>>",
+    "$|", "$&", "$~", "$^", "$<<", "$>>", "$>>>",
+]
 
 //operators that do comparisons
 export const VALID_COMPARISON_OPERATORS = ["==", "!=", "<", ">", "<=", ">="]

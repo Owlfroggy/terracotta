@@ -1559,6 +1559,20 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
         return [code,returnVar]
     }
+    function OPR_NumBitwiseNum(left, right, opr: string, precise: boolean) {
+        let returnvar = NewTempVar("num")
+        let code = new ActionBlock(
+            "set_var",
+            "Bitwise",
+            [returnvar,left,right],
+            [
+                new TagItem([],"Bit Precision",precise ? "64-bit" : "Default","set_var","Bitwise"),
+                new TagItem([],"Operator",opr,"set_var","Bitwise"),
+            ]
+        )
+
+        return [[code],returnvar]
+    }
 
     const OPERATIONS = {
         num: {
@@ -1589,7 +1603,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                     return OPR_NumOnNum(left,right,"%","%")
                 }
             },
-            "^": {
+            "**": {
                 num: function(left, right): [CodeBlock[],CodeItem] {
                     //if both sides are just constant numbers
                     if (!isNaN(left.Value) && !isNaN(right.Value)) {
@@ -1601,7 +1615,21 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
                     return [[code],returnVar]
                 }
-            }
+            },
+            // bitwise operations
+            "<<": { num: (left, right) => OPR_NumBitwiseNum(left, right, "<<", false) },
+            ">>": { num: (left, right) => OPR_NumBitwiseNum(left, right, ">>", false) },
+            ">>>": { num: (left, right) => OPR_NumBitwiseNum(left, right, ">>>", false) },
+            "&": { num: (left, right) => OPR_NumBitwiseNum(left, right, "&", false) },
+            "^": { num: (left, right) => OPR_NumBitwiseNum(left, right, "^", false) },
+            "|": { num: (left, right) => OPR_NumBitwiseNum(left, right, "|", false) },
+            
+            "$<<": { num: (left, right) => OPR_NumBitwiseNum(left, right, "<<", true) },
+            "$>>": { num: (left, right) => OPR_NumBitwiseNum(left, right, ">>", true) },
+            "$>>>": { num: (left, right) => OPR_NumBitwiseNum(left, right, ">>>", true) },
+            "$&": { num: (left, right) => OPR_NumBitwiseNum(left, right, "&", true) },
+            "$^": { num: (left, right) => OPR_NumBitwiseNum(left, right, "^", true) },
+            "$|": { num: (left, right) => OPR_NumBitwiseNum(left, right, "|", true) },
         },
         str: {
             "+": {
@@ -1730,12 +1758,28 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             }
         }
     }
+    const UNARY_OPERATIONS = {
+        "~": {
+            num: (value) => OPR_NumBitwiseNum(value,new ItemItem([],"air",1),"~",false),
+        },
+        "$~": {
+            num: (value) => OPR_NumBitwiseNum(value,new ItemItem([],"air",1),"~",true),
+        }
+    }
 
+    // the compiler looks at the first operator in the list to determine
+    // whether to sweep left to right or right to left so make sure not
+    // to put operators with different associativtry on the same level
     const OrderOfOperations = [
-        ["^"],
-        ["*","/","%"],
-        ["+","-"],
+        ["**"],
+        ["~", "$~"],
+        ["*", "/", "%"],
+        ["+", "-"],
+        ["<<", ">>", ">>>", "$<<", "$>>", "$>>>"],
         ["==", "!=", "<", ">", "<=", ">="],
+        ["&", "$&"],
+        ["^", "$^"],
+        ["|", "$|"],
     ]
 
     function SolveExpression(exprToken: ExpressionToken): [CodeBlock[], CodeItem] {
@@ -1746,15 +1790,15 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         for (let i = 0; i < exprToken.Expression.length; i++ ){
             const token = exprToken.Expression[i]
             if (token instanceof OperatorToken) {
-                if (i == 0){ 
+                if (i == 0 && !(token.Operator in UNARY_OPERATIONS)){ 
                     throw new TCError(`Expressions cannot begin with '${token.Operator}'`,0,token.CharStart,token.CharEnd)
                 }
                 if (i == exprToken.Expression.length - 1) {
                     throw new TCError(`Expressions cannot end on '${token.Operator}'`,0,token.CharStart,token.CharEnd)
                 }
-                if (exprToken.Expression[i-1] instanceof OperatorToken) {
-                    throw new TCError(`Expected value following '${(exprToken.Expression[i-1] as OperatorToken).Operator}', got '${token.Operator}'`,0,token.CharStart,token.CharEnd)
-                }
+                // if (exprToken.Expression[i-1] instanceof OperatorToken) {
+                //     throw new TCError(`Expected value following '${(exprToken.Expression[i-1] as OperatorToken).Operator}', got '${token.Operator}'`,0,token.CharStart,token.CharEnd)
+                // }
             }
             else if (token instanceof TypeOverrideToken) {
                 if (!(exprToken.Expression[i-1] instanceof ActionToken || exprToken.Expression[i-1] instanceof IndexerToken)) {
@@ -1954,8 +1998,10 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
 
         //normal expression
         for (let pass = 0; pass < OrderOfOperations.length; pass++) {
-            let i = 0;
-            while (i < expression.length) {
+            const isRightToLeft = OrderOfOperations[pass][0] in UNARY_OPERATIONS;
+
+            let i = isRightToLeft ? expression.length-1 : 0;
+            while (isRightToLeft ? (i >= 0) : (i < expression.length)) {
                 let item = expression[i]
 
                 if (item instanceof OperatorToken) {
@@ -1976,23 +2022,44 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                         let result
 
                         if (OrderOfOperations[pass].includes(item.Operator)) {
-                            //error for unsupported operation
-                            if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][item.Operator] == undefined || OPERATIONS[typeleft][item.Operator][typeright] == undefined) {
-                                throw new TCError(`${typeleft} cannot ${item.Operator} with ${typeright}`, 0, item.CharStart, item.CharEnd)
+                            if (item.Operator in UNARY_OPERATIONS) {
+                                //error for there being a left value
+                                if (left !== undefined && !(left instanceof OperatorToken)) {
+                                    throw new TCError(`${item.Operator} only operates on the value immediately to its right, but a value was provided to its left.`, 0, item.CharStart, item.CharEnd);
+                                }
+                                //error for unsupported operation
+                                if (UNARY_OPERATIONS[item.Operator][typeright] == undefined) {
+                                    throw new TCError(`${item.Operator} cannot be applied to ${typeright}`, 0, item.CharStart, item.CharEnd)
+                                }
+    
+                                result = UNARY_OPERATIONS[item.Operator][typeright](right)
+                                code.push(...result[0])
+                                expression[i] = result[1];
+                                expression.splice(i+1, 1)
+                                i++
+                            } else {
+                                //error for no right value
+                                if (typeright == undefined) {
+                                    throw new TCError(`Expected value following ${item.Operator}`,0, item.CharStart, item.CharEnd);
+                                }
+                                //error for unsupported operation
+                                if (OPERATIONS[typeleft] == undefined || OPERATIONS[typeleft][item.Operator] == undefined || OPERATIONS[typeleft][item.Operator][typeright] == undefined) {
+                                    throw new TCError(`${typeleft} cannot ${item.Operator} with ${typeright}`, 0, item.CharStart, item.CharEnd)
+                                }
+    
+                                result = OPERATIONS[typeleft][item.Operator][typeright](left, right)
+                                code.push(...result[0])
+                                expression[i - 1] = result[1]
+                                expression.splice(i, 2)
+                                i--
                             }
 
-                            result = OPERATIONS[typeleft][item.Operator][typeright](left, right)
                         }
 
-                        if (result) {
-                            code.push(...result[0])
-                            expression[i - 1] = result[1]
-                            expression.splice(i, 2)
-                            i--
-                        }
                     }
                 }
-                i++
+
+                i += isRightToLeft ? -1 : 1;
             }
         }
 
@@ -2000,6 +2067,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             code.push(ifAction)
         }
         else if (expression.length > 1) {
+            print(JSON.stringify(expression));
             throw new Error("Failed to condense expression")
         }
 
