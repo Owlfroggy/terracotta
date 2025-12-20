@@ -8,7 +8,7 @@ import { PrintError, TCError } from "../util/errorHandler.ts"
 import { DEBUG_MODE, print } from "../main.ts"
 import { CharUtils } from "../util/characterUtils.ts"
 import * as AD from "../util/actionDump.ts"
-import {VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, VALID_FORMATTING_CODES, STANDALONE_CONTROL_FUNCTIONS, CONTROL_PRINT_DEBUG_STYLES} from "../util/constants.ts"
+import {NumberType, VALID_PARAM_MODIFIERS, VALID_VAR_SCOPES, VALID_ASSIGNMENT_OPERATORS, VALID_MATH_OPERATORS, VALID_COMPARISON_OPERATORS, VALID_CONTROL_KEYWORDS, VALID_HEADER_KEYWORDS, ValueType, VALID_LINE_STARTERS, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, VALID_FORMATTING_CODES, STANDALONE_CONTROL_FUNCTIONS, CONTROL_PRINT_DEBUG_STYLES} from "../util/constants.ts"
 import { Dict } from "../util/dict.ts"
 import { SelectionContext, AssigneeContext, DictionaryContext, CodeContext, CodelineContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, StandaloneFunctionContext, TagsContext, TypeContext, UserCallContext, VariableContext, RepeatContext } from "../languageServer/codeContext.ts";
 import { slog } from "../languageServer/languageServer.ts";
@@ -65,11 +65,13 @@ export class StringToken extends Token {
 }
 
 export class NumberToken extends Token {
-    constructor(meta,value: string) {
+    constructor(meta,value: string, type: NumberType) {
         super(meta)
         this.Number = value
+        this.Type = type
     }
     Number: string
+    Type: NumberType
 
     itemtype = "num"
 }
@@ -831,6 +833,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
         let decimalFound = false
         let forceToBeNumber = false
+        let type = NumberType.Decimal
         let string = ""
 
         //parse negative sign
@@ -864,7 +867,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 decimalFound = true
             }
             //if this char is a digit
-            else if (cu.IsCharacterValidNumber(SCRIPT_CONTENTS[index])) {
+            else if (cu.IsCharacterValidNumber(SCRIPT_CONTENTS[index],type)) {
                 forceToBeNumber = true
                 //dont include any leading 0s
                 if (string.length == 0 && SCRIPT_CONTENTS[index] == "0") {
@@ -887,6 +890,14 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 }
                 index++
                 continue
+            }
+            //hex number enabling
+            else if (
+                (SCRIPT_CONTENTS[index].toLowerCase() == "x" || SCRIPT_CONTENTS[index].toLowerCase() == "b") 
+                && type == NumberType.Decimal 
+                && string === "" || string === "-0"
+            ) {
+                type = SCRIPT_CONTENTS[index].toLowerCase() == "x" ? NumberType.Hexadecimal : NumberType.Binary
             }
             //if character is some other thing that shouldnt be allowed in numbers
             else if (cu.IsCharacterValidIdentifier(SCRIPT_CONTENTS[index])) {
@@ -917,7 +928,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         OfferContext(index,false)
         DiscardContextBranch(context)
 
-        return [index - 1, new NumberToken([initIndex,index - 1],string)]
+        return [index - 1, new NumberToken([initIndex,index - 1],string, type)]
     }
 
     //= Vectors =\\

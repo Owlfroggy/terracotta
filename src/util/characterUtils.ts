@@ -1,3 +1,5 @@
+import { NumberType } from "../tokenizer/tokenizer.ts";
+
 export const COLOR = {
     Red: "\x1B[0;91m",
     Yellow: "\x1B[0;93m",
@@ -40,16 +42,21 @@ export class CharUtils {
     };
 
     //returns true if char is valid for use in a number
-    IsCharacterValidNumber(char): boolean {
+    IsCharacterValidNumber(char, numberType: NumberType = NumberType.Decimal): boolean {
         let code = char.charCodeAt(0);
-        if (
-            !(code > 47 && code < 58) && // numeric (0-9)
-            !(code == 46) //decimal (.)
-        ) {
-            return false
-        }
 
-        return true
+        if (numberType == NumberType.Binary) {
+            if (char == "0" || char == "1") return true;
+        } else {
+            if (code > 47 && code < 58) return true; //numeric (0-9)
+            if (code == 46) return true; //decimal (.)
+            if (numberType == NumberType.Hexadecimal) {
+                if (code >= 65 && code <= 70) return true; // A-F uppercase
+                if (code >= 97 && code <= 102) return true; // a-f lowercase
+            }
+        }
+        
+        return false
     }
 
     //Gets word until a special character is encountered

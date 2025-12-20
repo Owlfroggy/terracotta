@@ -20,6 +20,12 @@ export enum ValueType {
     "any" = "any"
 }
 
+export enum NumberType {
+    Decimal,
+    Hexadecimal,
+    Binary
+}
+
 //value: type name that df uses in code item serialization
 export const DF_TYPE_MAP = {
     [ValueType.str]: "txt",

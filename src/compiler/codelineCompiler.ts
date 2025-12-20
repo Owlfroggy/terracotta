@@ -1,5 +1,5 @@
 import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DescriptionHeaderToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatDoToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, ReturnsHeaderToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
-import { VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER, ITEM_DF_NBT, INDEXABLE_TYPES } from "../util/constants.ts"
+import { NumberType, VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER, ITEM_DF_NBT, INDEXABLE_TYPES } from "../util/constants.ts"
 import { DEBUG_MODE, print } from "../main.ts"
 import { Domain, DomainList, GenericTargetDomains, TargetDomain, TargetDomains } from "../util/domains.ts"
 import * as fflate from "fflate"
@@ -732,7 +732,22 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         }
 
         if (token instanceof NumberToken) {
-            return [code,new NumberItem([token.CharStart,token.CharEnd],token.Number)]
+            let n: string;
+            switch (token.Type) {
+                case NumberType.Decimal: {
+                    n = token.Number;
+                    break;
+                }
+                case NumberType.Hexadecimal: {
+                    n = ""+parseInt(token.Number,16);
+                    break;
+                }
+                case NumberType.Binary: {
+                    n = ""+parseInt(token.Number,2);
+                    break;
+                }
+            }
+            return [code,new NumberItem([token.CharStart,token.CharEnd],n)]
         }
         else if (token instanceof StringToken) {
             return [code,new StringItem([token.CharStart,token.CharEnd],token.String)]
