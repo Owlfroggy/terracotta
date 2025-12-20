@@ -870,10 +870,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             else if (cu.IsCharacterValidNumber(SCRIPT_CONTENTS[index],type)) {
                 forceToBeNumber = true
                 //dont include any leading 0s
-                if (string.length == 0 && SCRIPT_CONTENTS[index] == "0") {
-                    index++
-                    continue
-                }
+                // if (string.length == 0 && SCRIPT_CONTENTS[index] == "0") {
+                //     index++
+                //     continue
+                // }
 
                 string += SCRIPT_CONTENTS[index]
             }
@@ -883,7 +883,15 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                     DiscardContextBranch(context)
                     return null
                 }
-                if (SCRIPT_CONTENTS[index+1] == "." || SCRIPT_CONTENTS[index-1] == "." || SCRIPT_CONTENTS[index-1] == "-") {
+                if (
+                    SCRIPT_CONTENTS[index+1] == "." 
+                    || SCRIPT_CONTENTS[index-1] == "." 
+                    || SCRIPT_CONTENTS[index-1] == "-" 
+                    || SCRIPT_CONTENTS[index-1].toLowerCase() == "x"
+                    || SCRIPT_CONTENTS[index-1].toLowerCase() == "b"
+                    || SCRIPT_CONTENTS[index+1].toLowerCase() == "x"
+                    || SCRIPT_CONTENTS[index+1].toLowerCase() == "b"
+                ) {
                     OfferContext(index+1)
                     DiscardContextBranch(context)
                     throw new TCError(`Underscores are only allowed in numbers when seperating digits`, 1, index, index)
@@ -895,7 +903,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             else if (
                 (SCRIPT_CONTENTS[index].toLowerCase() == "x" || SCRIPT_CONTENTS[index].toLowerCase() == "b") 
                 && type == NumberType.Decimal 
-                && string === "" || string === "-0"
+                && string === "0" || string === "-0"
             ) {
                 type = SCRIPT_CONTENTS[index].toLowerCase() == "x" ? NumberType.Hexadecimal : NumberType.Binary
             }
