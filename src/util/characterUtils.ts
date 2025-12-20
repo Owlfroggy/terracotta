@@ -1,4 +1,4 @@
-import { NumberType } from "../tokenizer/tokenizer.ts";
+import { NumberType } from "./constants.ts";
 
 export const COLOR = {
     Red: "\x1B[0;91m",
