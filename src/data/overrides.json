@@ -103,6 +103,7 @@
             "AllRegexGroups": "GetAllRegexGroups",
             "NamedRegexGrps": "GetNamedRegexGroups",
             "IndexOfSubstring": "Find", 
+            "SegmentString": "Segment",
             
             "ParseMiniMessage": "ParseExpression",
             "TrimStyledText": "Trim",
@@ -257,7 +258,9 @@
             "AddVectors": "Add",
             "SetVectorComp": "SetComponent",
             "GetVectorLength": "Len",
-        
+            "RotationVector": "FromRotation",
+            "RandomVector": "Random",
+            "SwapVectorComp": "Swap",
 
             "GetPotionType": "GetType",
             "SetPotionDur": "SetDuration",
