@@ -242,7 +242,7 @@ export class TrackedScript extends TrackedDocument {
     VariablesByLine: TrackedVariable[][] = []
 
     HeaderCategory: "Functions" | "Processes" | undefined
-    CodeLineType: "PLAYER_EVENT" | "ENTITY_EVENT" | "PROCESS" | "FUNCTION" | undefined
+    CodeLineType: "PLAYER_EVENT" | "ENTITY_EVENT" | "GAME_EVENT" | "PROCESS" | "FUNCTION" | undefined
     CodeLineName: string | undefined
     FunctionSignature: AD.Parameter[]
     FunctionDescription: string
@@ -262,7 +262,7 @@ export class TrackedScript extends TrackedDocument {
 
     // to set newName or newCodeblock to undefined, pass in null
     // do NOT question why
-    UpdateOwnership(oldUri?: string | null, newName: string | null | false = null, newCodeblock: "PLAYER_EVENT" | "ENTITY_EVENT" | "PROCESS" | "FUNCTION" | null | false = null): void {
+    UpdateOwnership(oldUri?: string | null, newName: string | null | false = null, newCodeblock: "PLAYER_EVENT" | "ENTITY_EVENT" | "GAME_EVENT" | "PROCESS" | "FUNCTION" | null | false = null): void {
         //remove from old location
         this.cleanupTracking()
         

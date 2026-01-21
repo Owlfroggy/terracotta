@@ -77,7 +77,7 @@ export const VAR_SCOPE_TC_NAMES: Dict<"global" | "saved" | "local" | "line"> = {
 export const VALID_HEADER_KEYWORDS = ["LAGSLAYER_CANCEL"]
 
 //keywords that are valid line starter blocks
-export const VALID_LINE_STARTERS = ["PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION"]
+export const VALID_LINE_STARTERS = ["PLAYER_EVENT","ENTITY_EVENT","GAME_EVENT","PROCESS","FUNCTION"]
 
 //operators that can be used to assign a value to a variable
 export const VALID_ASSIGNMENT_OPERATORS = ["=", "+=", "-=", "*=", "/=", "^=", "%="]
@@ -110,12 +110,45 @@ export const STATEMENT_KEYWORDS = [
     ...VALID_CONTROL_KEYWORDS,
     "select","filter",
     "call","start",
-    "LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","PROCESS","FUNCTION","PARAM","RETURNS","DESC"
+    "LAGSLAYER_CANCEL","PLAYER_EVENT","ENTITY_EVENT","GAME_EVENT","PROCESS","FUNCTION","PARAM","RETURNS","DESC"
 ]
 
 export const ADDITIONAL_CONSTRUCTORS = ["litem", "csnd"]
 
 export const FOR_LOOP_MODES = ["in","on"]
+
+// HR here stands for "human readable"
+export const EVENT_NAME_MAP: {[event: string]: {
+    DF_BLOCK_IDENTIFIER: string,
+    HR_TYPE_LOWER: string,
+    HR_TYPE_UPPER: string,
+}} = {
+    "PLAYER_EVENT": {
+        DF_BLOCK_IDENTIFIER: "event",
+        HR_TYPE_LOWER: "player",
+        HR_TYPE_UPPER: "Player",
+    },
+    "ENTITY_EVENT": {
+        DF_BLOCK_IDENTIFIER: "entity_event",
+        HR_TYPE_LOWER: "entity",
+        HR_TYPE_UPPER: "Entity"
+    },
+    "GAME_EVENT": {
+        DF_BLOCK_IDENTIFIER: "game_event",
+        HR_TYPE_LOWER: "game",
+        HR_TYPE_UPPER: "Game",
+    },
+    "FUNCTION": {
+        DF_BLOCK_IDENTIFIER: "func",
+        HR_TYPE_LOWER: "function",
+        HR_TYPE_UPPER: "Function",
+    },
+    "PROCESS": {
+        DF_BLOCK_IDENTIFIER: "process",
+        HR_TYPE_LOWER: "process",
+        HR_TYPE_UPPER: "Process",
+    }
+}
 
 //==========[ domain lists ]=========\\
 

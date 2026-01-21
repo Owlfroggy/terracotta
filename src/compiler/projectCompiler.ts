@@ -21,6 +21,8 @@ export interface CompiledProjectTemplates {
     playerEvents: Dict<CompiledTemplate>
     /** Key: event df name */
     entityEvents: Dict<CompiledTemplate>
+    /** Key: event df name */
+    gameEvents: Dict<CompiledTemplate>
     /** Key: function name */
     functions: Dict<CompiledTemplate>
     /** Key: function name */
@@ -67,6 +69,7 @@ export interface CompilationEnvironment {
     codeInjections: {
         playerEvents: Dict<CodeInjections>,
         entityEvents: Dict<CodeInjections>,
+        gameEvents: Dict<CodeInjections>,
         functions: Dict<CodeInjections>,
         processes: Dict<CodeInjections>,
     }
@@ -79,11 +82,12 @@ export interface CompilationEnvironment {
 const categoryMap = {
     "PLAYER_EVENT": "playerEvents",
     "ENTITY_EVENT": "entityEvents",
+    "GAME_EVENT": "gameEvents",
     "FUNCTION": "functions",
     "PROCESS": "processes"
 }
 
-function getInjections(environment: CompilationEnvironment,header: "playerEvents" | "entityEvents" | "functions" | "processes",name: string) {
+function getInjections(environment: CompilationEnvironment,header: "playerEvents" | "entityEvents" | "functions" | "processes" | "gameEvents",name: string) {
     let injections = environment.codeInjections[header][name]
     if (injections) {
         return injections
@@ -162,6 +166,7 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
         mode: "gzip",
         playerEvents: {},
         entityEvents: {},
+        gameEvents: {},
         functions: {},
         processes: {}
     }
@@ -174,6 +179,7 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
         codeInjections: {
             playerEvents: {},
             entityEvents: {},
+            gameEvents: {},
             functions: {},
             processes: {},
         },

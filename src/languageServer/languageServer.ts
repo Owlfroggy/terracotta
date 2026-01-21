@@ -206,10 +206,11 @@ function generateDomainMemberCompletions(tcConfig: ServerTCConfiguration) {
 
 let eventNameCompletionEntries = {
     player: [] as CompletionItem[],
-    entity: [] as CompletionItem[]
+    entity: [] as CompletionItem[],
+    game:   [] as CompletionItem[],
 }
-for (const mode of ["player","entity"]) {
-    for (const [dfName, event] of Object.entries(AD.DFActionMap[`${mode == "player" ? '' : 'entity_'}event`]!)) {
+for (const mode of ["player","entity","game"]) {
+    for (const [dfName, event] of Object.entries(AD.DFActionMap[`${mode == "player" ? '' : mode == "game" ? "game_" : 'entity_'}event`]!)) {
         let item: CompletionItem = {
             label: dfName,
             kind: CompletionItemKind.Function,
@@ -346,7 +347,7 @@ export function StartServer() {
         try {
             let compilationResults = CompileLines(dummyScript, {
                 rank: "Overlord",
-                codeInjections: { playerEvents: {}, entityEvents: {}, functions: {}, processes: {} }, itemLibraries: {},
+                codeInjections: { playerEvents: {}, entityEvents: {}, gameEvents: {}, functions: {}, processes: {} }, itemLibraries: {},
                 skipConstructorValidation: true,
                 funcReturnTypes: returnTypes
             })
@@ -848,7 +849,7 @@ export function StartServer() {
         }
         // event name
         else if (item.data.type == CompletionItemType.EventName) {
-            let event = AD.DFActionMap[`${item.data.eventType == "player" ? '' : 'entity_'}event`]![item.data.eventDFId]
+            let event = AD.DFActionMap[`${item.data.eventType == "player" ? '' : item.data.eventType == "game" ? "game_" : 'entity_'}event`]![item.data.eventDFId]
             if (!event) { return item }
             let info = event.AdditionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
             let cancelInfo = event.Cancellable ? "\n\n∅ Cancellable" : event.CancelledAutomatically ? "\n\n∅ Cancelled automatically" : ""
@@ -905,7 +906,7 @@ export function StartServer() {
         } 
         else if (context instanceof EventContext) {
             includeGeneralKeywords = false
-            if (context.mode == "player" || context.mode == "entity") {
+            if (context.mode == "player" || context.mode == "entity" || context.mode == "game") {
                 items.push(eventNameCompletionEntries[context.mode])
             }
         }

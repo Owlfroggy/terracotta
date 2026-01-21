@@ -21,14 +21,13 @@ const newDump = JSON.parse((await readFile(positionals[3]!)).toString())
 let seen: Dict<any> = {}
 
 oldDump.actions.forEach(action => {
-    if (!seen[action.codeblockName]) {
-        seen[action.codeblockName] = {}
-    }
+    if (!seen[action.codeblockName]) { seen[action.codeblockName] = {}; }
     seen[action.codeblockName][action.name] = true
 });
 
 console.log("== NEW ACTIONS ==")
 newDump.actions.forEach(action => {
+    if (!seen[action.codeblockName]) { seen[action.codeblockName] = {}; }
     if (!seen[action.codeblockName][action.name]) {
         console.log(`${action.codeblockName}:${action.name}`)
     }

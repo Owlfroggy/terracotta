@@ -123,7 +123,7 @@ async function Main() {
                 output = JSON.stringify(results)
             } else {
                 output = ""
-                for (const category of ["playerEvents","entityEvents","functions","processes"]) {
+                for (const category of ["playerEvents","entityEvents","gameEvents","functions","processes"]) {
                     for (const template of Object.values(results[category])) {
                         output += template + "\n"
                     }

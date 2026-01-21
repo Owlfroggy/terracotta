@@ -1,5 +1,5 @@
 import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DescriptionHeaderToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatDoToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, ReturnsHeaderToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
-import { NumberType, VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER, ITEM_DF_NBT, INDEXABLE_TYPES } from "../util/constants.ts"
+import { NumberType, VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER, ITEM_DF_NBT, INDEXABLE_TYPES, EVENT_NAME_MAP } from "../util/constants.ts"
 import { DEBUG_MODE, print } from "../main.ts"
 import { Domain, DomainList, GenericTargetDomains, TargetDomain, TargetDomains } from "../util/domains.ts"
 import * as fflate from "fflate"
@@ -76,7 +76,7 @@ function IntegerizeHexColor(color: StringItem) {
 
 export interface CompileResults {
     code: Array<CodeBlock>
-    type?: "PLAYER_EVENT" | "ENTITY_EVENT" | "FUNCTION" | "PROCESS"
+    type?: "PLAYER_EVENT" | "ENTITY_EVENT" | "GAME_EVENT" | "FUNCTION" | "PROCESS"
     name?: string
 }
 
@@ -280,7 +280,7 @@ export class CodeBlock {
 }
 
 export class EventBlock extends CodeBlock {
-    constructor(type: "ENTITY_EVENT" | "PLAYER_EVENT", event: string,lsCancel: boolean) {
+    constructor(type: "PLAYER_EVENT" | "ENTITY_EVENT" | "GAME_EVENT", event: string,lsCancel: boolean) {
         super(type)
         this.Event = event
         this.LSCancel = lsCancel
@@ -2228,13 +2228,13 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             if (!(header instanceof HeaderToken) || i == lines.length-1) {
                 if (headerData.codeblock) {
                     let block
-                    let actionData = AD.DFActionMap[headerData.codeblock.Codeblock == "PLAYER_EVENT" ? "event" : "entity_event"]![headerData.codeblock.Event]!
-                    if (headerData.codeblock.Codeblock == "PLAYER_EVENT" || headerData.codeblock.Codeblock == "ENTITY_EVENT") {
+                    let actionData = AD.DFActionMap[EVENT_NAME_MAP[headerData.codeblock.Codeblock].DF_BLOCK_IDENTIFIER]![headerData.codeblock.Event]!
+                    if (headerData.codeblock.Codeblock == "PLAYER_EVENT" || headerData.codeblock.Codeblock == "ENTITY_EVENT" || headerData.codeblock.Codeblock == "GAME_EVENT") {
                         if (!actionData) {
-                            throw new TCError(`Invalid ${headerData.codeblock.Codeblock == "PLAYER_EVENT" ? "player" : "entity"} event '${headerData.codeblock.Event}'`,0,headerData.codeblock.CharStart,headerData.codeblock.CharEnd)
+                            throw new TCError(`Invalid ${EVENT_NAME_MAP[headerData.codeblock.Codeblock].HR_TYPE_LOWER} event '${headerData.codeblock.Event}'`,0,headerData.codeblock.CharStart,headerData.codeblock.CharEnd)
                         }
                         if (!actionData.Cancellable && headerData.lsCancel) {
-                            throw new TCError(`${headerData.codeblock.Codeblock == "PLAYER_EVENT" ? "Player" : "Entity"} event '${headerData.codeblock.Event}' is not cancellable`,0,headerData.lsCancel.CharStart,headerData.lsCancel.CharEnd)
+                            throw new TCError(`${EVENT_NAME_MAP[headerData.codeblock.Codeblock].HR_TYPE_UPPER} event '${headerData.codeblock.Event}' is not cancellable`,0,headerData.lsCancel.CharStart,headerData.lsCancel.CharEnd)
                         }
                         block = new EventBlock(headerData.codeblock.Codeblock, headerData.codeblock.Event, headerData.lsCancel == false ? false : true)
                     }
@@ -2905,6 +2905,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
     let injections = environment.codeInjections[
         headerData.codeblock?.Codeblock == "PLAYER_EVENT" ? "playerEvents" :
         headerData.codeblock?.Codeblock == "ENTITY_EVENT" ? "entityEvents" :
+        headerData.codeblock?.Codeblock == "GAME_EVENT" ? "gameEvents" :
         headerData.codeblock?.Codeblock == "FUNCTION" ? "functions" :
         "processes"
     ][headerData.codeblock?.Event!]
@@ -3381,7 +3382,7 @@ export function JSONize(code: Array<CodeBlock>): string {
         else if (block instanceof EventBlock) {
             blocks.push({
                 "id": "block",
-                "block": block.Block == "PLAYER_EVENT" ? "event" : "entity_event",
+                "block": EVENT_NAME_MAP[block.Block].DF_BLOCK_IDENTIFIER,
                 "args": {
                     "items": []
                 },

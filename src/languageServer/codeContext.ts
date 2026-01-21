@@ -159,6 +159,6 @@ export class UserCallContext extends CodeContext {
 
 export class EventContext extends CodeContext {
     constructor(
-        public mode: "player" | "entity" | "function" | "process"
+        public mode: "player" | "entity" | "game" | "function" | "process"
     ) {super()}
 }

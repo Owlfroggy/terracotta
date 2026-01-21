@@ -2384,13 +2384,11 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         if (identifierResults == null || !VALID_LINE_STARTERS.includes(identifierResults[1])) { return null }
         index = identifierResults[0]
         
-        
-        // if (!(identifierResults[1] == "PLAYER_EVENT" || identifierResults[1] == "ENTITY_EVENT")) { return null }
-        
         OfferContext(identifierResults[0]+1,false)
         let context = new EventContext(
               identifierResults[1] == "PLAYER_EVENT" ? "player"
             : identifierResults[1] == "ENTITY_EVENT" ? "entity"
+            : identifierResults[1] == "GAME_EVENT" ? "game"
             : identifierResults[1] == "FUNCTION" ? "function"
             : "process"
         )
