@@ -237,7 +237,7 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
             let parsed: NBT.CompoundTag
             try {parsed = NBT.parse(item.data)}
             catch (e) {
-                failAndPrintError(`Error: Item '${itemId}' in library '${library.id}' has invalid NBT`)
+                failAndPrintError(`Error: Item '${itemId}' in library '${library.id}' has invalid NBT: ${e}`)
                 continue
             }
             if (!parsed?.id) {
