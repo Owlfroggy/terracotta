@@ -794,6 +794,8 @@ export function StartServer() {
                 if (itemType == CompletionItemType.Keyword) {
                     if (item.data.value == "wait") {
                         action = AD.DFActionMap.control!.Wait!
+                    } else if (item.data.value == "endallthreads") {
+                        action = AD.DFActionMap.control?.EndAllThreads!
                     } else if (item.data.value in CONTROL_PRINT_DEBUG_STYLES) {
                         action = AD.DFActionMap.control!.PrintDebug!
                     }
@@ -966,6 +968,8 @@ export function StartServer() {
                     action = AD.DFActionMap.control?.Wait!
                 } else if (context.parent.name in CONTROL_PRINT_DEBUG_STYLES) {
                     action = AD.DFActionMap.control?.PrintDebug!
+                } else if (context.parent.name == "endallthreads") {
+                    action = AD.DFActionMap.control?.EndAllThreads!
                 }
             } else if (context.parent instanceof ForLoopContext) {
                 if (context.parent.mode == "on") {

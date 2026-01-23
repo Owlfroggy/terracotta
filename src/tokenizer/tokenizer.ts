@@ -1458,6 +1458,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 tagsTemplate = AD.DFActionMap.control!.Wait!.Tags
                 blockName = "Wait"
             }
+            else if (identifierResults[1] == "endallthreads") {
+                tagsTemplate = AD.DFActionMap.control!.EndAllThreads!.Tags
+                blockName = "EndAllThreads"
+            }
             else if (identifierResults[1] in CONTROL_PRINT_DEBUG_STYLES) {
                 tagsTemplate = AD.DFActionMap.control!.PrintDebug!.Tags
                 blockName = "PrintDebug"
