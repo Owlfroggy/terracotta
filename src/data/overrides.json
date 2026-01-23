@@ -22,11 +22,13 @@
 
         },
         "game_action": {
-            "LaunchProj": "LaunchProjectile"
+            "LaunchProj": "LaunchProjectile",
+            "RedstoneStrength": "SetEventRedstoneStrength"
         },
         "if_game": {
             "HasPlayer": "HasPlayer",
-            "IsChunkLoaded": "ChunkIsLoaded"
+            "IsChunkLoaded": "ChunkIsLoaded",
+            "EventChunkNew": "ChunkIsNew"
         },
         "entity_action": {
             "SetBaby": "SetIsBaby",
@@ -186,6 +188,7 @@
             "HiddenComponents": "SetHiddenComponents",
             "GetItemModel": "GetModel",
             "SetAllItemTags": "SetAllTags",
+            " SetHeadTexture ": "SetHeadTexture",
 
             "AppendValue": "Append",
             "PopListValue": "Pop",
@@ -204,6 +207,7 @@
             "GetValueIndex": "Find",
             "RandomizeList": "Randomize",
             "RemoveListValue": "RemoveValue",
+            "DestructureList": "Destructure",
         
 
             "ClearDict": "Clear",
@@ -240,6 +244,8 @@
             "GetParticleFade": "GetFade",
             "SetParticleDur": "SetDuration",
             "GetParticleDur": "GetDuration",
+            "SetParticlePower": "SetPower",
+            "GetParticlePower": "GetPower",
         
 
             "MultiplyVector": "Multiply",
@@ -380,6 +386,7 @@
             "RemItemEnchant": "item",
             "ClearEnchants": "item",
             "SetHeadTexture": "item",
+            " SetHeadTexture ": "item",
             "SetBookText": "item",
             "SetItemTag": "item",
             "RemoveItemTag": "item",
