@@ -2024,12 +2024,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let tags
         
         //parse arguments
-        if (mode == "function") {
-            let argsResults = ParseList(index,"(",")",",")
-            if (argsResults) {
-                index = argsResults[0]
-                args = argsResults[1]
-            }
+        let argsResults = ParseList(index,"(",")",",")
+        if (argsResults) {
+            index = argsResults[0]
+            args = argsResults[1]
         }
         
         //parse tags

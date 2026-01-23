@@ -300,11 +300,13 @@ export class FunctionBlock extends CodeBlock {
 }
 
 export class ProcessBlock extends CodeBlock {
-    constructor(name: string) {
+    constructor(name: string, params: ParamItem[]) {
         super("PROCESS")
         this.Name = name
+        this.Parameters = params
     }
     Name: string
+    Parameters: ParamItem[]
 }
 
 export class ActionBlock extends CodeBlock {
@@ -2227,40 +2229,44 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             //done with headers, apply them
             if (!(header instanceof HeaderToken) || i == lines.length-1) {
                 if (headerData.codeblock) {
+                    let codeblockName = headerData.codeblock.Codeblock;
                     let block
-                    let actionData = AD.DFActionMap[EVENT_NAME_MAP[headerData.codeblock.Codeblock].DF_BLOCK_IDENTIFIER]![headerData.codeblock.Event]!
-                    if (headerData.codeblock.Codeblock == "PLAYER_EVENT" || headerData.codeblock.Codeblock == "ENTITY_EVENT" || headerData.codeblock.Codeblock == "GAME_EVENT") {
+                    let actionData = AD.DFActionMap[EVENT_NAME_MAP[codeblockName].DF_BLOCK_IDENTIFIER]![headerData.codeblock.Event]!
+                    if (codeblockName == "PLAYER_EVENT" || codeblockName == "ENTITY_EVENT" || codeblockName == "GAME_EVENT") {
                         if (!actionData) {
-                            throw new TCError(`Invalid ${EVENT_NAME_MAP[headerData.codeblock.Codeblock].HR_TYPE_LOWER} event '${headerData.codeblock.Event}'`,0,headerData.codeblock.CharStart,headerData.codeblock.CharEnd)
+                            throw new TCError(`Invalid ${EVENT_NAME_MAP[codeblockName].HR_TYPE_LOWER} event '${headerData.codeblock.Event}'`,0,headerData.codeblock.CharStart,headerData.codeblock.CharEnd)
                         }
                         if (!actionData.Cancellable && headerData.lsCancel) {
-                            throw new TCError(`${EVENT_NAME_MAP[headerData.codeblock.Codeblock].HR_TYPE_UPPER} event '${headerData.codeblock.Event}' is not cancellable`,0,headerData.lsCancel.CharStart,headerData.lsCancel.CharEnd)
+                            throw new TCError(`${EVENT_NAME_MAP[codeblockName].HR_TYPE_UPPER} event '${headerData.codeblock.Event}' is not cancellable`,0,headerData.lsCancel.CharStart,headerData.lsCancel.CharEnd)
                         }
-                        block = new EventBlock(headerData.codeblock.Codeblock, headerData.codeblock.Event, headerData.lsCancel == false ? false : true)
+                        block = new EventBlock(codeblockName, headerData.codeblock.Event, headerData.lsCancel == false ? false : true)
                     }
                     else if (headerData.lsCancel) {
                         throw new TCError("Lagslayer cancel can only be applied to events",0,headerData.lsCancel.CharStart,headerData.lsCancel.CharEnd)
                     }
-
-                    // error for too many params
-                    if (headerData.params.length + headerData.returnParams.length > MAX_LINE_VARS) {
-                        if (headerData.returnParams.length > 0) {
-                            throw new TCError(`The combined total number of parameters and return values that a function has cannot exceed ${MAX_LINE_VARS}.`,0,-1,-1)
-                        } else {
-                            throw new TCError(`The total number of parameters that a function has cannot exceed ${MAX_LINE_VARS}.`,0,-1,-1)
-                        }
-                    }
                     
-                    if (headerData.codeblock.Codeblock == "FUNCTION") {
+                    if (codeblockName == "FUNCTION") {
+                        // error for too many params
+                        if (headerData.params.length + headerData.returnParams.length > 26) {
+                            let problematicParam = headerData.params[26];
+                            if (headerData.returnParams.length > 0) {
+                                throw new TCError(`The combined total number of parameters and return values that a function has cannot exceed 26.`,0,problematicParam.CharStart,problematicParam.CharEnd)
+                            } else {
+                                throw new TCError(`The total number of parameters that a function has cannot exceed 26.`,0,problematicParam.CharStart,problematicParam.CharEnd)
+                            }
+                        }
+
                         block = new FunctionBlock(headerData.codeblock.Event, [...headerData.returnParams,...headerData.params])
                     }
-                    else if (headerData.codeblock.Codeblock == "PROCESS") {
-                        block = new ProcessBlock(headerData.codeblock.Event)    
+                    else if (codeblockName == "PROCESS") {
+                        block = new ProcessBlock(headerData.codeblock.Event, [...headerData.params])
+                        if (headerData.params.length > 24) { //-2 since start process blocks must include two tags
+                            let problematicParam = headerData.params[24];
+                            throw new TCError(`The total number of parameters that a process has cannot exceed 24`,0,problematicParam.CharStart,problematicParam.CharEnd);
+                        }
                     }
-
-                    //error if applying params to something thats not a function
-                    if (headerData.codeblock.Codeblock != "FUNCTION" && headerData.params.length > 0) {
-                        throw new TCError("Only functions can have parameters", 0, headerData.params[0].CharStart, headerData.params[0].CharEnd)
+                    else if (headerData.params.length > 0) {
+                        throw new TCError("Only functions and processes can have parameters", 0, headerData.params[0].CharStart, headerData.params[0].CharEnd)
                     }
 
                     CodeLine.push(block)
@@ -2389,14 +2395,17 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             let action = line[0]
 
             //args
+
+            // if (action.Type == "process") print(action.Name, action.Arguments?.Items.length);
+            // throw "balls";
             let args
-            if (action.Arguments && action.Type == "function") {
+            if (action.Arguments) {
                 let argResults = SolveArgs(action.Arguments)
                 CodeLine.push(...argResults[0])
                 args = argResults[1]
 
                 // insert an unused variable for return value arg if applicable because df always requires var params to be filled in
-                if (environment.funcReturnTypes[action.Name] !== undefined) {
+                if (action.Type == "function" && environment.funcReturnTypes[action.Name] !== undefined) {
                     args.unshift(new VariableItem([],"line","@__TC_BLACKHOLE"))
                 }
             }
@@ -3327,6 +3336,26 @@ function JSONizeItem(item: CodeItem) {
     }
 }
 
+function JZONizeParameters(params: ParamItem[]) {
+    let jsonized: any[] = []
+    for (const param of params) {
+        jsonized.push({
+            "item": {
+                "id": "pn_el",
+                "data": {
+                    "name": param.Name,
+                    "type": DF_TYPE_MAP[param.Type],
+                    "default_value": param.DefaultValue != null ? JSONizeItem(param.DefaultValue) : undefined,
+                    "plural": param.Plural,
+                    "optional": param.Optional
+                }
+            },
+            "slot": jsonized.length
+        })
+    }
+    return jsonized
+}
+
 export function JSONize(code: Array<CodeBlock>): string {
     let blocks: Array<Object> = []
     for (let block of code) {
@@ -3391,27 +3420,11 @@ export function JSONize(code: Array<CodeBlock>): string {
             })
         }
         else if (block instanceof FunctionBlock) {
-            let params: any[] = []
-            for (const param of block.Parameters) {
-                params.push({
-                    "item": {
-                        "id": "pn_el",
-                        "data": {
-                            "name": param.Name,
-                            "type": DF_TYPE_MAP[param.Type],
-                            "default_value": param.DefaultValue != null ? JSONizeItem(param.DefaultValue) : undefined,
-                            "plural": param.Plural,
-                            "optional": param.Optional
-                        }
-                    },
-                    "slot": params.length
-                })
-            }
             blocks.push({
                 "id": "block",
                 "block": "func",
                 "args": {
-                    "items": params
+                    "items": JZONizeParameters(block.Parameters)
                 },
                 "data": block.Name
             })
@@ -3422,6 +3435,7 @@ export function JSONize(code: Array<CodeBlock>): string {
                 "block": "process",
                 "args": {
                     "items": [
+                        ...JZONizeParameters(block.Parameters),
                         {
                             "item": {
                                 "id": "bl_tag",
