@@ -114,6 +114,7 @@ export class Action {
 
     IsLegacy: boolean
     RequiresRank: DFRank = ""
+    WorldPlotExclusive: boolean
     
     //type this action returns
     ReturnType: ValueType | null = null
@@ -133,6 +134,8 @@ export class GameValue {
     ReturnDescription: string
     AdditionalInfo: string[]
     WorksWith: string[]
+
+    WorldPlotExclusive: boolean
 }
 
 //==========[ public data ]=========\\
@@ -498,6 +501,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     normalAction.CancelledAutomatically = actionJson.icon.cancelledAutomatically
     normalAction.IsLegacy = actionJson.icon.name === "" && actionJson.icon.material === "STONE"
     normalAction.RequiresRank = requiresRank
+    normalAction.WorldPlotExclusive = actionJson.icon.worldExclusive
     
     if (!normalAction.IsLegacy || actionJson.name in nameOverrides) {
         TCActionMap[codeblockId]![tcId] = normalAction
@@ -519,6 +523,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     differentiatedAction.Cancellable = actionJson.icon.cancellable
     differentiatedAction.CancelledAutomatically = actionJson.icon.cancelledAutomatically
     differentiatedAction.RequiresRank = requiresRank
+    differentiatedAction.WorldPlotExclusive = actionJson.icon.worldExclusive
     
     //check all aliases
     for (const alias of actionJson.aliases) {
@@ -550,6 +555,7 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
         return entry.map(line => deColorizeString(line)).join(" ")  
     })
     value.WorksWith = gameValueJson.icon.worksWith
+    value.WorldPlotExclusive = gameValueJson.icon.worldExclusive
 
 
     DFGameValueMap[value.DFId] = value

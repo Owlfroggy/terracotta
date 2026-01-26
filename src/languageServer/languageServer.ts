@@ -824,8 +824,9 @@ export function StartServer() {
             let returnString = getParamString(action.ReturnValues,"\n\n**Returns:**\n\n","")
 
             let rankString = (action.RequiresRank && (!AD.RankCheck(configuration.dfRank,action?.RequiresRank!))) ? `\n\n❌ **(Requires ${action.RequiresRank})**\n\n` : ""
+            let worldPlotString = (action.WorldPlotExclusive ? "🌐 **World Plot Exclusive**\n\n" : "");
 
-            documentation = `${rankString}${action.Description}${infoString}${worksWithString}${paramString}${tagsString}${returnString}`
+            documentation = `${worldPlotString}${rankString}${action.Description}${infoString}${worksWithString}${paramString}${tagsString}${returnString}`
         }
         // game value
         else if (itemType == CompletionItemType.DomainValue) {
@@ -847,7 +848,9 @@ export function StartServer() {
             returnP.Groups[0] = [returnV]
             let returnType = getParamString([returnP],"\n\n**Returns Value:**\n\n","")
 
-            documentation = `${description}${worksWithString}${info}${returnType}`
+            let worldPlotString = (val.WorldPlotExclusive ? "🌐 **World Plot Exclusive**\n\n" : "");
+
+            documentation = `${worldPlotString}${description}${worksWithString}${info}${returnType}`
         }
         // event name
         else if (item.data.type == CompletionItemType.EventName) {
@@ -855,7 +858,8 @@ export function StartServer() {
             if (!event) { return item }
             let info = event.AdditionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
             let cancelInfo = event.Cancellable ? "\n\n∅ Cancellable" : event.CancelledAutomatically ? "\n\n∅ Cancelled automatically" : ""
-            documentation = `${event.Description}${info}${cancelInfo}`
+            let worldPlotString = (event.WorldPlotExclusive ? "🌐 **World Plot Exclusive**\n\n" : "");
+            documentation = `${worldPlotString}${event.Description}${info}${cancelInfo}`
         }
         // custom function
         else if (item.data.type == CompletionItemType.UserCall) {
