@@ -2395,9 +2395,6 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             let action = line[0]
 
             //args
-
-            // if (action.Type == "process") print(action.Name, action.Arguments?.Items.length);
-            // throw "balls";
             let args
             if (action.Arguments) {
                 let argResults = SolveArgs(action.Arguments)
