@@ -670,7 +670,8 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             Size: new NumberItem([], "1"),
             "Size Variation": new NumberItem([], "0"),
             Roll: new NumberItem([], "0"),
-            Opacity: new NumberItem([],"100")
+            Opacity: new NumberItem([],"100"),
+            Power: new NumberItem([], "1"),
         }
     }
 
@@ -686,6 +687,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         "Size Variation": "num",
         Roll: "num",
         Opacity: "num",
+        Power: "num",
     }
 
     //takes in a Token from the parser and converts it to a CodeItem
@@ -1318,7 +1320,6 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             }
 
             // opacity
-
             if (variableComponents.includes("Opacity")) {
                 item.Data.opacity = 10
                 code.push(
@@ -1329,6 +1330,19 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             }
             else {
                 item.Data.opacity = fields.Opacity?.Value ?? ITEM_PARAM_DEFAULTS.par.Opacity.Value
+            }
+
+            // power
+            if (variableComponents.includes("Power")) {
+                item.Data.power = 1
+                code.push(
+                    new ActionBlock("set_var","SetParticlePower",[tempVar,latestItem,fields.Power || ITEM_PARAM_DEFAULTS.par.Power])
+                )
+
+                latestItem = tempVar
+            }
+            else {
+                item.Data.power = fields.Power?.Value ?? ITEM_PARAM_DEFAULTS.par.Power.Value
             }
 
             if (spread == null) {
