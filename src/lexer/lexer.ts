@@ -25,19 +25,22 @@ export class Lexer {
     }
 
     public tokenize() {
-        this.tokens = [];
-        this.errors = [];
+        this.tokens.length = 0;
+        this.errors.length = 0;
+        this.position = 0;
 
         // every pattern will be tested in order of top to bottom.
         // the parser will move on after the first pattern succeeds, 
         // using the returned token's end index as the new start index.
         // if no patterns succeed then you need to fix that :(
         const patterns = [
-            this.makeRegexPattern(TokenType.WHITESPACE      , /\s+/y),
-            this.makeRegexPattern(TokenType.NUMERIC_LITERAL , /(?:\d+(?:_?\d+)?)\.?(?:\d+(?:_?\d+)?)?/y),
-            this.makeRegexPattern(TokenType.PLUS            , /\+/y),
-            this.makeRegexPattern(TokenType.MINUS           , /\-/y),
-            this.makeRegexPattern(TokenType.SEMICOLON       , /\;/y),
+            this.makeRegexPattern(TokenType.WHITESPACE,         /\s+/y),
+            this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)?)\.?(?:\d+(?:_?\d+)?)?/y),
+            this.makeRegexPattern(TokenType.PLUS,               /\+/y),
+            this.makeRegexPattern(TokenType.MINUS,              /\-/y),
+            this.makeRegexPattern(TokenType.STAR,               /\*/y),
+            this.makeRegexPattern(TokenType.SLASH,              /\//y),
+            this.makeRegexPattern(TokenType.SEMICOLON,          /\;/y),
         ];
 
         while (this.position < this.script.length) {

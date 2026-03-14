@@ -7,6 +7,8 @@ export enum TokenType {
 
     PLUS,
     MINUS,
+    STAR,
+    SLASH
 }
 
 export class Token {

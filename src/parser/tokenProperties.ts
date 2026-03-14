@@ -4,6 +4,7 @@ import { Parser } from "./parser.ts";
 export enum BindingPower {
     DEFAULT,
     ADD,
+    MULT,
     ATOM,
 }
 

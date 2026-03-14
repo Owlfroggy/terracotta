@@ -14,6 +14,9 @@ export class Parser {
         this.tokenProperties = new Map<TokenType, TokenProcessingProperites>([
             [TokenType.NUMERIC_LITERAL, {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM, processor: this.parseNumberExpression}],
             [TokenType.PLUS,            {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,  processor: this.parseBinaryExpression}],
+            [TokenType.MINUS,           {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,  processor: this.parseBinaryExpression}],
+            [TokenType.STAR,            {processType: TokenPType.EXPR_LED,  bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
+            [TokenType.SLASH,           {processType: TokenPType.EXPR_LED,  bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
         ]);
     }
@@ -46,14 +49,14 @@ export class Parser {
         return new BinaryExpression(
             left,
             this.consume(),
-            this.parseExpression(BindingPower.DEFAULT)
+            this.parseExpression(bp)
         );
     }
 
     parseExpression = (bp: number): Expression => { 
         let props = this.currentTokenPProps();
         if (props.processType != TokenPType.EXPR_NUD) {
-            throw "Expected a nud";
+            throw `Expected a nud got ${this.currentToken()}`;
         }
 
         let left = props.processor(bp); // advances position
@@ -62,7 +65,7 @@ export class Parser {
 
         while (props.processType != TokenPType.NONE && props.bp > bp) {
             if (props.processType == TokenPType.EXPR_NUD) {
-                throw "Expected a nud (two)";
+                throw `Expected a nud (two) ${this.currentToken()}`;
             }
             left = props.processor(left, props.bp);
             props = this.currentTokenPProps();
