@@ -1,9 +1,11 @@
+import { ErrorType, TCError } from "../error/error.ts";
 import { Token, TokenType } from "./token.ts";
 
 type Pattern = () => Token | null;
 
 export class Lexer {
     tokens: Token[] = [];
+    errors: TCError[] = [];
     position: number = 0;
 
     constructor(
@@ -22,8 +24,9 @@ export class Lexer {
         }
     }
 
-    public tokenize(): Token[] {
-        let tokens: Token[] = [];
+    public tokenize() {
+        this.tokens = [];
+        this.errors = [];
 
         // every pattern will be tested in order of top to bottom.
         // the parser will move on after the first pattern succeeds, 
@@ -38,27 +41,28 @@ export class Lexer {
         ];
 
         while (this.position < this.script.length) {
+            let result: Token | null = null;
             for (const pattern of patterns) {
-                let result = pattern();
+                result = pattern();
                 // patterns return null if they don't match
-                if (result == null) continue;
-
+                if (result != null) { break; }
+            }
+            if (result == null) {
+                this.errors.push(new TCError(this.position, this.position+1, ErrorType.LEXER, `Invalid character '${this.script[this.position]}'`))
+                this.position++;
+            } else {
                 this.position = result.endPos;
 
-                // don't add whitespace tokens if we're not supposed to
                 if (result.type == TokenType.WHITESPACE && !this.options.includeWhitespaceTokens) {
-                    break;
+                    // don't add whitespace tokens if we're not supposed to
+                } else {
+                    this.tokens.push(result);
                 }
-
-                tokens.push(result);
-                break;
             }
         }
 
         // add EOF token
-        tokens.push(new Token(this.script.length,this.script.length, TokenType.EOF, ""));
-
-        return tokens
+        this.tokens.push(new Token(this.script.length,this.script.length, TokenType.EOF, ""));
     }
 }
 

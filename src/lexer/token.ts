@@ -11,7 +11,9 @@ export enum TokenType {
 
 export class Token {
     constructor(
+        /** inclusive */
         readonly startPos: number,
+        /** exclusive */
         readonly endPos: number,
         readonly type: TokenType,
         readonly value: string = "",

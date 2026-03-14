@@ -4,4 +4,6 @@ const lexer = new Lexer("6 + 7;",{
     includeWhitespaceTokens: false
 });
 
-lexer.tokenize().map(v => console.log(""+v));
+lexer.tokenize()
+lexer.tokens.map(v => console.log(""+v));
+console.log(lexer.errors);
