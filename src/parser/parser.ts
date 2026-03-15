@@ -1,4 +1,4 @@
-import { BinaryExpression, Expression, NumberExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression } from "../ast/expression.ts";
 import { Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../lexer/token.ts";
 import { BindingPower, TokenProcessingProperites, TokenPType } from "./tokenProperties.ts";
@@ -12,7 +12,8 @@ export class Parser {
         public tokens: Token[]
     ) {
         this.tokenProperties = new Map<TokenType, TokenProcessingProperites>([
-            [TokenType.NUMERIC_LITERAL, {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM,  processor: this.parseNumberExpression}],
+            [TokenType.IDENTIFIER,      {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
+            [TokenType.NUMERIC_LITERAL, {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
             [TokenType.OPEN_PAREN,      {processType: TokenPType.EXPR_NUD,  bp: BindingPower.GROUP, processor: this.parseGroupExprssion}],
             [TokenType.PLUS,            {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
             [TokenType.MINUS,           {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
@@ -48,9 +49,9 @@ export class Parser {
         return t;
     }
 
-    parseNumberExpression = (): NumberExpression => {
-        let numToken = this.consume();
-        return new NumberExpression(numToken);
+    parseAtomicExpression = (): AtomicExpression => {
+        let token = this.consume();
+        return new AtomicExpression(token);
     }
 
     parseBinaryExpression = (left: Expression, bp: number): BinaryExpression => {

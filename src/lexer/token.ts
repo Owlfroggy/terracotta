@@ -3,6 +3,7 @@ export enum TokenType {
     SEMICOLON,
     WHITESPACE,
 
+    IDENTIFIER,
     NUMERIC_LITERAL,
 
     OPEN_PAREN,

@@ -2,7 +2,7 @@ import { Token } from "../lexer/token.ts";
 
 export class Expression {}
 
-export class NumberExpression extends Expression {
+export class AtomicExpression extends Expression {
     constructor(
         public token: Token,
     ) {super();}

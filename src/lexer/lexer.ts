@@ -36,13 +36,14 @@ export class Lexer {
         const patterns = [
             this.makeRegexPattern(TokenType.WHITESPACE,         /\s+/y),
             this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)?)\.?(?:\d+(?:_?\d+)?)?/y),
+            this.makeRegexPattern(TokenType.IDENTIFIER,         /[A-Za-z_]+[A-Za-z0-9_]*/y),
             this.makeRegexPattern(TokenType.PLUS,               /\+/y),
             this.makeRegexPattern(TokenType.MINUS,              /\-/y),
             this.makeRegexPattern(TokenType.STAR,               /\*/y),
             this.makeRegexPattern(TokenType.SLASH,              /\//y),
             this.makeRegexPattern(TokenType.SEMICOLON,          /\;/y),
-            this.makeRegexPattern(TokenType.OPEN_PAREN,          /\(/y),
-            this.makeRegexPattern(TokenType.CLOSE_PAREN,          /\)/y),
+            this.makeRegexPattern(TokenType.OPEN_PAREN,         /\(/y),
+            this.makeRegexPattern(TokenType.CLOSE_PAREN,        /\)/y),
         ];
 
         while (this.position < this.script.length) {

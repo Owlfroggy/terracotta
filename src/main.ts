@@ -1,14 +1,13 @@
-import { BinaryExpression, Expression, NumberExpression } from "./ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression } from "./ast/expression.ts";
 import { Lexer } from "./lexer/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 // thanks chatgpt
-let tests = `((((1 / 86) - (18 * 100)) * ((3 - 11) * (17 / 71))) * (((28 / 23) - (69 - 93)) * ((19 / 85) + (89 + 51))));(((((36 + 83) / (28 - 50)) + ((21 - 59) / (20 * 65))) / (((51 + 44) - (91 * 73)) * ((11 - 22) / (87 + 71)))) + (((88 / 41) / (82 * 76)) * ((72 - 84) * 90)));(((((75 / 79) / (40 / 84)) / ((30 - 13) - (31 / 26))) - (((59 + 47) + (56 / 80)) - ((100 + 67) - (63 / 14)))) + ((94 / 91) - (28 * 39)));((((11 / 86) / (34 + 77)) / ((44 - 78) / (25 * 88))) - (((76 / 82) - (35 / 38)) + 10));((((4 - 54) - (45 / 6)) + ((97 / 63) * (35 / 28))) * (((77 - 69) + (82 * 47)) * 11));(((((46 - 81) + (90 * 85)) + ((13 + 55) / (32 + 37))) / (((19 / 84) - (28 * 25)) + ((79 * 60) - (18 / 66)))) + ((((44 - 89) * (24 / 58)) + ((68 + 62) * (57 + 3))) + 29));(((((34 + 41) / (72 + 81)) * ((11 + 76) / (62 + 97))) / (((65 * 3) * (30 / 67)) + ((55 + 68) + (5 / 48)))) - 96);(((((37 + 94) / (23 / 91)) - ((82 - 88) + (25 + 59))) + (((5 / 79) * (63 * 21)) * ((39 * 29) - (35 * 9)))) / (((71 - 85) + (20 * 47)) + ((52 - 87) / (93 * 19))));(((((19 * 36) / (85 * 42)) - ((50 + 93) * (59 - 73))) + (((87 / 66) / (17 * 25)) / ((58 * 55) + (53 + 89)))) * ((((38 + 100) / (39 * 86)) * ((31 - 21) * (60 + 4))) - 7));(((((9 * 71) - (4 + 67)) / ((63 - 8) + (84 - 17))) * (((21 + 78) + (36 / 85)) + ((23 + 6) / (46 / 52)))) - ((47 + 74) - 16));(((((82 * 95) - (88 / 56)) - ((53 * 2) * (96 * 29))) / (((57 / 35) * (64 * 40)) * ((24 * 22) * (87 / 73)))) * ((46 + 77) - (8 * 28)));((((13 * 92) / (57 - 23)) + ((89 + 85) / (25 - 81))) / (((47 * 12) / (6 + 41)) - ((56 / 100) / (88 - 98))));((((37 + 91) - (62 + 68)) + ((86 / 15) * (73 - 35))) - (((85 - 83) - (81 - 61)) / ((23 * 9) * 98)));((((36 / 86) - (55 / 100)) * ((47 * 96) + (78 + 98))) + (60 - 82));(((((7 / 52) * (35 + 42)) * ((12 * 3) - (21 / 40))) / (((71 - 92) * (23 - 14)) * ((50 + 2) - (63 - 65)))) + ((89 - 67) * 49));(((((84 + 33) * (72 * 40)) + ((21 * 98) + (5 + 53))) / (((95 - 78) * (44 / 50)) * ((65 - 10) * (74 + 73)))) * (((6 / 45) - (8 / 47)) / (63 / 76)));((((91 + 99) * (47 * 64)) - ((51 - 22) + (36 + 78))) / (((11 / 8) * (53 + 45)) - ((66 + 33) * (19 - 63))));(((((54 - 62) - (66 / 33)) - ((89 / 55) * (99 / 73))) / (((41 / 39) * (70 - 59)) - ((20 * 40) - (49 + 52)))) - 82);((((58 / 56) * (100 + 95)) - ((93 - 85) / (67 + 90))) * (((83 / 77) - (24 - 51)) * 69));(((((38 - 48) - (28 + 8)) / ((13 + 65) - (100 + 67))) * (((61 + 7) / (72 * 77)) * ((75 * 94) * (4 / 66)))) - (((16 * 95) / (88 - 2)) + ((89 - 45) * 85)))`
-    .split(";");
+let test = `(5 + dingus) * 2 * 3;`
 
 // ast visualizer
 function recurse(e: Expression): string {
-    if (e instanceof NumberExpression) {
+    if (e instanceof AtomicExpression) {
         return e.token.value;
     } else if (e instanceof BinaryExpression) {
         return `(${recurse(e.left)} ${e.operator.value} ${recurse(e.right)})`
@@ -16,23 +15,13 @@ function recurse(e: Expression): string {
     return "";
 }
 
-// test to make sure it works
-for (const test of tests) {
-    console.log("-> ",test);
-    const lexer = new Lexer(test,{ // 27
-        includeWhitespaceTokens: false
-    });
+const lexer = new Lexer(test,{ // 27
+    includeWhitespaceTokens: false
+});
 
-    lexer.tokenize()
+lexer.tokenize()
 
-    const parser = new Parser(lexer.tokens);
-    let expr = parser.parseExpression(0) as Expression;
-    let out = recurse(expr);
-    console.log(out.substring(1,out.length-1));
-    if (eval(out) == eval(test)) {
-        console.log("yay")
-    } else {
-        console.log("whoops\n\n\n");
-    }
-}
-// console.log(out.substring(1,out.length-1));
+const parser = new Parser(lexer.tokens);
+let expr = parser.parseExpression(0) as Expression;
+console.log(expr);
+console.log(recurse(expr));
