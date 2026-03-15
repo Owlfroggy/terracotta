@@ -14,7 +14,7 @@ export class Parser {
         this.tokenProperties = new Map<TokenType, TokenProcessingProperites>([
             [TokenType.IDENTIFIER,      {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
             [TokenType.NUMERIC_LITERAL, {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
-            [TokenType.OPEN_PAREN,      {processType: TokenPType.EXPR_NUD,  bp: BindingPower.GROUP, processor: this.parseGroupExprssion}],
+            [TokenType.OPEN_PAREN,      {processType: TokenPType.EXPR_NUD,  bp: BindingPower.GROUP, processor: this.parseGroupExpression}],
             [TokenType.PLUS,            {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
             [TokenType.MINUS,           {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
             [TokenType.STAR,            {processType: TokenPType.EXPR_LED,  bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
@@ -62,7 +62,7 @@ export class Parser {
         );
     }
 
-    parseGroupExprssion = (bp: number): Expression => {
+    parseGroupExpression = (bp: number): Expression => {
         this.expect(TokenType.OPEN_PAREN);
         let g = this.parseExpression(BindingPower.DEFAULT);
         this.expect(TokenType.CLOSE_PAREN);
