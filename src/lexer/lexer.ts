@@ -41,6 +41,8 @@ export class Lexer {
             this.makeRegexPattern(TokenType.STAR,               /\*/y),
             this.makeRegexPattern(TokenType.SLASH,              /\//y),
             this.makeRegexPattern(TokenType.SEMICOLON,          /\;/y),
+            this.makeRegexPattern(TokenType.OPEN_PAREN,          /\(/y),
+            this.makeRegexPattern(TokenType.CLOSE_PAREN,          /\)/y),
         ];
 
         while (this.position < this.script.length) {

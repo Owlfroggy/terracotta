@@ -5,6 +5,9 @@ export enum TokenType {
 
     NUMERIC_LITERAL,
 
+    OPEN_PAREN,
+    CLOSE_PAREN,
+
     PLUS,
     MINUS,
     STAR,

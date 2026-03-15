@@ -12,9 +12,10 @@ export class Parser {
         public tokens: Token[]
     ) {
         this.tokenProperties = new Map<TokenType, TokenProcessingProperites>([
-            [TokenType.NUMERIC_LITERAL, {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM, processor: this.parseNumberExpression}],
-            [TokenType.PLUS,            {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,  processor: this.parseBinaryExpression}],
-            [TokenType.MINUS,           {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,  processor: this.parseBinaryExpression}],
+            [TokenType.NUMERIC_LITERAL, {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM,  processor: this.parseNumberExpression}],
+            [TokenType.OPEN_PAREN,      {processType: TokenPType.EXPR_NUD,  bp: BindingPower.GROUP, processor: this.parseGroupExprssion}],
+            [TokenType.PLUS,            {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
+            [TokenType.MINUS,           {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
             [TokenType.STAR,            {processType: TokenPType.EXPR_LED,  bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
             [TokenType.SLASH,           {processType: TokenPType.EXPR_LED,  bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
@@ -22,6 +23,13 @@ export class Parser {
     }
 
     // NOTE: these methods have to take arrow form (=>) or else everything breaks horrendously. you have been warned...
+
+    expect(type: TokenType) {
+        let currentToken = this.consume();
+        if (currentToken.type != type) {
+            throw new Error(`expected ${type} got ${currentToken}`)
+        }
+    }
 
     /** returns the token at index `position` */
     currentToken = (): Token => {
@@ -51,6 +59,13 @@ export class Parser {
             this.consume(),
             this.parseExpression(bp)
         );
+    }
+
+    parseGroupExprssion = (bp: number): Expression => {
+        this.expect(TokenType.OPEN_PAREN);
+        let g = this.parseExpression(BindingPower.DEFAULT);
+        this.expect(TokenType.CLOSE_PAREN);
+        return g;
     }
 
     parseExpression = (bp: number): Expression => { 
