@@ -1,4 +1,4 @@
-import { BinaryExpression, Expression, AtomicExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression } from "../ast/expression.ts";
 import { Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../lexer/token.ts";
 import { BindingPower, TokenProcessingProperites, TokenPType } from "./tokenProperties.ts";
@@ -25,11 +25,12 @@ export class Parser {
 
     // NOTE: these methods have to take arrow form (=>) or else everything breaks horrendously. you have been warned...
 
-    expect(type: TokenType) {
+    expect(type: TokenType): Token {
         let currentToken = this.consume();
         if (currentToken.type != type) {
             throw new Error(`expected ${type} got ${currentToken}`)
         }
+        return currentToken;
     }
 
     /** returns the token at index `position` */
@@ -62,11 +63,15 @@ export class Parser {
         );
     }
 
-    parseGroupExpression = (bp: number): Expression => {
-        this.expect(TokenType.OPEN_PAREN);
-        let g = this.parseExpression(BindingPower.DEFAULT);
-        this.expect(TokenType.CLOSE_PAREN);
-        return g;
+    parseGroupExpression = (bp: number): GroupExpression => {
+        let opener = this.expect(TokenType.OPEN_PAREN);
+        let expr = this.parseExpression(BindingPower.DEFAULT);
+        let closer = this.expect(TokenType.CLOSE_PAREN);
+        return new GroupExpression(
+            opener,
+            expr,
+            closer,
+        );
     }
 
     parseExpression = (bp: number): Expression => { 
