@@ -1,9 +1,9 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression } from "../ast/expression.ts";
-import { Statement } from "../ast/statement.ts";
+import { ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower, TokenProcessingProperites, TokenPType } from "../ast/token.ts";
 
 export class Parser {
-    statements: Statement[];
+    statements: Statement[] = [];
     tokenProperties: Map<TokenType, TokenProcessingProperites>;
     position: number = 0;
 
@@ -92,5 +92,20 @@ export class Parser {
         }
 
         return left;
+    }
+
+    parseExpressionStatement(): ExpressionStatement {
+        let expr = this.parseExpression(BindingPower.DEFAULT);
+        return new ExpressionStatement(expr.startPos,expr.endPos,expr);
+    }
+
+    parse() {
+        this.statements.length = 0;
+
+        while (this.currentToken().type != TokenType.EOF) {
+            let statement = this.parseExpressionStatement();
+            this.statements.push(statement);
+            this.expect(TokenType.SEMICOLON);
+        }
     }
 }

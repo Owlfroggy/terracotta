@@ -1,9 +1,10 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression } from "./ast/expression.ts";
+import { ExpressionStatement, Statement } from "./ast/statement.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 // thanks chatgpt
-let test = `(dingus + 2) * 3`
+let test = `(dingus + 2) * 3;5;`
 
 // ast visualizer
 function recurse(e: Expression): string {
@@ -17,13 +18,20 @@ function recurse(e: Expression): string {
     return "";
 }
 
-function visualizeAST(e: Expression): string {
+function visualizeExpression(expr: Expression): string {
     let out = recurse(expr);
     if (expr instanceof BinaryExpression) {
         return out.substring(1,out.length-1);
     } else {
         return out;
     }
+}
+function visualizeAST(statements: Statement[]) {
+    return statements.map(s => {
+        if (s instanceof ExpressionStatement) {
+            return visualizeExpression(s.expression);
+        }
+    }).join(";\n")+";";
 }
 
 const lexer = new Lexer(test,{ // 27
@@ -33,6 +41,7 @@ const lexer = new Lexer(test,{ // 27
 lexer.tokenize()
 
 const parser = new Parser(lexer.tokens);
-let expr = parser.parseExpression(0) as Expression;
-console.log(expr);
-console.log(visualizeAST(expr));
+// let expr = parser.parseExpression(0) as Expression;
+parser.parse();
+console.log(parser.statements);
+console.log(visualizeAST(parser.statements));
