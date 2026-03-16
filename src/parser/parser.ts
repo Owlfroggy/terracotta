@@ -1,9 +1,11 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression } from "../ast/expression.ts";
 import { ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower, TokenProcessingProperites, TokenPType } from "../ast/token.ts";
+import { ErrorType, TCError } from "../error/error.ts";
 
 export class Parser {
     statements: Statement[] = [];
+    errors: TCError[] = [];
     tokenProperties: Map<TokenType, TokenProcessingProperites>;
     position: number = 0;
 
@@ -25,9 +27,15 @@ export class Parser {
     // NOTE: these methods have to take arrow form (=>) or else everything breaks horrendously. you have been warned...
 
     expect(type: TokenType): Token {
-        let currentToken = this.consume();
-        if (currentToken.type != type) {
-            throw new Error(`expected ${type} got ${currentToken}`)
+        let currentToken = this.currentToken();
+        if (currentToken.type == type) {
+            this.consume();
+        } else {
+            this.errors.push(new TCError(
+                currentToken.startPos, currentToken.endPos,
+                ErrorType.PARSER,
+                `expected ${TokenType[type]} got ${currentToken}`
+            ));
         }
         return currentToken;
     }
@@ -83,10 +91,7 @@ export class Parser {
 
         props = this.currentTokenPProps();
 
-        while (props.processType != TokenPType.NONE && props.bp > bp) {
-            if (props.processType == TokenPType.EXPR_NUD) {
-                throw `Expected a nud (two) ${this.currentToken()}`;
-            }
+        while (props.processType == TokenPType.EXPR_LED && props.bp > bp) {
             left = props.processor(left, props.bp);
             props = this.currentTokenPProps();
         }
@@ -101,6 +106,7 @@ export class Parser {
 
     parse() {
         this.statements.length = 0;
+        this.errors.length = 0;
 
         while (this.currentToken().type != TokenType.EOF) {
             let statement = this.parseExpressionStatement();
