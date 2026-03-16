@@ -1,7 +1,6 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression } from "../ast/expression.ts";
 import { Statement } from "../ast/statement.ts";
-import { Token, TokenType } from "../lexer/token.ts";
-import { BindingPower, TokenProcessingProperites, TokenPType } from "./tokenProperties.ts";
+import { Token, TokenType, BindingPower, TokenProcessingProperites, TokenPType } from "../ast/token.ts";
 
 export class Parser {
     statements: Statement[];

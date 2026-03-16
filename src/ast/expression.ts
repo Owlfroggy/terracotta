@@ -1,4 +1,4 @@
-import { Token } from "../lexer/token.ts";
+import { Token } from "./token.ts";
 
 export class Expression {
     constructor(

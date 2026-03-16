@@ -1,7 +1,5 @@
 import { ErrorType, TCError } from "../error/error.ts";
-import { Token, TokenType } from "./token.ts";
-
-type Pattern = () => Token | null;
+import { Token, TokenType } from "../ast/token.ts";
 
 export class Lexer {
     tokens: Token[] = [];

@@ -1,5 +1,5 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression } from "./ast/expression.ts";
-import { Lexer } from "./lexer/lexer.ts";
+import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 // thanks chatgpt
