@@ -28,3 +28,13 @@ export class GroupExpression extends Expression {
         public closer: Token,
     ) {super(opener.startPos, closer.endPos);}
 }
+
+/**
+ * This expression is used as a placeholder when an expression that was expected to be in a place wasn't there.
+ * This will never appear in an error-free AST.
+ */
+export class MissingExpression extends Expression {
+    constructor(position: number) {
+        super(position,position);
+    }
+}

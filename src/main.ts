@@ -6,7 +6,7 @@ import { Parser } from "./parser/parser.ts";
 
 // thanks chatgpt
 let test = 
-`3 + dingus
+`3 +; dingus
 4 dongus;`
 
 // ast visualizer
@@ -59,7 +59,7 @@ function visualizeErrors(errors: TCError[], script: string) {
         console.log(script.substring(topNewlineIndex,bottomNewlineIndex));
         let caretCount = e.endPos-e.startPos;
         console.log(" ".repeat(e.startPos-lineStartIndex) + "^".repeat(caretCount))
-        console.log(`error: ${e.message}`)
+        console.log(`${!e.shouldDisplay ? "(hidden) " : ""}error: ${e.message}`)
         console.log()
     }
     console.log("---------------------------------")

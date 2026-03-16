@@ -1,4 +1,4 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression } from "../ast/expression.ts";
 import { ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower, TokenProcessingProperites, TokenPType } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
@@ -24,21 +24,41 @@ export class Parser {
         ]);
     }
 
-    // NOTE: these methods have to take arrow form (=>) or else everything breaks horrendously. you have been warned...
+
+    reportError(startPos: number, endPos: number, message: string) {
+        this.errors.push(new TCError(
+            startPos, endPos,
+            ErrorType.PARSER,
+            message
+        ));
+    }
+
+    /** Reports an error that should not be displayed to the user since
+     *  a later compilation sstep will provide a more detailed breakdown */
+    reportUndisplayedError(startPos: number, endPos: number, message: string) {
+        let e = new TCError(
+            startPos, endPos,
+            ErrorType.PARSER,
+            message
+        );
+        e.shouldDisplay = false;
+        this.errors.push(e);
+    }
 
     expect(type: TokenType): Token {
         let currentToken = this.currentToken();
         if (currentToken.type == type) {
             this.consume();
         } else {
-            this.errors.push(new TCError(
+            this.reportError(
                 currentToken.startPos, currentToken.endPos,
-                ErrorType.PARSER,
                 `expected ${TokenType[type]} got ${currentToken}`
-            ));
+            );
         }
         return currentToken;
     }
+
+    // NOTE: these methods have to take arrow form (=>) or else everything breaks horrendously. you have been warned...
 
     /** returns the token at index `position` */
     currentToken = (): Token => {
@@ -83,8 +103,13 @@ export class Parser {
 
     parseExpression = (bp: number): Expression => { 
         let props = this.currentTokenPProps();
+
         if (props.processType != TokenPType.EXPR_NUD) {
-            throw `Expected a nud got ${this.currentToken()}`;
+            this.reportUndisplayedError(
+                this.currentToken().startPos, this.currentToken().endPos,
+                `Expected a value here, got ${this.currentToken()}`
+            );
+            return new MissingExpression(this.currentToken().startPos);
         }
 
         let left = props.processor(bp); // advances position

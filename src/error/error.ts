@@ -4,6 +4,7 @@ export enum ErrorType {
 }
 
 export class TCError {
+    public shouldDisplay: boolean = true;
     constructor(
         /** inclusive */
         readonly startPos: number,
