@@ -131,8 +131,9 @@ export class Parser {
         while (
             this.currentToken().type != closerType 
         ) {
-            let currentTokenType = this.currentToken().type;
-            if (currentTokenType == TokenType.SEMICOLON || currentTokenType == TokenType.EOF) {
+            // if the current token cannot be processed in any way,
+            // break to avoid getting stuck in an infinite loop
+            if (!(this.currentTokenLEDProps() || this.currrentTokenNUDProps())) {
                 break;
             }
             let expr = this.parseExpression(BindingPower.DEFAULT);
