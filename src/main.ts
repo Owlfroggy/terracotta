@@ -1,13 +1,16 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression } from "./ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression } from "./ast/expression.ts";
 import { ExpressionStatement, Statement } from "./ast/statement.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
-// thanks chatgpt
 let test = 
-`3 +; dingus
-4 dongus;`
+// `[2,3,;]; 2;`
+`
+[2,3,,[frog,face], bongle,dingus]; 
+1 + 2 - [5,3,2]; 
+5 + -;
+dingus + dongus;`
 
 // ast visualizer
 function recurse(e: Expression): string {
@@ -15,8 +18,12 @@ function recurse(e: Expression): string {
         return e.token.value;
     } else if (e instanceof GroupExpression) {
         return recurse(e.expression);
+    } else if (e instanceof ListExpression) {
+        return `${e.opener.value}${e.elements.map(visualizeExpression).join(", ")}${e.opener.value == "[" ? "]" : ")"}`
     } else if (e instanceof BinaryExpression) {
         return `(${recurse(e.left)} ${e.operator.value} ${recurse(e.right)})`
+    } else if (e instanceof MissingExpression) {
+        return `⊘`;
     }
     return "";
 }
@@ -76,5 +83,7 @@ const parser = new Parser(lexer.tokens);
 parser.parse();
 console.log(parser.statements);
 // console.log("Errors: ", parser.errors);
+console.log("RECONSTRUCTION FROM AST --------------------")
 console.log(visualizeAST(parser.statements));
+console.log("--------------------------------------------")
 visualizeErrors(parser.errors,test)

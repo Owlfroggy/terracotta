@@ -10,6 +10,10 @@ export enum TokenType {
 
     OPEN_PAREN,
     CLOSE_PAREN,
+    OPEN_BRACKET,
+    CLOSE_BRACKET,
+
+    COMMA,
 
     PLUS,
     MINUS,

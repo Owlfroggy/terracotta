@@ -1,4 +1,4 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression } from "../ast/expression.ts";
 import { ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower, TokenProcessingProperites, TokenPType } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
@@ -20,6 +20,7 @@ export class Parser {
             [TokenType.MINUS,           {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
             [TokenType.STAR,            {processType: TokenPType.EXPR_LED,  bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
             [TokenType.SLASH,           {processType: TokenPType.EXPR_LED,  bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
+            [TokenType.OPEN_BRACKET,    {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM,  processor: () => this.parseListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA)}]
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
         ]);
     }
@@ -49,13 +50,14 @@ export class Parser {
         let currentToken = this.currentToken();
         if (currentToken.type == type) {
             this.consume();
+            return currentToken;
         } else {
             this.reportError(
                 currentToken.startPos, currentToken.endPos,
                 `expected ${TokenType[type]} got ${currentToken}`
             );
+            return currentToken;
         }
-        return currentToken;
     }
 
     // NOTE: these methods have to take arrow form (=>) or else everything breaks horrendously. you have been warned...
@@ -101,6 +103,26 @@ export class Parser {
         );
     }
 
+    parseListExpression = (openerType: TokenType, closerType: TokenType, delimiter: TokenType): ListExpression => {
+        let opener = this.expect(openerType);
+        let elements: Expression[] = [];
+        while (
+            this.currentToken().type != closerType 
+        ) {
+            let currentTokenType = this.currentToken().type;
+            if (currentTokenType == TokenType.SEMICOLON || currentTokenType == TokenType.EOF) {
+                break;
+            }
+            let expr = this.parseExpression(BindingPower.DEFAULT);
+            elements.push(expr);
+            if (this.currentToken().type != closerType) {
+                this.expect(delimiter);
+            }
+        }
+        let closer = this.expect(closerType);
+        return new ListExpression(opener, elements, closer);
+    }
+
     parseExpression = (bp: number): Expression => { 
         let props = this.currentTokenPProps();
 
@@ -135,6 +157,10 @@ export class Parser {
 
         while (this.currentToken().type != TokenType.EOF) {
             let statement = this.parseExpressionStatement();
+            if (statement instanceof ExpressionStatement && statement.expression instanceof MissingExpression) {
+                this.consume();
+                continue;
+            }
             this.statements.push(statement);
             this.expect(TokenType.SEMICOLON);
         }
