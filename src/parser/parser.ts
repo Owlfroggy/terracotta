@@ -1,26 +1,41 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression } from "../ast/expression.ts";
 import { ExpressionStatement, Statement } from "../ast/statement.ts";
-import { Token, TokenType, BindingPower, TokenProcessingProperites, TokenPType } from "../ast/token.ts";
+import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
+
+export type NUDProcessingProperties = {
+    /** binding power */
+    bp: number,
+    processor: (bp: number) => Expression;
+}
+
+export type LEDProcessingProperties = {
+    /** binding power */
+    bp: number,
+    processor: (left: Expression, bp: number) => Expression;
+}
 
 export class Parser {
     statements: Statement[] = [];
     errors: TCError[] = [];
-    tokenProperties: Map<TokenType, TokenProcessingProperites>;
+    tokenNUDProperties: Map<TokenType, NUDProcessingProperties>;
+    tokenLEDProperties: Map<TokenType, LEDProcessingProperties>;
     position: number = 0;
 
     constructor(
         public tokens: Token[]
     ) {
-        this.tokenProperties = new Map<TokenType, TokenProcessingProperites>([
-            [TokenType.IDENTIFIER,      {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
-            [TokenType.NUMERIC_LITERAL, {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
-            [TokenType.OPEN_PAREN,      {processType: TokenPType.EXPR_NUD,  bp: BindingPower.GROUP, processor: this.parseGroupExpression}],
-            [TokenType.PLUS,            {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
-            [TokenType.MINUS,           {processType: TokenPType.EXPR_LED,  bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
-            [TokenType.STAR,            {processType: TokenPType.EXPR_LED,  bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
-            [TokenType.SLASH,           {processType: TokenPType.EXPR_LED,  bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
-            [TokenType.OPEN_BRACKET,    {processType: TokenPType.EXPR_NUD,  bp: BindingPower.ATOM,  processor: () => this.parseListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA)}]
+        this.tokenNUDProperties = new Map<TokenType, NUDProcessingProperties>([
+            [TokenType.IDENTIFIER,      {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
+            [TokenType.NUMERIC_LITERAL, {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
+            [TokenType.OPEN_PAREN,      {bp: BindingPower.GROUP, processor: this.parseGroupExpression}],
+            [TokenType.OPEN_BRACKET,    {bp: BindingPower.ATOM,  processor: () => this.parseListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA)}]
+        ]);
+        this.tokenLEDProperties = new Map<TokenType, LEDProcessingProperties>([
+            [TokenType.PLUS,            {bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
+            [TokenType.MINUS,           {bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
+            [TokenType.STAR,            {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
+            [TokenType.SLASH,           {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
         ]);
     }
@@ -68,8 +83,15 @@ export class Parser {
     }
 
     /** returns the processing properties of the token at index `position` */
-    currentTokenPProps = (): TokenProcessingProperites => {
-        return this.tokenProperties.get(this.currentToken().type) ?? {processType: TokenPType.NONE};
+    currrentTokenNUDProps = (): NUDProcessingProperties | null => {
+        let token = this.currentToken();
+        if (!this.tokenNUDProperties.has(token.type)) return null;
+        return this.tokenNUDProperties.get(token.type)!;
+    }
+    currentTokenLEDProps = (): LEDProcessingProperties | null => {
+        let token = this.currentToken();
+        if (!this.tokenLEDProperties.has(token.type)) return null;
+        return this.tokenLEDProperties.get(token.type)!;
     }
 
     /** returns the current token and advances position by 1 */
@@ -124,9 +146,9 @@ export class Parser {
     }
 
     parseExpression = (bp: number): Expression => { 
-        let props = this.currentTokenPProps();
+        let nudProps = this.currrentTokenNUDProps();
 
-        if (props.processType != TokenPType.EXPR_NUD) {
+        if (nudProps == null) {
             this.reportUndisplayedError(
                 this.currentToken().startPos, this.currentToken().endPos,
                 `Expected a value here, got ${this.currentToken()}`
@@ -134,13 +156,13 @@ export class Parser {
             return new MissingExpression(this.currentToken().startPos);
         }
 
-        let left = props.processor(bp); // advances position
+        let left = nudProps.processor(bp); // advances position
 
-        props = this.currentTokenPProps();
+        let ledProps = this.currentTokenLEDProps();
 
-        while (props.processType == TokenPType.EXPR_LED && props.bp > bp) {
-            left = props.processor(left, props.bp);
-            props = this.currentTokenPProps();
+        while (ledProps != null && ledProps.bp > bp) {
+            left = ledProps.processor(left, ledProps.bp);
+            ledProps = this.currentTokenLEDProps();
         }
 
         return left;
