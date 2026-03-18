@@ -28,6 +28,14 @@ export class CallExpression extends Expression {
     ) {super(callee.startPos,args.endPos); }
 }
 
+export class AccessExpression extends Expression {
+    constructor (
+        public accessee: Expression,
+        public accessorToken: Token,
+        public propertyName: Token,
+    ) {super(accessee.startPos,propertyName.endPos); }
+}
+
 export class GroupExpression extends Expression {
     constructor (
         public opener: Token,

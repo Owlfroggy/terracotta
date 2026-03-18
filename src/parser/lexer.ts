@@ -45,6 +45,7 @@ export class Lexer {
             this.makeRegexPattern(TokenType.OPEN_BRACKET,       /\[/y),
             this.makeRegexPattern(TokenType.CLOSE_BRACKET,      /\]/y),
             this.makeRegexPattern(TokenType.COMMA,              /\,/y),
+            this.makeRegexPattern(TokenType.DOT,                /\./y),
 
         ];
 

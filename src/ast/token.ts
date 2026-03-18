@@ -2,6 +2,7 @@ import { Expression } from "./expression.ts";
 
 export enum TokenType {
     EOF,
+    MISSING,
     SEMICOLON,
     WHITESPACE,
 
@@ -14,6 +15,7 @@ export enum TokenType {
     CLOSE_BRACKET,
 
     COMMA,
+    DOT,
 
     PLUS,
     MINUS,
@@ -26,6 +28,7 @@ export enum BindingPower {
     ADD,
     MULT,
     CALL,
+    ACCESS,
     GROUP,
     ATOM,
 }
@@ -43,5 +46,9 @@ export class Token {
     
     toString() {
         return `{${TokenType[this.type]} '${this.value}' [${this.startPos}-${this.endPos}]}`
+    }
+    
+    static missing(pos: number): Token {
+        return new Token(pos, pos, TokenType.MISSING, "⊘");
     }
 }

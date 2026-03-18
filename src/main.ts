@@ -1,13 +1,11 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression } from "./ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression } from "./ast/expression.ts";
 import { ExpressionStatement, Statement } from "./ast/statement.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = 
-`b(5, 2, c( [7, 3 ,) + 20; 
-5 + 2;
-wait(20);`
+`game...send_message();`;
 // `[2,3,;]; 2;`
 // `
 // [2,3,,[frog,face], bongle,dingus]; 
@@ -27,6 +25,8 @@ function recurse(e: Expression): string {
         return `(${recurse(e.left)} ${e.operator.value} ${recurse(e.right)})`
     } else if (e instanceof CallExpression) {
         return `${recurse(e.callee)}${recurse(e.args)}`;
+    } else if (e instanceof AccessExpression) {
+        return `${recurse(e.accessee)}${e.accessorToken.value}${e.propertyName.value}`;
     } else if (e instanceof MissingExpression) {
         return `⊘`;
     }

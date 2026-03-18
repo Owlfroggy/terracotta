@@ -1,4 +1,4 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression } from "../ast/expression.ts";
 import { ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
@@ -36,7 +36,8 @@ export class Parser {
             [TokenType.MINUS,           {bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
             [TokenType.STAR,            {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
             [TokenType.SLASH,           {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
-            [TokenType.OPEN_PAREN,      {bp: BindingPower.CALL,  processor: this.parseCallExpression}]
+            [TokenType.OPEN_PAREN,      {bp: BindingPower.CALL,  processor: this.parseCallExpression}],
+            [TokenType.DOT,             {bp: BindingPower.ACCESS,processor: this.parseAccessExpression}],
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
         ]);
     }
@@ -102,8 +103,23 @@ export class Parser {
         return t;
     }
 
-    parseAtomicExpression = (): AtomicExpression => {
-        let token = this.consume();
+    parseAtomicExpression = (): AtomicExpression | MissingExpression => {
+        let token = this.currentToken();
+        let type = token.type;
+
+        // error handling for a non-atomic token
+        if (
+            type != TokenType.NUMERIC_LITERAL
+            && type != TokenType.IDENTIFIER
+        ) {
+            this.reportUndisplayedError(
+                token.startPos, token. endPos,
+                `Expected atomic expression, got ${token}`
+            );
+            return new MissingExpression(token.startPos);
+        }
+
+        this.consume();
         return new AtomicExpression(token);
     }
 
@@ -119,6 +135,21 @@ export class Parser {
         return new CallExpression(
             left,
             this.parseListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA)
+        );
+    }
+
+    parseAccessExpression = (left: Expression, bp: number): AccessExpression => {
+        let accessorToken = this.consume();
+
+        let propertyName = this.expect(TokenType.IDENTIFIER);
+        if (propertyName.type != TokenType.IDENTIFIER) {
+            propertyName = Token.missing(accessorToken.endPos);
+        }
+        
+        return new AccessExpression(
+            left,
+            accessorToken,
+            propertyName
         );
     }
 
