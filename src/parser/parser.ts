@@ -1,4 +1,4 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression } from "../ast/expression.ts";
 import { ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
@@ -36,6 +36,7 @@ export class Parser {
             [TokenType.MINUS,           {bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
             [TokenType.STAR,            {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
             [TokenType.SLASH,           {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
+            [TokenType.OPEN_PAREN,      {bp: BindingPower.CALL,  processor: this.parseCallExpression}]
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
         ]);
     }
@@ -111,6 +112,13 @@ export class Parser {
             left,
             this.consume(),
             this.parseExpression(bp)
+        );
+    }
+
+    parseCallExpression = (left: Expression, bp: number) => {
+        return new CallExpression(
+            left,
+            this.parseListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA)
         );
     }
 

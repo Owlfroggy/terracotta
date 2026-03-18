@@ -25,6 +25,7 @@ export enum BindingPower {
     DEFAULT,
     ADD,
     MULT,
+    CALL,
     GROUP,
     ATOM,
 }

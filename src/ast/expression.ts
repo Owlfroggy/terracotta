@@ -21,6 +21,13 @@ export class BinaryExpression extends Expression {
     ) {super(left.startPos, right.endPos);}
 }
 
+export class CallExpression extends Expression {
+    constructor (
+        public callee: Expression,
+        public args: ListExpression,
+    ) {super(callee.startPos,args.endPos); }
+}
+
 export class GroupExpression extends Expression {
     constructor (
         public opener: Token,
