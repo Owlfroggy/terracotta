@@ -170,12 +170,27 @@ export class Parser {
         while (
             this.currentToken().type != closerType 
         ) {
-            // if the current token cannot be processed in any way,
-            // break to avoid getting stuck in an infinite loop
-            if (!(this.currentTokenLEDProps() || this.currrentTokenNUDProps())) {
-                break;
+            let expr: Expression;
+
+            if (!this.currrentTokenNUDProps()) {
+                // EVERYTHING IN THIS IF STATEMENT IS ERROR RECOVERY!!
+
+                // if this is an operator without a left value, try
+                // running its parsing code with a Missing as its left
+                let ledProps = this.currentTokenLEDProps();
+                if (ledProps) {
+                    expr = ledProps.processor(new MissingExpression(this.currentToken().startPos), BindingPower.DEFAULT)
+                } 
+                // if the current token cannot be processed in any way,
+                // break to avoid getting stuck in an infinite loop
+                else {
+                    break;
+                }
+            } 
+            // normal parsing code, this will run every time on a valid syntax file
+            else {
+                expr = this.parseExpression(BindingPower.DEFAULT);
             }
-            let expr = this.parseExpression(BindingPower.DEFAULT);
             elements.push(expr);
             if (this.currentToken().type != closerType) {
                 this.expect(delimiter);

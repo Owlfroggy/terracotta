@@ -5,7 +5,7 @@ import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = 
-`game...send_message();`;
+`game.send_message(5,.dingus); 2 + + 5;`;
 // `[2,3,;]; 2;`
 // `
 // [2,3,,[frog,face], bongle,dingus]; 
