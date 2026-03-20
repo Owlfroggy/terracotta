@@ -1,5 +1,5 @@
 import { ASTNode } from "./ast/astNode.ts";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression } from "./ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression } from "./ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
@@ -8,12 +8,7 @@ import { Parser } from "./parser/parser.ts";
 
 let test = 
 `
-/* this can be a description! */
-line dingus;
-global bongus = ;
-saved "%uuid yingus" = 22;
-klingus = 10;
-
+line dingus: any = "hello world!";
 `
 // `
 // 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
@@ -32,9 +27,11 @@ klingus = 10;
 // `
 
 // ast visualizer
-function recurse(e: ASTNode): string {
+function recurse(e: ASTNode | null): string {
     const placeholder = "\x1b[0;38;5;196;49m⊘\x1b[0m";
-    if (e instanceof Token) {
+    if (e == null) {
+        return placeholder
+    } else if (e instanceof Token) {
         if (e.type == TokenType.STRING_LITERAL) {
             let stringData = e.getStringExtraData();
             return `\x1b[0;32m${stringData.quoteChar}\x1b[0;38;5;112;49m${e.value.replaceAll("\n","\x1b[0;34m\\n\x1b[0;38;5;112;49m")}\x1b[0;32m${stringData.quoteChar}\x1b[0m`;
@@ -49,6 +46,8 @@ function recurse(e: ASTNode): string {
         return recurse(e.token);
     } else if (e instanceof VariableExpression) {
         return `${e.scope.value}${e.name.type == TokenType.IDENTIFIER ? " "+e.name.value : recurse(e.name)}`;
+    } else if (e instanceof TypeExpression) {
+        return `\x1b[0;38;5;39;49m${e.baseType.value}\x1b[0m`
     } else if (e instanceof GroupExpression) {
         return recurse(e.expression);
     } else if (e instanceof ListExpression) {
@@ -68,7 +67,7 @@ function recurse(e: ASTNode): string {
     } else if (e instanceof ExpressionStatement) {
         return `${recurse(e.expression)}`
     } else if (e instanceof VariableStatement) {
-        return `\x1b[0;38;5;147;49m${recurse(e.variable)}\x1b[0m${e.operator ? " "+e.operator.value+" " : ""}${e.value ? recurse(e.value) : ""};`
+        return `\x1b[0;38;5;147;49m${recurse(e.variable)}${e.colon ? `: ${recurse(e.type)}` : ""}\x1b[0m${e.operator ? " "+e.operator.value+" " : ""}${e.value ? recurse(e.value) : ""};`
     } else if (e instanceof EventStatement) {
         let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`

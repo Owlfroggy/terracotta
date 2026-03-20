@@ -13,6 +13,20 @@ export enum TokenType {
     NUMERIC_LITERAL,
     STRING_LITERAL,
 
+    STR,
+    NUM,
+    VEC,
+    LOC,
+    POT,
+    VAR,
+    SND,
+    TXT,
+    ITEM,
+    LIST,
+    DICT,
+    PAR,
+    ANY,
+
     LAGSLAYER_CANCEL,
     PLAYER_EVENT,
     GAME_EVENT,
@@ -44,6 +58,7 @@ export enum TokenType {
     OPEN_CURLY,
     CLOSE_CURLY,
 
+    COLON,
     COMMA,
     DOT,
 

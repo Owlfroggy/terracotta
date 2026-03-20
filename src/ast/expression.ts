@@ -22,6 +22,12 @@ export class VariableExpression extends Expression {
     ) {super(scope.startPos, name.endPos);}
 }
 
+export class TypeExpression extends Expression {
+    constructor(
+        public baseType: Token,
+    ) {super(baseType.startPos, baseType.endPos);}
+}
+
 export class BinaryExpression extends Expression {
     constructor (
         public left: Expression,

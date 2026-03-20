@@ -1,5 +1,6 @@
 import { ErrorType, TCError } from "../error/error.ts";
 import { Token, TokenType } from "../ast/token.ts";
+import { TYPE_KEYWORDS } from "./parser.ts";
 
 export class Lexer {
     tokens: Token[] = [];
@@ -190,6 +191,8 @@ export class Lexer {
             this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)?)\.?(?:\d+(?:_?\d+)?)?/y),
 
             // keywords
+            ...TYPE_KEYWORDS.map(i => this.makeKeywordPattern(i,TokenType[i].toLowerCase())),
+
             this.makeKeywordPattern(TokenType.LAGSLAYER_CANCEL, "lscancel"),
             this.makeKeywordPattern(TokenType.PLAYER_EVENT,     "playerevent"),
             this.makeKeywordPattern(TokenType.ENTITY_EVENT,     "entityevent"),
@@ -237,6 +240,7 @@ export class Lexer {
             this.makeSymbolPattern(TokenType.CLOSE_CURLY,       "}"),
 
             // other symbols
+            this.makeSymbolPattern(TokenType.COLON,             ":"),
             this.makeSymbolPattern(TokenType.COMMA,             ","),
             this.makeSymbolPattern(TokenType.DOT,               "."),
             this.makeSymbolPattern(TokenType.SEMICOLON,         ";"),

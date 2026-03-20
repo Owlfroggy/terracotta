@@ -1,10 +1,11 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
-const VARIABLE_SCOPE_KEYWORDS = [TokenType.GLOBAL,TokenType.SAVED,TokenType.LOCAL,TokenType.LOCAL];
-const ASSIGNMENT_OPERATORS = [TokenType.EQUALS, TokenType.PLUS_EQUALS, TokenType.MINUS_EQUALS, TokenType.STAR_EQUALS, TokenType.SLASH_EQUALS];
+export const VARIABLE_SCOPE_KEYWORDS = [TokenType.GLOBAL,TokenType.SAVED,TokenType.LOCAL,TokenType.LOCAL];
+export const ASSIGNMENT_OPERATORS = [TokenType.EQUALS, TokenType.PLUS_EQUALS, TokenType.MINUS_EQUALS, TokenType.STAR_EQUALS, TokenType.SLASH_EQUALS];
+export const TYPE_KEYWORDS = [TokenType.STR,TokenType.NUM,TokenType.VEC,TokenType.LOC,TokenType.POT,TokenType.VAR,TokenType.SND,TokenType.TXT,TokenType.ITEM,TokenType.LIST,TokenType.DICT,TokenType.PAR,TokenType.ANY];
 
 export type NUDProcessingProperties = {
     /** binding power */
@@ -190,6 +191,11 @@ export class Parser {
         return new VariableExpression(scope, name);
     }
 
+    parseTypeExpression = (): TypeExpression => {
+        let [type, typeFound] = this.expectOrMissing(TYPE_KEYWORDS);
+        return new TypeExpression(type);
+    }
+
     parseBinaryExpression = (left: Expression, bp: number): BinaryExpression => {
         return new BinaryExpression(
             left,
@@ -355,13 +361,24 @@ export class Parser {
     parseVariableStatement = (): VariableStatement => {
         let variable = this.parseVariableExpression();
         let operator: Token | null = null;
+
+        // specify a type
+        let colon: Token | null = null;
+        let type: TypeExpression | null = null;
+        if (this.currentToken().type == TokenType.COLON) {
+            colon = this.consume();
+            type = this.parseTypeExpression();
+        }
+
+        // assign to a value
         let value: Expression | null = null;
         if (ASSIGNMENT_OPERATORS.includes(this.currentToken().type)) {
             operator = this.consume();
             value = this.parseExpression(BindingPower.DEFAULT);
         }
+        
         this.expect(TokenType.SEMICOLON);
-        return new VariableStatement(variable, operator, value);
+        return new VariableStatement(variable, colon, type, operator, value);
     }
 
     parseEventStatement = (): EventStatement | null => {
