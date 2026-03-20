@@ -48,7 +48,7 @@ export class Parser {
             [TokenType.MINUS,           {bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
             [TokenType.STAR,            {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
             [TokenType.SLASH,           {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
-            
+
             [TokenType.OPEN_PAREN,      {bp: BindingPower.CALL,  processor: this.parseCallExpression}],
             [TokenType.DOT,             {bp: BindingPower.ACCESS,processor: this.parseAccessExpression}],
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
@@ -163,7 +163,7 @@ export class Parser {
 
     parseVariableExpression = (): VariableExpression => {
         let scope = this.consume();
-        let [name, nameFound] = this.expectOrMissing(TokenType.IDENTIFIER);
+        let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
         return new VariableExpression(scope, name);
     }
 

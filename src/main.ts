@@ -1,13 +1,17 @@
+import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression } from "./ast/expression.ts";
 import { EventStatement, ExpressionStatement, Statement } from "./ast/statement.ts";
-import { TokenType } from "./ast/token.ts";
+import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = 
 `
-global joinDate = game.timestamp * 20;
+playerevent Join {
+    global "joinDate sp%uuid" = game.timestamp * 20;
+    default.sendMessage("welcome to my game :D");
+}
 `
 // `
 // 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
@@ -26,16 +30,18 @@ global joinDate = game.timestamp * 20;
 // `
 
 // ast visualizer
-function recurse(e: Expression | Statement): string {
-    if (e instanceof AtomicExpression) {
-        if (e.token.type == TokenType.STRING_LITERAL) {
-            let stringData = e.token.getStringExtraData();
-            return `${stringData.quoteChar}\x1b[0;92m${e.token.value.replaceAll("\n","\x1b[0;34m\\n\x1b[0;92m")}\x1b[0m${stringData.quoteChar}`
+function recurse(e: ASTNode): string {
+    if (e instanceof Token) {
+        if (e.type == TokenType.STRING_LITERAL) {
+            let stringData = e.getStringExtraData();
+            return `\x1b[0;32m${stringData.quoteChar}\x1b[0;38;5;112;49m${e.value.replaceAll("\n","\x1b[0;34m\\n\x1b[0;38;5;112;49m")}\x1b[0;32m${stringData.quoteChar}\x1b[0m`
         } else {
-            return e.token.value;
+            return e.value;
         }
+    } else if (e instanceof AtomicExpression) {
+        return recurse(e.token);
     } else if (e instanceof VariableExpression) {
-        return `${e.scope.value} ${e.name.value}`;
+        return `${e.scope.value}${e.name.type == TokenType.IDENTIFIER ? " "+e.name.value : recurse(e.name)}`;
     } else if (e instanceof GroupExpression) {
         return recurse(e.expression);
     } else if (e instanceof ListExpression) {
