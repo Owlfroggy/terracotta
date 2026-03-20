@@ -1,5 +1,5 @@
 import { ASTNode, CommentHolder } from "./astNode.ts";
-import { ChunkExpression, Expression, GroupExpression, ListExpression, TypeExpression, VariableExpression } from "./expression.ts";
+import { ChunkExpression, Expression, GroupExpression, ListExpression, TypeAssignmentExpression, VariableExpression } from "./expression.ts";
 import { Token } from "./token.ts";
 
 export class Statement extends ASTNode implements CommentHolder {
@@ -21,8 +21,7 @@ export class ExpressionStatement extends Statement {
 export class VariableStatement extends Statement {
     constructor(
         public variable: VariableExpression,
-        public colon: Token | null,
-        public type: TypeExpression | null,
+        public assignedType: TypeAssignmentExpression | null,
         public operator: Token | null,
         public value: Expression | null,
     ) {super(variable.startPos, value ? value.endPos : operator ? operator.endPos : variable.endPos)}

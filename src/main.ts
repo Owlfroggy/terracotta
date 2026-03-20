@@ -1,5 +1,5 @@
 import { ASTNode } from "./ast/astNode.ts";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression } from "./ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression } from "./ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
@@ -9,6 +9,7 @@ import { Parser } from "./parser/parser.ts";
 let test = 
 `
 line dingus: any = "hello world!";
+saved coins: = 5;
 `
 // `
 // 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
@@ -48,6 +49,8 @@ function recurse(e: ASTNode | null): string {
         return `${e.scope.value}${e.name.type == TokenType.IDENTIFIER ? " "+e.name.value : recurse(e.name)}`;
     } else if (e instanceof TypeExpression) {
         return `\x1b[0;38;5;39;49m${e.baseType.value}\x1b[0m`
+    } else if (e instanceof TypeAssignmentExpression) {
+        return `: ${recurse(e.type)}`;
     } else if (e instanceof GroupExpression) {
         return recurse(e.expression);
     } else if (e instanceof ListExpression) {
@@ -67,7 +70,7 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof ExpressionStatement) {
         return `${recurse(e.expression)}`
     } else if (e instanceof VariableStatement) {
-        return `\x1b[0;38;5;147;49m${recurse(e.variable)}${e.colon ? `: ${recurse(e.type)}` : ""}\x1b[0m${e.operator ? " "+e.operator.value+" " : ""}${e.value ? recurse(e.value) : ""};`
+        return `\x1b[0;38;5;147;49m${recurse(e.variable)}${e.assignedType ? recurse(e.assignedType) : ""}\x1b[0m${e.operator ? " "+e.operator.value+" " : ""}${e.value ? recurse(e.value) : ""};`
     } else if (e instanceof EventStatement) {
         let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`

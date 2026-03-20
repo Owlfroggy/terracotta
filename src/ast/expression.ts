@@ -28,6 +28,15 @@ export class TypeExpression extends Expression {
     ) {super(baseType.startPos, baseType.endPos);}
 }
 
+
+export class TypeAssignmentExpression extends Expression {
+    constructor(
+        public colon: Token,
+        public type: TypeExpression,
+    ) {super(colon.startPos, type.endPos);}
+}
+
+
 export class BinaryExpression extends Expression {
     constructor (
         public left: Expression,
