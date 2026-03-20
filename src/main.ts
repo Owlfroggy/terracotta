@@ -1,6 +1,6 @@
 import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, Statement } from "./ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, SingleKeywordStatement, Statement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
@@ -8,9 +8,12 @@ import { Parser } from "./parser/parser.ts";
 
 let test = 
 `
-call blingus(5);
-call "%var(dingus)"(akjfhghjka);
-start mainGameLoop;
+wait(5);
+endallthreads('why');
+continue();
+continue;
+endthread
+break;
 `
 // `
 // 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
@@ -64,6 +67,8 @@ function recurse(e: ASTNode): string {
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`
     } else if (e instanceof RepeatStatement) {
         return `repeat${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
+    } else if (e instanceof SingleKeywordStatement) {
+        return `${e.keyword.value}${e.args ? recurse(e.args) : ""};`
     }
     return "";
 }

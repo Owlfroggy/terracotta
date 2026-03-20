@@ -1,5 +1,5 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, Statement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, SingleKeywordStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
@@ -68,6 +68,12 @@ export class Parser {
             [TokenType.GAME_EVENT,          this.parseEventStatement],
 
             [TokenType.REPEAT,              this.parseRepeatStatement],
+            
+            [TokenType.BREAK,               this.parseSingleKeywordStatement],
+            [TokenType.CONTINUE,            this.parseSingleKeywordStatement],
+            [TokenType.ENDTHREAD,           this.parseSingleKeywordStatement],
+            [TokenType.ENDALLTHREADS,       this.parseSingleKeywordStatement],
+            [TokenType.WAIT,                this.parseSingleKeywordStatement],
         ]);
     }
 
@@ -367,6 +373,18 @@ export class Parser {
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
         if (chunk == null) return null;
         return new RepeatStatement(keyword, countExpression, chunk);
+    }
+
+    parseSingleKeywordStatement = (): SingleKeywordStatement => {
+        let keyword = this.consume();
+        let args: ListExpression | null = null;
+        if (keyword.type == TokenType.WAIT || keyword.type == TokenType.ENDALLTHREADS) {
+            if (this.currentToken().type == TokenType.OPEN_PAREN) {
+                args = this.parseListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA)
+            }
+        }
+        this.expect(TokenType.SEMICOLON);
+        return new SingleKeywordStatement(keyword, args);
     }
 
     parse() {

@@ -20,7 +20,13 @@ export enum TokenType {
 
     CALL,
     START,
-    
+
+    BREAK,
+    CONTINUE,
+    ENDTHREAD,
+    ENDALLTHREADS,
+    WAIT,
+
     GLOBAL,
     SAVED,
     LOCAL,
