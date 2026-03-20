@@ -37,6 +37,14 @@ export class CallExpression extends Expression {
     ) {super(callee.startPos,args.endPos); }
 }
 
+export class CallOrStartExpression extends Expression {
+    constructor (
+        public keyword: Token,
+        public name: Token,
+        public args: ListExpression | null,
+    ) {super(keyword.startPos, args != null ? args.endPos : name.endPos);}
+}
+
 export class AccessExpression extends Expression {
     constructor (
         public accessee: Expression,

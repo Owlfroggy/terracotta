@@ -1,4 +1,4 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
@@ -34,10 +34,14 @@ export class Parser {
             [TokenType.STRING_LITERAL,  {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
             [TokenType.OPEN_PAREN,      {bp: BindingPower.GROUP, processor: this.parseGroupExpression}],
             [TokenType.OPEN_BRACKET,    {bp: BindingPower.ATOM,  processor: () => this.parseListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA)}],
+
             [TokenType.GLOBAL,          {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
             [TokenType.SAVED,           {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
             [TokenType.LOCAL,           {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
             [TokenType.LINE,            {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
+
+            [TokenType.CALL,            {bp: BindingPower.ATOM,  processor: this.parseCallOrStartExpression}],
+            [TokenType.START,           {bp: BindingPower.ATOM,  processor: this.parseCallOrStartExpression}],
         ]);
         this.tokenLEDProperties = new Map<TokenType, LEDProcessingProperties>([
             [TokenType.EQUALS,          {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
@@ -186,6 +190,16 @@ export class Parser {
             left,
             this.parseListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA)
         );
+    }
+
+    parseCallOrStartExpression = () => {
+        let keyword = this.consume();
+        let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL])
+        let args: ListExpression | null = null;
+        if (this.currentToken().type == TokenType.OPEN_PAREN) {
+            args = this.parseListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA);
+        }
+        return new CallOrStartExpression(keyword, name, args);
     }
 
     parseAccessExpression = (left: Expression, bp: number): AccessExpression => {

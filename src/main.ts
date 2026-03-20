@@ -1,5 +1,5 @@
 import { ASTNode } from "./ast/astNode.ts";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression } from "./ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression } from "./ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, Statement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
@@ -8,9 +8,9 @@ import { Parser } from "./parser/parser.ts";
 
 let test = 
 `
-repeat (line i to default.yPos * 5) {
-    hi();
-}
+call blingus(5);
+call "%var(dingus)"(akjfhghjka);
+start mainGameLoop;
 `
 // `
 // 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
@@ -49,6 +49,8 @@ function recurse(e: ASTNode): string {
         return `(${recurse(e.left)} ${e.operator.value} ${recurse(e.right)})`
     } else if (e instanceof CallExpression) {
         return `${recurse(e.callee)}${recurse(e.args)}`;
+    } else if (e instanceof CallOrStartExpression) {
+        return `${e.keyword.value} ${recurse(e.name)}${e.args ? recurse(e.args) : ""}`
     } else if (e instanceof AccessExpression) {
         return `${recurse(e.accessee)}${e.accessorToken.value}${e.propertyName.value}`;
     } else if (e instanceof ChunkExpression) {

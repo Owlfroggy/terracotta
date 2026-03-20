@@ -18,11 +18,14 @@ export enum TokenType {
     GAME_EVENT,
     ENTITY_EVENT,
 
+    CALL,
+    START,
+    
     GLOBAL,
     SAVED,
     LOCAL,
     LINE,
-
+    
     REPEAT,
 
     TO,
