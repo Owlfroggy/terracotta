@@ -1,6 +1,6 @@
 import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement } from "./ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
@@ -8,8 +8,12 @@ import { Parser } from "./parser/parser.ts";
 
 let test = 
 `
-return;
-return 20 + 5;
+/* this can be a description! */
+line dingus;
+global bongus = ;
+saved klingus = 22;
+klingus = 10;
+
 `
 // `
 // 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
@@ -58,6 +62,8 @@ function recurse(e: ASTNode): string {
         return `⊘`;
     } else if (e instanceof ExpressionStatement) {
         return `${recurse(e.expression)}`
+    } else if (e instanceof VariableStatement) {
+        return `\x1b[0;38;5;11;49m${recurse(e.variable)}\x1b[0m${e.operator ? " "+e.operator.value+" " : ""}${e.value ? recurse(e.value) : ""};`
     } else if (e instanceof EventStatement) {
         let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`
