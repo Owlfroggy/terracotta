@@ -1,5 +1,3 @@
-import { Expression } from "./expression.ts";
-
 export enum TokenType {
     EOF,
     MISSING,
@@ -9,10 +7,17 @@ export enum TokenType {
     IDENTIFIER,
     NUMERIC_LITERAL,
 
+    LAGSLAYER_CANCEL,
+    PLAYER_EVENT,
+    GAME_EVENT,
+    ENTITY_EVENT,
+
     OPEN_PAREN,
     CLOSE_PAREN,
     OPEN_BRACKET,
     CLOSE_BRACKET,
+    OPEN_CURLY,
+    CLOSE_CURLY,
 
     COMMA,
     DOT,
@@ -20,7 +25,7 @@ export enum TokenType {
     PLUS,
     MINUS,
     STAR,
-    SLASH
+    SLASH,
 }
 
 export enum BindingPower {

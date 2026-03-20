@@ -1,3 +1,4 @@
+import { Statement } from "./statement.ts";
 import { Token } from "./token.ts";
 
 export class Expression {
@@ -48,6 +49,14 @@ export class ListExpression extends Expression {
     constructor(
         public opener: Token,
         public elements: Expression[],
+        public closer: Token,
+    ) {super(opener.startPos, closer.endPos);}
+}
+
+export class ChunkExpression extends Expression {
+    constructor(
+        public opener: Token,
+        public statements: Statement[],
         public closer: Token,
     ) {super(opener.startPos, closer.endPos);}
 }

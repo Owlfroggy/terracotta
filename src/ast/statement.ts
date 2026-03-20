@@ -1,4 +1,5 @@
-import { Expression } from "./expression.ts";
+import { ChunkExpression, Expression } from "./expression.ts";
+import { Token } from "./token.ts";
 
 export class Statement {
     constructor(
@@ -14,4 +15,12 @@ export class ExpressionStatement extends Statement {
     ) {
         super(startPos, endPos);
     }
+}
+export class EventStatement extends Statement {
+    constructor(
+        public modifiers: Token[],
+        public type: Token,
+        public eventName: Token,
+        public chunk: ChunkExpression
+    ) {super(modifiers.length > 0 ? modifiers[0].startPos : type.startPos, chunk.endPos);}
 }

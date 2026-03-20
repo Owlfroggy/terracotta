@@ -1,20 +1,19 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression } from "./ast/expression.ts";
-import { ExpressionStatement, Statement } from "./ast/statement.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression } from "./ast/expression.ts";
+import { EventStatement, ExpressionStatement, Statement } from "./ast/statement.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = 
-`game.send_message(5,.dingus); 2 + + 5;`;
-// `[2,3,;]; 2;`
-// `
-// [2,3,,[frog,face], bongle,dingus]; 
-// 1 + 2 - [5,3,2]; 
-// 5 + -;
-// dingus + dongus;`
+`
+playerevent Join {
+    default.teleport(victim.location + [0, 2, 0]);
+    allPlayers.sendMessage(owie);
+    lscancel gameevent Sadness{ default * 20 + 5; }
+}`;
 
 // ast visualizer
-function recurse(e: Expression): string {
+function recurse(e: Expression | Statement): string {
     if (e instanceof AtomicExpression) {
         return e.token.value;
     } else if (e instanceof GroupExpression) {
@@ -27,8 +26,15 @@ function recurse(e: Expression): string {
         return `${recurse(e.callee)}${recurse(e.args)}`;
     } else if (e instanceof AccessExpression) {
         return `${recurse(e.accessee)}${e.accessorToken.value}${e.propertyName.value}`;
+    } else if (e instanceof ChunkExpression) {
+        return `${e.opener.value}\n${"  "+visualizeStatements(e.statements).map(s => s.split("\n").join("\n  ")).join("\n  ")}\n${e.closer.value}`
     } else if (e instanceof MissingExpression) {
         return `⊘`;
+    } else if (e instanceof ExpressionStatement) {
+        return `${recurse(e.expression)}`
+    } else if (e instanceof EventStatement) {
+        let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
+        return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`
     }
     return "";
 }
@@ -41,12 +47,14 @@ function visualizeExpression(expr: Expression): string {
         return out;
     }
 }
-function visualizeAST(statements: Statement[]) {
+function visualizeStatements(statements: Statement[]) {
     return statements.map(s => {
         if (s instanceof ExpressionStatement) {
-            return visualizeExpression(s.expression);
+            return visualizeExpression(s.expression) + ";";
+        } else {
+            return recurse(s);
         }
-    }).join(";\n")+";";
+    });
 }
 
 function visualizeErrors(errors: TCError[], script: string) {
@@ -89,6 +97,6 @@ parser.parse();
 console.log(parser.statements);
 // console.log("Errors: ", parser.errors);
 console.log("RECONSTRUCTION FROM AST --------------------")
-console.log(visualizeAST(parser.statements));
+console.log(visualizeStatements(parser.statements).join("\n"));
 console.log("--------------------------------------------")
 visualizeErrors(parser.errors,test)

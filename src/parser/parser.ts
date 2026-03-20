@@ -1,5 +1,6 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression } from "../ast/expression.ts";
-import { ExpressionStatement, Statement } from "../ast/statement.ts";
+import { open } from "node:fs";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression } from "../ast/expression.ts";
+import { EventStatement, ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
@@ -20,6 +21,7 @@ export class Parser {
     errors: TCError[] = [];
     tokenNUDProperties: Map<TokenType, NUDProcessingProperties>;
     tokenLEDProperties: Map<TokenType, LEDProcessingProperties>;
+    tokenStatementProcessors: Map<TokenType, (() => Statement | null) | (() => Statement)>;
     position: number = 0;
 
     constructor(
@@ -39,6 +41,12 @@ export class Parser {
             [TokenType.OPEN_PAREN,      {bp: BindingPower.CALL,  processor: this.parseCallExpression}],
             [TokenType.DOT,             {bp: BindingPower.ACCESS,processor: this.parseAccessExpression}],
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
+        ]);
+        this.tokenStatementProcessors = new Map([
+            [TokenType.LAGSLAYER_CANCEL,    this.parseEventStatement],
+            [TokenType.PLAYER_EVENT,        this.parseEventStatement],
+            [TokenType.ENTITY_EVENT,        this.parseEventStatement],
+            [TokenType.GAME_EVENT,          this.parseEventStatement],
         ]);
     }
 
@@ -63,18 +71,27 @@ export class Parser {
         this.errors.push(e);
     }
 
-    expect(type: TokenType): Token {
+    expect(type: TokenType | TokenType[]): [Token, boolean] {
         let currentToken = this.currentToken();
-        if (currentToken.type == type) {
+        if (
+            Array.isArray(type) ? (type.includes(currentToken.type)) : (currentToken.type == type)
+        ) {
             this.consume();
-            return currentToken;
+            return [currentToken, true];
         } else {
             this.reportError(
                 currentToken.startPos, currentToken.endPos,
-                `expected ${TokenType[type]} got ${currentToken}`
+                `expected ${Array.isArray(type) ? ("one of "+type.map(t => TokenType[t]).join(", ")) : TokenType[type]} got ${currentToken}`
             );
-            return currentToken;
+            return [currentToken, false];
         }
+    }
+    expectOrMissing(type: TokenType | TokenType[]): [Token, boolean] {
+        let result = this.expect(type);
+        if (!result[1]) {
+            result[0] = Token.missing(result[0].startPos);
+        }
+        return result;
     }
 
     // NOTE: these methods have to take arrow form (=>) or else everything breaks horrendously. you have been warned...
@@ -99,7 +116,7 @@ export class Parser {
     /** returns the current token and advances position by 1 */
     consume = (): Token => {
         let t = this.currentToken();
-        this.position++;
+        if (t.type != TokenType.EOF) this.position++;
         return t;
     }
 
@@ -141,10 +158,7 @@ export class Parser {
     parseAccessExpression = (left: Expression, bp: number): AccessExpression => {
         let accessorToken = this.consume();
 
-        let propertyName = this.expect(TokenType.IDENTIFIER);
-        if (propertyName.type != TokenType.IDENTIFIER) {
-            propertyName = Token.missing(accessorToken.endPos);
-        }
+        let [propertyName, propertyNameFound] = this.expectOrMissing(TokenType.IDENTIFIER);
         
         return new AccessExpression(
             left,
@@ -154,9 +168,9 @@ export class Parser {
     }
 
     parseGroupExpression = (bp: number): GroupExpression => {
-        let opener = this.expect(TokenType.OPEN_PAREN);
+        let [opener, openerFound] = this.expect(TokenType.OPEN_PAREN);
         let expr = this.parseExpression(BindingPower.DEFAULT);
-        let closer = this.expect(TokenType.CLOSE_PAREN);
+        let [closer, closerFound] = this.expect(TokenType.CLOSE_PAREN);
         return new GroupExpression(
             opener,
             expr,
@@ -165,7 +179,7 @@ export class Parser {
     }
 
     parseListExpression = (openerType: TokenType, closerType: TokenType, delimiter: TokenType): ListExpression => {
-        let opener = this.expect(openerType);
+        let [opener, openerFound] = this.expect(openerType);
         let elements: Expression[] = [];
         while (
             this.currentToken().type != closerType 
@@ -196,8 +210,46 @@ export class Parser {
                 this.expect(delimiter);
             }
         }
-        let closer = this.expect(closerType);
+        let [closer, closerFound] = this.expect(closerType);
         return new ListExpression(opener, elements, closer);
+    }
+
+    parseChunkExpression = (openerType: TokenType, closerType: TokenType): ChunkExpression | null => {
+        let opener: Token;
+        let openerFound = false;
+        if (openerType == TokenType.MISSING) {
+            opener = Token.missing(this.currentToken().startPos);
+        } else {
+            [opener, openerFound] = this.expect(openerType);
+            if (!openerFound) return null;
+        }
+
+        let statements: Statement[] = [];
+        while (this.currentToken().type != closerType && this.currentToken().type != TokenType.EOF) {
+            let currentTokenType = this.currentToken().type;
+            let useSpecialStatement = this.tokenStatementProcessors.has(currentTokenType);
+            let statement: Statement | null;
+            if (useSpecialStatement) {
+                statement = this.tokenStatementProcessors.get(currentTokenType)!()
+            } else {
+                statement = this.parseExpressionStatement();
+                if ((statement as ExpressionStatement).expression instanceof MissingExpression) {
+                    this.consume();
+                    continue;
+                }
+                this.expect(TokenType.SEMICOLON);
+            }
+
+            if (statement != null) statements.push(statement);
+        }
+        
+        let [closer, closerFound] = this.expectOrMissing(closerType);
+
+        return new ChunkExpression(
+            opener,
+            statements,
+            closer,
+        );
     }
 
     parseExpression = (bp: number): Expression => { 
@@ -223,23 +275,33 @@ export class Parser {
         return left;
     }
 
-    parseExpressionStatement(): ExpressionStatement {
+    parseExpressionStatement = (): ExpressionStatement => {
         let expr = this.parseExpression(BindingPower.DEFAULT);
         return new ExpressionStatement(expr.startPos,expr.endPos,expr);
+    }
+
+    parseEventStatement = (): EventStatement | null => {
+        let modifiers: Token[] = [];
+        if (this.currentToken().type == TokenType.LAGSLAYER_CANCEL) {
+            modifiers.push(this.consume());
+        }
+
+        let [mainKeyword, mainKeywordValid] = this.expectOrMissing([TokenType.PLAYER_EVENT, TokenType.ENTITY_EVENT, TokenType.GAME_EVENT]);
+        if (!mainKeywordValid) return null;
+        
+        let [eventName, eventNameValid] = this.expectOrMissing(TokenType.IDENTIFIER)
+        
+        let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
+        if (!chunk) return null;
+
+        return new EventStatement(modifiers, mainKeyword, eventName, chunk);
     }
 
     parse() {
         this.statements.length = 0;
         this.errors.length = 0;
 
-        while (this.currentToken().type != TokenType.EOF) {
-            let statement = this.parseExpressionStatement();
-            if (statement instanceof ExpressionStatement && statement.expression instanceof MissingExpression) {
-                this.consume();
-                continue;
-            }
-            this.statements.push(statement);
-            this.expect(TokenType.SEMICOLON);
-        }
+        let chunk = this.parseChunkExpression(TokenType.MISSING, TokenType.EOF) as ChunkExpression;
+        this.statements.push(...chunk.statements);
     }
 }

@@ -22,6 +22,14 @@ export class Lexer {
         }
     }
 
+    makeKeywordPattern(tokenType: TokenType, keyword: string) {
+        return this.makeRegexPattern(tokenType, new RegExp(`${keyword}(?=[^\\w]|$)`, 'y'));
+    }
+
+    makeSymbolPattern(tokenType: TokenType, symbol: string) {
+        return this.makeRegexPattern(tokenType, new RegExp(`\\${symbol}`, 'y'));
+    }
+
     public tokenize() {
         this.tokens.length = 0;
         this.errors.length = 0;
@@ -34,19 +42,24 @@ export class Lexer {
         const patterns = [
             this.makeRegexPattern(TokenType.WHITESPACE,         /\s+/y),
             this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)?)\.?(?:\d+(?:_?\d+)?)?/y),
+            this.makeKeywordPattern(TokenType.LAGSLAYER_CANCEL, "lscancel"),
+            this.makeKeywordPattern(TokenType.PLAYER_EVENT,     "playerevent"),
+            this.makeKeywordPattern(TokenType.ENTITY_EVENT,     "entityevent"),
+            this.makeKeywordPattern(TokenType.GAME_EVENT,       "gameevent"),
             this.makeRegexPattern(TokenType.IDENTIFIER,         /[A-Za-z_]+[A-Za-z0-9_]*/y),
-            this.makeRegexPattern(TokenType.PLUS,               /\+/y),
-            this.makeRegexPattern(TokenType.MINUS,              /\-/y),
-            this.makeRegexPattern(TokenType.STAR,               /\*/y),
-            this.makeRegexPattern(TokenType.SLASH,              /\//y),
-            this.makeRegexPattern(TokenType.SEMICOLON,          /\;/y),
-            this.makeRegexPattern(TokenType.OPEN_PAREN,         /\(/y),
-            this.makeRegexPattern(TokenType.CLOSE_PAREN,        /\)/y),
-            this.makeRegexPattern(TokenType.OPEN_BRACKET,       /\[/y),
-            this.makeRegexPattern(TokenType.CLOSE_BRACKET,      /\]/y),
-            this.makeRegexPattern(TokenType.COMMA,              /\,/y),
-            this.makeRegexPattern(TokenType.DOT,                /\./y),
-
+            this.makeSymbolPattern(TokenType.PLUS,              "+"),
+            this.makeSymbolPattern(TokenType.MINUS,             "-"),
+            this.makeSymbolPattern(TokenType.STAR,              "*"),
+            this.makeSymbolPattern(TokenType.SLASH,             "/"),
+            this.makeSymbolPattern(TokenType.SEMICOLON,         ";"),
+            this.makeSymbolPattern(TokenType.OPEN_PAREN,        "("),
+            this.makeSymbolPattern(TokenType.CLOSE_PAREN,       ")"),
+            this.makeSymbolPattern(TokenType.OPEN_BRACKET,      "["),
+            this.makeSymbolPattern(TokenType.CLOSE_BRACKET,     "]"),
+            this.makeSymbolPattern(TokenType.OPEN_CURLY,        "{"),
+            this.makeSymbolPattern(TokenType.CLOSE_CURLY,       "}"),
+            this.makeSymbolPattern(TokenType.COMMA,             ","),
+            this.makeSymbolPattern(TokenType.DOT,               "."),
         ];
 
         while (this.position < this.script.length) {
