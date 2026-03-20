@@ -5,13 +5,17 @@ import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
-let test = `
-'short:\\n \\' \\" \\b \\x40 \\u2620\\u2620 \\x40 \\nXXXXX\\\\\\ XXXXXXXX'.length;
+let test = 
+`'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
 sendMessage("hello world!!!!!");
 
+# runs wen u join
 playerevent Join {
-    global a + saved a + local a - line a;
-    default.teleport(victim.location + [0, 2, 0]);
+    # very good code right here!!
+    global a# + saved a + local a - line a;
+    default.teleport(
+        victim.location + [0, 2, 0] # balls
+    );
     allPlayers.sendMessage("owie");
 }
 `
@@ -97,7 +101,8 @@ function visualizeErrors(errors: TCError[], script: string) {
 }
 
 const lexer = new Lexer(test,{ // 27
-    includeWhitespaceTokens: false
+    includeWhitespaceTokens: false,
+    includeSingleLineComments: false,
 });
 
 lexer.tokenize()

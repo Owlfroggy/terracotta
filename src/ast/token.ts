@@ -4,6 +4,8 @@ export enum TokenType {
     SEMICOLON,
     WHITESPACE,
 
+    COMMENT,
+
     IDENTIFIER,
     NUMERIC_LITERAL,
     STRING_LITERAL,

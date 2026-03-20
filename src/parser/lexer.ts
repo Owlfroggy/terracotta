@@ -9,7 +9,8 @@ export class Lexer {
     constructor(
         public script: string,
         public options: {
-            includeWhitespaceTokens: boolean
+            includeWhitespaceTokens: boolean,
+            includeSingleLineComments: boolean,
         }
     ) {}
 
@@ -149,6 +150,7 @@ export class Lexer {
         // using the returned token's end index as the new start index.
         // if no patterns succeed then you need to fix that :(
         const patterns = [
+            this.makeRegexPattern(TokenType.COMMENT,            /#.*(?=\n|$)/y),
             this.makeStringPattern('"'),
             this.makeStringPattern("'"),
             this.makeRegexPattern(TokenType.WHITESPACE,         /\s+/y),
@@ -195,6 +197,8 @@ export class Lexer {
 
                 if (result.type == TokenType.WHITESPACE && !this.options.includeWhitespaceTokens) {
                     // don't add whitespace tokens if we're not supposed to
+                } else if (result.type == TokenType.COMMENT && !this.options.includeSingleLineComments) {
+                    // don't add single line comments if we're not supposed to
                 } else {
                     this.tokens.push(result);
                 }
