@@ -11,7 +11,7 @@ let test =
 /* this can be a description! */
 line dingus;
 global bongus = ;
-saved klingus = 22;
+saved "%uuid yingus" = 22;
 klingus = 10;
 
 `
@@ -33,10 +33,15 @@ klingus = 10;
 
 // ast visualizer
 function recurse(e: ASTNode): string {
+    const placeholder = "\x1b[0;38;5;196;49m⊘\x1b[0m";
     if (e instanceof Token) {
         if (e.type == TokenType.STRING_LITERAL) {
             let stringData = e.getStringExtraData();
-            return `\x1b[0;32m${stringData.quoteChar}\x1b[0;38;5;112;49m${e.value.replaceAll("\n","\x1b[0;34m\\n\x1b[0;38;5;112;49m")}\x1b[0;32m${stringData.quoteChar}\x1b[0m`
+            return `\x1b[0;32m${stringData.quoteChar}\x1b[0;38;5;112;49m${e.value.replaceAll("\n","\x1b[0;34m\\n\x1b[0;38;5;112;49m")}\x1b[0;32m${stringData.quoteChar}\x1b[0m`;
+        } else if (e.type == TokenType.NUMERIC_LITERAL) {
+            return `\x1b[0;38;5;220;49m${e.value}\x1b[0m`;
+        } else if (e.type == TokenType.MISSING) {
+            return placeholder;
         } else {
             return e.value;
         }
@@ -59,11 +64,11 @@ function recurse(e: ASTNode): string {
     } else if (e instanceof ChunkExpression) {
         return `${e.opener.value}\n${"  "+visualizeStatements(e.statements).map(s => s.split("\n").join("\n  ")).join("\n  ")}\n${e.closer.value}`
     } else if (e instanceof MissingExpression) {
-        return `⊘`;
+        return placeholder;
     } else if (e instanceof ExpressionStatement) {
         return `${recurse(e.expression)}`
     } else if (e instanceof VariableStatement) {
-        return `\x1b[0;38;5;11;49m${recurse(e.variable)}\x1b[0m${e.operator ? " "+e.operator.value+" " : ""}${e.value ? recurse(e.value) : ""};`
+        return `\x1b[0;38;5;147;49m${recurse(e.variable)}\x1b[0m${e.operator ? " "+e.operator.value+" " : ""}${e.value ? recurse(e.value) : ""};`
     } else if (e instanceof EventStatement) {
         let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`
