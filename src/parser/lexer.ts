@@ -188,28 +188,44 @@ export class Lexer {
             this.multiLineCommentPattern,
             this.makeRegexPattern(TokenType.WHITESPACE,         /\s+/y),
             this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)?)\.?(?:\d+(?:_?\d+)?)?/y),
+
+            // keywords
             this.makeKeywordPattern(TokenType.LAGSLAYER_CANCEL, "lscancel"),
             this.makeKeywordPattern(TokenType.PLAYER_EVENT,     "playerevent"),
             this.makeKeywordPattern(TokenType.ENTITY_EVENT,     "entityevent"),
             this.makeKeywordPattern(TokenType.GAME_EVENT,       "gameevent"),
+            
             this.makeKeywordPattern(TokenType.GLOBAL,           "global"),
             this.makeKeywordPattern(TokenType.SAVED,            "saved"),
             this.makeKeywordPattern(TokenType.LOCAL,            "local"),
             this.makeKeywordPattern(TokenType.LINE,             "line"),
+
             this.makeRegexPattern(TokenType.IDENTIFIER,         /[A-Za-z_]+[A-Za-z0-9_]*/y),
+            
+            // operations
+            this.makeSymbolPattern(TokenType.EQUALS,            "="),
+            this.makeSymbolPattern(TokenType.PLUS_EQUALS,       "+="),
+            this.makeSymbolPattern(TokenType.MINUS_EQUALS,      "-="),
+            this.makeSymbolPattern(TokenType.STAR_EQUALS,       "*="),
+            this.makeSymbolPattern(TokenType.SLASH_EQUALS,      "/="),
+
             this.makeSymbolPattern(TokenType.PLUS,              "+"),
             this.makeSymbolPattern(TokenType.MINUS,             "-"),
             this.makeSymbolPattern(TokenType.STAR,              "*"),
             this.makeSymbolPattern(TokenType.SLASH,             "/"),
-            this.makeSymbolPattern(TokenType.SEMICOLON,         ";"),
+
+            // brackets
             this.makeSymbolPattern(TokenType.OPEN_PAREN,        "("),
             this.makeSymbolPattern(TokenType.CLOSE_PAREN,       ")"),
             this.makeSymbolPattern(TokenType.OPEN_BRACKET,      "["),
             this.makeSymbolPattern(TokenType.CLOSE_BRACKET,     "]"),
             this.makeSymbolPattern(TokenType.OPEN_CURLY,        "{"),
             this.makeSymbolPattern(TokenType.CLOSE_CURLY,       "}"),
+
+            // other symbols
             this.makeSymbolPattern(TokenType.COMMA,             ","),
             this.makeSymbolPattern(TokenType.DOT,               "."),
+            this.makeSymbolPattern(TokenType.SEMICOLON,         ";"),
         ];
 
         while (this.position < this.script.length) {

@@ -33,6 +33,12 @@ export enum TokenType {
     COMMA,
     DOT,
 
+    EQUALS,
+    PLUS_EQUALS,
+    MINUS_EQUALS,
+    STAR_EQUALS,
+    SLASH_EQUALS,
+
     PLUS,
     MINUS,
     STAR,
@@ -41,6 +47,7 @@ export enum TokenType {
 
 export enum BindingPower {
     DEFAULT,
+    ASSIGN,
     ADD,
     MULT,
     CALL,

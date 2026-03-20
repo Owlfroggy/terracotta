@@ -38,10 +38,17 @@ export class Parser {
             [TokenType.LINE,            {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
         ]);
         this.tokenLEDProperties = new Map<TokenType, LEDProcessingProperties>([
+            [TokenType.EQUALS,          {bp: BindingPower.ASSIGN,processor: this.parseBinaryExpression}],
+            [TokenType.PLUS_EQUALS,     {bp: BindingPower.ASSIGN,processor: this.parseBinaryExpression}],
+            [TokenType.MINUS_EQUALS,    {bp: BindingPower.ASSIGN,processor: this.parseBinaryExpression}],
+            [TokenType.STAR_EQUALS,     {bp: BindingPower.ASSIGN,processor: this.parseBinaryExpression}],
+            [TokenType.SLASH_EQUALS,    {bp: BindingPower.ASSIGN,processor: this.parseBinaryExpression}],
+
             [TokenType.PLUS,            {bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
             [TokenType.MINUS,           {bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
             [TokenType.STAR,            {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
             [TokenType.SLASH,           {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
+            
             [TokenType.OPEN_PAREN,      {bp: BindingPower.CALL,  processor: this.parseCallExpression}],
             [TokenType.DOT,             {bp: BindingPower.ACCESS,processor: this.parseAccessExpression}],
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]

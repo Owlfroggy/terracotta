@@ -7,22 +7,7 @@ import { Parser } from "./parser/parser.ts";
 
 let test = 
 `
-/**
- * this is a very special comment!
- */
-/* i am a less special comment*/ lscancel /*ASDFASDF*/ playerevent /*square the squardent*/ Join {
-    [
-        /* the number 5... or is it? */
-        (5 + num.random()),
-        10,
-        /* this comment goes nowhere */
-    ];
-
-    // this never appears in the ast: /* ghost */
-    console./*balls */log();
-
-    5 + /* wuh woh */;
-}
+global joinDate = game.timestamp * 20;
 `
 // `
 // 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
