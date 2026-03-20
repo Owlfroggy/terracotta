@@ -25,6 +25,8 @@ export enum TokenType {
 
     REPEAT,
 
+    TO,
+
     OPEN_PAREN,
     CLOSE_PAREN,
     OPEN_BRACKET,
@@ -49,6 +51,7 @@ export enum TokenType {
 
 export enum BindingPower {
     DEFAULT,
+    LOOP_KW,
     ASSIGN,
     ADD,
     MULT,

@@ -1,7 +1,9 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatForeverStatement, Statement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
+
+const VARIABLE_SCOPE_KEYWORDS = [TokenType.GLOBAL,TokenType.SAVED,TokenType.LOCAL,TokenType.LOCAL];
 
 export type NUDProcessingProperties = {
     /** binding power */
@@ -38,19 +40,21 @@ export class Parser {
             [TokenType.LINE,            {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
         ]);
         this.tokenLEDProperties = new Map<TokenType, LEDProcessingProperties>([
-            [TokenType.EQUALS,          {bp: BindingPower.ASSIGN,processor: this.parseBinaryExpression}],
-            [TokenType.PLUS_EQUALS,     {bp: BindingPower.ASSIGN,processor: this.parseBinaryExpression}],
-            [TokenType.MINUS_EQUALS,    {bp: BindingPower.ASSIGN,processor: this.parseBinaryExpression}],
-            [TokenType.STAR_EQUALS,     {bp: BindingPower.ASSIGN,processor: this.parseBinaryExpression}],
-            [TokenType.SLASH_EQUALS,    {bp: BindingPower.ASSIGN,processor: this.parseBinaryExpression}],
+            [TokenType.EQUALS,          {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
+            [TokenType.PLUS_EQUALS,     {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
+            [TokenType.MINUS_EQUALS,    {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
+            [TokenType.STAR_EQUALS,     {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
+            [TokenType.SLASH_EQUALS,    {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
 
-            [TokenType.PLUS,            {bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
-            [TokenType.MINUS,           {bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
-            [TokenType.STAR,            {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
-            [TokenType.SLASH,           {bp: BindingPower.MULT,  processor: this.parseBinaryExpression}],
+            [TokenType.PLUS,            {bp: BindingPower.ADD,      processor: this.parseBinaryExpression}],
+            [TokenType.MINUS,           {bp: BindingPower.ADD,      processor: this.parseBinaryExpression}],
+            [TokenType.STAR,            {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
+            [TokenType.SLASH,           {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
 
-            [TokenType.OPEN_PAREN,      {bp: BindingPower.CALL,  processor: this.parseCallExpression}],
-            [TokenType.DOT,             {bp: BindingPower.ACCESS,processor: this.parseAccessExpression}],
+            [TokenType.TO,              {bp: BindingPower.LOOP_KW,  processor: this.parseBinaryExpression}],
+
+            [TokenType.OPEN_PAREN,      {bp: BindingPower.CALL,     processor: this.parseCallExpression}],
+            [TokenType.DOT,             {bp: BindingPower.ACCESS,   processor: this.parseAccessExpression}],
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
         ]);
         this.tokenStatementProcessors = new Map<TokenType, () => Statement | null>([
@@ -334,13 +338,21 @@ export class Parser {
     }
 
 
-    parseRepeatStatement = (): RepeatForeverStatement | null => {
+    parseRepeatStatement = (): RepeatStatement | null => {
         let keyword = this.consume();
-        let [next, nextValid] = this.expect(TokenType.OPEN_CURLY, false);
+
+        let [next, nextValid] = this.expect([TokenType.OPEN_PAREN, TokenType.OPEN_CURLY], false);
         if (!nextValid) return null;
+
+        let countExpression: GroupExpression | null = null;
+        // repeat n times statement
+        if (next.type == TokenType.OPEN_PAREN) {
+            countExpression = this.parseGroupExpression(BindingPower.DEFAULT);
+        }
+
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
         if (chunk == null) return null;
-        return new RepeatForeverStatement(keyword, chunk);
+        return new RepeatStatement(keyword, countExpression, chunk);
     }
 
     parse() {

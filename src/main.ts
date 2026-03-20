@@ -1,6 +1,6 @@
 import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatForeverStatement, Statement } from "./ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, Statement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
@@ -8,7 +8,7 @@ import { Parser } from "./parser/parser.ts";
 
 let test = 
 `
-repeat {
+repeat (line i to default.yPos * 5) {
     hi();
 }
 `
@@ -60,8 +60,8 @@ function recurse(e: ASTNode): string {
     } else if (e instanceof EventStatement) {
         let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`
-    } else if (e instanceof RepeatForeverStatement) {
-        return `repeat ${recurse(e.chunk)}`;
+    } else if (e instanceof RepeatStatement) {
+        return `repeat${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
     }
     return "";
 }

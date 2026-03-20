@@ -1,5 +1,5 @@
 import { ASTNode, CommentHolder } from "./astNode.ts";
-import { ChunkExpression, Expression } from "./expression.ts";
+import { ChunkExpression, Expression, GroupExpression } from "./expression.ts";
 import { Token } from "./token.ts";
 
 export class Statement extends ASTNode implements CommentHolder {
@@ -26,9 +26,10 @@ export class EventStatement extends Statement {
     ) {super(modifiers.length > 0 ? modifiers[0].startPos : type.startPos, chunk.endPos);}
 }
 
-export class RepeatForeverStatement extends Statement {
+export class RepeatStatement extends Statement {
     constructor(
         public keyword: Token,
+        public countExpression: GroupExpression | null,
         public chunk: ChunkExpression,
     ) {super(keyword.startPos, chunk.endPos);}
 }
