@@ -8,12 +8,8 @@ import { Parser } from "./parser/parser.ts";
 
 let test = 
 `
-wait(5);
-endallthreads('why');
 continue();
 continue;
-endthread
-break;
 `
 // `
 // 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;

@@ -289,10 +289,15 @@ export class Parser {
                 statement = this.tokenStatementProcessors.get(currentTokenType)!()
             } else {
                 statement = this.parseExpressionStatement();
-                if ((statement as ExpressionStatement).expression instanceof MissingExpression) {
+
+                // dont include statements which boil down to just a MissingExpression
+                let expr = (statement as ExpressionStatement).expression;
+                while (expr instanceof GroupExpression) expr = expr.expression;
+                if (expr instanceof MissingExpression) {
                     this.consume();
                     continue;
                 }
+
                 this.expect(TokenType.SEMICOLON);
             }
 
