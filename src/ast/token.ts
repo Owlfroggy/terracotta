@@ -1,3 +1,5 @@
+import { ASTNode } from "./astNode.ts";
+
 export enum TokenType {
     EOF,
     MISSING,
@@ -51,16 +53,13 @@ export type StringExtraData = {
     isClosed: boolean,
 };
 
-export class Token {
+export class Token extends ASTNode {
     constructor(
-        /** inclusive */
-        readonly startPos: number,
-        /** exclusive */
-        readonly endPos: number,
+        startPos: number, endPos: number,
         readonly type: TokenType,
         readonly value: string = "",
         readonly extraData: StringExtraData | null = null,
-    ) {}
+    ) {super(startPos, endPos);}
     
     toString() {
         return `{${TokenType[this.type]} '${this.value}' [${this.startPos}-${this.endPos}]}`

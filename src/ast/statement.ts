@@ -1,11 +1,11 @@
+import { ASTNode } from "./astNode.ts";
 import { ChunkExpression, Expression } from "./expression.ts";
 import { Token } from "./token.ts";
 
-export class Statement {
+export class Statement extends ASTNode {
     constructor(
-        public startPos: number,
-        public endPos: number,
-    ) {}
+        startPos: number, endPos: number,
+    ) {super(startPos, endPos);}
 }
 
 export class ExpressionStatement extends Statement {

@@ -150,9 +150,9 @@ export class Lexer {
         // using the returned token's end index as the new start index.
         // if no patterns succeed then you need to fix that :(
         const patterns = [
-            this.makeRegexPattern(TokenType.COMMENT,            /#.*(?=\n|$)/y),
             this.makeStringPattern('"'),
             this.makeStringPattern("'"),
+            this.makeRegexPattern(TokenType.COMMENT,            /\/\/.*(?=\n|$)/y),
             this.makeRegexPattern(TokenType.WHITESPACE,         /\s+/y),
             this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)?)\.?(?:\d+(?:_?\d+)?)?/y),
             this.makeKeywordPattern(TokenType.LAGSLAYER_CANCEL, "lscancel"),

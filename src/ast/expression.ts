@@ -1,11 +1,11 @@
+import { ASTNode } from "./astNode.ts";
 import { Statement } from "./statement.ts";
 import { Token } from "./token.ts";
 
-export class Expression {
+export class Expression extends ASTNode {
     constructor(
-        public startPos: number,
-        public endPos: number
-     ) {}
+        startPos: number, endPos: number
+    ) { super(startPos, endPos); }
 }
 
 export class AtomicExpression extends Expression {

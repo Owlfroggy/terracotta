@@ -9,14 +9,14 @@ let test =
 `'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
 sendMessage("hello world!!!!!");
 
-# runs wen u join
+// runs wen u join
 playerevent Join {
-    # very good code right here!!
-    global a# + saved a + local a - line a;
+    // very good code right here!!
+    global a// + saved a + local a - line a;
     default.teleport(
-        victim.location + [0, 2, 0] # balls
+        victim.location + [0, 2, 0] // balls
     );
-    allPlayers.sendMessage("owie");
+    allPlayers.sendMessage("ow//ie");
 }
 `
 
