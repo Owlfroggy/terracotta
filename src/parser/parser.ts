@@ -1,5 +1,5 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, Statement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatForeverStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
@@ -20,7 +20,7 @@ export class Parser {
     errors: TCError[] = [];
     tokenNUDProperties: Map<TokenType, NUDProcessingProperties>;
     tokenLEDProperties: Map<TokenType, LEDProcessingProperties>;
-    tokenStatementProcessors: Map<TokenType, (() => Statement | null) | (() => Statement)>;
+    tokenStatementProcessors: Map<TokenType, (() => Statement | null)>;
     position: number = 0;
 
     constructor(
@@ -53,11 +53,13 @@ export class Parser {
             [TokenType.DOT,             {bp: BindingPower.ACCESS,processor: this.parseAccessExpression}],
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
         ]);
-        this.tokenStatementProcessors = new Map([
+        this.tokenStatementProcessors = new Map<TokenType, () => Statement | null>([
             [TokenType.LAGSLAYER_CANCEL,    this.parseEventStatement],
             [TokenType.PLAYER_EVENT,        this.parseEventStatement],
             [TokenType.ENTITY_EVENT,        this.parseEventStatement],
             [TokenType.GAME_EVENT,          this.parseEventStatement],
+
+            [TokenType.REPEAT,              this.parseRepeatStatement],
         ]);
     }
 
@@ -82,13 +84,13 @@ export class Parser {
         this.errors.push(e);
     }
 
-    expect(type: TokenType | TokenType[]): [Token, boolean] {
+    expect(type: TokenType | TokenType[], advance: boolean = true): [Token, boolean] {
         this.consumeComments();
         let currentToken = this.currentToken();
         if (
             Array.isArray(type) ? (type.includes(currentToken.type)) : (currentToken.type == type)
         ) {
-            this.consume();
+            if (advance) this.consume();
             return [currentToken, true];
         } else {
             this.reportError(
@@ -329,6 +331,16 @@ export class Parser {
         if (!chunk) return null;
 
         return new EventStatement(modifiers, mainKeyword, eventName, chunk);
+    }
+
+
+    parseRepeatStatement = (): RepeatForeverStatement | null => {
+        let keyword = this.consume();
+        let [next, nextValid] = this.expect(TokenType.OPEN_CURLY, false);
+        if (!nextValid) return null;
+        let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
+        if (chunk == null) return null;
+        return new RepeatForeverStatement(keyword, chunk);
     }
 
     parse() {

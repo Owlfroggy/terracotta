@@ -25,3 +25,10 @@ export class EventStatement extends Statement {
         public chunk: ChunkExpression
     ) {super(modifiers.length > 0 ? modifiers[0].startPos : type.startPos, chunk.endPos);}
 }
+
+export class RepeatForeverStatement extends Statement {
+    constructor(
+        public keyword: Token,
+        public chunk: ChunkExpression,
+    ) {super(keyword.startPos, chunk.endPos);}
+}

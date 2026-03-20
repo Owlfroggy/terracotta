@@ -200,6 +200,8 @@ export class Lexer {
             this.makeKeywordPattern(TokenType.LOCAL,            "local"),
             this.makeKeywordPattern(TokenType.LINE,             "line"),
 
+            this.makeKeywordPattern(TokenType.REPEAT,           "repeat"),
+
             this.makeRegexPattern(TokenType.IDENTIFIER,         /[A-Za-z_]+[A-Za-z0-9_]*/y),
             
             // operations

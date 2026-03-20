@@ -23,6 +23,8 @@ export enum TokenType {
     LOCAL,
     LINE,
 
+    REPEAT,
+
     OPEN_PAREN,
     CLOSE_PAREN,
     OPEN_BRACKET,

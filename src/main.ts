@@ -1,6 +1,6 @@
 import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, Statement } from "./ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatForeverStatement, Statement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
@@ -8,9 +8,8 @@ import { Parser } from "./parser/parser.ts";
 
 let test = 
 `
-playerevent Join {
-    global "joinDate sp%uuid" = game.timestamp * 20;
-    default.sendMessage("welcome to my game :D");
+repeat {
+    hi();
 }
 `
 // `
@@ -61,6 +60,8 @@ function recurse(e: ASTNode): string {
     } else if (e instanceof EventStatement) {
         let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`
+    } else if (e instanceof RepeatForeverStatement) {
+        return `repeat ${recurse(e.chunk)}`;
     }
     return "";
 }
