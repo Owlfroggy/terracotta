@@ -6,6 +6,7 @@ export enum TokenType {
 
     IDENTIFIER,
     NUMERIC_LITERAL,
+    STRING_LITERAL,
 
     LAGSLAYER_CANCEL,
     PLAYER_EVENT,
@@ -43,6 +44,10 @@ export enum BindingPower {
     ATOM,
 }
 
+export type StringExtraData = {
+    quoteChar: string,
+    isClosed: boolean,
+};
 
 export class Token {
     constructor(
@@ -52,10 +57,18 @@ export class Token {
         readonly endPos: number,
         readonly type: TokenType,
         readonly value: string = "",
+        readonly extraData: StringExtraData | null = null,
     ) {}
     
     toString() {
         return `{${TokenType[this.type]} '${this.value}' [${this.startPos}-${this.endPos}]}`
+    }
+
+    getStringExtraData(): StringExtraData {
+        if (this.type != TokenType.STRING_LITERAL) {
+            throw new Error("Attempted to get string metadata on a token that wasn't a string literal");
+        }
+        return this.extraData as StringExtraData;
     }
     
     static missing(pos: number): Token {

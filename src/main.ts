@@ -1,22 +1,30 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression } from "./ast/expression.ts";
 import { EventStatement, ExpressionStatement, Statement } from "./ast/statement.ts";
+import { TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
-let test = 
-`
+let test = `
+'short:\\n \\' \\" \\b \\x40 \\u2620\\u2620 \\x40 \\nXXXXX\\\\\\ XXXXXXXX'.length;
+sendMessage("hello world!!!!!");
+
 playerevent Join {
     global a + saved a + local a - line a;
-    (2 + line ).balls();
     default.teleport(victim.location + [0, 2, 0]);
-    allPlayers.sendMessage(owie);
-}`;
+    allPlayers.sendMessage("owie");
+}
+`
 
 // ast visualizer
 function recurse(e: Expression | Statement): string {
     if (e instanceof AtomicExpression) {
-        return e.token.value;
+        if (e.token.type == TokenType.STRING_LITERAL) {
+            let stringData = e.token.getStringExtraData();
+            return `${stringData.quoteChar}\x1b[0;92m${e.token.value.replaceAll("\n","\x1b[0;34m\\n\x1b[0;92m")}\x1b[0m${stringData.quoteChar}`
+        } else {
+            return e.token.value;
+        }
     } else if (e instanceof VariableExpression) {
         return `${e.scope.value} ${e.name.value}`;
     } else if (e instanceof GroupExpression) {
@@ -97,9 +105,9 @@ lexer.tokenize()
 const parser = new Parser(lexer.tokens);
 // let expr = parser.parseExpression(0) as Expression;
 parser.parse();
-console.log(parser.statements);
+console.dir(parser.statements, {depth: null});
 // console.log("Errors: ", parser.errors);
 console.log("RECONSTRUCTION FROM AST --------------------")
 console.log(visualizeStatements(parser.statements).join("\n"));
 console.log("--------------------------------------------")
-visualizeErrors(parser.errors,test)
+visualizeErrors([...parser.errors, ...lexer.errors],test)

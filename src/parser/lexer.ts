@@ -13,6 +13,14 @@ export class Lexer {
         }
     ) {}
 
+    reportError(startPos: number, endPos: number, message: string) {
+        this.errors.push(new TCError(
+            startPos, endPos,
+            ErrorType.LEXER,
+            message
+        ));
+    }
+
     makeRegexPattern(tokenType: TokenType, regex: RegExp) {
         return () => {
             regex.lastIndex = this.position;
@@ -30,6 +38,107 @@ export class Lexer {
         return this.makeRegexPattern(tokenType, new RegExp(`\\${symbol}`, 'y'));
     }
 
+    makeStringPattern(qouteChar: string) {
+        return () => {
+            let regex = new RegExp(`${qouteChar}((?:[^${qouteChar}\\\\]|\\\\.)*?)(?:${qouteChar}|\\n|$)`,'y')
+            regex.lastIndex = this.position;
+            let result = regex.exec(this.script);
+            if (result == null) return null;
+
+            let startPos = this.position;
+            let endPos = this.position + result[0].length;
+
+            // error for unclosed string
+            let isClosed = true;
+            if (endPos >= this.script.length || this.script[endPos-1] != qouteChar) {
+                isClosed = false;
+                if (endPos < this.script.length) {
+                    endPos--;
+                }
+                this.reportError(
+                    startPos,endPos,
+                    `Unclosed string literal`
+                );
+            }
+
+            let stringContents = result[1];
+
+            //=- escape sequences -=\\
+
+            // queue up substitutions instead of applying them immediately so
+            // that indexes of error messages don't get messed up by shifting
+            let substitutions: [number, number, string][] = [];
+            // that then means that we need to manually keep track of which
+            // escape sequences have already been parsed to avoid double-handling
+            let processedIndexes: Set<number> = new Set();
+
+            let escapeSequence = (
+                regex: RegExp, 
+                handler: (matchValue: string) => [evaluated: string] | [evaluated: string, error: string]
+            ) => {
+                let escapeMatches = [...stringContents.matchAll(regex)];
+                for (let i = escapeMatches.length-1; i >= 0; i--) {
+                    let match = escapeMatches[i];
+                    let matchStartPos = match.index;
+                    if (processedIndexes.has(matchStartPos)) {
+                        continue;
+                    } else {
+                        processedIndexes.add(matchStartPos);
+                    }
+                    let matchEndPos = match.index + match[0].length;
+                    let [evaluated, error] = handler(match[0]);
+                    if (error != undefined) {
+                        this.reportError(
+                            startPos + matchStartPos + 1, startPos + matchEndPos + 1,
+                            error
+                        );
+                    }
+                    substitutions.push([matchStartPos, matchEndPos, evaluated]);
+                }
+            };
+
+            // \uFFFF
+            escapeSequence(/\\u(?:[A-Fa-f0-9]{4})?/g, (matchValue) => {
+                if (matchValue.length != 6) {
+                    return ['', `'\\u' escape sequence must be followed by four hexadecimal digits`];
+                } else {
+                    return [String.fromCodePoint(parseInt(matchValue.substring(2),16))];
+                }
+            })
+
+            // \xFF
+            escapeSequence(/\\x(?:[A-Fa-f0-9]{2})?/g, (matchValue) => {
+                if (matchValue.length != 4) {
+                    return ['', `'\\x' escape sequence must be followed by two hexadecimal digits`];
+                } else {
+                    return [String.fromCodePoint(parseInt(matchValue.substring(2),16))];
+                }
+            });
+
+            // basic escape sequences
+            escapeSequence(/\\n/g, _ => ["\n"]);
+            escapeSequence(/\\'/g, _ => ["\'"]);
+            escapeSequence(/\\"/g, _ => ["\""]);
+
+            // (\\ -> \), or errors for invalid escape sequences (final catch-all)
+            escapeSequence(/\\./g, (matchValue) => {
+                if (matchValue == "\\\\") {
+                    return ["\\"];
+                } else {
+                    return ["",`Invalid escape sequence '${matchValue}'`];
+                }
+            });
+
+            // apply all the substitutions that have been queued up
+            substitutions.sort((a, b) => b[0] - a[0]);
+            for (const sub of substitutions) {
+                stringContents = stringContents.substring(0,sub[0]) + sub[2] + stringContents.substring(sub[1]);
+            }
+            
+            return new Token(startPos, endPos, TokenType.STRING_LITERAL, stringContents, {quoteChar: qouteChar, isClosed: isClosed});
+        }
+    }
+
     public tokenize() {
         this.tokens.length = 0;
         this.errors.length = 0;
@@ -40,6 +149,8 @@ export class Lexer {
         // using the returned token's end index as the new start index.
         // if no patterns succeed then you need to fix that :(
         const patterns = [
+            this.makeStringPattern('"'),
+            this.makeStringPattern("'"),
             this.makeRegexPattern(TokenType.WHITESPACE,         /\s+/y),
             this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)?)\.?(?:\d+(?:_?\d+)?)?/y),
             this.makeKeywordPattern(TokenType.LAGSLAYER_CANCEL, "lscancel"),
@@ -74,7 +185,10 @@ export class Lexer {
                 if (result != null) { break; }
             }
             if (result == null) {
-                this.errors.push(new TCError(this.position, this.position+1, ErrorType.LEXER, `Invalid character '${this.script[this.position]}'`))
+                this.reportError(
+                    this.position, this.position+1, 
+                    `Invalid character '${this.script[this.position]}'`
+                );
                 this.position++;
             } else {
                 this.position = result.endPos;
