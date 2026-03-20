@@ -12,6 +12,11 @@ export enum TokenType {
     GAME_EVENT,
     ENTITY_EVENT,
 
+    GLOBAL,
+    SAVED,
+    LOCAL,
+    LINE,
+
     OPEN_PAREN,
     CLOSE_PAREN,
     OPEN_BRACKET,

@@ -1,5 +1,4 @@
-import { open } from "node:fs";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
@@ -31,7 +30,11 @@ export class Parser {
             [TokenType.IDENTIFIER,      {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
             [TokenType.NUMERIC_LITERAL, {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
             [TokenType.OPEN_PAREN,      {bp: BindingPower.GROUP, processor: this.parseGroupExpression}],
-            [TokenType.OPEN_BRACKET,    {bp: BindingPower.ATOM,  processor: () => this.parseListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA)}]
+            [TokenType.OPEN_BRACKET,    {bp: BindingPower.ATOM,  processor: () => this.parseListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA)}],
+            [TokenType.GLOBAL,          {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
+            [TokenType.SAVED,           {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
+            [TokenType.LOCAL,           {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
+            [TokenType.LINE,            {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
         ]);
         this.tokenLEDProperties = new Map<TokenType, LEDProcessingProperties>([
             [TokenType.PLUS,            {bp: BindingPower.ADD,   processor: this.parseBinaryExpression}],
@@ -138,6 +141,12 @@ export class Parser {
 
         this.consume();
         return new AtomicExpression(token);
+    }
+
+    parseVariableExpression = (): VariableExpression => {
+        let scope = this.consume();
+        let [name, nameFound] = this.expectOrMissing(TokenType.IDENTIFIER);
+        return new VariableExpression(scope, name);
     }
 
     parseBinaryExpression = (left: Expression, bp: number): BinaryExpression => {

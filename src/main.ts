@@ -1,4 +1,4 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression } from "./ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression } from "./ast/expression.ts";
 import { EventStatement, ExpressionStatement, Statement } from "./ast/statement.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
@@ -7,15 +7,18 @@ import { Parser } from "./parser/parser.ts";
 let test = 
 `
 playerevent Join {
+    global a + saved a + local a - line a;
+    (2 + line ).balls();
     default.teleport(victim.location + [0, 2, 0]);
     allPlayers.sendMessage(owie);
-    lscancel gameevent Sadness{ default * 20 + 5; }
 }`;
 
 // ast visualizer
 function recurse(e: Expression | Statement): string {
     if (e instanceof AtomicExpression) {
         return e.token.value;
+    } else if (e instanceof VariableExpression) {
+        return `${e.scope.value} ${e.name.value}`;
     } else if (e instanceof GroupExpression) {
         return recurse(e.expression);
     } else if (e instanceof ListExpression) {

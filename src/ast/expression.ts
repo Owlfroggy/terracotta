@@ -14,6 +14,13 @@ export class AtomicExpression extends Expression {
     ) {super(token.startPos, token.endPos);}
 }
 
+export class VariableExpression extends Expression {
+    constructor(
+        public scope: Token,
+        public name: Token,
+    ) {super(scope.startPos, name.endPos);}
+}
+
 export class BinaryExpression extends Expression {
     constructor (
         public left: Expression,
