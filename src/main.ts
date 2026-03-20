@@ -6,19 +6,39 @@ import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = 
-`'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
-sendMessage("hello world!!!!!");
+`
+/**
+ * this is a very special comment!
+ */
+/* i am a less special comment*/ lscancel /*ASDFASDF*/ playerevent /*square the squardent*/ Join {
+    [
+        /* the number 5... or is it? */
+        (5 + num.random()),
+        10,
+        /* this comment goes nowhere */
+    ];
 
-// runs wen u join
-playerevent Join {
-    // very good code right here!!
-    global a// + saved a + local a - line a;
-    default.teleport(
-        victim.location + [0, 2, 0] // balls
-    );
-    allPlayers.sendMessage("ow//ie");
+    // this never appears in the ast: /* ghost */
+    console./*balls */log();
+
+    5 + /* wuh woh */;
 }
 `
+// `
+// 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
+// sendMessage("hello world!!!!!");
+
+// // runs wen u join
+// /* balls */
+// playerevent Join {
+//     /* very good code right here!! */
+//     global a// + saved a + local a - line a;
+//     default.teleport(
+//         victim.location + [0, 2, 0] /* balls */
+//     );
+//     allPlayers.sendMessage("ow//ie");
+// }
+// `
 
 // ast visualizer
 function recurse(e: Expression | Statement): string {

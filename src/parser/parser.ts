@@ -76,6 +76,7 @@ export class Parser {
     }
 
     expect(type: TokenType | TokenType[]): [Token, boolean] {
+        this.consumeComments();
         let currentToken = this.currentToken();
         if (
             Array.isArray(type) ? (type.includes(currentToken.type)) : (currentToken.type == type)
@@ -122,6 +123,14 @@ export class Parser {
         let t = this.currentToken();
         if (t.type != TokenType.EOF) this.position++;
         return t;
+    }
+
+    consumeComments = (): Token[] => {
+        let comments: Token[] = [];
+        while (this.currentToken().type == TokenType.MULTILINE_COMMENT){ 
+            comments.push(this.consume());
+        }
+        return comments;
     }
 
     parseAtomicExpression = (): AtomicExpression | MissingExpression => {
@@ -195,8 +204,8 @@ export class Parser {
         while (
             this.currentToken().type != closerType 
         ) {
+            let comments = this.consumeComments();
             let expr: Expression;
-
             if (!this.currrentTokenNUDProps()) {
                 // EVERYTHING IN THIS IF STATEMENT IS ERROR RECOVERY!!
 
@@ -216,6 +225,7 @@ export class Parser {
             else {
                 expr = this.parseExpression(BindingPower.DEFAULT);
             }
+            expr.attachedComments.push(...comments);
             elements.push(expr);
             if (this.currentToken().type != closerType) {
                 this.expect(delimiter);
@@ -237,7 +247,9 @@ export class Parser {
 
         let statements: Statement[] = [];
         while (this.currentToken().type != closerType && this.currentToken().type != TokenType.EOF) {
-            let currentTokenType = this.currentToken().type;
+            let comments = this.consumeComments();
+            let currentTokenType = this.currentToken().type;            
+
             let useSpecialStatement = this.tokenStatementProcessors.has(currentTokenType);
             let statement: Statement | null;
             if (useSpecialStatement) {
@@ -251,7 +263,10 @@ export class Parser {
                 this.expect(TokenType.SEMICOLON);
             }
 
-            if (statement != null) statements.push(statement);
+            if (statement != null) {
+                statement.attachedComments.push(...comments);
+                statements.push(statement);
+            };
         }
         
         let [closer, closerFound] = this.expectOrMissing(closerType);
@@ -264,8 +279,9 @@ export class Parser {
     }
 
     parseExpression = (bp: number): Expression => { 
-        let nudProps = this.currrentTokenNUDProps();
+        this.consumeComments();
 
+        let nudProps = this.currrentTokenNUDProps();
         if (nudProps == null) {
             this.reportUndisplayedError(
                 this.currentToken().startPos, this.currentToken().endPos,

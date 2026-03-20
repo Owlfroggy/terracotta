@@ -7,6 +7,7 @@ export enum TokenType {
     WHITESPACE,
 
     COMMENT,
+    MULTILINE_COMMENT,
 
     IDENTIFIER,
     NUMERIC_LITERAL,

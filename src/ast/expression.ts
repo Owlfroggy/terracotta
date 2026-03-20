@@ -1,8 +1,9 @@
-import { ASTNode } from "./astNode.ts";
+import { ASTNode, CommentHolder } from "./astNode.ts";
 import { Statement } from "./statement.ts";
 import { Token } from "./token.ts";
 
-export class Expression extends ASTNode {
+export class Expression extends ASTNode implements CommentHolder {
+    attachedComments: Token[] = [];
     constructor(
         startPos: number, endPos: number
     ) { super(startPos, endPos); }

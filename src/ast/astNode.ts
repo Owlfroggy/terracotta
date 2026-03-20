@@ -1,3 +1,5 @@
+import { Token } from "./token.ts";
+
 export class ASTNode {
     constructor(
         /** inclusive */
@@ -5,4 +7,8 @@ export class ASTNode {
         /** exclusive */
         public readonly endPos: number,
     ) {}
+}
+
+export interface CommentHolder {
+    attachedComments: Token[];
 }

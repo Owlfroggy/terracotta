@@ -140,6 +140,38 @@ export class Lexer {
         }
     }
 
+    multiLineCommentPattern = (): Token | null => {
+        let regex = /\/\*(?:.|\n)*?\*\//y;
+        regex.lastIndex = this.position;
+        let result = regex.exec(this.script);
+        if (result == null) return null;
+
+        let startPos = result.index;
+        let endPos = result.index + result[0].length;
+
+        let commentLines = (
+            // trim out opening /* and closing */
+            result[0].substring(2,result[0].length-2)
+
+            // split by lnies
+            .split("\n")
+        );
+
+        // trim out the <space> * <space> pattern that multiline comments use
+        for (let i = 0; i < commentLines.length; i++) {
+            let line = commentLines[i];
+            let whitespaceMatch = line.match(/(?:\s+\*?|\*)\s?/y);
+            if (whitespaceMatch != null) {
+                line = line.substring(whitespaceMatch[0].length);
+                commentLines[i] = line;
+            }
+        }
+        if (commentLines[0] == "") commentLines.splice(0,1);
+        if (commentLines[commentLines.length-1] == "") commentLines.splice(commentLines.length-1,1);
+
+        return new Token(startPos, endPos, TokenType.MULTILINE_COMMENT,commentLines.join("\n"));
+    }
+
     public tokenize() {
         this.tokens.length = 0;
         this.errors.length = 0;
@@ -152,7 +184,8 @@ export class Lexer {
         const patterns = [
             this.makeStringPattern('"'),
             this.makeStringPattern("'"),
-            this.makeRegexPattern(TokenType.COMMENT,            /\/\/.*(?=\n|$)/y),
+            this.makeRegexPattern(TokenType.COMMENT,            /\/\/.*?(?=\n|$)/y),
+            this.multiLineCommentPattern,
             this.makeRegexPattern(TokenType.WHITESPACE,         /\s+/y),
             this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)?)\.?(?:\d+(?:_?\d+)?)?/y),
             this.makeKeywordPattern(TokenType.LAGSLAYER_CANCEL, "lscancel"),
