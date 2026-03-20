@@ -21,6 +21,7 @@ export enum TokenType {
     CALL,
     START,
 
+    RETURN,
     BREAK,
     CONTINUE,
     ENDTHREAD,

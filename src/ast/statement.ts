@@ -40,3 +40,10 @@ export class SingleKeywordStatement extends Statement {
         public args: ListExpression | null
     ) {super(keyword.startPos, args ? args.endPos : keyword.startPos);}
 }
+
+export class ReturnStatement extends Statement {
+    constructor(
+        public keyword: Token,
+        public value: Expression | null,
+    ) {super(keyword.startPos, value ? value.endPos : keyword.endPos);}
+}

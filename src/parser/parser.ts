@@ -1,5 +1,5 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, SingleKeywordStatement, Statement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
@@ -69,6 +69,7 @@ export class Parser {
 
             [TokenType.REPEAT,              this.parseRepeatStatement],
             
+            [TokenType.RETURN,              this.parseReturnStatement],
             [TokenType.BREAK,               this.parseSingleKeywordStatement],
             [TokenType.CONTINUE,            this.parseSingleKeywordStatement],
             [TokenType.ENDTHREAD,           this.parseSingleKeywordStatement],
@@ -390,6 +391,16 @@ export class Parser {
         }
         this.expect(TokenType.SEMICOLON);
         return new SingleKeywordStatement(keyword, args);
+    }
+
+    parseReturnStatement = (): ReturnStatement => {
+        let keyword = this.consume();
+        let value: Expression | null = null;
+        if (this.currentToken().type != TokenType.SEMICOLON) {
+            value = this.parseExpression(BindingPower.DEFAULT);
+        }
+        this.expect(TokenType.SEMICOLON);
+        return new ReturnStatement(keyword, value);
     }
 
     parse() {
