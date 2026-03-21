@@ -63,6 +63,13 @@ export class ParameterExpression extends Expression {
     }
 }
 
+export class UnaryPrefixExpression extends Expression {
+    constructor (
+        public operator: Token,
+        public right: Expression,
+    ) {super(operator.startPos, right.endPos);}
+}
+
 export class BinaryExpression extends Expression {
     constructor (
         public left: Expression,

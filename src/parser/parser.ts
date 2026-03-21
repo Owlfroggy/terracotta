@@ -1,4 +1,4 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement, FunctionStatement, ProcessStatement, IfStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
@@ -31,23 +31,25 @@ export class Parser {
         public tokens: Token[]
     ) {
         this.tokenNUDProperties = new Map<TokenType, NUDProcessingProperties>([
-            [TokenType.IDENTIFIER,      {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
-            [TokenType.NUMERIC_LITERAL, {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
-            [TokenType.STRING_LITERAL,  {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
-            [TokenType.STYLED_LITERAL,  {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
-            [TokenType.OPEN_PAREN,      {bp: BindingPower.GROUP, processor: this.parseGroupExpression}],
-            [TokenType.OPEN_BRACKET,    {bp: BindingPower.ATOM,  processor: () => this.parseListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA)}],
-            [TokenType.OPEN_CURLY,      {bp: BindingPower.ATOM,  processor: this.parseDictionaryExpression}],
+            [TokenType.IDENTIFIER,      {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}],
+            [TokenType.NUMERIC_LITERAL, {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}],
+            [TokenType.STRING_LITERAL,  {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}],
+            [TokenType.STYLED_LITERAL,  {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}],
+            [TokenType.OPEN_PAREN,      {bp: BindingPower.GROUP,    processor: this.parseGroupExpression}],
+            [TokenType.OPEN_BRACKET,    {bp: BindingPower.ATOM,     processor: () => this.parseListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA)}],
+            [TokenType.OPEN_CURLY,      {bp: BindingPower.ATOM,     processor: this.parseDictionaryExpression}],
 
-            [TokenType.GLOBAL,          {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
-            [TokenType.SAVED,           {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
-            [TokenType.LOCAL,           {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
-            [TokenType.LINE,            {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
+            [TokenType.GLOBAL,          {bp: BindingPower.ATOM,     processor: this.parseVariableExpression}],
+            [TokenType.SAVED,           {bp: BindingPower.ATOM,     processor: this.parseVariableExpression}],
+            [TokenType.LOCAL,           {bp: BindingPower.ATOM,     processor: this.parseVariableExpression}],
+            [TokenType.LINE,            {bp: BindingPower.ATOM,     processor: this.parseVariableExpression}],
+            
+            [TokenType.CALL,            {bp: BindingPower.ATOM,     processor: this.parseCallOrStartExpression}],
+            [TokenType.START,           {bp: BindingPower.ATOM,     processor: this.parseCallOrStartExpression}],
+            
+            ...TYPE_KEYWORDS.map(i=>[i, {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}] as const),
 
-            [TokenType.CALL,            {bp: BindingPower.ATOM,  processor: this.parseCallOrStartExpression}],
-            [TokenType.START,           {bp: BindingPower.ATOM,  processor: this.parseCallOrStartExpression}],
-
-            ...TYPE_KEYWORDS.map(i => [i, {bp: BindingPower.ATOM, processor: this.parseAtomicExpression}] as const),
+            [TokenType.MINUS,           {bp: BindingPower.PREFIX,   processor: this.parseUnaryPrefixExpression}]
         ]);
         this.tokenLEDProperties = new Map<TokenType, LEDProcessingProperties>([
             [TokenType.EQUALS,          {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
@@ -274,6 +276,13 @@ export class Parser {
             left,
             accessorToken,
             propertyName
+        );
+    }
+
+    parseUnaryPrefixExpression = (bp: number) => {
+        return new UnaryPrefixExpression(
+            this.consume(),
+            this.parseExpression(bp)
         );
     }
 

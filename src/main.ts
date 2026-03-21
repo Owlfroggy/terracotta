@@ -1,5 +1,5 @@
 import { ASTNode } from "./ast/astNode.ts";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression } from "./ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression } from "./ast/expression.ts";
 import { EventStatement, ExpressionStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
@@ -7,11 +7,7 @@ import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = `
-if (1 + 2 == three.what < 1 != 0) {
-    default.sendMessage("dingus");
-    default.kablingus;
-    line true: num = 1 == 2;
-}
+default.sendMessage(3--2);
 `;
 
 `
@@ -117,6 +113,8 @@ function recurse(e: ASTNode | null): string {
         }
     } else if (e instanceof BinaryExpression) {
         return `(${recurse(e.left)} ${e.operator.value} ${recurse(e.right)})`
+    } else if (e instanceof UnaryPrefixExpression) {
+        return `(${e.operator.value}${recurse(e.right)})`
     } else if (e instanceof CallExpression) {
         return `${recurse(e.callee)}${recurse(e.args)}`;
     } else if (e instanceof CallOrStartExpression) {
