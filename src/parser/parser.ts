@@ -61,12 +61,12 @@ export class Parser {
             [TokenType.PERCENT_EQUALS,  {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
             [TokenType.POW_EQUALS,      {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
 
-            [TokenType.DOUBLE_EQUALS,   {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
-            [TokenType.BANG_EQUALS,     {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
-            [TokenType.LESS_EQUALS,     {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
-            [TokenType.LESS,            {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
-            [TokenType.GREATER_EQUALS,  {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
-            [TokenType.GREATER,         {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
+            [TokenType.DOUBLE_EQUALS,   {bp: BindingPower.EQUALITY, processor: this.parseBinaryExpression}],
+            [TokenType.BANG_EQUALS,     {bp: BindingPower.EQUALITY, processor: this.parseBinaryExpression}],
+            [TokenType.LESS_EQUALS,     {bp: BindingPower.RELATION, processor: this.parseBinaryExpression}],
+            [TokenType.LESS,            {bp: BindingPower.RELATION, processor: this.parseBinaryExpression}],
+            [TokenType.GREATER_EQUALS,  {bp: BindingPower.RELATION, processor: this.parseBinaryExpression}],
+            [TokenType.GREATER,         {bp: BindingPower.RELATION, processor: this.parseBinaryExpression}],
 
             [TokenType.PLUS,            {bp: BindingPower.ADD,      processor: this.parseBinaryExpression}],
             [TokenType.MINUS,           {bp: BindingPower.ADD,      processor: this.parseBinaryExpression}],
