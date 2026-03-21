@@ -240,15 +240,19 @@ export class Lexer {
             this.makeSymbolPattern(TokenType.GREATER,           ">"),
 
             this.makeSymbolPattern(TokenType.EQUALS,            "="),
+            this.makeSymbolPattern(TokenType.POW_EQUALS,        "**="),
             this.makeSymbolPattern(TokenType.PLUS_EQUALS,       "+="),
             this.makeSymbolPattern(TokenType.MINUS_EQUALS,      "-="),
             this.makeSymbolPattern(TokenType.STAR_EQUALS,       "*="),
             this.makeSymbolPattern(TokenType.SLASH_EQUALS,      "/="),
-
+            this.makeSymbolPattern(TokenType.PERCENT_EQUALS,    "%="),
+            
+            this.makeSymbolPattern(TokenType.POW,               "**"),
             this.makeSymbolPattern(TokenType.PLUS,              "+"),
             this.makeSymbolPattern(TokenType.MINUS,             "-"),
             this.makeSymbolPattern(TokenType.STAR,              "*"),
             this.makeSymbolPattern(TokenType.SLASH,             "/"),
+            this.makeSymbolPattern(TokenType.PERCENT,           "%"),
 
             this.makeSymbolPattern(TokenType.BANG,              "!"),
 

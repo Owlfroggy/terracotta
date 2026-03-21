@@ -6,34 +6,7 @@ import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
-let test = `
-
-global gameLoopStarted: num = 0;
-
-process gameLoop {
-    repeat {
-        select allPlayers;
-        select reset;
-        
-        line locations: list = [];
-        select playersByCondition( selected.yLevel > 50 );
-        filter randomly(game.selectionSize / 2);
-            list.append(locations, selected.location);
-        select reset;
-        
-        for (line l: loc in locations) {
-            game.summonLightning(l);
-        }
-        wait;
-    }
-}
-
-playerevent join {
-    if (gameLoopStarted == 0) {
-        start gameLoop;
-    }
-}
-`;
+let test = `d **= 2; d %= 2; default.sendMessage(d ** 1/2, d % 2);`;
 
 `
 global "dict of doom" = {

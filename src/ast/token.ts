@@ -86,6 +86,8 @@ export enum TokenType {
     MINUS_EQUALS,
     STAR_EQUALS,
     SLASH_EQUALS,
+    PERCENT_EQUALS,
+    POW_EQUALS,
 
     BANG,
 
@@ -93,6 +95,8 @@ export enum TokenType {
     MINUS,
     STAR,
     SLASH,
+    PERCENT,
+    POW,
 }
 
 export enum BindingPower {
@@ -102,6 +106,7 @@ export enum BindingPower {
     COMPARE,
     ADD,
     MULT,
+    EXPO,
     CALL,
     ACCESS,
     PREFIX,

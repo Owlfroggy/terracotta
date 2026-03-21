@@ -58,6 +58,8 @@ export class Parser {
             [TokenType.MINUS_EQUALS,    {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
             [TokenType.STAR_EQUALS,     {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
             [TokenType.SLASH_EQUALS,    {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
+            [TokenType.PERCENT_EQUALS,  {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
+            [TokenType.POW_EQUALS,      {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
 
             [TokenType.DOUBLE_EQUALS,   {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
             [TokenType.NOT_EQUALS,      {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
@@ -70,6 +72,8 @@ export class Parser {
             [TokenType.MINUS,           {bp: BindingPower.ADD,      processor: this.parseBinaryExpression}],
             [TokenType.STAR,            {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
             [TokenType.SLASH,           {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
+            [TokenType.PERCENT,         {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
+            [TokenType.POW,             {bp: BindingPower.EXPO,     processor: this.parseBinaryExpression}],
 
             [TokenType.TO,              {bp: BindingPower.LOOP_KW,  processor: this.parseBinaryExpression}],
             [TokenType.IN,              {bp: BindingPower.LOOP_KW,  processor: this.parseBinaryExpression}],
