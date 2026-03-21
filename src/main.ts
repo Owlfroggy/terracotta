@@ -1,17 +1,16 @@
 import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, FunctionStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
+import { EventStatement, ExpressionStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = `
-line glingus = s"hello;
-default.sendMessage(var, s"<red>world");
-
-line s"invalid" = 5;
-line "valid" = 5;
+if (1 + 2) {
+    default.sendMessage("dingus");
+    default.kablingus;
+}
 `;
 
 `
@@ -140,6 +139,8 @@ function recurse(e: ASTNode | null): string {
         return `process ${recurse(e.name)}${recurse(e.args)} ${recurse(e.chunk)}`
     } else if (e instanceof RepeatStatement) {
         return `repeat${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
+    } else if (e instanceof IfStatement) {
+        return `if ${recurse(e.condition)} ${recurse(e.chunk)}`;
     } else if (e instanceof SingleKeywordStatement) {
         return `${e.keyword.value}${e.args ? recurse(e.args) : ""};`
     } else if (e instanceof ReturnStatement) {

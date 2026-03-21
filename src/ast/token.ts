@@ -51,6 +51,7 @@ export enum TokenType {
     LINE,
     
     REPEAT,
+    IF,
 
     TO,
 

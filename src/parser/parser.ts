@@ -1,5 +1,5 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement, FunctionStatement, ProcessStatement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement, FunctionStatement, ProcessStatement, IfStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
@@ -73,9 +73,10 @@ export class Parser {
             [TokenType.ENTITY_EVENT,        this.parseEventStatement],
             [TokenType.GAME_EVENT,          this.parseEventStatement],
             [TokenType.FUNCTION,            this.parseFunctionStatement],
-            [TokenType.PROCESS,            this.parseProcessStatement],
+            [TokenType.PROCESS,             this.parseProcessStatement],
 
             [TokenType.REPEAT,              this.parseRepeatStatement],
+            [TokenType.IF,                  this.parseIfStatement],
             
             [TokenType.RETURN,              this.parseReturnStatement],
             [TokenType.BREAK,               this.parseSingleKeywordStatement],
@@ -550,6 +551,17 @@ export class Parser {
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
         if (chunk == null) return null;
         return new RepeatStatement(keyword, countExpression, chunk);
+    }
+
+    parseIfStatement = (): IfStatement | null => {
+        let keyword = this.consume();
+
+        let condition = this.parseGroupExpression(BindingPower.DEFAULT);
+
+        let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
+        if (chunk == null) return null;
+
+        return new IfStatement(keyword, condition, chunk);
     }
 
     parseSingleKeywordStatement = (): SingleKeywordStatement => {

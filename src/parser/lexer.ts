@@ -218,6 +218,7 @@ export class Lexer {
             this.makeKeywordPattern(TokenType.LINE,             "line"),
             
             this.makeKeywordPattern(TokenType.REPEAT,           "repeat"),
+            this.makeKeywordPattern(TokenType.IF,               "if"),
 
             this.makeKeywordPattern(TokenType.TO,               "to"),
 
