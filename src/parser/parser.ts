@@ -1,5 +1,5 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement, FunctionStatement, ProcessStatement, IfStatement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, ProcessStatement, IfStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
@@ -95,11 +95,6 @@ export class Parser {
             [TokenType.ENDTHREAD,           this.parseSingleKeywordStatement],
             [TokenType.ENDALLTHREADS,       this.parseSingleKeywordStatement],
             [TokenType.WAIT,                this.parseSingleKeywordStatement],
-
-            [TokenType.GLOBAL,              this.parseVariableStatement],
-            [TokenType.SAVED,               this.parseVariableStatement],
-            [TokenType.LOCAL,               this.parseVariableStatement],
-            [TokenType.LINE,                this.parseVariableStatement],
         ]);
     }
 
@@ -215,7 +210,8 @@ export class Parser {
     parseVariableExpression = (): VariableExpression => {
         let scope = this.consume();
         let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
-        return new VariableExpression(scope, name);
+        let type = this.parseTypeAssignmentExpression(true);
+        return new VariableExpression(scope, name, type);
     }
 
     parseTypeExpression = (): TypeExpression => {
@@ -501,24 +497,6 @@ export class Parser {
     parseExpressionStatement = (): ExpressionStatement => {
         let expr = this.parseExpression(BindingPower.DEFAULT);
         return new ExpressionStatement(expr.startPos,expr.endPos,expr);
-    }
-
-    parseVariableStatement = (): VariableStatement => {
-        let variable = this.parseVariableExpression();
-        let operator: Token | null = null;
-
-        // specify a type
-        let type = this.parseTypeAssignmentExpression(true);
-
-        // assign to a value
-        let value: Expression | null = null;
-        if (ASSIGNMENT_OPERATORS.includes(this.currentToken().type)) {
-            operator = this.consume();
-            value = this.parseExpression(BindingPower.DEFAULT);
-        }
-
-        this.expect(TokenType.SEMICOLON);
-        return new VariableStatement(variable, type, operator, value);
     }
 
     parseEventStatement = (): EventStatement | null => {

@@ -1,6 +1,6 @@
 import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
+import { EventStatement, ExpressionStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
@@ -12,6 +12,9 @@ default.sendMessage(global "YEEEEEE HAWWWWW"[key + "_"][5]);
 
 dingus[s"invalid!!"];
 
+line dingus: str = 5;
+
+[line value: num, line error: str] = var.getBucketVar(blah blah blah);
 
 `;
 
@@ -89,7 +92,7 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof AtomicExpression) {
         return recurse(e.token);
     } else if (e instanceof VariableExpression) {
-        return `${e.scope.value}${e.name.type == TokenType.IDENTIFIER ? " "+e.name.value : recurse(e.name)}`;
+        return `${e.scope.value}${e.name.type == TokenType.IDENTIFIER ? " "+e.name.value : recurse(e.name)}${e.assignedType ? recurse(e.assignedType) : ""}`;
     } else if (e instanceof TypeExpression) {
         return `\x1b[0;38;5;39;49m${e.baseType.value}\x1b[0m`
     } else if (e instanceof TypeAssignmentExpression) {
@@ -134,8 +137,6 @@ function recurse(e: ASTNode | null): string {
         return placeholder;
     } else if (e instanceof ExpressionStatement) {
         return `${recurse(e.expression)}`
-    } else if (e instanceof VariableStatement) {
-        return `\x1b[0;38;5;147;49m${recurse(e.variable)}${e.assignedType ? recurse(e.assignedType) : ""}\x1b[0m${e.operator ? " "+e.operator.value+" " : ""}${e.value ? recurse(e.value) : ""};`
     } else if (e instanceof EventStatement) {
         let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`

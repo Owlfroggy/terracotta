@@ -18,15 +18,6 @@ export class ExpressionStatement extends Statement {
     }
 }
 
-export class VariableStatement extends Statement {
-    constructor(
-        public variable: VariableExpression,
-        public assignedType: TypeAssignmentExpression | null,
-        public operator: Token | null,
-        public value: Expression | null,
-    ) {super(variable.startPos, value ? value.endPos : operator ? operator.endPos : variable.endPos)}
-}
-
 export class EventStatement extends Statement {
     constructor(
         public modifiers: Token[],

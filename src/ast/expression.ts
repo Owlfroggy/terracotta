@@ -19,7 +19,8 @@ export class VariableExpression extends Expression {
     constructor(
         public scope: Token,
         public name: Token,
-    ) {super(scope.startPos, name.endPos);}
+        public assignedType: TypeAssignmentExpression | null,
+    ) {super(scope.startPos, assignedType ? assignedType.endPos : name.endPos);}
 }
 
 export class TypeExpression extends Expression {
