@@ -153,6 +153,13 @@ export class Parser {
         return this.tokenLEDProperties.get(token.type)!;
     }
 
+    isLineDelimiter = (t: Token = this.currentToken()): boolean => {
+        return (
+            this.currentToken().type == TokenType.EOF 
+            || this.currentToken().type == TokenType.SEMICOLON
+        )
+    }
+
     /** returns the current token and advances position by 1 */
     consume = (): Token => {
         let t = this.currentToken();
@@ -275,29 +282,10 @@ export class Parser {
         let elements: Expression[] = [];
         while (
             this.currentToken().type != closerType 
+            && !this.isLineDelimiter(this.currentToken())
         ) {
             let comments = this.consumeComments();
-            let expr: Expression;
-            if (!this.currrentTokenNUDProps()) {
-                // EVERYTHING IN THIS IF STATEMENT IS ERROR RECOVERY!!
-
-                // if this is an operator without a left value, try
-                // running its parsing code with a Missing as its left
-                let ledProps = this.currentTokenLEDProps();
-                if (ledProps) {
-                    expr = ledProps.processor(new MissingExpression(this.currentToken().startPos), BindingPower.DEFAULT)
-                } 
-                // if the current token cannot be processed in any way,
-                // slap in a MissingExpression to avoid being stuck forever
-                else {
-                    expr = new MissingExpression(this.currentToken().startPos);
-                    this.consume();
-                }
-            } 
-            // normal parsing code, this will run every time on a valid syntax file
-            else {
-                expr = this.parseExpression(BindingPower.DEFAULT);
-            }
+            let expr: Expression = this.parseExpression(BindingPower.DEFAULT, true);
             expr.attachedComments.push(...comments);
             elements.push(expr);
             if (this.currentToken().type != closerType) {
@@ -316,6 +304,7 @@ export class Parser {
         let elements: ParameterExpression[] = [];
         while (
             this.currentToken().type != closerType 
+            && !this.isLineDelimiter()
         ) {
             let comments = this.consumeComments();
             let expr = this.parseParameterExpression();
@@ -401,19 +390,36 @@ export class Parser {
         );
     }
 
-    parseExpression = (bp: number): Expression => { 
+    parseExpression = (bp: number, allowMissingLeft: boolean = false): Expression => { 
         this.consumeComments();
 
         let nudProps = this.currrentTokenNUDProps();
+        let left: Expression;
         if (nudProps == null) {
+            // EVERYTHING IN THIS IF STATEMENT IS ERROR RECOVERY!!
             this.reportUndisplayedError(
                 this.currentToken().startPos, this.currentToken().endPos,
                 `Expected a value here, got ${this.currentToken()}`
             );
-            return new MissingExpression(this.currentToken().startPos);
+            let missing = new MissingExpression(this.currentToken().startPos);
+            if (allowMissingLeft && !this.isLineDelimiter()) {
+                // if this is an operator without a left value, try
+                // running its parsing code with a Missing as its left
+                if (this.currentTokenLEDProps()) {
+                    left = missing;
+                } else {
+                    // if the current token cannot be processed in any way,
+                    // call it a MissingExpression to avoid being stuck forever
+                    this.consume();
+                    return missing;
+                }
+            } else {
+                return missing;
+            }
+        } else {
+            // this branch will run every time for a error-free ast
+            left = nudProps.processor(bp); // advances position
         }
-
-        let left = nudProps.processor(bp); // advances position
 
         let ledProps = this.currentTokenLEDProps();
 
