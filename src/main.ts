@@ -11,7 +11,7 @@ let test =
 function yeehaw(red, message: str... = ["dingus"], "parameter with spaces!!": num = 1): any, str {
     default.sendMessage(message);
     [line result, line error] = message;
-    return red;
+    return red, "yinkus";
 }
 `
 // `
@@ -88,7 +88,7 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof SingleKeywordStatement) {
         return `${e.keyword.value}${e.args ? recurse(e.args) : ""};`
     } else if (e instanceof ReturnStatement) {
-        return `${e.keyword.value}${e.value ? " "+recurse(e.value) : ""};`
+        return `${e.keyword.value}${e.values.length > 0 ? " "+e.values.map(v => recurse(v)).join(", ") : ""};`
     }
     return "";
 }

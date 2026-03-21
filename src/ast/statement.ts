@@ -64,6 +64,6 @@ export class SingleKeywordStatement extends Statement {
 export class ReturnStatement extends Statement {
     constructor(
         public keyword: Token,
-        public value: Expression | null,
-    ) {super(keyword.startPos, value ? value.endPos : keyword.endPos);}
+        public values: Expression[],
+    ) {super(keyword.startPos, values.length > 0 ? values[values.length-1].endPos : keyword.endPos);}
 }

@@ -505,11 +505,18 @@ export class Parser {
     parseReturnStatement = (): ReturnStatement => {
         let keyword = this.consume();
         let value: Expression | null = null;
-        if (this.currentToken().type != TokenType.SEMICOLON) {
-            value = this.parseExpression(BindingPower.DEFAULT);
-        }
+
+        let values: Expression[] = [];
+        do {
+            if (this.currentToken().type == TokenType.COMMA)
+                this.consume();
+            if (this.currentToken().type != TokenType.SEMICOLON) {
+                values.push(this.parseExpression(BindingPower.DEFAULT));
+            }
+        } while (this.currentToken().type == TokenType.COMMA);
+
         this.expect(TokenType.SEMICOLON);
-        return new ReturnStatement(keyword, value);
+        return new ReturnStatement(keyword, values);
     }
 
     parse() {
