@@ -62,7 +62,7 @@ export class Parser {
             [TokenType.POW_EQUALS,      {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
 
             [TokenType.DOUBLE_EQUALS,   {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
-            [TokenType.NOT_EQUALS,      {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
+            [TokenType.BANG_EQUALS,      {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
             [TokenType.LESS_EQUALS,     {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
             [TokenType.LESS,            {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
             [TokenType.GREATER_EQUALS,  {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],

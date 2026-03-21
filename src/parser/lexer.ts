@@ -233,7 +233,7 @@ export class Lexer {
             
             // operations
             this.makeSymbolPattern(TokenType.DOUBLE_EQUALS,     "=="),
-            this.makeSymbolPattern(TokenType.NOT_EQUALS,        "!="),
+            this.makeSymbolPattern(TokenType.BANG_EQUALS,        "!="),
             this.makeSymbolPattern(TokenType.LESS_EQUALS,       "<="),
             this.makeSymbolPattern(TokenType.LESS,              "<"),
             this.makeSymbolPattern(TokenType.GREATER_EQUALS,    ">="),

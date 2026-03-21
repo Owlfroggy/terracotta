@@ -75,7 +75,7 @@ export enum TokenType {
     ELLIPSES,
     
     DOUBLE_EQUALS,
-    NOT_EQUALS,
+    BANG_EQUALS,
     LESS_EQUALS,
     LESS,
     GREATER_EQUALS,

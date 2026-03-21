@@ -6,7 +6,7 @@ import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
-let test = `d **= 2; d %= 2; default.sendMessage(d ** 1/2, d % 2);`;
+let test = `1 != 2;`;
 
 `
 global "dict of doom" = {
