@@ -1,22 +1,19 @@
 import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, WhileStatement } from "./ast/statement.ts";
+import { EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, WhileStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = `
-/** returns 1 if it worked, 0 if it didnt */
-function timeTravel: num {
-    while (1 != 1) {
-        node.setTPS(-1);
-        return 1;
+/* for loo */
+for (line i in [5,3,2]) {
+    for (line j on range(1,2)) {
+        default.sendMessage(i, j);
     }
-    return 0;
 }
 `;
-
 `
 global "dict of doom" = {
     /* god bless america 🔫🏈🇺🇸🦅 */
@@ -143,6 +140,8 @@ function recurse(e: ASTNode | null): string {
         return `function ${recurse(e.name)}${recurse(e.args)}${recurse(e.returnType)} ${recurse(e.chunk)}`
     } else if (e instanceof ProcessStatement) {
         return `process ${recurse(e.name)}${recurse(e.args)} ${recurse(e.chunk)}`
+    } else if (e instanceof ForStatement) {
+        return `for ${recurse(e.headerExpression)} ${recurse(e.chunk)}`;
     } else if (e instanceof RepeatStatement) {
         return `repeat${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
     } else if (e instanceof IfStatement) {

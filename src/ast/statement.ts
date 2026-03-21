@@ -54,6 +54,14 @@ export class RepeatStatement extends Statement {
     ) {super(keyword.startPos, chunk.endPos);}
 }
 
+export class ForStatement extends Statement {
+    constructor(
+        public keyword: Token,
+        public headerExpression: GroupExpression,
+        public chunk: ChunkExpression,
+    ) {super(keyword.startPos, chunk.endPos);}
+}
+
 export class IfStatement extends Statement {
     constructor(
         public keyword: Token,

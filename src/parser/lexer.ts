@@ -217,11 +217,14 @@ export class Lexer {
             this.makeKeywordPattern(TokenType.LOCAL,            "local"),
             this.makeKeywordPattern(TokenType.LINE,             "line"),
             
+            this.makeKeywordPattern(TokenType.FOR,              "for"),
             this.makeKeywordPattern(TokenType.REPEAT,           "repeat"),
             this.makeKeywordPattern(TokenType.IF,               "if"),
             this.makeKeywordPattern(TokenType.WHILE,            "while"),
 
             this.makeKeywordPattern(TokenType.TO,               "to"),
+            this.makeKeywordPattern(TokenType.IN,               "in"),
+            this.makeKeywordPattern(TokenType.ON,               "on"),
 
             this.makeRegexPattern(TokenType.IDENTIFIER,         /[A-Za-z_]+[A-Za-z0-9_]*/y),
             

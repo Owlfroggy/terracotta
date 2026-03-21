@@ -50,11 +50,14 @@ export enum TokenType {
     LOCAL,
     LINE,
     
+    FOR,
     REPEAT,
     IF,
     WHILE,
 
     TO,
+    IN,
+    ON,
 
     OPEN_PAREN,
     CLOSE_PAREN,
