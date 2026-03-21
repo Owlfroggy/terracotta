@@ -6,7 +6,8 @@ import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
-let test = `1 > 2 == 3 > 4;`;
+let test = `if (1 == 2) {wait;}
+else {print("hi");}`;
 
 `
 global "dict of doom" = {
@@ -139,7 +140,7 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof RepeatStatement) {
         return `repeat${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
     } else if (e instanceof IfStatement) {
-        return `if ${recurse(e.condition)} ${recurse(e.chunk)}`;
+        return `if ${recurse(e.condition)} ${recurse(e.chunk)} ${e.elseChunk ? `else ${recurse(e.elseChunk)}` : ''}`;
     } else if (e instanceof WhileStatement) {
         return `while ${recurse(e.condition)} ${recurse(e.chunk)}`;
     } else if (e instanceof SelectionStatement) {

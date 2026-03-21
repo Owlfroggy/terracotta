@@ -53,6 +53,7 @@ export enum TokenType {
     FOR,
     REPEAT,
     IF,
+    ELSE,
     WHILE,
 
     TO,

@@ -67,7 +67,9 @@ export class IfStatement extends Statement {
         public keyword: Token,
         public condition: GroupExpression,
         public chunk: ChunkExpression,
-    ) {super(keyword.startPos, chunk.endPos);}
+        public elseKeyword: Token | null = null,
+        public elseChunk: ChunkExpression | null = null,
+    ) {super(keyword.startPos, elseChunk ? elseChunk.endPos : chunk.endPos);}
 }
 
 export class WhileStatement extends Statement {
