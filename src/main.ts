@@ -1,21 +1,20 @@
 import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement } from "./ast/statement.ts";
+import { EventStatement, ExpressionStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, WhileStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = `
-dingus[]; dingus[; dingus[5;
-default.sendMessage(global "YEEEEEE HAWWWWW"[key + "_"][5]);
-
-dingus[s"invalid!!"];
-
-line dingus: str = 5;
-
-[line value: num, line error: str] = var.getBucketVar(blah blah blah);
-
+/** returns 1 if it worked, 0 if it didnt */
+function timeTravel: num {
+    while (1 != 1) {
+        node.setTPS(-1);
+        return 1;
+    }
+    return 0;
+}
 `;
 
 `
@@ -148,6 +147,8 @@ function recurse(e: ASTNode | null): string {
         return `repeat${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
     } else if (e instanceof IfStatement) {
         return `if ${recurse(e.condition)} ${recurse(e.chunk)}`;
+    } else if (e instanceof WhileStatement) {
+        return `while ${recurse(e.condition)} ${recurse(e.chunk)}`;
     } else if (e instanceof SingleKeywordStatement) {
         return `${e.keyword.value}${e.args ? recurse(e.args) : ""};`
     } else if (e instanceof ReturnStatement) {
