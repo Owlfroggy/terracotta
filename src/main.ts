@@ -7,7 +7,10 @@ import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = `
-default.sendMessage(3--2);
+default.sendMessage(3--!-2);
+if (!!!default.isFlying()) {
+    
+}
 `;
 
 `

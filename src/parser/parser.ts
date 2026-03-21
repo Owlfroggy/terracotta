@@ -49,7 +49,8 @@ export class Parser {
             
             ...TYPE_KEYWORDS.map(i=>[i, {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}] as const),
 
-            [TokenType.MINUS,           {bp: BindingPower.PREFIX,   processor: this.parseUnaryPrefixExpression}]
+            [TokenType.MINUS,           {bp: BindingPower.PREFIX,   processor: this.parseUnaryPrefixExpression}],
+            [TokenType.BANG,            {bp: BindingPower.PREFIX,   processor: this.parseUnaryPrefixExpression}],
         ]);
         this.tokenLEDProperties = new Map<TokenType, LEDProcessingProperties>([
             [TokenType.EQUALS,          {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],

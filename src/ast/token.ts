@@ -80,6 +80,8 @@ export enum TokenType {
     STAR_EQUALS,
     SLASH_EQUALS,
 
+    BANG,
+
     PLUS,
     MINUS,
     STAR,

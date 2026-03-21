@@ -243,6 +243,8 @@ export class Lexer {
             this.makeSymbolPattern(TokenType.STAR,              "*"),
             this.makeSymbolPattern(TokenType.SLASH,             "/"),
 
+            this.makeSymbolPattern(TokenType.BANG,              "!"),
+
             // brackets
             this.makeSymbolPattern(TokenType.OPEN_PAREN,        "("),
             this.makeSymbolPattern(TokenType.CLOSE_PAREN,       ")"),
