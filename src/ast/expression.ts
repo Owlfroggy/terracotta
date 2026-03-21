@@ -110,6 +110,22 @@ export class ListExpression<T extends Expression = Expression> extends Expressio
     ) {super(opener.startPos, closer.endPos);}
 }
 
+export class DictionaryEntryExpression extends Expression {
+    constructor(
+        public key: Token | GroupExpression,
+        public colon: Token,
+        public value: Expression
+    ) {super(key.startPos, value.endPos);}
+}
+
+export class DictionaryExpression extends Expression {
+    constructor(
+        public opener: Token,
+        public entries: DictionaryEntryExpression[],
+        public closer: Token,
+    ) {super(opener.startPos, closer.endPos);}
+}
+
 export class ChunkExpression extends Expression {
     constructor(
         public opener: Token,

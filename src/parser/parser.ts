@@ -1,4 +1,4 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement, FunctionStatement, ProcessStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
@@ -36,6 +36,7 @@ export class Parser {
             [TokenType.STRING_LITERAL,  {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
             [TokenType.OPEN_PAREN,      {bp: BindingPower.GROUP, processor: this.parseGroupExpression}],
             [TokenType.OPEN_BRACKET,    {bp: BindingPower.ATOM,  processor: () => this.parseListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA)}],
+            [TokenType.OPEN_CURLY,      {bp: BindingPower.ATOM,  processor: this.parseDictionaryExpression}],
 
             [TokenType.GLOBAL,          {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
             [TokenType.SAVED,           {bp: BindingPower.ATOM,  processor: this.parseVariableExpression}],
@@ -340,6 +341,38 @@ export class Parser {
             }
         }
         return new ParameterExpression(name, type, plural, equals, defaultValue);
+    }
+
+
+    parseDictionaryExpression = (): DictionaryExpression => {
+        let [opener, openerFound] = this.expect(TokenType.OPEN_CURLY);
+        let entries: DictionaryEntryExpression[] = [];
+        while (
+            this.currentToken().type != TokenType.CLOSE_CURLY
+            && !this.isLineDelimiter(this.currentToken())
+        ) {
+            let comments = this.consumeComments();
+
+            let key: Token | GroupExpression; let keyFound;
+            [key, keyFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL, TokenType.OPEN_PAREN]);
+            if (key.type == TokenType.OPEN_PAREN) {
+                this.position--;
+                key = this.parseGroupExpression(BindingPower.DEFAULT);
+            }
+            
+            let [colon, colonFound] = this.expectOrMissing(TokenType.COLON);
+            
+            let value = this.parseExpression(BindingPower.DEFAULT, true);
+
+            let expr = new DictionaryEntryExpression(key, colon, value);
+            expr.attachedComments.push(...comments);
+            entries.push(expr);
+            if (this.currentToken().type != TokenType.CLOSE_CURLY) {
+                this.expect(TokenType.COMMA);
+            }
+        }
+        let [closer, closerFound] = this.expect(TokenType.CLOSE_CURLY);
+        return new DictionaryExpression(opener, entries, closer);
     }
 
     parseChunkExpression = (openerType: TokenType, closerType: TokenType): ChunkExpression | null => {

@@ -1,33 +1,51 @@
 import { ASTNode } from "./ast/astNode.ts";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression } from "./ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression } from "./ast/expression.ts";
 import { EventStatement, ExpressionStatement, FunctionStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
-let test = 
+let test =
+
 `
-function yeehaw(red, message: str... = ["dingus"], "parameter with spaces!!": num = 1): any, str {
-    default.sendMessage(message, alignmentMode="Center");
-    [line result, line error] = message;
-    return red, "yinkus";
-}
+global "dict of doom" = {
+    /* god bless america 🔫🏈🇺🇸🦅 */
+    stone: [1,2]
+    "bongle dingus": [bongle, dingus],
+    wood five,
+    five: wood,
+    unwrappedFunctionCall(): invalid
+;
 
-function five: str {return 5; }
+default.sendMessage({yhingus: 5, /** who let bro Four */ (line yingus): 4, "bhlingus": 5, (blingus()): 5, (line expression - 2): "expr!!" + 5});
 
-lscancel playerevent Join {
-    default.sendMessage(repeat, five());
-    default.setEquipmentItem(item("diamond_helmet"),slot="Main hand");
-}
-
-process gameLoop {
-    local tGameType = gameType;
-    repeat {
-        wait(waitTime);
-    }
+playerevent join {
+    saved "%uuid data" = {joinTimestamp: game.timestamp, coins: 0, achievements: []};
 }
 `
+
+// `
+// function yeehaw(red, message: str... = ["dingus"], "parameter with spaces!!": num = 1): any, str {
+//     default.sendMessage(message, alignmentMode="Center");
+//     [line result, line error] = message;
+//     return red, "yinkus";
+// }
+
+// function five: str {return 5; }
+
+// lscancel playerevent Join {
+//     default.sendMessage(repeat, five());
+//     default.setEquipmentItem(item("diamond_helmet"),slot="Main hand");
+// }
+
+// process gameLoop {
+//     local tGameType = gameType;
+//     repeat {
+//         wait(waitTime);
+//     }
+// }
+// `
 
 // `
 // 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
@@ -77,6 +95,20 @@ function recurse(e: ASTNode | null): string {
         return recurse(e.expression);
     } else if (e instanceof ListExpression) {
         return `${e.opener.value}${e.elements.map(visualizeExpression).join(", ")}${e.opener.value == "[" ? "]" : ")"}`
+    } else if (e instanceof DictionaryEntryExpression) {
+        let key;
+        if (e.key instanceof Token || (e.key instanceof GroupExpression && e.key.expression instanceof BinaryExpression)) {
+            key = recurse(e.key)
+        } else {
+            key = `(${recurse(e.key)})`
+        }
+        return `${key}${recurse(e.colon)} ${recurse(e.value)}`
+    } else if (e instanceof DictionaryExpression) {
+        if (e.endPos - e.startPos > 75) {
+            return `{\n  ${e.entries.map(v => recurse(v)).join(",\n  ")}\n}`
+        } else {
+            return `{${e.entries.map(v => recurse(v)).join(", ")}}`
+        }
     } else if (e instanceof BinaryExpression) {
         return `(${recurse(e.left)} ${e.operator.value} ${recurse(e.right)})`
     } else if (e instanceof CallExpression) {
