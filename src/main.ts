@@ -6,7 +6,7 @@ import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
-let test = `1 != 2;`;
+let test = `value ^>>>= 2;`;
 
 `
 global "dict of doom" = {

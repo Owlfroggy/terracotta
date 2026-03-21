@@ -62,7 +62,7 @@ export class Parser {
             [TokenType.POW_EQUALS,      {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
 
             [TokenType.DOUBLE_EQUALS,   {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
-            [TokenType.BANG_EQUALS,      {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
+            [TokenType.BANG_EQUALS,     {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
             [TokenType.LESS_EQUALS,     {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
             [TokenType.LESS,            {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
             [TokenType.GREATER_EQUALS,  {bp: BindingPower.COMPARE,  processor: this.parseBinaryExpression}],
@@ -82,7 +82,30 @@ export class Parser {
             [TokenType.OPEN_PAREN,      {bp: BindingPower.CALL,     processor: this.parseCallExpression}],
             [TokenType.DOT,             {bp: BindingPower.ACCESS,   processor: this.parseAccessExpression}],
             [TokenType.OPEN_BRACKET,    {bp: BindingPower.ACCESS,   processor: this.parseBracketedAccessExpression}],
-            // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
+
+            // bitwise hell
+            ... // assignment
+            [TokenType.BW_OR_EQUALS, TokenType.BW_AND_EQUALS, TokenType.BW_NOT_EQUALS, TokenType.BW_XOR_EQUALS, TokenType.BW_LSHIFT_EQUALS, TokenType.BW_RSHIFT_EQUALS, TokenType.BW_URSHIFT_EQUALS,
+             TokenType.PBW_OR_EQUALS,TokenType.PBW_AND_EQUALS,TokenType.PBW_NOT_EQUALS,TokenType.PBW_XOR_EQUALS,TokenType.PBW_LSHIFT_EQUALS,TokenType.PBW_RSHIFT_EQUALS,TokenType.PBW_URSHIFT_EQUALS,
+            ].map(t => [t, {bp: BindingPower.ASSIGN, processor: this.parseBinaryExpression}] as const),
+            
+            ... // or
+            [TokenType.BW_OR,TokenType.PBW_OR
+            ].map(t => [t, {bp: BindingPower.BW_OR, processor: this.parseBinaryExpression}] as const),
+            
+            ... // xor
+            [TokenType.BW_XOR,TokenType.PBW_XOR
+            ].map(t => [t, {bp: BindingPower.BW_XOR, processor: this.parseBinaryExpression}] as const),
+            
+            ... // and
+            [TokenType.BW_AND,TokenType.PBW_AND
+            ].map(t => [t, {bp: BindingPower.BW_AND, processor: this.parseBinaryExpression}] as const),
+            
+            ... // shift
+            [TokenType.BW_LSHIFT, TokenType.BW_RSHIFT, TokenType.BW_URSHIFT,
+             TokenType.PBW_LSHIFT,TokenType.PBW_RSHIFT,TokenType.PBW_URSHIFT
+            ].map(t => [t, {bp: BindingPower.BW_SHIFT, processor: this.parseBinaryExpression}] as const),
+
         ]);
         this.tokenStatementProcessors = new Map<TokenType, () => Statement | null>([
             [TokenType.LAGSLAYER_CANCEL,    this.parseEventStatement],

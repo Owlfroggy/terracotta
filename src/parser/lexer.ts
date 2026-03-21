@@ -256,6 +256,37 @@ export class Lexer {
 
             this.makeSymbolPattern(TokenType.BANG,              "!"),
 
+            // bitwise land of doom
+            this.makeSymbolPattern(TokenType.PBW_OR_EQUALS,     "^|="),
+            this.makeSymbolPattern(TokenType.PBW_AND_EQUALS,    "^&="),
+            this.makeSymbolPattern(TokenType.PBW_NOT_EQUALS,    "^~="),
+            this.makeSymbolPattern(TokenType.PBW_XOR_EQUALS,    "^^="),
+            this.makeSymbolPattern(TokenType.PBW_LSHIFT_EQUALS, "^<<="),
+            this.makeSymbolPattern(TokenType.PBW_RSHIFT_EQUALS, "^>>="),
+            this.makeSymbolPattern(TokenType.PBW_URSHIFT_EQUALS,"^>>>="),
+            this.makeSymbolPattern(TokenType.PBW_OR,            "^|"),
+            this.makeSymbolPattern(TokenType.PBW_AND,           "^&"),
+            this.makeSymbolPattern(TokenType.PBW_NOT,           "^~"),
+            this.makeSymbolPattern(TokenType.PBW_XOR,           "^^"),
+            this.makeSymbolPattern(TokenType.PBW_LSHIFT,        "^<<"),
+            this.makeSymbolPattern(TokenType.PBW_RSHIFT,        "^>>"),
+            this.makeSymbolPattern(TokenType.PBW_URSHIFT,       "^>>>"),
+
+            this.makeSymbolPattern(TokenType.BW_OR_EQUALS,      "|="),
+            this.makeSymbolPattern(TokenType.BW_AND_EQUALS,     "&="),
+            this.makeSymbolPattern(TokenType.BW_NOT_EQUALS,     "~="),
+            this.makeSymbolPattern(TokenType.BW_XOR_EQUALS,     "^="),
+            this.makeSymbolPattern(TokenType.BW_LSHIFT_EQUALS,  "<<="),
+            this.makeSymbolPattern(TokenType.BW_RSHIFT_EQUALS,  ">>="),
+            this.makeSymbolPattern(TokenType.BW_URSHIFT_EQUALS, ">>>="),
+            this.makeSymbolPattern(TokenType.BW_OR,             "|"),
+            this.makeSymbolPattern(TokenType.BW_AND,            "&"),
+            this.makeSymbolPattern(TokenType.BW_NOT,            "~"),
+            this.makeSymbolPattern(TokenType.BW_XOR,            "^"),
+            this.makeSymbolPattern(TokenType.BW_LSHIFT,         "<<"),
+            this.makeSymbolPattern(TokenType.BW_RSHIFT,         ">>"),
+            this.makeSymbolPattern(TokenType.BW_URSHIFT,        ">>>"),
+
             // brackets
             this.makeSymbolPattern(TokenType.OPEN_PAREN,        "("),
             this.makeSymbolPattern(TokenType.CLOSE_PAREN,       ")"),
