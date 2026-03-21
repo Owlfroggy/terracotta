@@ -17,13 +17,12 @@ function yeehaw(red, message: str... = ["dingus"], "parameter with spaces!!": nu
 function five: str {return 5; }
 
 lscancel playerevent Join {
-    default.sendMessage(five());
+    default.sendMessage(repeat, five());
     default.setEquipmentItem(item("diamond_helmet"),slot="Main hand");
 }
 
 process gameLoop {
     local tGameType = gameType;
-    item.set
     repeat {
         wait(waitTime);
     }

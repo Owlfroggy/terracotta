@@ -288,9 +288,10 @@ export class Parser {
                     expr = ledProps.processor(new MissingExpression(this.currentToken().startPos), BindingPower.DEFAULT)
                 } 
                 // if the current token cannot be processed in any way,
-                // break to avoid getting stuck in an infinite loop
+                // slap in a MissingExpression to avoid being stuck forever
                 else {
-                    break;
+                    expr = new MissingExpression(this.currentToken().startPos);
+                    this.consume();
                 }
             } 
             // normal parsing code, this will run every time on a valid syntax file
