@@ -225,6 +225,9 @@ export class Lexer {
             this.makeKeywordPattern(TokenType.TO,               "to"),
             this.makeKeywordPattern(TokenType.IN,               "in"),
             this.makeKeywordPattern(TokenType.ON,               "on"),
+            
+            this.makeKeywordPattern(TokenType.SELECT,           "select"),
+            this.makeKeywordPattern(TokenType.FILTER,           "filter"),
 
             this.makeRegexPattern(TokenType.IDENTIFIER,         /[A-Za-z_]+[A-Za-z0-9_]*/y),
             

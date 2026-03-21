@@ -59,6 +59,9 @@ export enum TokenType {
     IN,
     ON,
 
+    SELECT,
+    FILTER,
+
     OPEN_PAREN,
     CLOSE_PAREN,
     OPEN_BRACKET,

@@ -1,19 +1,40 @@
 import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, WhileStatement } from "./ast/statement.ts";
+import { EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SelectionStatement, SingleKeywordStatement, Statement, WhileStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = `
-/* for loo */
-for (line i in [5,3,2]) {
-    for (line j on range(1,2)) {
-        default.sendMessage(i, j);
+
+global gameLoopStarted: num = 0;
+
+process gameLoop {
+    repeat {
+        select allPlayers;
+        select reset;
+        
+        line locations: list = [];
+        select playersByCondition( selected.yLevel > 50 );
+        filter randomly(game.selectionSize / 2);
+            list.append(locations, selected.location);
+        select reset;
+        
+        for (line l: loc in locations) {
+            game.summonLightning(l);
+        }
+        wait;
+    }
+}
+
+playerevent join {
+    if (gameLoopStarted == 0) {
+        start gameLoop;
     }
 }
 `;
+
 `
 global "dict of doom" = {
     /* god bless america 🔫🏈🇺🇸🦅 */
@@ -148,6 +169,8 @@ function recurse(e: ASTNode | null): string {
         return `if ${recurse(e.condition)} ${recurse(e.chunk)}`;
     } else if (e instanceof WhileStatement) {
         return `while ${recurse(e.condition)} ${recurse(e.chunk)}`;
+    } else if (e instanceof SelectionStatement) {
+        return `${e.keyword.value} ${recurse(e.name)}${recurse(e.args)};`;
     } else if (e instanceof SingleKeywordStatement) {
         return `${e.keyword.value}${e.args ? recurse(e.args) : ""};`
     } else if (e instanceof ReturnStatement) {

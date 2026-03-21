@@ -1,5 +1,5 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, ProcessStatement, IfStatement, WhileStatement, ForStatement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, ProcessStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
@@ -92,6 +92,9 @@ export class Parser {
             [TokenType.REPEAT,              this.parseRepeatStatement],
             [TokenType.IF,                  this.parseIfStatement],
             [TokenType.WHILE,               this.parseWhileStatement],
+            
+            [TokenType.SELECT,              this.parseSelectionStatement],
+            [TokenType.FILTER,              this.parseSelectionStatement],
             
             [TokenType.RETURN,              this.parseReturnStatement],
             [TokenType.BREAK,               this.parseSingleKeywordStatement],
@@ -596,6 +599,17 @@ export class Parser {
         if (chunk == null) return null;
 
         return new WhileStatement(keyword, condition, chunk);
+    }
+
+    parseSelectionStatement = (): SelectionStatement => {
+        let keyword = this.consume();
+        let [name, nameFound] = this.expectOrMissing(TokenType.IDENTIFIER);
+        let args: ListExpression | null = null;
+        if (this.currentToken().type == TokenType.OPEN_PAREN) {
+            args = this.parseListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA);
+        }
+        this.expect(TokenType.SEMICOLON);
+        return new SelectionStatement(keyword, name, args);
     }
 
     parseSingleKeywordStatement = (): SingleKeywordStatement => {
