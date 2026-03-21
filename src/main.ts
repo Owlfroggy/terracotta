@@ -9,7 +9,7 @@ import { Parser } from "./parser/parser.ts";
 let test = 
 `
 function yeehaw(red, message: str... = ["dingus"], "parameter with spaces!!": num = 1): any, str {
-    default.sendMessage(message);
+    default.sendMessage(message, alignmentMode="Center");
     [line result, line error] = message;
     return red, "yinkus";
 }
@@ -18,10 +18,12 @@ function five: str {return 5; }
 
 lscancel playerevent Join {
     default.sendMessage(five());
+    default.setEquipmentItem(item("diamond_helmet"),slot="Main hand");
 }
 
 process gameLoop {
     local tGameType = gameType;
+    item.set
     repeat {
         wait(waitTime);
     }

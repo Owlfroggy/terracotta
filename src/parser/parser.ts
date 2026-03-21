@@ -44,6 +44,8 @@ export class Parser {
 
             [TokenType.CALL,            {bp: BindingPower.ATOM,  processor: this.parseCallOrStartExpression}],
             [TokenType.START,           {bp: BindingPower.ATOM,  processor: this.parseCallOrStartExpression}],
+
+            ...TYPE_KEYWORDS.map(i => [i, {bp: BindingPower.ATOM, processor: this.parseAtomicExpression}]),
         ]);
         this.tokenLEDProperties = new Map<TokenType, LEDProcessingProperties>([
             [TokenType.EQUALS,          {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
@@ -175,6 +177,7 @@ export class Parser {
             type != TokenType.NUMERIC_LITERAL
             && type != TokenType.STRING_LITERAL
             && type != TokenType.IDENTIFIER
+            && !(TYPE_KEYWORDS.includes(type))
         ) {
             this.reportUndisplayedError(
                 token.startPos, token. endPos,
