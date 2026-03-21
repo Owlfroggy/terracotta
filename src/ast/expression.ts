@@ -101,6 +101,15 @@ export class AccessExpression extends Expression {
     ) {super(accessee.startPos,propertyName.endPos); }
 }
 
+export class BracketedAccessExpression extends Expression {
+    constructor (
+        public accessee: Expression,
+        public opener: Token,
+        public propertyName: Expression,
+        public closer: Token,
+    ) {super(accessee.startPos,closer.endPos); }
+}
+
 export class GroupExpression extends Expression {
     constructor (
         public opener: Token,

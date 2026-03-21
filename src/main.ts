@@ -1,5 +1,5 @@
 import { ASTNode } from "./ast/astNode.ts";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression } from "./ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "./ast/expression.ts";
 import { EventStatement, ExpressionStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
@@ -7,10 +7,12 @@ import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = `
-default.sendMessage(3--!-2);
-if (!!!default.isFlying()) {
-    
-}
+dingus[]; dingus[; dingus[5;
+default.sendMessage(global "YEEEEEE HAWWWWW"[key + "_"][5]);
+
+dingus[s"invalid!!"];
+
+
 `;
 
 `
@@ -124,6 +126,8 @@ function recurse(e: ASTNode | null): string {
         return `${e.keyword.value} ${recurse(e.name)}${e.args ? recurse(e.args) : ""}`
     } else if (e instanceof AccessExpression) {
         return `${recurse(e.accessee)}${e.accessorToken.value}${e.propertyName.value}`;
+    } else if (e instanceof BracketedAccessExpression) {
+        return `${recurse(e.accessee)}\x1b[0;38;5;105;49m${recurse(e.opener)}\x1b[0m${recurse(e.propertyName)}\x1b[0;38;5;105;49m${recurse(e.closer)}\x1b[0m`;
     } else if (e instanceof ChunkExpression) {
         return `${e.opener.value}\n${"  "+visualizeStatements(e.statements).map(s => s.split("\n").join("\n  ")).join("\n  ")}\n${e.closer.value}`
     } else if (e instanceof MissingExpression) {

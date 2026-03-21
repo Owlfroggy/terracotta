@@ -1,4 +1,4 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement, FunctionStatement, ProcessStatement, IfStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
@@ -75,6 +75,7 @@ export class Parser {
 
             [TokenType.OPEN_PAREN,      {bp: BindingPower.CALL,     processor: this.parseCallExpression}],
             [TokenType.DOT,             {bp: BindingPower.ACCESS,   processor: this.parseAccessExpression}],
+            [TokenType.OPEN_BRACKET,    {bp: BindingPower.ACCESS,   processor: this.parseBracketedAccessExpression}],
             // [TokenType.EOF,     {bp: 0  , processType: TokenPType.NONE}]
         ]);
         this.tokenStatementProcessors = new Map<TokenType, () => Statement | null>([
@@ -266,6 +267,19 @@ export class Parser {
             args = this.parseListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA);
         }
         return new CallOrStartExpression(keyword, name, args);
+    }
+
+    parseBracketedAccessExpression = (left: Expression, bp: number): BracketedAccessExpression => {        
+        let opener = this.consume();
+        let propertyName = this.parseExpression(BindingPower.DEFAULT);
+        let [closer, closerFound] = this.expectOrMissing(TokenType.CLOSE_BRACKET);
+        
+        return new BracketedAccessExpression(
+            left,
+            opener,
+            propertyName,
+            closer
+        );
     }
 
     parseAccessExpression = (left: Expression, bp: number): AccessExpression => {
