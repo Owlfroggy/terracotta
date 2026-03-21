@@ -66,6 +66,13 @@ export enum TokenType {
     COMMA,
     DOT,
     ELLIPSES,
+    
+    DOUBLE_EQUALS,
+    NOT_EQUALS,
+    LESS_EQUALS,
+    LESS,
+    GREATER_EQUALS,
+    GREATER,
 
     EQUALS,
     PLUS_EQUALS,
@@ -83,6 +90,7 @@ export enum BindingPower {
     DEFAULT,
     LOOP_KW,
     ASSIGN,
+    COMPARE,
     ADD,
     MULT,
     CALL,

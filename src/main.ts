@@ -7,9 +7,10 @@ import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
 let test = `
-if (1 + 2) {
+if (1 + 2 == three.what < 1 != 0) {
     default.sendMessage("dingus");
     default.kablingus;
+    line true: num = 1 == 2;
 }
 `;
 
