@@ -1,13 +1,23 @@
 import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SelectionStatement, SingleKeywordStatement, Statement, WhileStatement } from "./ast/statement.ts";
+import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SelectionStatement, SingleKeywordStatement, Statement, WhileStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
-let test = `if (1 == 2) {wait;}
-else {print("hi");}`;
+let test = `
+
+do {
+    print(s'<red>once.');
+} while (5 == 2)
+
+do {
+    nothing();
+}
+
+default.sendMessage("balls");
+`;
 
 `
 global "dict of doom" = {
@@ -143,6 +153,8 @@ function recurse(e: ASTNode | null): string {
         return `if ${recurse(e.condition)} ${recurse(e.chunk)} ${e.elseChunk ? `else ${recurse(e.elseChunk)}` : ''}`;
     } else if (e instanceof WhileStatement) {
         return `while ${recurse(e.condition)} ${recurse(e.chunk)}`;
+    } else if (e instanceof DoStatement) {
+        return `do ${recurse(e.chunk)} ${e.whileKeyword ? `while ${recurse(e.whileCondition)}` : ''} `;
     } else if (e instanceof SelectionStatement) {
         return `${e.keyword.value} ${recurse(e.name)}${recurse(e.args)};`;
     } else if (e instanceof SingleKeywordStatement) {

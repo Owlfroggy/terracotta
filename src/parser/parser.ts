@@ -1,5 +1,5 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, ProcessStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, ProcessStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
@@ -119,6 +119,7 @@ export class Parser {
             [TokenType.REPEAT,              this.parseRepeatStatement],
             [TokenType.IF,                  this.parseIfStatement],
             [TokenType.WHILE,               this.parseWhileStatement],
+            [TokenType.DO,                  this.parseDoWhileStatement],
             
             [TokenType.SELECT,              this.parseSelectionStatement],
             [TokenType.FILTER,              this.parseSelectionStatement],
@@ -637,6 +638,22 @@ export class Parser {
         if (chunk == null) return null;
 
         return new WhileStatement(keyword, condition, chunk);
+    }
+
+    parseDoWhileStatement = (): DoStatement | null => {
+        let doKeyword = this.consume();
+
+        let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
+        if (chunk == null) return null;
+
+        let statement = new DoStatement(doKeyword, chunk);
+
+        if (this.currentToken().type == TokenType.WHILE) {
+            statement.whileKeyword = this.consume();
+            statement.whileCondition = this.parseGroupExpression(BindingPower.DEFAULT);
+        }
+
+        return statement;
     }
 
     parseSelectionStatement = (): SelectionStatement => {

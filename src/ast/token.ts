@@ -55,6 +55,7 @@ export enum TokenType {
     IF,
     ELSE,
     WHILE,
+    DO,
 
     TO,
     IN,

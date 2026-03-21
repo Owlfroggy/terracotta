@@ -80,6 +80,15 @@ export class WhileStatement extends Statement {
     ) {super(keyword.startPos, chunk.endPos);}
 }
 
+export class DoStatement extends Statement {
+    constructor(
+        public doKeyword: Token,
+        public chunk: ChunkExpression,
+        public whileKeyword: Token | null = null,
+        public whileCondition: Expression | null = null,
+    ) {super(doKeyword.startPos, whileCondition ? whileCondition.endPos : chunk.endPos);}
+}
+
 export class SelectionStatement extends Statement {
     constructor (
         public keyword: Token,

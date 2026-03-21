@@ -222,6 +222,7 @@ export class Lexer {
             this.makeKeywordPattern(TokenType.IF,               "if"),
             this.makeKeywordPattern(TokenType.ELSE,             "else"),
             this.makeKeywordPattern(TokenType.WHILE,            "while"),
+            this.makeKeywordPattern(TokenType.DO,               "do"),
 
             this.makeKeywordPattern(TokenType.TO,               "to"),
             this.makeKeywordPattern(TokenType.IN,               "in"),
