@@ -12,6 +12,7 @@ export enum TokenType {
     IDENTIFIER,
     NUMERIC_LITERAL,
     STRING_LITERAL,
+    STYLED_LITERAL,
 
     STR,
     NUM,
@@ -107,7 +108,7 @@ export class Token extends ASTNode {
     }
 
     getStringExtraData(): StringExtraData {
-        if (this.type != TokenType.STRING_LITERAL) {
+        if (this.type != TokenType.STRING_LITERAL && this.type != TokenType.STYLED_LITERAL) {
             throw new Error("Attempted to get string metadata on a token that wasn't a string literal");
         }
         return this.extraData as StringExtraData;

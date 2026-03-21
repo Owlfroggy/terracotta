@@ -34,6 +34,7 @@ export class Parser {
             [TokenType.IDENTIFIER,      {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
             [TokenType.NUMERIC_LITERAL, {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
             [TokenType.STRING_LITERAL,  {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
+            [TokenType.STYLED_LITERAL,  {bp: BindingPower.ATOM,  processor: this.parseAtomicExpression}],
             [TokenType.OPEN_PAREN,      {bp: BindingPower.GROUP, processor: this.parseGroupExpression}],
             [TokenType.OPEN_BRACKET,    {bp: BindingPower.ATOM,  processor: () => this.parseListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA)}],
             [TokenType.OPEN_CURLY,      {bp: BindingPower.ATOM,  processor: this.parseDictionaryExpression}],
@@ -184,6 +185,7 @@ export class Parser {
         if (
             type != TokenType.NUMERIC_LITERAL
             && type != TokenType.STRING_LITERAL
+            && type != TokenType.STYLED_LITERAL
             && type != TokenType.IDENTIFIER
             && !(TYPE_KEYWORDS.includes(type))
         ) {

@@ -42,24 +42,26 @@ export class Lexer {
 
     makeStringPattern(qouteChar: string) {
         return () => {
-            let regex = new RegExp(`${qouteChar}((?:[^${qouteChar}\\\\]|\\\\.)*?)(?:${qouteChar}|\\n|$)`,'y')
+            let regex = new RegExp(`s?${qouteChar}((?:[^${qouteChar}\\\\]|\\\\.)*?)(?:${qouteChar}|\\n|$)`,'y')
             regex.lastIndex = this.position;
             let result = regex.exec(this.script);
             if (result == null) return null;
+
+            let tokenType = this.script[result.index] == "s" ? TokenType.STYLED_LITERAL : TokenType.STRING_LITERAL;
 
             let startPos = this.position;
             let endPos = this.position + result[0].length;
 
             // error for unclosed string
             let isClosed = true;
-            if (endPos >= this.script.length || this.script[endPos-1] != qouteChar) {
+            if (endPos > this.script.length || this.script[endPos-1] != qouteChar) {
                 isClosed = false;
                 if (endPos < this.script.length) {
                     endPos--;
                 }
                 this.reportError(
                     startPos,endPos,
-                    `Unclosed string literal`
+                    `Unclosed ${tokenType == TokenType.STYLED_LITERAL ? "styled text" : "string"} literal`
                 );
             }
 
@@ -137,7 +139,7 @@ export class Lexer {
                 stringContents = stringContents.substring(0,sub[0]) + sub[2] + stringContents.substring(sub[1]);
             }
             
-            return new Token(startPos, endPos, TokenType.STRING_LITERAL, stringContents, {quoteChar: qouteChar, isClosed: isClosed});
+            return new Token(startPos, endPos, tokenType, stringContents, {quoteChar: qouteChar, isClosed: isClosed});
         }
     }
 

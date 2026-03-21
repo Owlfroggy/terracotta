@@ -6,7 +6,13 @@ import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 
-let test =
+let test = `
+line glingus = s"hello;
+default.sendMessage(var, s"<red>world");
+
+line s"invalid" = 5;
+line "valid" = 5;
+`;
 
 `
 global "dict of doom" = {
@@ -69,9 +75,9 @@ function recurse(e: ASTNode | null): string {
     if (e == null) {
         return ""
     } else if (e instanceof Token) {
-        if (e.type == TokenType.STRING_LITERAL) {
+        if (e.type == TokenType.STRING_LITERAL || e.type == TokenType.STYLED_LITERAL) {
             let stringData = e.getStringExtraData();
-            return `\x1b[0;32m${stringData.quoteChar}\x1b[0;38;5;112;49m${e.value.replaceAll("\n","\x1b[0;34m\\n\x1b[0;38;5;112;49m")}\x1b[0;32m${stringData.quoteChar}\x1b[0m`;
+            return `\x1b[0;32m${e.type == TokenType.STYLED_LITERAL ? "s" : ""}${stringData.quoteChar}\x1b[0;38;5;112;49m${e.value.replaceAll("\n","\x1b[0;34m\\n\x1b[0;38;5;112;49m")}\x1b[0;32m${stringData.quoteChar}\x1b[0m`;
         } else if (e.type == TokenType.NUMERIC_LITERAL) {
             return `\x1b[0;38;5;220;49m${e.value}\x1b[0m`;
         } else if (e.type == TokenType.MISSING) {
