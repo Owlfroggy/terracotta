@@ -14,20 +14,6 @@ export enum TokenType {
     STRING_LITERAL,
     STYLED_LITERAL,
 
-    STR,
-    NUM,
-    VEC,
-    LOC,
-    POT,
-    VAR,
-    SND,
-    TXT,
-    ITEM,
-    LIST,
-    DICT,
-    PAR,
-    ANY,
-
     LAGSLAYER_CANCEL,
     PLAYER_EVENT,
     GAME_EVENT,
@@ -56,6 +42,8 @@ export enum TokenType {
     ELSE,
     WHILE,
     DO,
+
+    AS,
 
     TO,
     IN,
@@ -144,6 +132,7 @@ export enum BindingPower {
     ADD,
     MULT,
     EXPO,
+    TYPECAST,
     CALL,
     ACCESS,
     PREFIX,

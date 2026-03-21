@@ -79,6 +79,14 @@ export class BinaryExpression extends Expression {
     ) {super(left.startPos, right.endPos);}
 }
 
+export class TypecastExpression extends Expression {
+    constructor (
+        public left: Expression,
+        public asKeyowrd: Token,
+        public type: TypeExpression,
+    ) {super(left.startPos, type.endPos);}
+}
+
 export class CallExpression extends Expression {
     constructor (
         public callee: Expression,

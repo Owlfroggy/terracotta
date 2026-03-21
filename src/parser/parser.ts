@@ -1,11 +1,10 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, ProcessStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
 export const VARIABLE_SCOPE_KEYWORDS = [TokenType.GLOBAL,TokenType.SAVED,TokenType.LOCAL,TokenType.LOCAL];
 export const ASSIGNMENT_OPERATORS = [TokenType.EQUALS, TokenType.PLUS_EQUALS, TokenType.MINUS_EQUALS, TokenType.STAR_EQUALS, TokenType.SLASH_EQUALS];
-export const TYPE_KEYWORDS = [TokenType.STR,TokenType.NUM,TokenType.VEC,TokenType.LOC,TokenType.POT,TokenType.VAR,TokenType.SND,TokenType.TXT,TokenType.ITEM,TokenType.LIST,TokenType.DICT,TokenType.PAR,TokenType.ANY];
 
 export type NUDProcessingProperties = {
     /** binding power */
@@ -46,8 +45,6 @@ export class Parser {
             
             [TokenType.CALL,            {bp: BindingPower.ATOM,     processor: this.parseCallOrStartExpression}],
             [TokenType.START,           {bp: BindingPower.ATOM,     processor: this.parseCallOrStartExpression}],
-            
-            ...TYPE_KEYWORDS.map(i=>[i, {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}] as const),
 
             [TokenType.MINUS,           {bp: BindingPower.PREFIX,   processor: this.parseUnaryPrefixExpression}],
             [TokenType.BANG,            {bp: BindingPower.PREFIX,   processor: this.parseUnaryPrefixExpression}],
@@ -74,6 +71,8 @@ export class Parser {
             [TokenType.SLASH,           {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
             [TokenType.PERCENT,         {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
             [TokenType.POW,             {bp: BindingPower.EXPO,     processor: this.parseBinaryExpression}],
+
+            [TokenType.AS,              {bp: BindingPower.TYPECAST, processor: this.parseTypecastExpression}],
 
             [TokenType.TO,              {bp: BindingPower.LOOP_KW,  processor: this.parseBinaryExpression}],
             [TokenType.IN,              {bp: BindingPower.LOOP_KW,  processor: this.parseBinaryExpression}],
@@ -229,7 +228,6 @@ export class Parser {
             && type != TokenType.STRING_LITERAL
             && type != TokenType.STYLED_LITERAL
             && type != TokenType.IDENTIFIER
-            && !(TYPE_KEYWORDS.includes(type))
         ) {
             this.reportUndisplayedError(
                 token.startPos, token. endPos,
@@ -250,7 +248,7 @@ export class Parser {
     }
 
     parseTypeExpression = (): TypeExpression => {
-        let [type, typeFound] = this.expectOrMissing(TYPE_KEYWORDS);
+        let [type, typeFound] = this.expectOrMissing(TokenType.IDENTIFIER);
         return new TypeExpression(type);
     }
 
@@ -280,6 +278,14 @@ export class Parser {
             left,
             this.consume(),
             this.parseExpression(bp)
+        );
+    }
+
+    parseTypecastExpression = (left: Expression, bp: number): TypecastExpression => {
+        return new TypecastExpression(
+            left,
+            this.consume(),
+            this.parseTypeExpression()
         );
     }
 

@@ -1,5 +1,5 @@
 import { ASTNode } from "./ast/astNode.ts";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression } from "./ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression } from "./ast/expression.ts";
 import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SelectionStatement, SingleKeywordStatement, Statement, WhileStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
@@ -8,15 +8,9 @@ import { Parser } from "./parser/parser.ts";
 
 let test = `
 
-do {
-    print(s'<red>once.');
-} while (5 == 2)
+/* crimes */
+global dingus as str[];
 
-do {
-    nothing();
-}
-
-default.sendMessage("balls");
 `;
 
 `
@@ -122,6 +116,8 @@ function recurse(e: ASTNode | null): string {
         }
     } else if (e instanceof BinaryExpression) {
         return `(${recurse(e.left)} ${e.operator.value} ${recurse(e.right)})`
+    } else if (e instanceof TypecastExpression) {
+        return `(${recurse(e.left)} as ${recurse(e.type)})`
     } else if (e instanceof UnaryPrefixExpression) {
         return `(${e.operator.value}${recurse(e.right)})`
     } else if (e instanceof CallExpression) {
