@@ -1,5 +1,5 @@
 import { ASTNode, CommentHolder } from "./astNode.ts";
-import { ChunkExpression, Expression, GroupExpression, ListExpression, TypeAssignmentExpression, VariableExpression } from "./expression.ts";
+import { ChunkExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "./expression.ts";
 import { Token } from "./token.ts";
 
 export class Statement extends ASTNode implements CommentHolder {
@@ -34,6 +34,16 @@ export class EventStatement extends Statement {
         public eventName: Token,
         public chunk: ChunkExpression
     ) {super(modifiers.length > 0 ? modifiers[0].startPos : type.startPos, chunk.endPos);}
+}
+
+export class FunctionStatement extends Statement {
+    constructor(
+        public keyword: Token,
+        public name: Token,
+        public args: ListExpression<ParameterExpression>,
+        public returnType: MultiTypeAssignmentExpression | null,
+        public chunk: ChunkExpression,
+    ) {super(keyword.startPos, chunk.endPos);}
 }
 
 export class RepeatStatement extends Statement {

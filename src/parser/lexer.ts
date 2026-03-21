@@ -37,7 +37,7 @@ export class Lexer {
     }
 
     makeSymbolPattern(tokenType: TokenType, symbol: string) {
-        return this.makeRegexPattern(tokenType, new RegExp(`\\${symbol}`, 'y'));
+        return this.makeRegexPattern(tokenType, new RegExp(`\\${symbol.split("").join("\\")}`, 'y'));
     }
 
     makeStringPattern(qouteChar: string) {
@@ -197,11 +197,12 @@ export class Lexer {
             this.makeKeywordPattern(TokenType.PLAYER_EVENT,     "playerevent"),
             this.makeKeywordPattern(TokenType.ENTITY_EVENT,     "entityevent"),
             this.makeKeywordPattern(TokenType.GAME_EVENT,       "gameevent"),
+            this.makeKeywordPattern(TokenType.FUNCTION,         "function"),
             
             this.makeKeywordPattern(TokenType.CALL,             "call"),
             this.makeKeywordPattern(TokenType.START,            "start"),
 
-            this.makeKeywordPattern(TokenType.RETURN,            "return"),
+            this.makeKeywordPattern(TokenType.RETURN,           "return"),
             this.makeKeywordPattern(TokenType.BREAK,            "break"),
             this.makeKeywordPattern(TokenType.CONTINUE,         "continue"),
             this.makeKeywordPattern(TokenType.ENDTHREAD,        "endthread"),
@@ -240,6 +241,7 @@ export class Lexer {
             this.makeSymbolPattern(TokenType.CLOSE_CURLY,       "}"),
 
             // other symbols
+            this.makeSymbolPattern(TokenType.ELLIPSES,          "..."),
             this.makeSymbolPattern(TokenType.COLON,             ":"),
             this.makeSymbolPattern(TokenType.COMMA,             ","),
             this.makeSymbolPattern(TokenType.DOT,               "."),

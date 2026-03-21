@@ -36,6 +36,32 @@ export class TypeAssignmentExpression extends Expression {
     ) {super(colon.startPos, type.endPos);}
 }
 
+export class MultiTypeAssignmentExpression extends Expression {
+    constructor(
+        public colon: Token,
+        public types: TypeExpression[],
+    ) {super(colon.startPos, types[types.length-1].endPos);}
+}
+
+export class ParameterExpression extends Expression {
+    constructor(
+        public name: Token,
+        public assignedType: TypeAssignmentExpression | null,
+        public plural: Token | null,
+        public assignmentOperator: Token | null,
+        public defaultValue: Expression | null
+    ) {
+        super(
+            name.startPos, 
+            // end (pos) me:
+            defaultValue ? defaultValue.endPos : 
+            assignmentOperator ? assignmentOperator.endPos : 
+            plural ? plural.endPos : 
+            assignedType ? assignedType.endPos : 
+            name.endPos
+        );
+    }
+}
 
 export class BinaryExpression extends Expression {
     constructor (
@@ -76,10 +102,10 @@ export class GroupExpression extends Expression {
     ) {super(opener.startPos, closer.endPos);}
 }
 
-export class ListExpression extends Expression {
+export class ListExpression<T extends Expression = Expression> extends Expression {
     constructor(
         public opener: Token,
-        public elements: Expression[],
+        public elements: T[],
         public closer: Token,
     ) {super(opener.startPos, closer.endPos);}
 }

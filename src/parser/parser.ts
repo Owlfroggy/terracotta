@@ -1,5 +1,5 @@
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "../ast/statement.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression } from "../ast/expression.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement, FunctionStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
@@ -68,6 +68,7 @@ export class Parser {
             [TokenType.PLAYER_EVENT,        this.parseEventStatement],
             [TokenType.ENTITY_EVENT,        this.parseEventStatement],
             [TokenType.GAME_EVENT,          this.parseEventStatement],
+            [TokenType.FUNCTION,            this.parseFunctionStatement],
 
             [TokenType.REPEAT,              this.parseRepeatStatement],
             
@@ -204,6 +205,19 @@ export class Parser {
         return new TypeAssignmentExpression(colon, type);
     }
 
+    parseMultiTypeAssignmentExpression = (optional: boolean = false): MultiTypeAssignmentExpression | null => {
+        if (optional && this.currentToken().type != TokenType.COLON)
+            return null;
+        let [colon, colonFound] = this.expect(TokenType.COLON);
+        let types: TypeExpression[] = [];
+        do {
+            if (this.currentToken().type == TokenType.COMMA)
+                this.consume();
+            types.push(this.parseTypeExpression());
+        } while (this.currentToken().type == TokenType.COMMA);
+        return new MultiTypeAssignmentExpression(colon, types);
+    }
+
     parseBinaryExpression = (left: Expression, bp: number): BinaryExpression => {
         return new BinaryExpression(
             left,
@@ -287,6 +301,48 @@ export class Parser {
         }
         let [closer, closerFound] = this.expect(closerType);
         return new ListExpression(opener, elements, closer);
+    }
+    
+    parseParamListExpression = (openerType: TokenType, closerType: TokenType, delimiter: TokenType): ListExpression<ParameterExpression> => {
+        let [opener, openerFound] = this.expect(openerType);
+        let elements: ParameterExpression[] = [];
+        while (
+            this.currentToken().type != closerType 
+        ) {
+            let comments = this.consumeComments();
+            let expr = this.parseParameterExpression();
+            if (expr == null) {
+                this.consume();
+            } else {
+                expr.attachedComments.push(...comments);
+                elements.push(expr);
+            }
+            if (this.currentToken().type != closerType) {
+                this.expect(delimiter);
+            }
+        }
+        let [closer, closerFound] = this.expect(closerType);
+        return new ListExpression(opener, elements, closer);
+    }
+
+    parseParameterExpression = (): ParameterExpression | null => {
+        let [name, nameFound] = this.expect([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
+        if (!nameFound) return null;
+
+        let type = this.parseTypeAssignmentExpression(true);
+        let plural: Token | null = null;
+        let equals: Token | null = null;
+        let defaultValue: Expression | null = null;
+        if (type != null) {
+            if (this.currentToken().type == TokenType.ELLIPSES) {
+                plural = this.consume();
+            }
+            if (this.currentToken().type == TokenType.EQUALS) {
+                equals = this.consume();
+                defaultValue = this.parseExpression(BindingPower.DEFAULT);
+            }
+        }
+        return new ParameterExpression(name, type, plural, equals, defaultValue);
     }
 
     parseChunkExpression = (openerType: TokenType, closerType: TokenType): ChunkExpression | null => {
@@ -390,10 +446,10 @@ export class Parser {
             modifiers.push(this.consume());
         }
 
-        let [mainKeyword, mainKeywordValid] = this.expectOrMissing([TokenType.PLAYER_EVENT, TokenType.ENTITY_EVENT, TokenType.GAME_EVENT]);
-        if (!mainKeywordValid) return null;
+        let [mainKeyword, mainKeywordFound] = this.expectOrMissing([TokenType.PLAYER_EVENT, TokenType.ENTITY_EVENT, TokenType.GAME_EVENT]);
+        if (!mainKeywordFound) return null;
         
-        let [eventName, eventNameValid] = this.expectOrMissing(TokenType.IDENTIFIER)
+        let [eventName, eventNameFound] = this.expectOrMissing(TokenType.IDENTIFIER)
         
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
         if (!chunk) return null;
@@ -401,12 +457,27 @@ export class Parser {
         return new EventStatement(modifiers, mainKeyword, eventName, chunk);
     }
 
+    parseFunctionStatement = (): FunctionStatement | null => {
+        let keyword = this.consume();
+        
+        let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
+
+        let params = this.parseParamListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA);
+
+        let returnType = this.parseMultiTypeAssignmentExpression(true);
+
+        let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
+        if (!chunk) return null;
+
+        return new FunctionStatement(keyword, name, params, returnType, chunk);
+    }
+
 
     parseRepeatStatement = (): RepeatStatement | null => {
         let keyword = this.consume();
 
-        let [next, nextValid] = this.expect([TokenType.OPEN_PAREN, TokenType.OPEN_CURLY], false);
-        if (!nextValid) return null;
+        let [next, nextFound] = this.expect([TokenType.OPEN_PAREN, TokenType.OPEN_CURLY], false);
+        if (!nextFound) return null;
 
         let countExpression: GroupExpression | null = null;
         // repeat n times statement

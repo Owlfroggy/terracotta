@@ -31,6 +31,7 @@ export enum TokenType {
     PLAYER_EVENT,
     GAME_EVENT,
     ENTITY_EVENT,
+    FUNCTION,
 
     CALL,
     START,
@@ -61,6 +62,7 @@ export enum TokenType {
     COLON,
     COMMA,
     DOT,
+    ELLIPSES,
 
     EQUALS,
     PLUS_EQUALS,

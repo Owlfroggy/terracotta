@@ -1,6 +1,6 @@
 import { ASTNode } from "./ast/astNode.ts";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression } from "./ast/expression.ts";
+import { EventStatement, ExpressionStatement, FunctionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
@@ -8,8 +8,11 @@ import { Parser } from "./parser/parser.ts";
 
 let test = 
 `
-line dingus: any = "hello world!";
-saved coins: = 5;
+function yeehaw(red, message: str... = ["dingus"], "parameter with spaces!!": num = 1): any, str {
+    default.sendMessage(message);
+    [line result, line error] = message;
+    return red;
+}
 `
 // `
 // 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
@@ -31,7 +34,7 @@ saved coins: = 5;
 function recurse(e: ASTNode | null): string {
     const placeholder = "\x1b[0;38;5;196;49m⊘\x1b[0m";
     if (e == null) {
-        return placeholder
+        return ""
     } else if (e instanceof Token) {
         if (e.type == TokenType.STRING_LITERAL) {
             let stringData = e.getStringExtraData();
@@ -51,6 +54,10 @@ function recurse(e: ASTNode | null): string {
         return `\x1b[0;38;5;39;49m${e.baseType.value}\x1b[0m`
     } else if (e instanceof TypeAssignmentExpression) {
         return `: ${recurse(e.type)}`;
+    } else if (e instanceof MultiTypeAssignmentExpression) {
+        return `: ${e.types.map(t => recurse(t)).join(", ")}`
+    } else if (e instanceof ParameterExpression) {
+        return `${recurse(e.name)}${recurse(e.assignedType)}${e.plural ? "..." : ""}${e.assignmentOperator ? " = " : ""}${recurse(e.defaultValue)}`;
     } else if (e instanceof GroupExpression) {
         return recurse(e.expression);
     } else if (e instanceof ListExpression) {
@@ -74,6 +81,8 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof EventStatement) {
         let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`
+    } else if (e instanceof FunctionStatement) {
+        return `function ${recurse(e.name)}${recurse(e.args)}${recurse(e.returnType)} ${recurse(e.chunk)}`
     } else if (e instanceof RepeatStatement) {
         return `repeat${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
     } else if (e instanceof SingleKeywordStatement) {
