@@ -14,7 +14,13 @@ function yeehaw(red, message: str... = ["dingus"], "parameter with spaces!!": nu
     return red, "yinkus";
 }
 
-process gameLoop(gameType: str = "deathmatch", waitTime) {
+function five: str {return 5; }
+
+lscancel playerevent Join {
+    default.sendMessage(five());
+}
+
+process gameLoop {
     local tGameType = gameType;
     repeat {
         wait(waitTime);

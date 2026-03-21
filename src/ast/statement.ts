@@ -40,7 +40,7 @@ export class FunctionStatement extends Statement {
     constructor(
         public keyword: Token,
         public name: Token,
-        public args: ListExpression<ParameterExpression>,
+        public args: ListExpression<ParameterExpression> | null,
         public returnType: MultiTypeAssignmentExpression | null,
         public chunk: ChunkExpression,
     ) {super(keyword.startPos, chunk.endPos);}
@@ -50,7 +50,7 @@ export class ProcessStatement extends Statement {
     constructor(
         public keyword: Token,
         public name: Token,
-        public args: ListExpression<ParameterExpression>,
+        public args: ListExpression<ParameterExpression> | null,
         public chunk: ChunkExpression,
     ) {super(keyword.startPos, chunk.endPos);}
 }
