@@ -1,5 +1,5 @@
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement, FunctionStatement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement, FunctionStatement, ProcessStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 
@@ -69,6 +69,7 @@ export class Parser {
             [TokenType.ENTITY_EVENT,        this.parseEventStatement],
             [TokenType.GAME_EVENT,          this.parseEventStatement],
             [TokenType.FUNCTION,            this.parseFunctionStatement],
+            [TokenType.PROCESS,            this.parseProcessStatement],
 
             [TokenType.REPEAT,              this.parseRepeatStatement],
             
@@ -470,6 +471,19 @@ export class Parser {
         if (!chunk) return null;
 
         return new FunctionStatement(keyword, name, params, returnType, chunk);
+    }
+
+    parseProcessStatement = (): ProcessStatement | null => {
+        let keyword = this.consume();
+        
+        let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
+
+        let params = this.parseParamListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA);
+
+        let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
+        if (!chunk) return null;
+
+        return new ProcessStatement(keyword, name, params, chunk);
     }
 
 

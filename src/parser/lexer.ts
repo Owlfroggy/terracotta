@@ -198,6 +198,7 @@ export class Lexer {
             this.makeKeywordPattern(TokenType.ENTITY_EVENT,     "entityevent"),
             this.makeKeywordPattern(TokenType.GAME_EVENT,       "gameevent"),
             this.makeKeywordPattern(TokenType.FUNCTION,         "function"),
+            this.makeKeywordPattern(TokenType.PROCESS,          "process"),
             
             this.makeKeywordPattern(TokenType.CALL,             "call"),
             this.makeKeywordPattern(TokenType.START,            "start"),

@@ -32,6 +32,7 @@ export enum TokenType {
     GAME_EVENT,
     ENTITY_EVENT,
     FUNCTION,
+    PROCESS,
 
     CALL,
     START,

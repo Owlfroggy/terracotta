@@ -1,6 +1,6 @@
 import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression } from "./ast/expression.ts";
-import { EventStatement, ExpressionStatement, FunctionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
+import { EventStatement, ExpressionStatement, FunctionStatement, ProcessStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, VariableStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
@@ -13,7 +13,15 @@ function yeehaw(red, message: str... = ["dingus"], "parameter with spaces!!": nu
     [line result, line error] = message;
     return red, "yinkus";
 }
+
+process gameLoop(gameType: str = "deathmatch", waitTime) {
+    local tGameType = gameType;
+    repeat {
+        wait(waitTime);
+    }
+}
 `
+
 // `
 // 'short:\\n \\' \\" \\x40 \\u2620\\u2620 \\x40 \\nXXXXXXXXXXXXX'.length;
 // sendMessage("hello world!!!!!");
@@ -83,6 +91,8 @@ function recurse(e: ASTNode | null): string {
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`
     } else if (e instanceof FunctionStatement) {
         return `function ${recurse(e.name)}${recurse(e.args)}${recurse(e.returnType)} ${recurse(e.chunk)}`
+    } else if (e instanceof ProcessStatement) {
+        return `process ${recurse(e.name)}${recurse(e.args)} ${recurse(e.chunk)}`
     } else if (e instanceof RepeatStatement) {
         return `repeat${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
     } else if (e instanceof SingleKeywordStatement) {

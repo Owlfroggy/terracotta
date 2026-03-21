@@ -46,6 +46,15 @@ export class FunctionStatement extends Statement {
     ) {super(keyword.startPos, chunk.endPos);}
 }
 
+export class ProcessStatement extends Statement {
+    constructor(
+        public keyword: Token,
+        public name: Token,
+        public args: ListExpression<ParameterExpression>,
+        public chunk: ChunkExpression,
+    ) {super(keyword.startPos, chunk.endPos);}
+}
+
 export class RepeatStatement extends Statement {
     constructor(
         public keyword: Token,
