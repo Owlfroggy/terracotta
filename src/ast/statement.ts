@@ -7,6 +7,10 @@ export class Statement extends ASTNode implements CommentHolder {
     constructor(
         startPos: number, endPos: number,
     ) {super(startPos, endPos);}
+
+    toString(): string {
+        return this.constructor.name;
+    }
 }
 
 export class ExpressionStatement extends Statement {

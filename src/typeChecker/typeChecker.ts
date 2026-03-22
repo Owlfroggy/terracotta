@@ -1,6 +1,6 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression, ListExpression, TypecastExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
-import { ExpressionStatement, Statement } from "../ast/statement.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, ListExpression, TypecastExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
+import { EventStatement, ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { TCError } from "../error/error.ts";
 
@@ -30,9 +30,10 @@ class EnvironmentFrame {
     // public knownTypes: Map<VariableId, Type[]> = new Map();
     // public unsolvedTypes: Map<VariableId, {requirements: Requirement[], expression: Expression}> = new Map();
     variables: Map<string, Map<VariableScope, VariableEntry[]>> = new Map();
+    children: Map<ChunkExpression, EnvironmentFrame> = new Map();
     
     constructor(
-        public astNode: ASTNode | null,
+        public astNode: ChunkExpression | null,
         public parent: EnvironmentFrame | null,
     ) {}
 
@@ -130,6 +131,12 @@ class EnvironmentFrame {
         }
     }
 
+    addChild(astNode: ChunkExpression): EnvironmentFrame {
+        let child = new EnvironmentFrame(astNode, this);
+        this.children.set(astNode, child);
+        return child;
+    }
+
     toString(): string {
         let vars: string[] = [];
         for (const [id, entries] of this.entryLists()) {
@@ -138,7 +145,17 @@ class EnvironmentFrame {
             });
             vars.push(`${id} -> [${strEntries.join(", ")}]`)
         }
-        return `FRAME FOR ${this.astNode ?? "GLOBAL"} {\n  variables: {\n    ${vars.join("\n    ")}\n  }\n}`;
+
+        let childrenString = "[]";
+        if (this.children.size > 0) {
+            let children: string[] = [];
+            for (const [node, child] of this.children.entries()) {
+                children.push(child.toString().split("\n").join("\n    "));
+            }
+            childrenString = "[\n    "+children.join("\n    ")+"\n  ]";
+        }
+
+        return `FRAME FOR ${this.astNode?.parent ?? "GLOBAL"} {\n  variables: {\n    ${vars.join("\n    ")}\n  }\n  children: ${childrenString}\n}`;
     }
 }
 
@@ -303,8 +320,16 @@ export class TypeFigureoutinatorIdk {
                     variableExpr.assignedType ? this.evaluateExplicitType(variableExpr.assignedType.type) : null
                 );
             }
+
+
+            //=- stuff below here is for entering child frames -=\\
             else {
-                // todo: handle frames other than global frame
+                for (const c of statement.children){ 
+                    if (c instanceof ChunkExpression) {
+                        let newFrame = frame.addChild(c);
+                        this.collectionStage(c.statements, newFrame);
+                    }
+                }
             }
         }
     }
@@ -337,11 +362,11 @@ export class TypeFigureoutinatorIdk {
                 entry.solved = true;
                 newSolves++;
             }
+        }
 
-            // if no progress was made, 
-            if (newSolves == 0) {
-
-            }
+        // once this frame's been solved as far as it can go, process child frames
+        for (const [astNode, child] of frame.children.entries()) {
+            this.evaluationStage(child);
         }
     }
 

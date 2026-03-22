@@ -10,12 +10,26 @@ import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
 global yeehaw = dingus + 5;
-global dingus: num;
 global dingus = 5;
 
-line 'yay1!!!!!' = asdf;
-
 global asdf = ("balls" + saved a) + (s"yongus" + 5);
+
+playerevent Join {
+    line dingus = "hello world!";
+    line message = dingus;
+
+    do {
+        line dinugs = 2 + (((((5)))));
+    }
+
+    if (1 == 2) {
+        line message = 12;
+        line "LOWEST DOWN" = message;
+    } else {
+        line message = 15;
+    }
+}
+
 
 `
 
