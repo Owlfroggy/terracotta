@@ -3,6 +3,7 @@ import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, C
 import { EventStatement, ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { TCError } from "../error/error.ts";
+import { dirWithoutRelations } from "../util/debug.ts";
 
 export enum VariableScope {
     GLOBAL,
@@ -13,7 +14,7 @@ export enum VariableScope {
 /** earlier in the array means higher priority */
 const SCOPE_PRIORITY = [VariableScope.LINE, VariableScope.LOCAL, VariableScope.GLOBAL, VariableScope.SAVED]
 
-type Requirement = VariableId | string;
+type Requirement = {item: VariableId | string, atPos: number};
 
 type VariableEntry = {
     id: VariableId,
@@ -21,6 +22,7 @@ type VariableEntry = {
     type: Type | null,
     requirements: Requirement[], 
     valueExpression: Expression | null,
+    effectiveBeyondPosition: number
 }
 
 class EnvironmentFrame {
@@ -40,8 +42,9 @@ class EnvironmentFrame {
     registerVariable(
         id: VariableId, 
         type: Type | null = null, 
+        effectiveBeyondPosition: number,
         requirements: Requirement[] = [], 
-        valueExpression: Expression | null = null
+        valueExpression: Expression | null = null,
     ) {
         let entry: VariableEntry = {
             id: id,
@@ -49,6 +52,7 @@ class EnvironmentFrame {
             type: type,
             requirements: requirements,
             valueExpression: valueExpression,
+            effectiveBeyondPosition: effectiveBeyondPosition,
         }
         if (!this.variables.has(id.name)) this.variables.set(id.name, new Map());
         let nameLayer = this.variables.get(id.name)!;
@@ -62,7 +66,7 @@ class EnvironmentFrame {
      * If a string is passed in, all variables with that name and any scope will be considered
      * @returns VariableEntry if this variable is present and unconflicted on any scope at or above this frame
      */
-    getVariableEntry(variable: VariableId | string): VariableEntry | null {
+    getVariableEntry(variable: VariableId | string, atPos: number): VariableEntry | null {
         let frame = this;
         let name: string;
         let scope: VariableScope | null;
@@ -76,14 +80,43 @@ class EnvironmentFrame {
 
         if (this.variables.has(name)) {
             let varLayer = this.variables.get(name)!;
-            if (scope == null) {
-                for (const scope of SCOPE_PRIORITY) {
+
+            let tryEntries = (scope: VariableScope) => {
+                let entries = varLayer.get(scope)!;
+                if (!entries || entries.length == 0) return null; 
+
+                if (this.parent == null) {
+                    // if in the global context, consider all variables with multiple definitions unknown
+                    // and also don't take positions into account
                     if (varLayer.get(scope)?.length == 1)
                         return varLayer.get(scope)![0];
+                } else {
+                    // otherwise, go through all definitions to get the latest one that fulfills atPos
+                    let i;
+                    for (i = entries.length-1; i >= 0; i--) {
+                        if (entries[i].effectiveBeyondPosition < atPos) break;
+                    }
+
+                    if (i != -1) {
+                        return entries[i];
+                    } else {
+                        return null;
+                    }
+                }
+                return null;
+            }
+
+            if (scope == null) {
+                for (const scope of SCOPE_PRIORITY) {
+                    let entry = tryEntries(scope);
+                    if (entry) return entry;
                 }
             } else {
-                if (varLayer.get(scope)?.length == 1)
-                    return varLayer.get(scope)![0];
+                // let allEntries = varLayer.get(scope);
+                // let i = 0;
+                // while (allEntries[i].effectiveBeyondPosition < )
+                let entry = tryEntries(scope);
+                if (entry) return entry;
             }
         }
         // if this scope couldn't decide on a type, try the next scope up
@@ -92,7 +125,7 @@ class EnvironmentFrame {
             // variable could not be evaluated on any level
             return null;
         } else {
-            return this.parent.getVariableEntry(variable);
+            return this.parent.getVariableEntry(variable, atPos);
         }
     }
 
@@ -101,8 +134,8 @@ class EnvironmentFrame {
      * If a string is passed in, all variables with that name and any scope will be considered
      * @returns Type.unknown unless this variable is present and unconflicted on any scope at or above this frame
      */
-    getVariableType(variable: VariableId | string): Type {
-        let entry = this.getVariableEntry(variable);
+    getVariableType(variable: VariableId | string, atPos: number): Type {
+        let entry = this.getVariableEntry(variable, atPos);
         if (entry == null) return Type.unknown;
         return entry.type ?? Type.unknown;
     }
@@ -141,9 +174,10 @@ class EnvironmentFrame {
         let vars: string[] = [];
         for (const [id, entries] of this.entryLists()) {
             let strEntries: string[] = entries.map(e => {
-                return `${e.solved ? "√" : "X"} ${e.type?.name ?? 'unknown'} <${e.requirements.join(", ")}> ${e.valueExpression ? e.valueExpression.constructor.name : ''}`
+                let requirements = e.requirements.map(r => `${r.atPos}>${r.item}`).join(", ");
+                return `[${e.solved ? "√" : "X"} ${e.type?.name ?? 'unknown'} @${e.effectiveBeyondPosition} req:(${requirements}) exp:${e.valueExpression ? e.valueExpression.constructor.name : ''}]`
             });
-            vars.push(`${id} -> [${strEntries.join(", ")}]`)
+            vars.push(`${id} -> ${strEntries.join(",  ")}`)
         }
 
         let childrenString = "[]";
@@ -272,7 +306,7 @@ export class TypeFigureoutinatorIdk {
             }
         }
         else if (expression instanceof VariableExpression) {
-            return [VariableId.fromExpression(expression)];
+            return [{item: VariableId.fromExpression(expression), atPos: expression.startPos}];
         }
         else if (expression instanceof AccessExpression) {
             return this.getRequirements(expression.accessee, frame);
@@ -282,7 +316,7 @@ export class TypeFigureoutinatorIdk {
             return this.getRequirements(expression.args, frame);
         }
         else if (expression instanceof Token && expression.type == TokenType.IDENTIFIER) {
-            return [expression.value];
+            return [{item: expression.value, atPos: expression.startPos}];
         }
         else {
             let requirements: Requirement[] = [];
@@ -305,10 +339,10 @@ export class TypeFigureoutinatorIdk {
                 let variableExpr = statement.expression.left
                 let varId = VariableId.fromExpression(variableExpr);
                 if (variableExpr.assignedType) {
-                    frame.registerVariable(varId, this.evaluateExplicitType(variableExpr.assignedType.type));
+                    frame.registerVariable(varId, this.evaluateExplicitType(variableExpr.assignedType.type), statement.endPos);
                 } else {
                     let value = statement.expression.right;
-                    frame.registerVariable(varId, null, this.getRequirements(value, frame), value);
+                    frame.registerVariable(varId, null, statement.endPos, this.getRequirements(value, frame), value);
                 }
             }
             else if (statement instanceof ExpressionStatement
@@ -317,7 +351,8 @@ export class TypeFigureoutinatorIdk {
                 let variableExpr = statement.expression;
                 frame.registerVariable(
                     VariableId.fromExpression(variableExpr),
-                    variableExpr.assignedType ? this.evaluateExplicitType(variableExpr.assignedType.type) : null
+                    variableExpr.assignedType ? this.evaluateExplicitType(variableExpr.assignedType.type) : null,
+                    statement.endPos
                 );
             }
 
@@ -341,26 +376,28 @@ export class TypeFigureoutinatorIdk {
         // keep going until no more progress is being made
         while (newSolves != 0) {
             newSolves = 0;
-            for (const [id, entry] of frame.uniqueEntries()) {
-                if (entry.solved) continue;
-
-                // check if all requirements have been solved
-                let allRequirementsSolved = true;
-                for (const requirement of entry.requirements) {
-                    let rEntry = frame.getVariableEntry(requirement);
-                    // TODO: probably the null case should be handled in a special way
-                    if (rEntry == null || rEntry.solved == false) {
-                        allRequirementsSolved = false;
-                        break;
+            for (const [id, allEntries] of frame.entryLists()) {
+                for (const entry of allEntries) {
+                    if (entry.solved) continue;
+    
+                    // check if all requirements have been solved
+                    let allRequirementsSolved = true;
+                    for (const requirement of entry.requirements) {
+                        let rEntry = frame.getVariableEntry(requirement.item, requirement.atPos);
+                        // TODO: probably the null case should be handled in a special way
+                        if (rEntry == null || rEntry.solved == false) {
+                            allRequirementsSolved = false;
+                            break;
+                        }
                     }
+    
+                    if (!allRequirementsSolved) continue;
+                    if (!entry.valueExpression) continue;
+    
+                    entry.type = this.evaluateExpression(entry.valueExpression, frame);
+                    entry.solved = true;
+                    newSolves++;
                 }
-
-                if (!allRequirementsSolved) continue;
-                if (!entry.valueExpression) continue;
-
-                entry.type = this.evaluateExpression(entry.valueExpression, frame);
-                entry.solved = true;
-                newSolves++;
             }
         }
 
@@ -375,7 +412,7 @@ export class TypeFigureoutinatorIdk {
         if (expression instanceof AtomicExpression) {
             let token = expression.token;
             switch (token.type) {
-                case TokenType.IDENTIFIER: return frame.getVariableType(token.value);
+                case TokenType.IDENTIFIER: return frame.getVariableType(token.value,token.startPos);
                 case TokenType.NUMERIC_LITERAL: return Type.num;
                 case TokenType.STRING_LITERAL: return Type.str;
                 case TokenType.STYLED_LITERAL: return Type.txt;
@@ -383,7 +420,7 @@ export class TypeFigureoutinatorIdk {
             }
         }
         else if (expression instanceof VariableExpression) {
-            return frame.getVariableType(VariableId.fromExpression(expression));
+            return frame.getVariableType(VariableId.fromExpression(expression), expression.startPos);
         }
         else if (expression instanceof TypecastExpression) {
             return this.evaluateExplicitType(expression.type);
