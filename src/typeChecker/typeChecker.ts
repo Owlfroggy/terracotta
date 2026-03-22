@@ -152,18 +152,6 @@ class EnvironmentFrame {
         }
     }
 
-    /** Like entryLists(), but with two differences:
-     * - it ignores variables that have more than one entry,
-     * - it returns the entry itself (not a 1-value array)
-     */
-    *uniqueEntries(): IterableIterator<[VariableId, VariableEntry]> {
-        for (const [id, entries] of this.entryLists()) {
-            if (entries.length == 1) {
-                yield [id, entries[0]];
-            }
-        }
-    }
-
     addChild(astNode: ChunkExpression): EnvironmentFrame {
         let child = new EnvironmentFrame(astNode, this);
         this.children.set(astNode, child);
