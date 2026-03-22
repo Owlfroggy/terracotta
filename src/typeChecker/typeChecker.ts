@@ -1,0 +1,394 @@
+import { ASTNode } from "../ast/astNode.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression, ListExpression, TypecastExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
+import { ExpressionStatement, Statement } from "../ast/statement.ts";
+import { Token, TokenType } from "../ast/token.ts";
+import { TCError } from "../error/error.ts";
+
+export enum VariableScope {
+    GLOBAL,
+    SAVED,
+    LOCAL,
+    LINE,
+};
+/** earlier in the array means higher priority */
+const SCOPE_PRIORITY = [VariableScope.LINE, VariableScope.LOCAL, VariableScope.GLOBAL, VariableScope.SAVED]
+
+type Requirement = VariableId | string;
+
+type VariableEntry = {
+    id: VariableId,
+    solved: boolean,
+    type: Type | null,
+    requirements: Requirement[], 
+    valueExpression: Expression | null,
+}
+
+class EnvironmentFrame {
+    /** An empty environment frame with no variables for evaluating expressions in a vacuum */
+    static readonly DUMMY = new EnvironmentFrame(null, null)
+
+    // public knownTypes: Map<VariableId, Type[]> = new Map();
+    // public unsolvedTypes: Map<VariableId, {requirements: Requirement[], expression: Expression}> = new Map();
+    variables: Map<string, Map<VariableScope, VariableEntry[]>> = new Map();
+    
+    constructor(
+        public astNode: ASTNode | null,
+        public parent: EnvironmentFrame | null,
+    ) {}
+
+    registerVariable(
+        id: VariableId, 
+        type: Type | null = null, 
+        requirements: Requirement[] = [], 
+        valueExpression: Expression | null = null
+    ) {
+        let entry: VariableEntry = {
+            id: id,
+            solved: type != null,
+            type: type,
+            requirements: requirements,
+            valueExpression: valueExpression,
+        }
+        if (!this.variables.has(id.name)) this.variables.set(id.name, new Map());
+        let nameLayer = this.variables.get(id.name)!;
+        if (!nameLayer.has(id.scope)) nameLayer.set(id.scope, []);
+        let scopeLayer = nameLayer.get(id.scope)!;
+        scopeLayer.push(entry);
+    }
+
+    /**
+     * @param variable If a VariableID is passed in, only that scope will be considered. 
+     * If a string is passed in, all variables with that name and any scope will be considered
+     * @returns VariableEntry if this variable is present and unconflicted on any scope at or above this frame
+     */
+    getVariableEntry(variable: VariableId | string): VariableEntry | null {
+        let frame = this;
+        let name: string;
+        let scope: VariableScope | null;
+        if (variable instanceof VariableId) {
+            name = variable.name;
+            scope = variable.scope;
+        } else {
+            name = variable;
+            scope = null;
+        }
+
+        if (this.variables.has(name)) {
+            let varLayer = this.variables.get(name)!;
+            if (scope == null) {
+                for (const scope of SCOPE_PRIORITY) {
+                    if (varLayer.get(scope)?.length == 1)
+                        return varLayer.get(scope)![0];
+                }
+            } else {
+                if (varLayer.get(scope)?.length == 1)
+                    return varLayer.get(scope)![0];
+            }
+        }
+        // if this scope couldn't decide on a type, try the next scope up
+        if (this.parent == null) {
+            // if this is the global scope that means this
+            // variable could not be evaluated on any level
+            return null;
+        } else {
+            return this.parent.getVariableEntry(variable);
+        }
+    }
+
+    /**
+     * @param variable If a VariableID is passed in, only that scope will be considered. 
+     * If a string is passed in, all variables with that name and any scope will be considered
+     * @returns Type.unknown unless this variable is present and unconflicted on any scope at or above this frame
+     */
+    getVariableType(variable: VariableId | string): Type {
+        let entry = this.getVariableEntry(variable);
+        if (entry == null) return Type.unknown;
+        return entry.type ?? Type.unknown;
+    }
+
+    /** Will return the entry list for every scope,name combination that exists WITHIN THIS FRAME!! 
+     * 
+     * This will NOT look in child or parent frames.
+     */
+    *entryLists(): IterableIterator<[VariableId, VariableEntry[]]> {
+        for (const [name, scopeLayer] of this.variables.entries()) {
+            for (const [scope, allEntries] of scopeLayer.entries()) {
+                yield [VariableId.get(scope, name), allEntries];
+            }
+        }
+    }
+
+    /** Like entryLists(), but with two differences:
+     * - it ignores variables that have more than one entry,
+     * - it returns the entry itself (not a 1-value array)
+     */
+    *uniqueEntries(): IterableIterator<[VariableId, VariableEntry]> {
+        for (const [id, entries] of this.entryLists()) {
+            if (entries.length == 1) {
+                yield [id, entries[0]];
+            }
+        }
+    }
+
+    toString(): string {
+        let vars: string[] = [];
+        for (const [id, entries] of this.entryLists()) {
+            let strEntries: string[] = entries.map(e => {
+                return `${e.solved ? "√" : "X"} ${e.type?.name ?? 'unknown'} <${e.requirements.join(", ")}> ${e.valueExpression ? e.valueExpression.constructor.name : ''}`
+            });
+            vars.push(`${id} -> [${strEntries.join(", ")}]`)
+        }
+        return `FRAME FOR ${this.astNode ?? "GLOBAL"} {\n  variables: {\n    ${vars.join("\n    ")}\n  }\n}`;
+    }
+}
+
+class VariableId {
+    // TODO: when everything goes incremental, make sure this doesn't leak memory
+    private static cache: Map<VariableScope, {[key: string]: VariableId}> = new Map();
+
+    constructor(
+        public scope: VariableScope,
+        public name: string,
+    ) {}
+
+    public static get(scope: VariableScope, name: string): VariableId {
+        let existingId = this.cache.get(scope)?.[name];
+        if (existingId) return existingId;
+        let newId = new VariableId(scope, name);
+        if (!this.cache.has(scope)) this.cache.set(scope, {});
+        this.cache.get(scope)![name] = newId;
+        return newId;
+    }
+
+    public static fromExpression(expression: VariableExpression): VariableId {
+        return this.get(VariableScope[TokenType[expression.scope.type]], expression.name.value);
+    }
+
+    toString(): string {
+        return `${VariableScope[this.scope]}'${this.name}'`
+    }
+}
+
+class Type {
+    public static registry: {[name: string]: Type} = {};
+
+    public static num = new Type('num');
+    public static str = new Type('str');
+    public static txt = new Type('txt');
+    public static any = new Type('any');
+    public static unknown = this.any; // just in case unknown type ever needs to be separated
+
+
+    constructor(
+        public readonly name: string
+    ) {
+        if (name in Type.registry) {
+            throw new Error(`Attempted to register type '${name}' even though a type of that name already exists`);
+        }
+        Type.registry[name] = this;
+    }
+}
+
+export class OperationTypes {
+    static binaryOperations: Map<Type,Map<TokenType,Map<Type,Type>>> = new Map();
+
+    /**
+     * @param bidirectional If true, automatically register `right op left -> result`
+     * as well as `left op right -> result` (assuming that left and right are different)
+     */
+    static registerBinary(left: Type, op: TokenType, right: Type, result: Type, commutative: boolean = false) {
+        for (const [l, r] of ((commutative && left != right) ? [[left, right], [right, left]] : [[left, right]])) {
+            let leftMap = this.binaryOperations.get(l);
+            if (leftMap == undefined) {
+                leftMap = new Map();
+                this.binaryOperations.set(l, leftMap);
+            };
+    
+            let opMap = leftMap.get(op);
+            if (opMap == undefined) {
+                opMap = new Map();
+                leftMap.set(op, opMap)
+            };
+    
+            opMap.set(r, result);
+        }
+    }
+
+    /** returns Type.unknown if this is not a valid operaton */
+    static evaluateBinary(left: Type, op: TokenType, right: Type): Type {
+        return (
+            this.binaryOperations.get(left)?.get(op)?.get(right)
+            ?? this.binaryOperations.get(left)?.get(op)?.get(Type.any)
+            ?? this.binaryOperations.get(Type.any)?.get(op)?.get(right)
+            ?? Type.unknown
+        );
+    }
+}
+OperationTypes.registerBinary(Type.num, TokenType.PLUS, Type.num, Type.num);
+OperationTypes.registerBinary(Type.str, TokenType.PLUS, Type.num, Type.str, true);
+OperationTypes.registerBinary(Type.txt, TokenType.PLUS, Type.any, Type.txt, true);
+
+export class TypeFigureoutinatorIdk {
+    errors: TCError[];
+    globalFrame: EnvironmentFrame = new EnvironmentFrame(null,null);
+
+    reportError(startPos: number, endPos: number, error: string) {}
+
+    getRequirements(expression: ASTNode, frame: EnvironmentFrame): Requirement[] {
+        if (expression instanceof Expression) expression = expression.getRealExpression();
+        if (expression instanceof TypecastExpression) {
+            // if an expression is being recast by the AS operator,
+            // nothing inside it is needed to evaluated higher up types
+            return []
+        }
+        else if (expression instanceof BinaryExpression) {
+            let leftConstType = this.evaluateExpression(expression.left, EnvironmentFrame.DUMMY);
+            let rightConstType = this.evaluateExpression(expression.right, EnvironmentFrame.DUMMY);
+
+            // if the type of this operation can be evaluated without any context 
+            // (e.g. (s"styled text" + dingus) will always be type txt no matter what 'dingus' is)
+            // then none of the variables inside of it matter so they can be ignored
+            if (OperationTypes.evaluateBinary(leftConstType, expression.operator.type, rightConstType) != Type.unknown) {
+                return [];
+            } else {
+                return [...this.getRequirements(expression.left, frame), ...this.getRequirements(expression.right, frame)];
+            }
+        }
+        else if (expression instanceof VariableExpression) {
+            return [VariableId.fromExpression(expression)];
+        }
+        else if (expression instanceof AccessExpression) {
+            return this.getRequirements(expression.accessee, frame);
+        }
+        else if (expression instanceof CallExpression && expression.callee.getRealExpression() instanceof AtomicExpression) {
+            // if calling an identifier as a function, dont count that identifier as a requirement
+            return this.getRequirements(expression.args, frame);
+        }
+        else if (expression instanceof Token && expression.type == TokenType.IDENTIFIER) {
+            return [expression.value];
+        }
+        else {
+            let requirements: Requirement[] = [];
+            for (const child of expression.children) {
+                requirements.push(...this.getRequirements(child, frame))
+            }
+            return requirements;
+        }
+    }
+
+    collectionStage(statements: Statement[], frame: EnvironmentFrame = this.globalFrame) {
+        for (const statement of statements) {
+            // variable assignments
+            if (statement instanceof ExpressionStatement 
+                && statement.expression instanceof BinaryExpression 
+                && statement.expression.left instanceof VariableExpression
+                && statement.expression.operator.type == TokenType.EQUALS
+            ) {
+                // TODO: handle functions with multiple return values
+                let variableExpr = statement.expression.left
+                let varId = VariableId.fromExpression(variableExpr);
+                if (variableExpr.assignedType) {
+                    frame.registerVariable(varId, this.evaluateExplicitType(variableExpr.assignedType.type));
+                } else {
+                    let value = statement.expression.right;
+                    frame.registerVariable(varId, null, this.getRequirements(value, frame), value);
+                }
+            }
+            else if (statement instanceof ExpressionStatement
+                && statement.expression instanceof VariableExpression
+            ) {
+                let variableExpr = statement.expression;
+                frame.registerVariable(
+                    VariableId.fromExpression(variableExpr),
+                    variableExpr.assignedType ? this.evaluateExplicitType(variableExpr.assignedType.type) : null
+                );
+            }
+            else {
+                // todo: handle frames other than global frame
+            }
+        }
+    }
+
+    // TODO: idk if it should happen here, but at some point we gotta throw error
+    // for declaring the same variable in multiple different places within a scope
+    evaluationStage(frame: EnvironmentFrame = this.globalFrame) {
+        let newSolves = -1;
+        // keep going until no more progress is being made
+        while (newSolves != 0) {
+            newSolves = 0;
+            for (const [id, entry] of frame.uniqueEntries()) {
+                if (entry.solved) continue;
+
+                // check if all requirements have been solved
+                let allRequirementsSolved = true;
+                for (const requirement of entry.requirements) {
+                    let rEntry = frame.getVariableEntry(requirement);
+                    // TODO: probably the null case should be handled in a special way
+                    if (rEntry == null || rEntry.solved == false) {
+                        allRequirementsSolved = false;
+                        break;
+                    }
+                }
+
+                if (!allRequirementsSolved) continue;
+                if (!entry.valueExpression) continue;
+
+                entry.type = this.evaluateExpression(entry.valueExpression, frame);
+                entry.solved = true;
+                newSolves++;
+            }
+
+            // if no progress was made, 
+            if (newSolves == 0) {
+
+            }
+        }
+    }
+
+    evaluateExpression(expression: Expression, frame: EnvironmentFrame): Type {
+        expression = expression.getRealExpression();
+        if (expression instanceof AtomicExpression) {
+            let token = expression.token;
+            switch (token.type) {
+                case TokenType.IDENTIFIER: return frame.getVariableType(token.value);
+                case TokenType.NUMERIC_LITERAL: return Type.num;
+                case TokenType.STRING_LITERAL: return Type.str;
+                case TokenType.STYLED_LITERAL: return Type.txt;
+                default: return Type.unknown;
+            }
+        }
+        else if (expression instanceof VariableExpression) {
+            return frame.getVariableType(VariableId.fromExpression(expression));
+        }
+        else if (expression instanceof TypecastExpression) {
+            return this.evaluateExplicitType(expression.type);
+        }
+        else if (expression instanceof CallExpression) {
+            // TODO: implement functions
+            // also remember CallOrStartExpression!!!
+            return Type.unknown;
+        }
+        else if (expression instanceof BinaryExpression) {
+            return OperationTypes.evaluateBinary(
+                this.evaluateExpression(expression.left, frame),
+                expression.operator.type,
+                this.evaluateExpression(expression.right, frame),
+            )
+        } else {
+            return Type.unknown;
+        }
+    }
+
+    evaluateExplicitType(expression: TypeExpression): Type {
+        let name = expression.baseType.value;
+        if (name in Type.registry) {
+            return Type.registry[name];
+        } else {
+            this.reportError(
+                expression.baseType.startPos, expression.baseType.endPos,
+                `Invalid type '${name}'`
+            );
+            return Type.unknown;
+        }
+    }
+}

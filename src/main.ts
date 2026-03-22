@@ -5,29 +5,18 @@ import { Token, TokenType } from "./ast/token.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
+import { OperationTypes, TypeFigureoutinatorIdk } from "./typeChecker/typeChecker.ts";
+import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
+global yeehaw = dingus + 5;
+global dingus: num;
+global dingus = 5;
 
-/* crimes */
-global dingus as str[];
+line 'yay1!!!!!' = asdf;
 
-`;
+global asdf = ("balls" + saved a) + (s"yongus" + 5);
 
-`
-global "dict of doom" = {
-    /* god bless america 🔫🏈🇺🇸🦅 */
-    stone: [1,2]
-    "bongle dingus": [bongle, dingus],
-    wood five,
-    five: wood,
-    unwrappedFunctionCall(): invalid
-;
-
-default.sendMessage({yhingus: 5, /** who let bro Four */ (line yingus): 4, "bhlingus": 5, (blingus()): 5, (line expression - 2): "expr!!" + 5});
-
-playerevent join {
-    saved "%uuid data" = {joinTimestamp: game.timestamp, coins: 0, achievements: []};
-}
 `
 
 // `
@@ -217,9 +206,19 @@ lexer.tokenize()
 const parser = new Parser(lexer.tokens);
 // let expr = parser.parseExpression(0) as Expression;
 parser.parse();
-console.dir(parser.statements, {depth: null});
+dirWithoutRelations(parser.statements);
 // console.log("Errors: ", parser.errors);
 console.log("RECONSTRUCTION FROM AST --------------------")
 console.log(visualizeStatements(parser.statements).join("\n"));
 console.log("--------------------------------------------")
 visualizeErrors([...parser.errors, ...lexer.errors],test)
+
+
+const typeChecker = new TypeFigureoutinatorIdk();
+typeChecker.collectionStage(parser.statements);
+typeChecker.evaluationStage()
+
+console.log("type checker output-----")
+// console.log(typeChecker.globalFrame.getVariableType("yeehaw"))
+// console.dir(typeChecker.globalFrame,{depth: 6});
+console.log(`${typeChecker.globalFrame}`);

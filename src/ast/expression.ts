@@ -7,6 +7,18 @@ export class Expression extends ASTNode implements CommentHolder {
     constructor(
         startPos: number, endPos: number
     ) { super(startPos, endPos); }
+
+    /** 
+     * this will drill down through all layers of GroupExpressions
+     * and return their actual contents. if this is not a GroupExpression,
+     * this function will just return this object. 
+     * */
+    getRealExpression(): Expression {
+        let expr: Expression = this;
+        while (expr instanceof GroupExpression)
+            expr = expr.expression;
+        return expr;
+    }
 }
 
 export class AtomicExpression extends Expression {

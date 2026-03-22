@@ -1,3 +1,4 @@
+import { ASTNode } from "../ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, ProcessStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
@@ -708,5 +709,29 @@ export class Parser {
 
         let chunk = this.parseChunkExpression(TokenType.MISSING, TokenType.EOF) as ChunkExpression;
         this.statements.push(...chunk.statements);
+
+        // assign 'parent' field of all nodes
+        let processChildren = (n: ASTNode) => {
+            for (const [k, v] of Object.entries(n)) {
+                if (k == 'parent' || k == 'children') continue;
+                for (const c of Array.isArray(v) ? v : [v]) {
+                    if (c instanceof ASTNode) {
+                        if (c.parent != null) {
+                            console.log("------");
+                            console.dir(c);
+                            throw `->> Node owned by multiple parents??`;
+                        } else {
+                            c.parent = n;
+                            n.children.push(c);
+                            processChildren(c);
+                        }
+                    }
+                }
+            }
+        }
+
+        for (const statement of this.statements) {
+            processChildren(statement);
+        }
     }
 }
