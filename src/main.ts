@@ -2,53 +2,17 @@ import { ASTNode } from "./ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListExpression, MissingExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression } from "./ast/expression.ts";
 import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SelectionStatement, SingleKeywordStatement, Statement, WhileStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
+import { CodeCompiler } from "./compiler/codeCompiler.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
-import { OperationTypes, TypeFigureoutinatorIdk } from "./typeChecker/typeChecker.ts";
+import { OperationTypes, TypeProcessor } from "./typeProcessor/typeProcessor.ts";
 import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
+playerevent Join {}
 
-global dingus: num;
-global dingus: str;
-
-playerevent Join {
-    line access = dingus;
-    line dingus = 12;
-    line "NUM LINE ACCESS???" = dingus;
-    line dingus = "string!!";
-    line "str????" = dingus;
-    do {
-        line dingus = s"";
-        line inside = dingus;
-    }
-    line outside: any = dingus;
-}
-
-
-// global yeehaw = dingus + 5;
-// global dingus = 5;
-
-// global asdf = ("balls" + saved a) + (s"yongus" + 5);
-
-// playerevent Join {
-//     line dingus = "hello world!";
-//     line message = dingus;
-
-//     do {
-//         line dinugs = 2 + (((((5)))));
-//     }
-
-//     if (1 == 2) {
-//         line message = 12;
-//         line "LOWEST DOWN" = message;
-//     } else {
-//         line message = 15;
-//     }
-// }
-
-
+lscancel gameevent Lagslay {}
 `
 
 // `
@@ -236,8 +200,8 @@ const lexer = new Lexer(test,{ // 27
 lexer.tokenize()
 
 const parser = new Parser(lexer.tokens);
-// let expr = parser.parseExpression(0) as Expression;
 parser.parse();
+
 dirWithoutRelations(parser.statements);
 // console.log("Errors: ", parser.errors);
 console.log("RECONSTRUCTION FROM AST --------------------")
@@ -245,12 +209,16 @@ console.log(visualizeStatements(parser.statements).join("\n"));
 console.log("--------------------------------------------")
 visualizeErrors([...parser.errors, ...lexer.errors],test)
 
-
-const typeChecker = new TypeFigureoutinatorIdk();
+const typeChecker = new TypeProcessor();
 typeChecker.collectionStage(parser.statements);
 typeChecker.evaluationStage()
 
-console.log("type checker output-----")
-// console.log(typeChecker.globalFrame.getVariableType("yeehaw"))
-// console.dir(typeChecker.globalFrame,{depth: 6});
-console.log(`${typeChecker.globalFrame}`);
+// console.log("type checker output-----")
+// // console.log(typeChecker.globalFrame.getVariableType("yeehaw"))
+// // console.dir(typeChecker.globalFrame,{depth: 6});
+// console.log(`${typeChecker.globalFrame}`);
+
+const compiler = new CodeCompiler(parser.statements, {types: typeChecker});
+let output = compiler.compile({outputFormat: "DFONLINE"});
+console.log("\n-- compiled code: --")
+console.log(output.join("\n"));

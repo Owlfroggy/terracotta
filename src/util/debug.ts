@@ -1,6 +1,6 @@
 import * as util from "node:util";
 import { TokenType } from "../ast/token.ts";
-import { VariableScope } from "../typeChecker/typeChecker.ts";
+import { VariableScope } from "../typeProcessor/typeProcessor.ts";
 
 // Properties whose numeric values should be treated as enums
 const enumProps = {

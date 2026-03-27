@@ -57,6 +57,21 @@ export enum DFCodeblockName {
     SELECT_OBJECT = "SELECT OBJECT",
 }
 
+export enum TargetType {
+    UNSET = "",
+    SELECTION = "Selection",
+    DEFAULT = "Default",
+    KILLER = "Killer",
+    DAMAGER = "Damager",
+    VICTIM = "Victim",
+    SHOOTER = "Shooter",
+    PROJECTILE = "Projectile",
+    ALL_PLAYERS = "AllPlayers",
+    ALL_ENTITIES = "AllEntities",
+    ALL_MOBS = "AllMobs",
+    LAST_ENTITY = "LastEntity"
+}
+
 enum RANK_ORDER {
     "",
     "Noble",
@@ -64,6 +79,32 @@ enum RANK_ORDER {
     "Mythic",
     "Overlord",
 };
+
+
+export function getCodeblockIdentifier(name: DFCodeblockName) {
+    switch (name) {
+        case DFCodeblockName.PLAYER_EVENT:  return "event";
+        case DFCodeblockName.ENTITY_EVENT:  return "entity_event";
+        case DFCodeblockName.GAME_EVENT:    return "game_event";
+        case DFCodeblockName.PLAYER_ACTION: return "player_action";
+        case DFCodeblockName.ENTITY_ACTION: return "entity_action";
+        case DFCodeblockName.GAME_ACTION:   return "game_action";
+        case DFCodeblockName.SET_VARIABLE:  return "set_var";
+        case DFCodeblockName.IF_PLAYER:     return "if_player";
+        case DFCodeblockName.IF_ENTITY:     return "if_entity";
+        case DFCodeblockName.IF_GAME:       return "if_game";
+        case DFCodeblockName.IF_VARIABLE:   return "if_var";
+        case DFCodeblockName.ELSE:          return "else";
+        case DFCodeblockName.FUNCTION:      return "func";
+        case DFCodeblockName.PROCESS:       return "process";
+        case DFCodeblockName.CALL_FUNCTION: return "call_func";
+        case DFCodeblockName.START_PROCESS: return "start_process";
+        case DFCodeblockName.REPEAT:        return "repeat";
+        case DFCodeblockName.CONTROL:       return "control";
+        case DFCodeblockName.SELECT_OBJECT: return "select_obj";
+        default: throw new Error(`No identifier for codeblock '${name}'`);
+    }
+}
 
 //==========[ classes ]=========\\
 

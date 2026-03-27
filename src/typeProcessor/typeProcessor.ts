@@ -54,6 +54,7 @@ class EnvironmentFrame {
             valueExpression: valueExpression,
             effectiveBeyondPosition: effectiveBeyondPosition,
         }
+        // TODO: update all these to use the new util function (im too lazy rn)
         if (!this.variables.has(id.name)) this.variables.set(id.name, new Map());
         let nameLayer = this.variables.get(id.name)!;
         if (!nameLayer.has(id.scope)) nameLayer.set(id.scope, []);
@@ -276,7 +277,7 @@ OperationTypes.registerBinary(Type.num, TokenType.PLUS, Type.num, Type.num);
 OperationTypes.registerBinary(Type.str, TokenType.PLUS, Type.num, Type.str, true);
 OperationTypes.registerBinary(Type.txt, TokenType.PLUS, Type.any, Type.txt, true);
 
-export class TypeFigureoutinatorIdk {
+export class TypeProcessor {
     errors: TCError[];
     globalFrame: EnvironmentFrame = new EnvironmentFrame(null,null);
 

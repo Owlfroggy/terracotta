@@ -1,9 +1,14 @@
+import { HeaderType } from "../compiler/codeCompiler.ts";
+import { DFCodeblockName } from "../df/actiondump.ts";
 import { ASTNode, CommentHolder } from "./astNode.ts";
 import { ChunkExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "./expression.ts";
-import { Token } from "./token.ts";
+import { Token, TokenType } from "./token.ts";
 
 export class Statement extends ASTNode implements CommentHolder {
     attachedComments: Token[] = [];
+    /** Will only be set for statements that declare code lines (e.g. player event or function) */
+    headerType: HeaderType | null = null;
+
     constructor(
         startPos: number, endPos: number,
     ) {super(startPos, endPos);}
@@ -28,7 +33,10 @@ export class EventStatement extends Statement {
         public type: Token,
         public eventName: Token,
         public chunk: ChunkExpression
-    ) {super(modifiers.length > 0 ? modifiers[0].startPos : type.startPos, chunk.endPos);}
+    ) {
+        super(modifiers.length > 0 ? modifiers[0].startPos : type.startPos, chunk.endPos);
+        this.headerType = DFCodeblockName[TokenType[type.type]];
+    }
 }
 
 export class FunctionStatement extends Statement {
@@ -38,7 +46,10 @@ export class FunctionStatement extends Statement {
         public args: ListExpression<ParameterExpression> | null,
         public returnType: MultiTypeAssignmentExpression | null,
         public chunk: ChunkExpression,
-    ) {super(keyword.startPos, chunk.endPos);}
+    ) {
+        super(keyword.startPos, chunk.endPos);
+        this.headerType = DFCodeblockName.FUNCTION;
+    }
 }
 
 export class ProcessStatement extends Statement {
@@ -47,7 +58,10 @@ export class ProcessStatement extends Statement {
         public name: Token,
         public args: ListExpression<ParameterExpression> | null,
         public chunk: ChunkExpression,
-    ) {super(keyword.startPos, chunk.endPos);}
+    ) {
+        super(keyword.startPos, chunk.endPos);
+        this.headerType = DFCodeblockName.PROCESS;
+    }
 }
 
 export class RepeatStatement extends Statement {
