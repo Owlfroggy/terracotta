@@ -1,6 +1,7 @@
 export enum ErrorType {
     LEXER,
     PARSER,
+    COMPILER,
 }
 
 export class TCError {

@@ -1,8 +1,10 @@
 import * as fs from "node:fs/promises"
 import { pathToFileURL } from "node:url";
 import { DATA_PATH } from "../util/fileUtils.ts";
+import { codeifyName, deColorizeString } from "../util/utils.ts";
 
 const ACTION_DUMP_JSON      = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"actiondump.json") )).toString());
+const OVERRIDES_JSON        = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"overrides.json") )).toString());
 
 export enum DFRank {
     OVERLORD = "Overlord",
@@ -187,8 +189,10 @@ export class Action {
         public codeblock: DFCodeblockName,
         /** the name shown on signs of code blocks */
         public name: string,
+        /** the name shown in the sign guis for selection actions */
+        public iconName: string,
         /** the sign name used by blocks like while and select obj */
-        public differentiatedName: string = name,
+        public differentiatedName: string,
         public tags: {[tagName: string]: Tag},
         /** description lore that shows up when you hover over the action in df
          * DOES NOT INCLUDE PARAMETER INFORMATION!! */
@@ -319,24 +323,27 @@ export function rankCheck(ownedRank: DFRank, requiredRank: DFRank) {
     return RANK_ORDER[ownedRank] >= RANK_ORDER[requiredRank];
 }
 
-//==========[ private functions ]=========\\
+export function getTCActionName(block: DFCodeblockName, dfSignName: string) {
+    let override = OVERRIDES_JSON.actionNames[block]?.[dfSignName];
+    if (override) return override;
 
-function codeifyName(name: string): string {
-    name = deColorizeString(name);
+    let iconName = actions.get(block)?.[dfSignName]?.iconName!;
 
-    //convert characters following spaces to uppercase
-    for (let i = 0; i < name.length; i++) {
-        if (name[i] == " " && name[i+1]) {
-            name = name.substring(0, i+1) + name[i+1].toUpperCase() + name.substring(i+2);
-        }
+    if (iconName != undefined && block == DFCodeblockName.PLAYER_EVENT || block == DFCodeblockName.ENTITY_EVENT || block == DFCodeblockName.GAME_EVENT) {
+        if (iconName.startsWith("Entity") && block == DFCodeblockName.ENTITY_EVENT) 
+            iconName = iconName.substring(6);
+        else if (iconName.startsWith("Player") && block == DFCodeblockName.PLAYER_EVENT) 
+            iconName = iconName.substring(6);
+        else if (iconName.startsWith("Plot")) 
+            iconName = iconName.substring(4);
+
+        if (iconName.endsWith("Event"))
+            iconName = iconName.substring(0,iconName.length-5);
     }
-    //remove spaces
-    name = name.replace(/ /g,"");
-
-    // make first letter loweracase
-
-    return name;
+    return codeifyName(iconName ?? dfSignName);
 }
+
+//==========[ private functions ]=========\\
 
 function parseArgumentValueThingies(args: any[]): Parameter[] {
     let result: Parameter[] = [];
@@ -396,10 +403,6 @@ function parseArgumentValueThingies(args: any[]): Parameter[] {
     return result;
 }
 
-function deColorizeString(input: string): string {
-    return input.replaceAll(/§./g,"");
-}
-
 //==========[ populate data tables ]=========\\
 
 // codeblock pass \\
@@ -414,6 +417,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     let codeblockName: DFCodeblockName = actionJson.codeblockName;
 
     let actionName = actionJson.name;
+    let iconName = actionJson.icon.name;
 
     //tags
     let tags: {[tagName: string]: Tag} = {};
@@ -460,6 +464,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
     actions.get(codeblockName)![actionName] = new Action(
         codeblockName, 
         actionName,
+        iconName,
         differentiatedActionName,
         tags,
         descriptionString,

@@ -10,9 +10,11 @@ import { OperationTypes, TypeProcessor } from "./typeProcessor/typeProcessor.ts"
 import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
-playerevent Join {}
+playerevent jointypoed {}
 
-lscancel gameevent Lagslay {}
+lscancel entityevent death {}
+
+lscancel gameevent lagSlayRecover {}
 `
 
 // `
@@ -207,7 +209,6 @@ dirWithoutRelations(parser.statements);
 console.log("RECONSTRUCTION FROM AST --------------------")
 console.log(visualizeStatements(parser.statements).join("\n"));
 console.log("--------------------------------------------")
-visualizeErrors([...parser.errors, ...lexer.errors],test)
 
 const typeChecker = new TypeProcessor();
 typeChecker.collectionStage(parser.statements);
@@ -222,3 +223,6 @@ const compiler = new CodeCompiler(parser.statements, {types: typeChecker});
 let output = compiler.compile({outputFormat: "DFONLINE"});
 console.log("\n-- compiled code: --")
 console.log(output.join("\n"));
+
+
+visualizeErrors([...parser.errors, ...lexer.errors, ...compiler.errors],test);
