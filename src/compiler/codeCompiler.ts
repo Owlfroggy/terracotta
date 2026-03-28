@@ -4,7 +4,7 @@ import { TokenType } from "../ast/token.ts";
 import { DFCodeblockName } from "../df/actiondump.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/utils.ts";
-import { CodeBlock, EntityEventBlock, GameEventBlock, PlayerEventBlock } from "./codeBlock.ts";
+import { CodeBlock, EventBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError } from "../error/error.ts";
@@ -111,26 +111,21 @@ export class CodeCompiler {
 
                 let entry = this.getLineEntry(headerType, dfEvent);
 
-                let blockConstructor = (
-                    headerType == DFCodeblockName.PLAYER_EVENT ? PlayerEventBlock
-                    : headerType == DFCodeblockName.ENTITY_EVENT ? EntityEventBlock 
-                    : GameEventBlock
-                );
-
                 let lsCancel = false;
                 for (const m of s.modifiers) {
                     if (m.type == TokenType.LAGSLAYER_CANCEL) {
+                        lsCancel = true;
+                    
                         if (adAction && !adAction.cancellable) {
                             this.reportError(
                                 m.startPos, m.endPos, 
                                 `${upperFirst(headerType.toLowerCase())} '${tcEvent}' cannot be cancelled automatically`
                             );
                         }
-                        lsCancel = true;
                     }
                 }
 
-                entry.headerBlock = new blockConstructor({event: dfEvent, lsCancel: lsCancel, astNode: s});
+                entry.headerBlock = new EventBlock(headerType, {action: dfEvent, lsCancel: lsCancel, astNode: s});
             }
         }
 

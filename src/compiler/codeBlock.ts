@@ -7,17 +7,8 @@ import { CodeItem } from "./codeItem.ts";
 //=- warning! this file sucks :( -=\\
 //=-------------------------------=\\
 
-export interface TargetedCodeBlock {
-    target: TargetType,
-}
-
-export interface SubActionCodeBlock {
-    subAction: string,
-}
-
-//=----------=\\
-//=- events -=\\
-//=----------=\\
+export enum BracketType {IF, REPEAT};
+export enum BracketDirection {OPEN, CLOSE};
 
 export abstract class CodeBlock {
     constructor(
@@ -33,46 +24,56 @@ export abstract class CodeBlock {
     }
 }
 
-export abstract class ActionBlock extends CodeBlock {
-    private actionField = "action";
+export class ActionBlock extends CodeBlock {
+    public action: string;
+    public args: CodeItem[];
+    public tags: CodeActionTag[];
+    public target: TargetType;
 
     constructor(
         block: DFCodeblockName, 
-        public action: string,
-        public args: CodeItem[],
-        public tags: CodeActionTag[],
-        astNode: ASTNode | null,
-    ) {super(block, astNode)}
+        {action, args = [], tags = [], target = TargetType.UNSET, astNode = null} : {
+            action: string,
+            args?: [],
+            tags?: [],
+            target?: TargetType
+            astNode?: ASTNode | null,
+        }
+    ) {
+        super(block, astNode);
+        this.action = action;
+        this.args = args;
+        this.tags = tags;
+        this.target = target;
+    }
 
     templateForm() {
+        let actionField = "action";
+        
         return {
             ...super.templateForm(),
-            [this.actionField]: this.action,
-            args: {items: /** TODO: serialize args and tags */null},
+            [actionField]: this.action,
+            args: {items: /** TODO: serialize args and tags */[]},
         }
     }
 }
 
-export abstract class InvertibleBlock extends ActionBlock{
-    constructor(
-        block: DFCodeblockName, 
-        public inverted: boolean,
-        action: string,
-        args: CodeItem[],
-        tags: CodeActionTag[],
-        astNode: ASTNode | null,
-    ) {super(block, action, args, tags, astNode);}
-}
+export class EventBlock extends ActionBlock {
+    public lsCancel: boolean;
 
-export abstract class EventBlock extends ActionBlock {
     constructor(
         block: DFCodeblockName, 
-        public lsCancel: boolean,
-        action: string,
-        args: CodeItem[],
-        tags: CodeActionTag[],
-        astNode: ASTNode | null,
-    ) {super(block, action, args, tags, astNode);}
+        {action, args = [], tags = [], lsCancel = false, astNode = null} : {
+            action: string,
+            args?: [],
+            tags?: [],
+            lsCancel?: boolean,
+            astNode?: ASTNode | null,
+        }
+    ) {
+        super(block, {action, args, tags, astNode});
+        this.lsCancel = lsCancel;
+    }
 
     templateForm() {
         return {
@@ -82,176 +83,64 @@ export abstract class EventBlock extends ActionBlock {
     }
 }
 
-//=----------=\\
-//=- events -=\\
-//=----------=\\
+export class IfBlock extends ActionBlock {
+    public inverted: boolean;
 
-export class PlayerEventBlock extends EventBlock {
-    constructor({event, lsCancel, astNode}: { event: string, lsCancel: boolean, astNode: ASTNode | null }) {
-        super(DFCodeblockName.PLAYER_EVENT, lsCancel, event, [], [], astNode);
+    constructor(
+        block: DFCodeblockName, 
+        {action, args = [], tags = [], target = TargetType.UNSET, inverted = false, astNode = null} : {
+            action: string,
+            args: [],
+            tags: [],
+            target: TargetType
+            inverted: boolean,
+            astNode: ASTNode | null,
+        }
+    ) {
+        super(block, {action, args, tags, target, astNode});
+        this.inverted = inverted;
     }
 }
 
-export class EntityEventBlock extends EventBlock {
-    constructor({event, lsCancel, astNode}: { event: string, lsCancel: boolean, astNode: ASTNode | null }) {
-        super(DFCodeblockName.ENTITY_EVENT, lsCancel, event, [], [], astNode);
-    }
-}
+export class SubActionBlock extends ActionBlock {
+    public inverted: boolean;
+    public subAction: string | null;
 
-export class GameEventBlock extends EventBlock {
-    constructor({event, lsCancel, astNode}: { event: string, lsCancel: boolean, astNode: ASTNode | null }) {
-        super(DFCodeblockName.GAME_EVENT, lsCancel, event, [], [], astNode);
-    }
-}
-
-//=--------------------------=\\
-//=- function/process stuff -=\\
-//=--------------------------=\\
-
-export class FunctionBlock extends ActionBlock {
-    constructor({name, astNode}: { name: string, astNode: ASTNode | null }) {
-        super(DFCodeblockName.FUNCTION, name, [], [], astNode);
-    }
-}
-
-export class ProcessBlock extends ActionBlock {
-    constructor({name, astNode}: { name: string, astNode: ASTNode | null }) {
-        super(DFCodeblockName.FUNCTION, name, [], [], astNode);
-    }
-}
-
-export class CallFunctionBlock extends ActionBlock {
-    constructor({name, args, tags, astNode}: { name: string, args: CodeItem[], tags: CodeActionTag[], astNode: ASTNode | null }) {
-        super(DFCodeblockName.CALL_FUNCTION, name, args, tags, astNode);
-    }
-}
-
-export class StartProcessBlock extends ActionBlock {
-    constructor({name, args, tags, astNode}: { name: string, args: CodeItem[], tags: CodeActionTag[], astNode: ASTNode | null }) {
-        super(DFCodeblockName.START_PROCESS, name, args, tags, astNode);
-    }
-}
-
-//=-----------=\\
-//=- actions -=\\
-//=-----------=\\
-
-export class PlayerActionBlock extends ActionBlock implements TargetedCodeBlock {
-    target: TargetType;
-
-    constructor({action, args, tags, target, astNode}: { action: string, args: CodeItem[], tags: CodeActionTag[], target: TargetType, astNode: ASTNode | null }) {
-        super(DFCodeblockName.PLAYER_ACTION, action, args, tags, astNode);
-        this.target = target;
-    }
-}
-
-export class EntityActionBlock extends ActionBlock implements TargetedCodeBlock {
-    target: TargetType;
-
-    constructor({action, args, tags, target, astNode}: { action: string, args: CodeItem[], tags: CodeActionTag[], target: TargetType, astNode: ASTNode | null }) {
-        super(DFCodeblockName.ENTITY_ACTION, action, args, tags, astNode);
-        this.target = target;
-    }
-}
-
-export class GameActionBlock extends ActionBlock {
-    constructor({action, args, tags, astNode}: { action: string, args: CodeItem[], tags: CodeActionTag[], astNode: ASTNode | null }) {
-        super(DFCodeblockName.GAME_ACTION, action, args, tags, astNode);
-    }
-}
-
-export class SetVariableBlock extends ActionBlock {
-    constructor({action, args, tags, astNode}: { action: string, args: CodeItem[], tags: CodeActionTag[], astNode: ASTNode | null }) {
-        super(DFCodeblockName.SET_VARIABLE, action, args, tags, astNode);
-    }
-}
-
-//=-----------------=\\
-//=- if statements -=\\
-//=-----------------=\\
-
-
-export class IfPlayerBlock extends InvertibleBlock implements TargetedCodeBlock {
-    target: TargetType;
-
-    constructor({action, inverted, args, tags, target, astNode}: { action: string, inverted: boolean, args: CodeItem[], tags: CodeActionTag[], target: TargetType, astNode: ASTNode | null }) {
-        super(DFCodeblockName.IF_PLAYER, inverted, action, args, tags, astNode);
-        this.target = target;
-    }
-}
-
-export class IfEntityBlock extends InvertibleBlock implements TargetedCodeBlock {
-    target: TargetType;
-
-    constructor({action, inverted, args, tags, target, astNode}: { action: string, inverted: boolean, args: CodeItem[], tags: CodeActionTag[], target: TargetType, astNode: ASTNode | null }) {
-        super(DFCodeblockName.IF_ENTITY, inverted, action, args, tags, astNode);
-        this.target = target;
-    }
-}
-
-export class IfGameBlock extends InvertibleBlock {
-    constructor({action, inverted, args, tags, astNode}: { action: string, inverted: boolean, args: CodeItem[], tags: CodeActionTag[], astNode: ASTNode | null }) {
-        super(DFCodeblockName.IF_GAME, inverted, action, args, tags, astNode);
-    }
-}
-
-export class IfVariableBlock extends InvertibleBlock {
-    constructor({action, inverted, args, tags, astNode}: { action: string, inverted: boolean, args: CodeItem[], tags: CodeActionTag[], astNode: ASTNode | null }) {
-        super(DFCodeblockName.IF_VARIABLE, inverted, action, args, tags, astNode);
+    constructor(
+        block: DFCodeblockName, 
+        {action, subAction = null, args = [], tags = [], target = TargetType.UNSET, inverted = false, astNode = null} : {
+            action: string,
+            subAction?: string | null
+            args?: [],
+            tags?: [],
+            target?: TargetType
+            inverted?: boolean,
+            astNode?: ASTNode | null,
+        }
+    ) {
+        super(block, {action, args, tags, target, astNode});
+        this.inverted = inverted;
+        this.subAction = subAction;
     }
 }
 
 export class ElseBlock extends CodeBlock {
-    constructor({astNode}: {
+    constructor({astNode = null}: {
         astNode?: ASTNode | null,
     }) {
-        super(DFCodeblockName.ELSE, astNode ?? null);
+        super(DFCodeblockName.ELSE, astNode);
     }
 }
-
-//=------------------------------=\\
-//=- other miscellaneous blocks -=\\
-//=------------------------------=\\
-
-
-export class ControlBlock extends ActionBlock {
-    constructor({action, args, tags, astNode}: { action: string, args: CodeItem[], tags: CodeActionTag[], astNode: ASTNode | null }) {
-        super(DFCodeblockName.CONTROL, action, args, tags, astNode);
-    }
-}
-
-
-export class SelectObjectBlock extends InvertibleBlock implements SubActionCodeBlock {
-    subAction: string;
-    
-    constructor({action, subAction, inverted, args, tags, astNode}: { action: string, subAction: string, inverted: boolean, args: CodeItem[], tags: CodeActionTag[], astNode: ASTNode | null }) {
-        super(DFCodeblockName.SELECT_OBJECT, inverted, action, args, tags, astNode);
-        this.subAction = subAction;
-    }
-}
-
-export class RepeatBlock extends InvertibleBlock implements SubActionCodeBlock {
-    subAction: string;
-
-    constructor({action, subAction, inverted, args, tags, astNode}: { action: string, subAction: string, inverted: boolean, args: CodeItem[], tags: CodeActionTag[], astNode: ASTNode | null }) {
-        super(DFCodeblockName.REPEAT, inverted, action, args, tags, astNode);
-        this.subAction = subAction;
-    }
-}
-
-export enum BracketType {IF, REPEAT};
-export enum BracketDirection {OPEN, CLOSE};
-
 export class BracketBlock extends CodeBlock {
     type: BracketType;
     direction: BracketDirection;
 
-    constructor({type, direction, astNode}: {
+    constructor({type, direction, astNode = null}: {
         type: BracketType,
         direction: BracketDirection,
         astNode?: ASTNode | null,
     }) {
-        super(DFCodeblockName.ELSE, astNode ?? null);
+        super(DFCodeblockName.ELSE, astNode);
         this.type = type;
         this.direction = direction;
     }
