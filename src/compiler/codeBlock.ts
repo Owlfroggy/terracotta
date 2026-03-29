@@ -34,8 +34,8 @@ export class ActionBlock extends CodeBlock {
         block: DFCodeblockName, 
         {action, args = [], tags = [], target = TargetType.UNSET, astNode = null} : {
             action: string,
-            args?: [],
-            tags?: [],
+            args?: CodeItem[],
+            tags?: CodeActionTag[],
             target?: TargetType
             astNode?: ASTNode | null,
         }

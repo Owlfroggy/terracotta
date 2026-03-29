@@ -3,6 +3,7 @@ import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListEx
 import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SelectionStatement, SingleKeywordStatement, Statement, WhileStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { CodeCompiler } from "./compiler/codeCompiler.ts";
+import { Namespace } from "./compiler/namespace/namespace.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
@@ -10,11 +11,9 @@ import { OperationTypes, TypeProcessor } from "./typeProcessor/typeProcessor.ts"
 import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
-playerevent jointypoed {}
-
-lscancel entityevent death {}
-
-lscancel gameevent lagSlayRecover {}
+playerevent join {
+    
+}
 `
 
 // `
@@ -226,3 +225,6 @@ console.log(output.join("\n"));
 
 
 visualizeErrors([...parser.errors, ...lexer.errors, ...compiler.errors],test);
+
+
+console.log(Namespace.registry);
