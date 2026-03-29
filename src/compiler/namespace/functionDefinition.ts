@@ -4,7 +4,12 @@ import { CodeActionTag } from "../codeActionTag.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
 import { CodeValue } from "../codeValue.ts";
 
+export enum DefinitionType {
+    FUNCTION,
+}
+
 export interface FunctionDefinition {
+    definitionType: DefinitionType.FUNCTION,
     // todo: signature
     compile(args: CodeValue[], tags: CodeActionTag[]): [CodeValue[], CodeBlock[]];
 }
@@ -12,6 +17,7 @@ export interface FunctionDefinition {
 
 export function generateActionHook(functionName: string, codeblock, actionDFName: string, target: TargetType = TargetType.UNSET): FunctionDefinition {
     return {
+        definitionType: DefinitionType.FUNCTION,
         compile: (args: CodeValue[]): [CodeValue[], CodeBlock[]] => {
             // todo: return values
             let items: CodeValue[] = [];

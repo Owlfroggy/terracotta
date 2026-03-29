@@ -12,7 +12,13 @@ import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
 playerevent join {
-    
+    default.kick();
+    allPlayers.blingus();
+    yhingus.dongus;
+}
+
+gameevent startup {
+    allPlayers.sendMessage();
 }
 `
 

@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { EventStatement, FunctionStatement, ProcessStatement, Statement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, FunctionStatement, ProcessStatement, Statement } from "../ast/statement.ts";
 import { TokenType } from "../ast/token.ts";
 import { DFCodeblockName } from "../df/actiondump.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
@@ -8,6 +8,12 @@ import { CodeBlock, EventBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError } from "../error/error.ts";
+import { AccessExpression, AtomicExpression, CallExpression, Expression } from "../ast/expression.ts";
+import { callbackify } from "node:util";
+import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue } from "./codeValue.ts";
+import { Namespace } from "./namespace/namespace.ts";
+import { access } from "node:fs";
+import { DefinitionType } from "./namespace/functionDefinition.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -64,7 +70,9 @@ export class CodeCompiler {
     constructor(
         public ast: Statement[],
         public environment: {types: TypeProcessor},
-    ) {}
+    ) {
+
+    }
 
     reportError(startPos: number, endPos: number, message: string) {
         this.errors.push(new TCError(
@@ -87,12 +95,12 @@ export class CodeCompiler {
     }
 
     /** Returns an array of statements which need to be compiled */
-    processLineDeclarations(statements: Statement[]): Statement[] {
-        let statementsToCompile: Statement[] = [];
+    processLineDeclarations(statements: Statement[]): [lineEntry: CodeLineEntry, statement: Statement][] {
+        let declarationsToCompile: [CodeLineEntry, Statement][] = [];
         for (const s of statements) {
             if (s.headerType == null) continue; // maybe throw error here for the time being
 
-            statementsToCompile.push(s);
+            let lineEntry: CodeLineEntry;
 
             if (s instanceof EventStatement) {
                 let headerType: HeaderType = DFCodeblockName[TokenType[s.type.type]];
@@ -109,7 +117,7 @@ export class CodeCompiler {
 
                 let adAction = AD.actions.get(headerType)?.[dfEvent];
 
-                let entry = this.getLineEntry(headerType, dfEvent);
+                lineEntry = this.getLineEntry(headerType, dfEvent);
 
                 let lsCancel = false;
                 for (const m of s.modifiers) {
@@ -125,15 +133,102 @@ export class CodeCompiler {
                     }
                 }
 
-                entry.headerBlock = new EventBlock(headerType, {action: dfEvent, lsCancel: lsCancel, astNode: s});
+                lineEntry.headerBlock = new EventBlock(headerType, {action: dfEvent, lsCancel: lsCancel, astNode: s});
             }
+            else {
+                //TODO: this is very temporary
+                throw new Error(`no idea how to compile this: ${JSON.stringify(s)}`);
+            }
+
+            declarationsToCompile.push([lineEntry, s]);
         }
 
-        return statementsToCompile;
+        return declarationsToCompile;
+    }
+
+    compileExpression(e: Expression): [CodeValue, CodeBlock[]] {
+        // TODO: structure this and the compileStatement thing more like how the parser does stuff
+        if (e instanceof CallExpression) {
+            let [callee, preCode] = this.compileExpression(e.callee);
+            if (callee instanceof FunctionValue) {
+                // TODO: args
+                // TODO: handle return types
+                let [value, code] = callee.definition.compile([],[]);
+                return [new EmptyValue(e), [...preCode, ...code]];
+            }
+            else {
+                return [new MissingValue(e), [...preCode]];
+            }
+        }
+        else if (e instanceof AccessExpression) {
+            let [accessee, preCode] = this.compileExpression(e.accessee);
+            // TODO: handle accessee being missing value
+            if (accessee instanceof NamespaceValue) {
+                let definition = accessee.namespace.members[e.propertyName.value];
+                if (definition == undefined) {
+                    // todo: special error messages for if the namespace is a player action or game action or whatever
+                    this.reportError(
+                        e.propertyName.startPos, e.propertyName.endPos,
+                        `'${e.propertyName.value}' is not a property of '${accessee.namespace.identifier}''`
+                    )
+                    return [new MissingValue(e), preCode];
+                }
+                else if (definition.definitionType == DefinitionType.FUNCTION) {
+                    return [new FunctionValue(definition, e), preCode];
+                }
+                else {
+                    return [new MissingValue(e), preCode];
+                }
+            } else {
+                if (!(accessee instanceof MissingValue)) {
+                    this.reportError(
+                        e.propertyName.startPos, e.accessee.endPos,
+                        `${e} has no properties to access`
+                    );
+                }
+                return [new MissingValue(e), preCode];
+            }
+        }
+        else if (e instanceof AtomicExpression) {
+            switch (e.token.type) {
+                // identifier resolution all happens here
+                case TokenType.IDENTIFIER: {
+                    let value = e.token.value;
+                    if (value in Namespace.registry) {
+                        let namespace = Namespace.registry[value];
+                        return [new NamespaceValue(namespace, e), []];
+                    }
+                    this.reportError(
+                        e.startPos, e.endPos,
+                        `Could not resolve identifier '${e.token.value}'`
+                    );
+                }
+                default: {
+                    return [new MissingValue(e), []];
+                }
+            }
+        }
+        throw new Error(`no idea how to compile this: ${e.constructor.name}`);
+    }
+
+    compileStatement = (s: Statement): CodeBlock[] => {
+        if (s instanceof ExpressionStatement) {
+            // TODO: variable assignment
+            let [_, code] = this.compileExpression(s.expression);
+            return code;
+        }
     }
 
     compile({outputFormat}: {outputFormat: "JSON" | "GZIP" | "DFONLINE"}) {
-        this.processLineDeclarations(this.ast);
+        let declarationsToCompile = this.processLineDeclarations(this.ast);
+
+        for (const [lineEntry, declaration] of declarationsToCompile) {
+            if (declaration instanceof EventStatement) {
+                lineEntry.code.push(...declaration.chunk.statements.map(this.compileStatement));
+            }
+        }
+
+        //=- join code lines together and export them -=\\
         
         let finalCodeLines: CodeBlock[][] = [];
         for (let [headerType, lineList] of this.codeLines.entries()) {
