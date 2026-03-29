@@ -182,8 +182,8 @@ export class CodeCompiler {
             } else {
                 if (!(accessee instanceof MissingValue)) {
                     this.reportError(
-                        e.propertyName.startPos, e.accessee.endPos,
-                        `${e} has no properties to access`
+                        e.propertyName.startPos, e.propertyName.endPos,
+                        `Property access not allowed on this value` // TODO: better error message
                     );
                 }
                 return [new MissingValue(e), preCode];
