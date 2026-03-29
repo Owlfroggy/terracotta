@@ -1,7 +1,7 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { DFCodeblockName, getCodeblockIdentifier, TargetType } from "../df/actiondump.ts";
 import { CodeActionTag } from "./codeActionTag.ts";
-import { CodeItem } from "./codeItem.ts";
+import { CodeValue as CodeValue } from "./codeValue.ts";
 
 //=-------------------------------=\\
 //=- warning! this file sucks :( -=\\
@@ -26,7 +26,7 @@ export abstract class CodeBlock {
 
 export class ActionBlock extends CodeBlock {
     public action: string;
-    public args: CodeItem[];
+    public args: CodeValue[];
     public tags: CodeActionTag[];
     public target: TargetType;
 
@@ -34,7 +34,7 @@ export class ActionBlock extends CodeBlock {
         block: DFCodeblockName, 
         {action, args = [], tags = [], target = TargetType.UNSET, astNode = null} : {
             action: string,
-            args?: CodeItem[],
+            args?: CodeValue[],
             tags?: CodeActionTag[],
             target?: TargetType
             astNode?: ASTNode | null,

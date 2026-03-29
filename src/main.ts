@@ -225,6 +225,3 @@ console.log(output.join("\n"));
 
 
 visualizeErrors([...parser.errors, ...lexer.errors, ...compiler.errors],test);
-
-
-console.log(Namespace.registry);
