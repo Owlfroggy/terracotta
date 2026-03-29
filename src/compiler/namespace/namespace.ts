@@ -9,7 +9,7 @@ export class Namespace {
 
     constructor(
         public identifier: string,
-        public functions: {[identifier: string]: FunctionDefinition} = {},
+        public members: {[identifier: string]: FunctionDefinition} = {},
     ) {
         if (identifier in Namespace.registry) {
             throw new Error(`Attempted to register duplicate namespace '${identifier}'`);
