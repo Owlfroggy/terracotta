@@ -10,7 +10,7 @@ import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, CallExpression, Expression } from "../ast/expression.ts";
 import { callbackify } from "node:util";
-import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue } from "./codeValue.ts";
+import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { access } from "node:fs";
 import { DefinitionType } from "./namespace/functionDefinition.ts";
@@ -151,10 +151,18 @@ export class CodeCompiler {
         if (e instanceof CallExpression) {
             let [callee, preCode] = this.compileExpression(e.callee);
             if (callee instanceof FunctionValue) {
+                // parse args
+                let args: CodeValue[] = [];
+                let argCode: CodeBlock[] = [];
+                for (const argNode of e.args.elements) {
+                    let [value, code] = this.compileExpression(argNode);
+                    args.push(value)
+                    argCode.push(...code);
+                }
                 // TODO: args
                 // TODO: handle return types
-                let [value, code] = callee.definition.compile([],[]);
-                return [new EmptyValue(e), [...preCode, ...code]];
+                let [value, code] = callee.definition.compile(args,{});
+                return [new EmptyValue(e), [...preCode, ...argCode, ...code]];
             }
             else {
                 return [new MissingValue(e), [...preCode]];
@@ -202,6 +210,15 @@ export class CodeCompiler {
                         e.startPos, e.endPos,
                         `Could not resolve identifier '${e.token.value}'`
                     );
+                }
+                case TokenType.NUMERIC_LITERAL: {
+                    return [new NumberValue(e.token.value,e), []];
+                }
+                case TokenType.STRING_LITERAL: {
+                    return [new StringValue(e.token.value,e), []];
+                }
+                case TokenType.STYLED_LITERAL: {
+                    return [new StyledTextValue(e.token.value,e), []];
                 }
                 default: {
                     return [new MissingValue(e), []];

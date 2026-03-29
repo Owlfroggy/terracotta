@@ -11,14 +11,14 @@ export enum DefinitionType {
 export interface FunctionDefinition {
     definitionType: DefinitionType.FUNCTION,
     // todo: signature
-    compile(args: CodeValue[], tags: CodeActionTag[]): [CodeValue[], CodeBlock[]];
+    compile(args: CodeValue[], namedArgs: {[name: string]: CodeValue}): [CodeValue[], CodeBlock[]];
 }
 
 
 export function generateActionHook(functionName: string, codeblock, actionDFName: string, target: TargetType = TargetType.UNSET): FunctionDefinition {
     return {
         definitionType: DefinitionType.FUNCTION,
-        compile: (args: CodeValue[]): [CodeValue[], CodeBlock[]] => {
+        compile: (args: CodeValue[], namedArgs: {[name: string]: CodeValue}): [CodeValue[], CodeBlock[]] => {
             // todo: return values
             let items: CodeValue[] = [];
             let code: CodeBlock[] = [

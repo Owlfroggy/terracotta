@@ -12,14 +12,14 @@ import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
 playerevent join {
-    default.kick();
-    allPlayers.blingus();
-    yhingus.dongus;
+    default.sendResourcePack("https://dingus.com/dongus.zip");
+    default.sendMessage(s"<red>asdf");
+    default.launchUp(5);
 }
 
-gameevent startup {
-    allPlayers.sendMessage();
-}
+// gameevent startup {
+//     allPlayers.sendMessage();
+// }
 `
 
 // `

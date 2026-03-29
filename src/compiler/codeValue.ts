@@ -30,6 +30,8 @@ export abstract class InternalValue extends CodeValue {
  */
 export abstract class TangibleValue extends CodeValue {
     constructor(astNode?: ASTNode) { super(astNode); }
+
+    abstract templateForm(): any;
 }
 
 //=-------------------=\\
@@ -72,3 +74,53 @@ export class MissingValue extends InternalValue {
 //=-------------------=\\
 //=- tangible values -=\\
 //=-------------------=\\
+
+
+export class NumberValue extends TangibleValue {
+    constructor(
+        public value: string,
+        astNode?: ASTNode
+    ) { super(astNode); }
+
+    templateForm() {
+        return {
+            "id": "num",
+            "data": {
+                "name": this.value
+            }
+        };
+    }
+}
+
+export class StringValue extends TangibleValue {
+    constructor(
+        public value: string,
+        astNode?: ASTNode
+    ) { super(astNode); }
+
+    templateForm() {
+        return {
+            "id": "txt",
+            "data": {
+                "name": this.value
+            }
+        };
+    }
+}
+
+
+export class StyledTextValue extends TangibleValue {
+    constructor(
+        public value: string,
+        astNode?: ASTNode
+    ) { super(astNode); }
+
+    templateForm() {
+        return {
+            "id": "comp",
+            "data": {
+                "name": this.value
+            }
+        };
+    }
+}
