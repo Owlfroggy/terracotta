@@ -17,9 +17,9 @@ playerevent join {
     default.launchUp(5);
 }
 
-// gameevent startup {
-//     allPlayers.sendMessage();
-// }
+gameevent lagSlayRecover {
+    allPlayers.sendMessage(s"<rainbow>we are so back!!");
+}
 `
 
 // `
