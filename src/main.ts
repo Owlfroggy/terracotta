@@ -14,14 +14,12 @@ let test = `
 global one = 1;
 
 playerevent join {
-    default.sendMessage(global one + 1);
+    "not a variable" = default.sendMessage(s"balls" + 2);
 
-    // this should error
-    default.sendMessage(line blingus: str);
+    // this should compile properly
+    global dingus: str = "five" + global one;
 
-    // these should not
-    global dingus: str;
-    global dingus: str = 5;
+    default.sendMessage(global dingus);
 }
 
 // gameevent lagSlayRecover {

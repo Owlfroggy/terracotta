@@ -4,13 +4,13 @@ import { TokenType } from "../ast/token.ts";
 import { DFCodeblockName } from "../df/actiondump.ts";
 import { EnvironmentFrame, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/utils.ts";
-import { CodeBlock, EventBlock } from "./codeBlock.ts";
+import { ActionBlock, CodeBlock, EventBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression, VariableExpression } from "../ast/expression.ts";
 import { callbackify } from "node:util";
-import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, VariableValue } from "./codeValue.ts";
+import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { access } from "node:fs";
 import { DefinitionType } from "./namespace/functionDefinition.ts";
@@ -64,6 +64,7 @@ for (const eventType of [DFCodeblockName.PLAYER_EVENT, DFCodeblockName.ENTITY_EV
  * throw error for random crap being placed in the global scope
  * support multiple files 💀
  * functions and process statements (with parameters)
+ * better error for trying to use an operator with no definitions
  */
 
 export type CodeLineEntry = {
@@ -275,9 +276,40 @@ export class CodeCompiler {
 
     compileStatement = (s: Statement): CodeBlock[] => {
         if (s instanceof ExpressionStatement) {
-            // TODO: variable assignment
-            let [_, code] = this.compileExpression(s.expression);
-            return code;
+            let e = s.expression;
+            // variable assignment
+            if (e instanceof BinaryExpression && e.operator.type == TokenType.EQUALS) {
+                let [variable, _] = this.compileExpression(e.left);
+                let [value, valueCode] = this.compileExpression(e.right);
+
+                if (!(e.left.getRealExpression() instanceof VariableExpression)) {
+                    this.reportError(
+                        e.left.startPos, e.left.endPos,
+                        `Left-hand side of an assignment statement must be a variable`
+                    )
+                    return [];
+                }
+
+                if (!(value instanceof TangibleValue)) {
+                    this.reportError(
+                        value.astNode?.startPos ?? -1, value.astNode?.endPos ?? -1,
+                        `${value.constructor.name} cannot be stored in variables`
+                    );
+                    return [];
+                }
+
+
+                return [...valueCode, new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "=",
+                    args: [variable as VariableValue,value]
+                })]
+            } 
+
+            // all other expressions
+            else {
+                let [_, code] = this.compileExpression(e);
+                return code;
+            }
         }
         return [];
     }
