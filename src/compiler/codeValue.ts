@@ -1,4 +1,7 @@
 import { ASTNode } from "../ast/astNode.ts";
+import { Type } from "../typeProcessor/type.ts";
+import { VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
+import { EvaluationContext } from "./codeCompiler.ts";
 import { FunctionDefinition } from "./namespace/functionDefinition.ts";
 import { Namespace } from "./namespace/namespace.ts";
 
@@ -13,6 +16,10 @@ export abstract class CodeValue {
     constructor(
         public astNode?: ASTNode,
     ) {}
+
+    getType(ctx: EvaluationContext): Type {
+        return Type.unknown;
+    }
 }
 
 /**
@@ -75,12 +82,15 @@ export class MissingValue extends InternalValue {
 //=- tangible values -=\\
 //=-------------------=\\
 
-
 export class NumberValue extends TangibleValue {
     constructor(
         public value: string,
         astNode?: ASTNode
     ) { super(astNode); }
+
+    getType(ctx: EvaluationContext): Type {
+        return Type.num;
+    }
 
     templateForm() {
         return {
@@ -90,6 +100,10 @@ export class NumberValue extends TangibleValue {
             }
         };
     }
+
+    toString(): string {
+        return `num('${this.value}')`;
+    }
 }
 
 export class StringValue extends TangibleValue {
@@ -98,6 +112,10 @@ export class StringValue extends TangibleValue {
         astNode?: ASTNode
     ) { super(astNode); }
 
+    getType(ctx: EvaluationContext): Type {
+        return Type.str;
+    }
+
     templateForm() {
         return {
             "id": "txt",
@@ -105,6 +123,10 @@ export class StringValue extends TangibleValue {
                 "name": this.value
             }
         };
+    }
+
+    toString(): string {
+        return `str('${this.value}')`;
     }
 }
 
@@ -115,6 +137,10 @@ export class StyledTextValue extends TangibleValue {
         astNode?: ASTNode
     ) { super(astNode); }
 
+    getType(ctx: EvaluationContext): Type {
+        return Type.txt;
+    }
+
     templateForm() {
         return {
             "id": "comp",
@@ -122,5 +148,50 @@ export class StyledTextValue extends TangibleValue {
                 "name": this.value
             }
         };
+    }
+
+    toString(): string {
+        return `txt('${this.value}')`;
+    }
+}
+
+export class VariableValue extends TangibleValue {
+    readonly variableId: VariableId;
+
+    constructor(
+        public name: string,
+        public scope: VariableScope,
+        private explicitType?: Type,
+        astNode?: ASTNode
+    ) { 
+        super(astNode); 
+        this.variableId = VariableId.get(scope,name);
+    }
+
+    getType(ctx: EvaluationContext): Type {
+        if (this.explicitType) return this.explicitType;
+        // todo: make sure that putting Infinity here isnt as big of a war crime as i think it is
+        return ctx.envFrame.getVariableType(this.variableId, this.astNode?.startPos ?? Infinity);
+    }
+
+    templateForm() {
+        let scope = "line";
+        switch (this.scope) {
+            case VariableScope.GLOBAL:  scope = "unsaved";
+            case VariableScope.SAVED:   scope = "saved";
+            case VariableScope.LOCAL:   scope = "local";
+            case VariableScope.LINE:    scope = "line";
+        }
+        return {
+            "id": "var",
+            "data": {
+                "name": this.name,
+                "scope": scope,
+            }
+        };
+    }
+
+    toString(): string {
+        return `var${this.explicitType ? `<${this.explicitType.name}>` : ""}(${this.scope}, '${this.name}')`;
     }
 }

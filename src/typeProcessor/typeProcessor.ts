@@ -3,7 +3,8 @@ import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, C
 import { EventStatement, ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { TCError } from "../error/error.ts";
-import { dirWithoutRelations } from "../util/debug.ts";
+import { Operations } from "../compiler/operations.ts";
+import { Type } from "./type.ts";
 
 export enum VariableScope {
     GLOBAL,
@@ -25,7 +26,7 @@ type VariableEntry = {
     effectiveBeyondPosition: number
 }
 
-class EnvironmentFrame {
+export class EnvironmentFrame {
     /** An empty environment frame with no variables for evaluating expressions in a vacuum */
     static readonly DUMMY = new EnvironmentFrame(null, null)
 
@@ -182,7 +183,7 @@ class EnvironmentFrame {
     }
 }
 
-class VariableId {
+export class VariableId {
     // TODO: when everything goes incremental, make sure this doesn't leak memory
     private static cache: Map<VariableScope, {[key: string]: VariableId}> = new Map();
 
@@ -209,74 +210,6 @@ class VariableId {
     }
 }
 
-class Type {
-    public static registry: {[name: string]: Type} = {};
-    
-    public static any = new Type('any');
-    public static num = new Type('num');
-    public static str = new Type('str');
-    public static txt = new Type('txt');
-    public static list = new Type('list');
-    public static dict = new Type('dict');
-    public static item = new Type('item');
-    public static loc = new Type('loc');
-    public static vec = new Type('vec');
-    public static pot = new Type('pot');
-    public static par = new Type('par');
-    public static snd = new Type('snd');
-    public static var = new Type('var');
-    public static unknown = this.any; // just in case unknown type ever needs to be separated
-
-
-    constructor(
-        public readonly name: string
-    ) {
-        if (name in Type.registry) {
-            throw new Error(`Attempted to register type '${name}' even though a type of that name already exists`);
-        }
-        Type.registry[name] = this;
-    }
-}
-
-export class OperationTypes {
-    static binaryOperations: Map<Type,Map<TokenType,Map<Type,Type>>> = new Map();
-
-    /**
-     * @param bidirectional If true, automatically register `right op left -> result`
-     * as well as `left op right -> result` (assuming that left and right are different)
-     */
-    static registerBinary(left: Type, op: TokenType, right: Type, result: Type, commutative: boolean = false) {
-        for (const [l, r] of ((commutative && left != right) ? [[left, right], [right, left]] : [[left, right]])) {
-            let leftMap = this.binaryOperations.get(l);
-            if (leftMap == undefined) {
-                leftMap = new Map();
-                this.binaryOperations.set(l, leftMap);
-            };
-    
-            let opMap = leftMap.get(op);
-            if (opMap == undefined) {
-                opMap = new Map();
-                leftMap.set(op, opMap)
-            };
-    
-            opMap.set(r, result);
-        }
-    }
-
-    /** returns Type.unknown if this is not a valid operaton */
-    static evaluateBinary(left: Type, op: TokenType, right: Type): Type {
-        return (
-            this.binaryOperations.get(left)?.get(op)?.get(right)
-            ?? this.binaryOperations.get(left)?.get(op)?.get(Type.any)
-            ?? this.binaryOperations.get(Type.any)?.get(op)?.get(right)
-            ?? Type.unknown
-        );
-    }
-}
-OperationTypes.registerBinary(Type.num, TokenType.PLUS, Type.num, Type.num);
-OperationTypes.registerBinary(Type.str, TokenType.PLUS, Type.num, Type.str, true);
-OperationTypes.registerBinary(Type.txt, TokenType.PLUS, Type.any, Type.txt, true);
-
 export class TypeProcessor {
     errors: TCError[];
     globalFrame: EnvironmentFrame = new EnvironmentFrame(null,null);
@@ -297,7 +230,7 @@ export class TypeProcessor {
             // if the type of this operation can be evaluated without any context 
             // (e.g. (s"styled text" + dingus) will always be type txt no matter what 'dingus' is)
             // then none of the variables inside of it matter so they can be ignored
-            if (OperationTypes.evaluateBinary(leftConstType, expression.operator.type, rightConstType) != Type.unknown) {
+            if (Operations.evaluateBinaryType(leftConstType, expression.operator.type, rightConstType) != Type.unknown) {
                 return [];
             } else {
                 return [...this.getRequirements(expression.left, frame), ...this.getRequirements(expression.right, frame)];
@@ -405,7 +338,7 @@ export class TypeProcessor {
         }
     }
 
-    evaluateExpression(expression: Expression, frame: EnvironmentFrame): Type {
+    evaluateExpression(expression: Expression, frame: EnvironmentFrame = this.globalFrame): Type {
         expression = expression.getRealExpression();
         if (expression instanceof AtomicExpression) {
             let token = expression.token;
@@ -429,7 +362,7 @@ export class TypeProcessor {
             return Type.unknown;
         }
         else if (expression instanceof BinaryExpression) {
-            return OperationTypes.evaluateBinary(
+            return Operations.evaluateBinaryType(
                 this.evaluateExpression(expression.left, frame),
                 expression.operator.type,
                 this.evaluateExpression(expression.right, frame),

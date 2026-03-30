@@ -7,14 +7,12 @@ import { Namespace } from "./compiler/namespace/namespace.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
-import { OperationTypes, TypeProcessor } from "./typeProcessor/typeProcessor.ts";
+import { TypeProcessor } from "./typeProcessor/typeProcessor.ts";
 import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
 playerevent join {
-    default.sendResourcePack("https://dingus.com/dongus.zip".length);
-    // default.sendMessage(s"<red>asdf");
-    // default.launchUp(5);
+    default.sendMessage(1 + 1);
 }
 
 // gameevent lagSlayRecover {

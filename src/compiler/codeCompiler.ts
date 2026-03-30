@@ -2,24 +2,32 @@ import { ASTNode } from "../ast/astNode.ts";
 import { EventStatement, ExpressionStatement, FunctionStatement, ProcessStatement, Statement } from "../ast/statement.ts";
 import { TokenType } from "../ast/token.ts";
 import { DFCodeblockName } from "../df/actiondump.ts";
-import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
+import { EnvironmentFrame, TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/utils.ts";
 import { CodeBlock, EventBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, CallExpression, Expression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression } from "../ast/expression.ts";
 import { callbackify } from "node:util";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { access } from "node:fs";
 import { DefinitionType } from "./namespace/functionDefinition.ts";
+import { TempVarProvider } from "./tempVarProvider.ts";
+import { Operations } from "./operations.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
 
 export type HeaderType = EventType | UserMethodType;
 
+export type EvaluationContext = {
+    tvp: TempVarProvider,
+    types: TypeProcessor,
+    envFrame: EnvironmentFrame,
+    reportError: (startPos: number, endPos: number, message: string) => void,
+}
 
 function jsonize(line: CodeBlock[]): string {
     return JSON.stringify({blocks: line.map(b => b.templateForm())});
@@ -67,14 +75,23 @@ export class CodeCompiler {
     codeLines: Map<HeaderType, {[name: string]: CodeLineEntry}> = new Map();
     errors: TCError[] = [];
 
+    readonly tempVarProvider = new TempVarProvider();
+
     constructor(
         public ast: Statement[],
-        public environment: {types: TypeProcessor},
-    ) {
+        public env: {types: TypeProcessor},
+    ) {}
 
+    getEvaluationContext(envFrame: EnvironmentFrame): EvaluationContext {
+        return {
+            tvp: this.tempVarProvider,
+            types: this.env.types,
+            reportError: this.reportError,
+            envFrame,
+        }
     }
 
-    reportError(startPos: number, endPos: number, message: string) {
+    reportError = (startPos: number, endPos: number, message: string) => {
         this.errors.push(new TCError(
             startPos, endPos,
             ErrorType.COMPILER,
@@ -148,7 +165,16 @@ export class CodeCompiler {
 
     compileExpression(e: Expression): [CodeValue, CodeBlock[]] {
         // TODO: structure this and the compileStatement thing more like how the parser does stuff
-        if (e instanceof CallExpression) {
+        if (e instanceof BinaryExpression) {
+            let [left, lCode] = this.compileExpression(e.left);
+            let [right, rCode] = this.compileExpression(e.right);
+            let [result, oprCode] = Operations.evaluateBinaryValue(
+                left, e.operator, right, 
+                this.getEvaluationContext(this.env.types.globalFrame) // TODO: use real env frame
+            )
+            return [result, [...lCode, ...rCode, ...oprCode]];
+        }
+        else if (e instanceof CallExpression) {
             let [callee, preCode] = this.compileExpression(e.callee);
             if (callee instanceof FunctionValue) {
                 // parse args
@@ -234,6 +260,7 @@ export class CodeCompiler {
             let [_, code] = this.compileExpression(s.expression);
             return code;
         }
+        return [];
     }
 
     compile({outputFormat}: {outputFormat: "JSON" | "GZIP" | "DFONLINE"}) {
