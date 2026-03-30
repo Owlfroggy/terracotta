@@ -177,10 +177,10 @@ export class VariableValue extends TangibleValue {
     templateForm() {
         let scope = "line";
         switch (this.scope) {
-            case VariableScope.GLOBAL:  scope = "unsaved";
-            case VariableScope.SAVED:   scope = "saved";
-            case VariableScope.LOCAL:   scope = "local";
-            case VariableScope.LINE:    scope = "line";
+            case VariableScope.GLOBAL:  scope = "unsaved"; break;
+            case VariableScope.SAVED:   scope = "saved"; break;
+            case VariableScope.LOCAL:   scope = "local"; break;
+            case VariableScope.LINE:    scope = "line"; break;
         }
         return {
             "id": "var",
