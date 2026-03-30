@@ -65,6 +65,7 @@ for (const eventType of [DFCodeblockName.PLAYER_EVENT, DFCodeblockName.ENTITY_EV
  * support multiple files 💀
  * functions and process statements (with parameters)
  * better error for trying to use an operator with no definitions
+ * throw an error for this kinda thing: line value: str; >> global value: num << ; value = 5;
  */
 
 export type CodeLineEntry = {
@@ -252,6 +253,11 @@ export class CodeCompiler {
                         let namespace = Namespace.registry[value];
                         return [new NamespaceValue(namespace, e), []];
                     }
+                    let frame = this.env.types.getNodeFrame(e);
+                    let varEntry = frame.getVariableEntry(e.token.value, e.token.startPos);
+                    if (varEntry) {
+                        return [new VariableValue(varEntry.id.name, varEntry.id.scope, varEntry.type ?? undefined), []];
+                    }
                     this.reportError(
                         e.startPos, e.endPos,
                         `Could not resolve identifier '${e.token.value}'`
@@ -283,7 +289,10 @@ export class CodeCompiler {
                 let [variable, _] = this.compileExpression(e.left);
                 let [value, valueCode] = this.compileExpression(e.right);
 
-                if (!(e.left.getRealExpression() instanceof VariableExpression)) {
+                if (!(
+                    (e.left.getRealExpression() instanceof VariableExpression)
+                    || (e.left.getRealExpression() instanceof AtomicExpression && variable instanceof VariableValue)
+                )) {
                     this.reportError(
                         e.left.startPos, e.left.endPos,
                         `Left-hand side of an assignment statement must be a variable`

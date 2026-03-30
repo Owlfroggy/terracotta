@@ -213,6 +213,7 @@ export class VariableId {
 export class TypeProcessor {
     errors: TCError[];
     globalFrame: EnvironmentFrame = new EnvironmentFrame(null,null);
+    framesByASTNode: Map<ASTNode, EnvironmentFrame> = new Map();
 
     reportError(startPos: number, endPos: number, error: string) {}
 
@@ -293,6 +294,7 @@ export class TypeProcessor {
                 for (const c of statement.children){ 
                     if (c instanceof ChunkExpression) {
                         let newFrame = frame.addChild(c);
+                        this.framesByASTNode.set(statement, newFrame);
                         this.collectionStage(c.statements, newFrame);
                     }
                 }
@@ -382,6 +384,17 @@ export class TypeProcessor {
                 `Invalid type '${name}'`
             );
             return Type.unknown;
+        }
+    }
+
+    getNodeFrame(node: ASTNode): EnvironmentFrame {
+        let frame = this.framesByASTNode.get(node);
+        if (frame) {
+            return frame;
+        } else if (node.parent == null) {
+            return this.globalFrame;
+        } else {
+            return this.getNodeFrame(node.parent);
         }
     }
 }

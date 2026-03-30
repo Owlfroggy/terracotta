@@ -11,15 +11,14 @@ import { TypeProcessor } from "./typeProcessor/typeProcessor.ts";
 import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
-global one = 1;
-
 playerevent join {
-    "not a variable" = default.sendMessage(s"balls" + 2);
+    global value = "GLOBAL VAR HERE!";
+    default.sendMessage(value);
 
-    // this should compile properly
-    global dingus: str = "five" + global one;
-
-    default.sendMessage(global dingus);
+    line value: str;
+    value = "goodbye cruel world :(";
+    default.sendMessage(value);
+    default.kick();
 }
 
 // gameevent lagSlayRecover {
