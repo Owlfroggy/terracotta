@@ -25,7 +25,7 @@ playerevent join {
         do {
             default.sendMessage('still global', value);
         }
-    }
+    } while
 
     default.kick();
 }

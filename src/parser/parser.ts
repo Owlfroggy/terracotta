@@ -3,6 +3,7 @@ import { BinaryExpression, Expression, AtomicExpression, GroupExpression, Missin
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, ProcessStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError } from "../error/error.ts";
+import { dirWithoutRelations } from "../util/debug.ts";
 
 export const VARIABLE_SCOPE_KEYWORDS = [TokenType.GLOBAL,TokenType.SAVED,TokenType.LOCAL,TokenType.LOCAL];
 export const ASSIGNMENT_OPERATORS = [TokenType.EQUALS, TokenType.PLUS_EQUALS, TokenType.MINUS_EQUALS, TokenType.STAR_EQUALS, TokenType.SLASH_EQUALS];
@@ -340,9 +341,9 @@ export class Parser {
     }
 
     parseGroupExpression = (bp: number): GroupExpression => {
-        let [opener, openerFound] = this.expect(TokenType.OPEN_PAREN);
+        let [opener, openerFound] = this.expectOrMissing(TokenType.OPEN_PAREN);
         let expr = this.parseExpression(BindingPower.DEFAULT);
-        let [closer, closerFound] = this.expect(TokenType.CLOSE_PAREN);
+        let [closer, closerFound] = this.expectOrMissing(TokenType.CLOSE_PAREN);
         return new GroupExpression(
             opener,
             expr,
@@ -718,7 +719,12 @@ export class Parser {
                     if (c instanceof ASTNode) {
                         if (c.parent != null) {
                             console.log("------");
-                            console.dir(c);
+                            console.log("child: ")
+                            dirWithoutRelations(c);
+                            console.log("old parent: ");
+                            dirWithoutRelations(c.parent);
+                            console.log("new parent: ");
+                            dirWithoutRelations(n);
                             throw `->> Node owned by multiple parents??`;
                         } else {
                             c.parent = n;
