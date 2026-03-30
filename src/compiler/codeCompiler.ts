@@ -256,6 +256,7 @@ export class CodeCompiler {
                         e.startPos, e.endPos,
                         `Could not resolve identifier '${e.token.value}'`
                     );
+                    return [new MissingValue(e), []];
                 }
                 case TokenType.NUMERIC_LITERAL: {
                     return [new NumberValue(e.token.value,e), []];
