@@ -53,7 +53,7 @@ export class ActionBlock extends CodeBlock {
         return {
             ...super.templateForm(),
             [actionField]: this.action,
-            args: {items: this.args.map((v, i) => ({item: v.templateForm(), slot: i}))},
+            args: {items: this.args.filter(v => v instanceof TangibleValue).map((v, i) => ({item: v.templateForm(), slot: i}))},
             target: this.target == TargetType.UNSET ? undefined : this.target
         }
     }
