@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { EventStatement, ExpressionStatement, FunctionStatement, ProcessStatement, Statement } from "../ast/statement.ts";
+import { DoStatement, EventStatement, ExpressionStatement, FunctionStatement, ProcessStatement, Statement } from "../ast/statement.ts";
 import { TokenType } from "../ast/token.ts";
 import { DFCodeblockName } from "../df/actiondump.ts";
 import { EnvironmentFrame, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
@@ -319,6 +319,13 @@ export class CodeCompiler {
             else {
                 let [_, code] = this.compileExpression(e);
                 return code;
+            }
+        }
+        else if (s instanceof DoStatement) {
+            if (s.whileKeyword && s.whileCondition) {
+                // TODO: while stuff
+            } else {
+                return s.chunk.statements.map(this.compileStatement).flat();
             }
         }
         return [];

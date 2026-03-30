@@ -18,6 +18,15 @@ playerevent join {
     line value: str;
     value = "goodbye cruel world :(";
     default.sendMessage(value);
+
+    do {
+        global value: str;
+        default.sendMessage("back to global right??",value);
+        do {
+            default.sendMessage('still global', value);
+        }
+    }
+
     default.kick();
 }
 
