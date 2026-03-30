@@ -2,7 +2,7 @@ import { DFCodeblockName, TargetType } from "../../df/actiondump.ts";
 import { TCError } from "../../error/error.ts";
 import { CodeActionTag } from "../codeActionTag.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
-import { CodeValue } from "../codeValue.ts";
+import { CodeValue, TangibleValue } from "../codeValue.ts";
 
 export enum DefinitionType {
     FUNCTION,
@@ -22,7 +22,7 @@ export function generateActionHook(functionName: string, codeblock, actionDFName
             // todo: return values
             let items: CodeValue[] = [];
             let code: CodeBlock[] = [
-                new ActionBlock(codeblock,{action: actionDFName, args: args, tags: [], target: target})
+                new ActionBlock(codeblock,{action: actionDFName, args: args.filter(v => v instanceof TangibleValue), tags: [], target: target})
             ]
             return [items, code];
         }
