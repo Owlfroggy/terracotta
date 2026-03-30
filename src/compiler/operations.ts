@@ -87,15 +87,31 @@ export class Operations {
     }
 }
 
-Operations.registerBinary(Type.num, TokenType.PLUS, Type.num, Type.num, false, 
-    (left, right, ctx) => {
-        let v = ctx.tvp.newTempVar(Type.num);
-        let block = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-            action: "+",
+//=----------------------=\\
+//=- handler generators -=\\
+//=----------------------=\\
+
+function singleActionHandler(resultType: Type, action: string, codeblock: DFCodeblockName = DFCodeblockName.SET_VARIABLE): OperationHandler {
+    return (left, right, ctx) => {
+        let v = ctx.tvp.newTempVar(resultType);
+        let block = new ActionBlock(codeblock,{
+            action: action,
             args: [v, left, right],
         });
         return [v, [block]];
     }
-);
-// Operations.registerBinary(Type.str, TokenType.PLUS, Type.num, Type.str, true);
+}
+
+//=-------------------------=\\
+//=- operation definitions -=\\
+//=-------------------------=\\
+
+
+Operations.registerBinary(Type.num, TokenType.PLUS, Type.num, Type.num, false, 
+    singleActionHandler(Type.num, "+"));
+
+Operations.registerBinary(Type.str, TokenType.PLUS, Type.num, Type.str, true, 
+    singleActionHandler(Type.str, "String"));
+
+
 // Operations.registerBinary(Type.txt, TokenType.PLUS, Type.any, Type.txt, true);

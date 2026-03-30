@@ -12,7 +12,8 @@ import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
 playerevent join {
-    default.sendMessage(1 + 1);
+    default.sendMessage(1 + 1 + " is one plus oine");
+    default.sendMessage("two: " + 2);
 }
 
 // gameevent lagSlayRecover {
