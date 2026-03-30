@@ -11,9 +11,17 @@ import { TypeProcessor } from "./typeProcessor/typeProcessor.ts";
 import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
+global one = 1;
+
 playerevent join {
-    default.sendMessage(1 + 1 + " is one plus oine");
-    default.sendMessage("two: " + 2);
+    default.sendMessage(global one + 1);
+
+    // this should error
+    default.sendMessage(line blingus: str);
+
+    // these should not
+    global dingus: str;
+    global dingus: str = 5;
 }
 
 // gameevent lagSlayRecover {

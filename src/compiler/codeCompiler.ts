@@ -2,15 +2,15 @@ import { ASTNode } from "../ast/astNode.ts";
 import { EventStatement, ExpressionStatement, FunctionStatement, ProcessStatement, Statement } from "../ast/statement.ts";
 import { TokenType } from "../ast/token.ts";
 import { DFCodeblockName } from "../df/actiondump.ts";
-import { EnvironmentFrame, TypeProcessor } from "../typeProcessor/typeProcessor.ts";
+import { EnvironmentFrame, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/utils.ts";
 import { CodeBlock, EventBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression, VariableExpression } from "../ast/expression.ts";
 import { callbackify } from "node:util";
-import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue } from "./codeValue.ts";
+import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { access } from "node:fs";
 import { DefinitionType } from "./namespace/functionDefinition.ts";
@@ -222,6 +222,25 @@ export class CodeCompiler {
                 }
                 return [new MissingValue(e), preCode];
             }
+        }
+        else if (e instanceof VariableExpression) {
+            // throw error for type annotation in bad place
+            if (
+                e.assignedType &&
+                !(
+                    // in here go cases where type annotation **is** allowed
+                    (e.parent && e.parent instanceof BinaryExpression && e.parent.operator.type == TokenType.EQUALS && e.parent.parent instanceof ExpressionStatement)
+                    || (e.parent && e.parent instanceof ExpressionStatement)
+                )
+            ) {
+                this.reportError(
+                    e.assignedType.startPos, e.assignedType.endPos,
+                    `Variable type annotation is not allowed here`
+                );
+            }
+
+            // 
+            return [new VariableValue(e.name.value, VariableScope[TokenType[e.scope.type]]), []];
         }
         else if (e instanceof AtomicExpression) {
             switch (e.token.type) {
