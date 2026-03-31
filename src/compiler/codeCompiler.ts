@@ -25,7 +25,6 @@ export type HeaderType = EventType | UserMethodType;
 export type EvaluationContext = {
     tvp: TempVarProvider,
     types: TypeProcessor,
-    envFrame: EnvironmentFrame,
     reportError: (startPos: number, endPos: number, message: string) => void,
 }
 
@@ -84,12 +83,11 @@ export class CodeCompiler {
         public env: {types: TypeProcessor},
     ) {}
 
-    getEvaluationContext(envFrame: EnvironmentFrame): EvaluationContext {
+    getEvaluationContext(): EvaluationContext {
         return {
             tvp: this.tempVarProvider,
             types: this.env.types,
             reportError: this.reportError,
-            envFrame,
         }
     }
 
@@ -172,7 +170,7 @@ export class CodeCompiler {
             let [right, rCode] = this.compileExpression(e.right);
             let [result, oprCode] = Operations.evaluateBinaryValue(
                 left, e.operator, right, 
-                this.getEvaluationContext(this.env.types.globalFrame) // TODO: use real env frame
+                this.getEvaluationContext()
             )
             return [result, [...lCode, ...rCode, ...oprCode]];
         }
@@ -231,7 +229,7 @@ export class CodeCompiler {
                 e.assignedType &&
                 !(
                     // in here go cases where type annotation **is** allowed
-                    (e.parent && e.parent instanceof BinaryExpression && e.parent.operator.type == TokenType.EQUALS && e.parent.parent instanceof ExpressionStatement)
+                    (e.parent && e.parent instanceof BinaryExpression && Operations.isAssignmentOperator(e.parent.operator.type) && e.parent.parent instanceof ExpressionStatement)
                     || (e.parent && e.parent instanceof ExpressionStatement)
                 )
             ) {
@@ -242,7 +240,7 @@ export class CodeCompiler {
             }
 
             // 
-            return [new VariableValue(e.name.value, VariableScope[TokenType[e.scope.type]]), []];
+            return [new VariableValue(e.name.value, VariableScope[TokenType[e.scope.type]], undefined, e), []];
         }
         else if (e instanceof AtomicExpression) {
             switch (e.token.type) {
@@ -285,9 +283,16 @@ export class CodeCompiler {
         if (s instanceof ExpressionStatement) {
             let e = s.expression;
             // variable assignment
-            if (e instanceof BinaryExpression && e.operator.type == TokenType.EQUALS) {
+            if (e instanceof BinaryExpression && Operations.isAssignmentOperator(e.operator.type)) {
                 let [variable, _] = this.compileExpression(e.left);
                 let [value, valueCode] = this.compileExpression(e.right);
+                
+                // incrementor operators
+                if (e.operator.type != TokenType.EQUALS) {
+                    let [newValue, newCode] = Operations.evaluateBinaryValue(variable, e.operator, value, this.getEvaluationContext())
+                    value = newValue;
+                    valueCode = [...valueCode, ...newCode];
+                }
 
                 if (!(
                     (e.left.getRealExpression() instanceof VariableExpression)
@@ -301,10 +306,13 @@ export class CodeCompiler {
                 }
 
                 if (!(value instanceof TangibleValue)) {
-                    this.reportError(
-                        value.astNode?.startPos ?? -1, value.astNode?.endPos ?? -1,
-                        `${value.constructor.name} cannot be stored in variables`
-                    );
+                    if (!(value instanceof MissingValue)) {
+                        this.reportError(
+                            value.astNode?.startPos ?? -1, value.astNode?.endPos ?? -1,
+                            `${value.constructor.name} cannot be stored in variables`
+                        );
+                    }
+                    
                     return [];
                 }
 

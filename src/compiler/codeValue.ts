@@ -1,6 +1,7 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
+import { dirWithoutRelations } from "../util/debug.ts";
 import { EvaluationContext } from "./codeCompiler.ts";
 import { FunctionDefinition } from "./namespace/functionDefinition.ts";
 import { Namespace } from "./namespace/namespace.ts";
@@ -171,7 +172,10 @@ export class VariableValue extends TangibleValue {
     getType(ctx: EvaluationContext): Type {
         if (this.explicitType) return this.explicitType;
         // todo: make sure that putting Infinity here isnt as big of a war crime as i think it is
-        return ctx.envFrame.getVariableType(this.variableId, this.astNode?.startPos ?? Infinity);
+        if (!this.astNode) return Type.unknown;
+        let frame = ctx.types.getNodeFrame(this.astNode);
+
+        return frame.getVariableType(this.variableId, this.astNode?.startPos ?? Infinity);
     }
 
     templateForm() {

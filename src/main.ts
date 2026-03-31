@@ -11,23 +11,16 @@ import { TypeProcessor } from "./typeProcessor/typeProcessor.ts";
 import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
+global "%default coins": num;
+global dingys: num;
+
 playerevent join {
-    global value = "GLOBAL VAR HERE!";
-    default.sendMessage(value);
+    global "%default coins" = 0;
+}
 
-    line value: str;
-    value = "goodbye cruel world :(";
-    default.sendMessage(value);
-
-    do {
-        global value: str;
-        default.sendMessage("back to global right??",value);
-        do {
-            default.sendMessage('still global', value);
-        }
-    } while
-
-    default.kick();
+lscancel playerevent jump {
+    global dingys += 1;
+    global "%default coins" += 1;
 }
 
 // gameevent lagSlayRecover {

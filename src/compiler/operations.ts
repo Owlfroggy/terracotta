@@ -13,6 +13,11 @@ type OperationDefinition = {
     handler: OperationHandler,
 }
 
+
+export const INCREMENTOR_OPERATIONS: Map<TokenType, TokenType> = new Map([
+    [TokenType.PLUS_EQUALS, TokenType.PLUS]
+]);  
+
 export class Operations {
     static binaryOperations: Map<Type,Map<TokenType,Map<Type,OperationDefinition>>> = new Map();
 
@@ -48,6 +53,7 @@ export class Operations {
 
     static evaluateBinaryValue(left: CodeValue, op: Token, right: CodeValue, ctx: EvaluationContext): [CodeValue, CodeBlock[]] {
         let opSymbol = op.value;
+        let opType = INCREMENTOR_OPERATIONS.has(op.type) ? INCREMENTOR_OPERATIONS.get(op.type)! : op.type;
         // make sure left and right are both tangible
         for (const v of [left, right]) {
             if (!(v instanceof TangibleValue)) {
@@ -63,7 +69,7 @@ export class Operations {
 
         let leftType = left.getType(ctx);
         let rightType = right.getType(ctx);
-        let def = this.binaryOperations.get(leftType)?.get(op.type)?.get(rightType);
+        let def = this.binaryOperations.get(leftType)?.get(opType)?.get(rightType);
 
         if (!def) {
             ctx.reportError(
@@ -84,6 +90,11 @@ export class Operations {
             ?? this.binaryOperations.get(Type.any)?.get(op)?.get(right)?.resultType
             ?? Type.unknown
         );
+    }
+
+    static isAssignmentOperator(op: TokenType): boolean {
+        if (op == TokenType.EQUALS) return true;
+        return INCREMENTOR_OPERATIONS.has(op);
     }
 }
 
