@@ -1,7 +1,6 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { DFCodeblockName, getCodeblockIdentifier, TargetType } from "../df/actiondump.ts";
-import { CodeActionTag } from "./codeActionTag.ts";
-import { CodeValue as CodeValue, TangibleValue } from "./codeValue.ts";
+import { ActionTagValue, TangibleValue } from "./codeValue.ts";
 
 //=-------------------------------=\\
 //=- warning! this file sucks :( -=\\
@@ -27,7 +26,7 @@ export abstract class CodeBlock {
 export class ActionBlock extends CodeBlock {
     public action: string;
     public args: TangibleValue[];
-    public tags: CodeActionTag[];
+    public tags: ActionTagValue[];
     public target: TargetType;
 
     constructor(
@@ -35,7 +34,7 @@ export class ActionBlock extends CodeBlock {
         {action, args = [], tags = [], target = TargetType.UNSET, astNode = null} : {
             action: string,
             args?: TangibleValue[],
-            tags?: CodeActionTag[],
+            tags?: ActionTagValue[],
             target?: TargetType
             astNode?: ASTNode | null,
         }
@@ -53,7 +52,14 @@ export class ActionBlock extends CodeBlock {
         return {
             ...super.templateForm(),
             [actionField]: this.action,
-            args: {items: this.args.filter(v => v instanceof TangibleValue).map((v, i) => ({item: v.templateForm(), slot: i}))},
+            args: {
+                items: [
+                    // args
+                    ...this.args.filter(v => v instanceof TangibleValue).map((v, i) => ({item: v.templateForm(), slot: i})),
+                    // tags (the templateForm() itself takes care of the item and slot wrapper)
+                    ...this.tags.map(v => v.templateForm())
+                ]
+            },
             target: this.target == TargetType.UNSET ? undefined : this.target
         }
     }

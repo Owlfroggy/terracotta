@@ -179,15 +179,45 @@ export class CodeCompiler {
             if (callee instanceof FunctionValue) {
                 // parse args
                 let args: CodeValue[] = [];
+                let namedArgs: Map<AtomicExpression, CodeValue> = new Map();
+                let seenNames: {[name: string]: true} = {};
                 let argCode: CodeBlock[] = [];
                 for (const argNode of e.args.elements) {
-                    let [value, code] = this.compileExpression(argNode);
-                    args.push(value)
-                    argCode.push(...code);
+                    //named arg
+                    if (argNode instanceof BinaryExpression && argNode.operator.type == TokenType.EQUALS) {
+                        let name = argNode.left;
+                        if (!(name instanceof AtomicExpression && (name.token.type == TokenType.IDENTIFIER || name.token.type == TokenType.STRING_LITERAL))) {
+                            this.reportError(
+                                name.startPos, name.endPos,
+                                `Argument name must be an identifier or string literal`
+                            );
+                            continue;
+                        }
+                        if (name.token.value in seenNames) {
+                            this.reportError(
+                                argNode.startPos, argNode.endPos,
+                                `Argument '${name.token.value}' provided in multiple places`
+                            );
+                            continue;
+                        }
+
+                        seenNames[name.token.value] = true;
+
+                        let [value, code] = this.compileExpression(argNode.right);
+                        namedArgs.set(name, value);
+                        argCode.push(...code);
+                    } 
+                    //normal arg
+                    else {
+                        let [value, code] = this.compileExpression(argNode);
+                        args.push(value)
+                        argCode.push(...code);
+                    }
+                   
                 }
                 // TODO: args
                 // TODO: handle return types
-                let [value, code] = callee.definition.compile(args,{});
+                let [value, code] = callee.definition.compile(args,namedArgs, this.getEvaluationContext());
                 return [new EmptyValue(e), [...preCode, ...argCode, ...code]];
             }
             else {
@@ -254,7 +284,7 @@ export class CodeCompiler {
                     let frame = this.env.types.getNodeFrame(e);
                     let varEntry = frame.getVariableEntry(e.token.value, e.token.startPos);
                     if (varEntry) {
-                        return [new VariableValue(varEntry.id.name, varEntry.id.scope, varEntry.type ?? undefined), []];
+                        return [new VariableValue(varEntry.id.name, varEntry.id.scope, varEntry.type ?? undefined, e), []];
                     }
                     this.reportError(
                         e.startPos, e.endPos,

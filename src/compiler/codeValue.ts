@@ -1,4 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
+import { getCodeblockIdentifier, Tag } from "../df/actiondump.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { dirWithoutRelations } from "../util/debug.ts";
@@ -197,5 +198,36 @@ export class VariableValue extends TangibleValue {
 
     toString(): string {
         return `var${this.explicitType ? `<${this.explicitType.name}>` : ""}(${this.scope}, '${this.name}')`;
+    }
+}
+
+export class ActionTagValue extends TangibleValue {
+    constructor(
+        public definition: Tag,
+        public option: string,
+        public variable?: VariableValue,
+        astNode?: ASTNode
+    ) {
+        super(astNode);
+    }
+
+    getType(ctx: EvaluationContext): Type {
+        throw new Error("Attempted to get type of an action tag value");
+    }
+
+    templateForm() {
+        return {
+            "item": {
+                "id": "bl_tag",
+                "data": {
+                    "tag": this.definition.name,
+                    "option": this.option,
+                    "block": getCodeblockIdentifier(this.definition.codeblock),
+                    "action": this.definition.action,
+                    "variable": this.variable?.templateForm(),
+                }
+            },
+            "slot": this.definition.chestSlot
+        };
     }
 }

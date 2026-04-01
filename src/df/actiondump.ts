@@ -193,7 +193,11 @@ export class Action {
         public iconName: string,
         /** the sign name used by blocks like while and select obj */
         public differentiatedName: string,
+        /** Keys in this are the tag names which appear at the top of their chest item */
         public tags: {[tagName: string]: Tag},
+        // this really shouldn't be in the actiondump but i don't care
+        /** Keys in this are the tag names used inside terracotta */
+        public tcTagMap: {[tcTagName: string]: Tag},
         /** description lore that shows up when you hover over the action in df
          * DOES NOT INCLUDE PARAMETER INFORMATION!! */
         public description: string,
@@ -343,6 +347,12 @@ export function getTCActionName(block: DFCodeblockName, dfSignName: string) {
     return codeifyName(iconName ?? dfSignName);
 }
 
+export function getTCTagName(name: string) {
+    let override = OVERRIDES_JSON.tagNames[name];
+    if (override) return override;
+    return codeifyName(name.match(/(^\w+(?: \w+)?)/)?.[1] ?? name);
+}
+
 //==========[ private functions ]=========\\
 
 function parseArgumentValueThingies(args: any[]): Parameter[] {
@@ -421,15 +431,18 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
 
     //tags
     let tags: {[tagName: string]: Tag} = {};
+    let tcTags: {[tcTagName: string]: Tag} = {};
     for (const tagJson of actionJson.tags) {
-        tags[tagJson.name] = new Tag(
+        let tag = new Tag(
             tagJson.name,
-            tagJson.options.map(optionData => ({name: optionData.name, description: optionData.icon.description?.join("\n")})),
+            Object.fromEntries(tagJson.options.map(optionData => ([optionData.name, {name: optionData.name, description: optionData.icon.description?.join("\n")}]))),
             tagJson.defaultOption,
             tagJson.slot,
             codeblockName,
             actionName,
         );
+        tags[tag.name] = tag;
+        tcTags[getTCTagName(tag.name)] = tag;
     }
 
     
@@ -467,6 +480,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
         iconName,
         differentiatedActionName,
         tags,
+        tcTags,
         descriptionString,
         additionalInfo,
         actionJson.icon.worksWith,

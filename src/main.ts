@@ -15,17 +15,19 @@ global "%default coins": num;
 global dingys: num;
 
 playerevent join {
-    global "%default coins" = 0;
+    line align = "Center";
+    default.sendMessage("hello world","align"="Centered");
+    default.sendMessage("goodbye world:(", align=align, merging="No spaces",);
 }
 
-lscancel playerevent jump {
-    global dingys += 1;
-    global "%default coins" += 1;
+/* error time :D */
+gameevent lagSlayRecover {
+    allPlayers.sendMessage(
+        invalidTag=5, 
+        align="invalid value", 
+        align="duplicate entry",
+    );
 }
-
-// gameevent lagSlayRecover {
-//     allPlayers.sendMessage(s"<rainbow>we are so back!!");
-// }
 `
 
 // `
@@ -198,7 +200,8 @@ function visualizeErrors(errors: TCError[], script: string) {
         while (script[bottomNewlineIndex] != "\n" && bottomNewlineIndex < script.length) bottomNewlineIndex++;
         console.log(script.substring(topNewlineIndex,bottomNewlineIndex));
         let caretCount = e.endPos-e.startPos;
-        console.log(" ".repeat(e.startPos-lineStartIndex) + "^".repeat(caretCount))
+        let spaceCount = e.startPos-lineStartIndex;
+        console.log(" ".repeat(spaceCount < 0 ? 0 : spaceCount) + "^".repeat(caretCount))
         console.log(`${!e.shouldDisplay ? "(hidden) " : ""}error: ${e.message}`)
         console.log()
     }
