@@ -1,5 +1,6 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { DFCodeblockName, getCodeblockIdentifier, TargetType } from "../df/actiondump.ts";
+import * as AD from "../df/actiondump.ts";
 import { ActionTagValue, TangibleValue } from "./codeValue.ts";
 
 //=-------------------------------=\\
@@ -48,6 +49,18 @@ export class ActionBlock extends CodeBlock {
 
     templateForm() {
         let actionField = "action";
+
+        // fill in missing tags
+        let tags = [...this.tags];
+        let actionEntry = AD.actions.get(this.block)?.[this.action];
+        if (actionEntry) {
+            let seenTags: AD.Tag[] = this.tags.map(v => v.definition);
+            for (let tagDef of Object.values(actionEntry.tags)) {
+                if (!(seenTags.includes(tagDef))) {
+                    tags.push(new ActionTagValue(tagDef, tagDef.defaultOption));
+                }
+            }
+        }
         
         return {
             ...super.templateForm(),
@@ -57,7 +70,7 @@ export class ActionBlock extends CodeBlock {
                     // args
                     ...this.args.filter(v => v instanceof TangibleValue).map((v, i) => ({item: v.templateForm(), slot: i})),
                     // tags (the templateForm() itself takes care of the item and slot wrapper)
-                    ...this.tags.map(v => v.templateForm())
+                    ...tags.map(v => v.templateForm())
                 ]
             },
             target: this.target == TargetType.UNSET ? undefined : this.target

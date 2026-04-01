@@ -16,17 +16,9 @@ global dingys: num;
 
 playerevent join {
     line align = "Center";
+    default.setBossBar(color="White");
     default.sendMessage("hello world","align"="Centered");
     default.sendMessage("goodbye world:(", align=align, merging="No spaces",);
-}
-
-/* error time :D */
-gameevent lagSlayRecover {
-    allPlayers.sendMessage(
-        invalidTag=5, 
-        align="invalid value", 
-        align="duplicate entry",
-    );
 }
 `
 
