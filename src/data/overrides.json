@@ -476,10 +476,20 @@
         "Movement Key": "key",
         "Redstone Power Mode": "mode"
     },
-    "gameValues": {
+    "gameValueNames": {
         "X-Coordinate": "x",
         "Y-Coordinate": "y",
-        "Z-Coordinate": "z"
+        "Z-Coordinate": "z",
+        "Invulnerability Ticks": "invulTicks",
+        "UUID": "uuid",
+        "CPU Usage": "cpuUsage",
+        "Current Health": "health",
+        "Maximum Health": "maxHealth",
+        "Absorption Health": "absorption",
+        "Experience Level": "xpLevel",
+        "Experience Progreess": "xpProgress",
+        "Entity Width": "width",
+        "Entity Height": "height"
     },
     "returnTypes": {
         "set_var": {

@@ -11,14 +11,15 @@ import { TypeProcessor } from "./typeProcessor/typeProcessor.ts";
 import { dirWithoutRelations } from "./util/debug.ts";
 
 let test = `
-global "%default coins": num;
-global dingys: num;
 
 playerevent join {
-    line align = "Center";
-    default.setBossBar(color="White");
-    default.sendMessage("hello world","align"="Centered");
-    default.sendMessage("goodbye world:(", align=align, merging="No spaces",);
+    default.sendMessage("youre health is "+default.health);
+}
+
+playerevent takeDamage {
+    default.sendActionBar(
+        "oh no!!! " + default.health + "/" + default.maxHealth 
+    );
 }
 `
 

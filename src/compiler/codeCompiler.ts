@@ -11,9 +11,9 @@ import { ErrorType, TCError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression, VariableExpression } from "../ast/expression.ts";
 import { callbackify } from "node:util";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
-import { Namespace } from "./namespace/namespace.ts";
+import { DefinitionType, Namespace } from "./namespace/namespace.ts";
 import { access } from "node:fs";
-import { DefinitionType } from "./namespace/functionDefinition.ts";
+import { FunctionDefinition } from "./namespace/functionDefinition.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
 
@@ -239,6 +239,9 @@ export class CodeCompiler {
                 }
                 else if (definition.definitionType == DefinitionType.FUNCTION) {
                     return [new FunctionValue(definition, e), preCode];
+                }
+                else if (definition.definitionType == DefinitionType.VALUE) {
+                    return definition.compile(this.getEvaluationContext());
                 }
                 else {
                     return [new MissingValue(e), preCode];

@@ -6,10 +6,7 @@ import { CodeValue, TangibleValue, ActionTagValue, EmptyValue, StringValue, Vari
 import * as AD from "../../df/actiondump.ts";
 import { AtomicExpression } from "../../ast/expression.ts";
 import { Type } from "../../typeProcessor/type.ts";
-
-export enum DefinitionType {
-    FUNCTION,
-}
+import { DefinitionType } from "./namespace.ts";
 
 export interface FunctionDefinition {
     definitionType: DefinitionType.FUNCTION,

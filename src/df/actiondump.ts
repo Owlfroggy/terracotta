@@ -2,6 +2,7 @@ import * as fs from "node:fs/promises"
 import { pathToFileURL } from "node:url";
 import { DATA_PATH } from "../util/fileUtils.ts";
 import { codeifyName, deColorizeString } from "../util/utils.ts";
+import { Type } from "../typeProcessor/type.ts";
 
 const ACTION_DUMP_JSON      = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"actiondump.json") )).toString());
 const OVERRIDES_JSON        = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"overrides.json") )).toString());
@@ -35,6 +36,7 @@ export enum DFValueType {
     VEHICLE = "VEHICLE",
     SPAWN_EGG = "SPAWN_EGG",
     BYTE = "BYTE",
+    NONE = "NONE",
 }
 
 export enum DFCodeblockName {
@@ -257,68 +259,53 @@ const nameToIdentifierMap: Map<DFCodeblockName, string> = new Map();
 //key: how a return type appears in the action dump
 //value: terracotta type name
 
-export const dfTypeToTC = {
-    NUMBER: "num",
-    LOCATION: "loc",
-    VECTOR: "vec",
-    ITEM: "item",
-    LIST: "list",
-    POTION: "pot",
-    PARTICLE: "par",
-    SOUND: "snd",
-    COMPONENT: "txt",
-    TEXT: "str",
-    DICT: "dict",
-    VARIABLE: "var",
-    ANY_TYPE: "any",
-    BLOCK_TAG: "str",
-    BLOCK: "item",
-    ENTITY_TYPE: "item",
-    PROJECTILE: "item",
-    VEHICLE: "item",
-    SPAWN_EGG: "item",
-    BYTE: "num"
-};
+export const dfTypeToTC: Map<DFValueType, Type> = new Map([
+    [DFValueType.NUMBER,        Type.num],
+    [DFValueType.LOCATION,      Type.loc],
+    [DFValueType.VECTOR,        Type.vec],
+    [DFValueType.ITEM,          Type.item],
+    [DFValueType.LIST,          Type.list],
+    [DFValueType.POTION,        Type.pot],
+    [DFValueType.PARTICLE,      Type.par],
+    [DFValueType.SOUND,         Type.snd],
+    [DFValueType.COMPONENT,     Type.txt],
+    [DFValueType.TEXT,          Type.str],
+    [DFValueType.DICT,          Type.dict],
+    [DFValueType.VARIABLE,      Type.var],
+    [DFValueType.ANY_TYPE,      Type.any],
+    [DFValueType.BLOCK_TAG,     Type.str],
+    [DFValueType.BLOCK,         Type.item],
+    [DFValueType.ENTITY_TYPE,   Type.item],
+    [DFValueType.PROJECTILE,    Type.item],
+    [DFValueType.VEHICLE,       Type.item],
+    [DFValueType.SPAWN_EGG,     Type.item],
+    [DFValueType.BYTE,          Type.num]
+]);
 
-export const tcTypeToDF = {
-    num: "NUMBER",
-    loc: "LOCATION",
-    vec: "VECTOR",
-    item: "ITEM",
-    pot: "POTION",
-    par: "PARTICLE",
-    snd: "SOUND",
-    txt: "COMPONENT",
-    str: "TEXT",
-    list: "LIST",
-    dict: "DICT",
-    var: "VARIABLE",
-    any: "ANY_TYPE",
-};
+export const dfTypeToString: Map<DFValueType, string> = new Map([
+    [DFValueType.NUMBER,        "Number"],
+    [DFValueType.LOCATION,      "Location"],
+    [DFValueType.VECTOR,        "Vector"],
+    [DFValueType.ITEM,          "Item"],
+    [DFValueType.LIST,          "List"],
+    [DFValueType.POTION,        "Potion"],
+    [DFValueType.PARTICLE,      "Particle"],
+    [DFValueType.SOUND,         "Sound"],
+    [DFValueType.COMPONENT,     "Styled Text"],
+    [DFValueType.TEXT,          "String"],
+    [DFValueType.DICT,          "Dictionary"],
+    [DFValueType.VARIABLE,      "Variable"],
+    [DFValueType.ANY_TYPE,      "Any Value"],
+    [DFValueType.BLOCK_TAG,     "Block Tag"],
+    [DFValueType.BLOCK,         "Block"],
+    [DFValueType.ENTITY_TYPE,   "Entity Type"],
+    [DFValueType.PROJECTILE,    "Projectile"],
+    [DFValueType.VEHICLE,       "Vehicle"],
+    [DFValueType.SPAWN_EGG,     "Spawn Egg"],
+    [DFValueType.BYTE,          "Byte"],
+    [DFValueType.NONE,          "None"]
+]);
 
-export const dfTypeToString = {
-    NUMBER: "Number",
-    LOCATION: "Location",
-    VECTOR: "Vector",
-    ITEM: "Item",
-    LIST: "List",
-    POTION: "Potion",
-    PARTICLE: "Particle",
-    SOUND: "Sound",
-    COMPONENT: "Styled Text",
-    TEXT: "String",
-    DICT: "Dictionary",
-    VARIABLE: "Variable",
-    ANY_TYPE: "Any Value",
-    BLOCK_TAG: "Block Tag",
-    BLOCK: "Block",
-    ENTITY_TYPE: "Entity Type",
-    PROJECTILE: "Projectile",
-    VEHICLE: "Vehicle",
-    SPAWN_EGG: "Spawn Egg",
-    BYTE: "Byte",
-    NONE: "None"
-};
 
 /**
  * returns true if ownedRank >= requiredRank
@@ -351,6 +338,12 @@ export function getTCTagName(name: string) {
     let override = OVERRIDES_JSON.tagNames[name];
     if (override) return override;
     return codeifyName(name.match(/(^\w+(?: \w+)?)/)?.[1] ?? name);
+}
+
+export function getTCGameValueName(dfValueName: string) {
+    let override = OVERRIDES_JSON.gameValueNames[dfValueName];
+    if (override) return override;
+    return codeifyName(dfValueName);
 }
 
 //==========[ private functions ]=========\\

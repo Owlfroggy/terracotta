@@ -1,5 +1,6 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { getCodeblockIdentifier, Tag } from "../df/actiondump.ts";
+import { getCodeblockIdentifier, Tag, TargetType } from "../df/actiondump.ts";
+import * as AD from "../df/actiondump.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { dirWithoutRelations } from "../util/debug.ts";
@@ -198,6 +199,31 @@ export class VariableValue extends TangibleValue {
 
     toString(): string {
         return `var${this.explicitType ? `<${this.explicitType.name}>` : ""}(${this.scope}, '${this.name}')`;
+    }
+}
+
+export class GameValueValue extends TangibleValue {
+    constructor(
+        public value: string,
+        public target: TargetType,
+        astNode?: ASTNode
+    ) {super(astNode);}
+
+    getType(ctx: EvaluationContext): Type {
+        let dfType = AD.gameValues[this.value]?.type;
+        if (!dfType) return Type.unknown;
+        // console.log(dfType, AD.dfTypeToTC[dfType])
+        return AD.dfTypeToTC.get(dfType)!;
+    }
+
+    templateForm() {
+        return {
+            "id": "g_val",
+            "data": {
+                "type": this.value,
+                "target": this.target
+            }
+        };
     }
 }
 
