@@ -124,5 +124,8 @@ Operations.registerBinary(Type.num, TokenType.PLUS, Type.num, Type.num, false,
 Operations.registerBinary(Type.str, TokenType.PLUS, Type.num, Type.str, true, 
     singleActionHandler(Type.str, "String"));
 
+Operations.registerBinary(Type.str, TokenType.PLUS, Type.str, Type.str, true, 
+    singleActionHandler(Type.str, "String"));
+
 
 // Operations.registerBinary(Type.txt, TokenType.PLUS, Type.any, Type.txt, true);
