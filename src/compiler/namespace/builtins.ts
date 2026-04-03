@@ -132,4 +132,10 @@ export function registerBuiltinNamespaces() {
             ...gameValueEntries(target, v => v.targetType == AD.GameValueTargetType.TARGETS_ANYTHING || v.targetType == AD.GameValueTargetType.TARGETS_ENTITIES)
         ]));
     }
+
+    // game action namespace
+    new Namespace("game", Object.fromEntries([
+        ...codeblockActionEntries(DFCodeblockName.GAME_ACTION, TargetType.UNSET),
+        ...gameValueEntries(TargetType.UNSET, v => v.targetType == AD.GameValueTargetType.UNTARGETED)
+    ]));
 }

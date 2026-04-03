@@ -14,9 +14,9 @@ import { dirWithoutRelations } from "./util/debug.ts";
 registerBuiltinNamespaces()
 
 let test = `
-playerevent join {
-    defaultEntity.remove();
-    default.sendMessage(defaultEntity.maxHealth);
+playerevent takeDamage {
+    default.sendMessage("owchie: "+game.eventDamage);
+    game.cancelEvent();
 }
 `
 
