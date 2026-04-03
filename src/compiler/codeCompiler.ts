@@ -8,7 +8,7 @@ import { ActionBlock, CodeBlock, EventBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression, GroupExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
@@ -316,6 +316,16 @@ export class CodeCompiler {
                     return [new MissingValue(e), []];
                 }
             }
+        }
+        else if (e instanceof TypecastExpression) {
+            let [value, valueCode] = this.compileExpression(e.left);
+            let type = this.env.types.evaluateExplicitType(e.type);
+            // this is definitely in the runnings for "most sinful code i've ever written"
+            value.getType = () => type;
+            return [value, valueCode];
+        }
+        else if (e instanceof GroupExpression) {
+            return this.compileExpression(e.expression);
         }
         throw new Error(`no idea how to compile this: ${e.constructor.name}`);
     }

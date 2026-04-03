@@ -15,17 +15,9 @@ registerBuiltinNamespaces()
 
 let test = `
 playerevent join {
-    line dingus = num.round(5.2, mode="Floor");
-
-    default.sendMessage(dingus + 1); // 6
-}
-
-playerevent sneak {
-    default.sendMessage(
-        "you're y level (clamped): "
-        +
-        num.clamp(default.y, 49, 51)
-    );
+    default.sendMessage(s"dingus" as str + "dongus");
+    line zero = defaultEntity.getTag("jklasfgd") as str;
+    default.sendMessage("one: " + (zero + 1));
 }
 `
 
