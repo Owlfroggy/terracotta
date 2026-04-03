@@ -1,5 +1,11 @@
-import { DefinitionType } from "../compiler/namespace/definition.ts";
+import { DefinitionType, FunctionDefinition } from "../compiler/namespace/definition.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
+
+export type FuncTypeData = {
+    definition: FunctionDefinition;
+}
+
+type ExtraData = FuncTypeData | null;
 
 export class Type {
     /** types that variables can store */
@@ -22,9 +28,9 @@ export class Type {
     public static var = new Type('var');
     public static unknown = this.any; // just in case unknown type ever needs to be separated
 
-    // public static func = (definition: Definition) => {
-    //     return new Type('func', {});
-    // }
+    public static func = (definition: FunctionDefinition) => {
+        return new Type('func', {data: {definition}});
+    }
 
     public static namespace = (namespace: Namespace) => {
         let getMemberType = (m: string | number) => {
@@ -32,6 +38,9 @@ export class Type {
                 let def = namespace.members[m];
                 if (def.definitionType == DefinitionType.VALUE) {
                     return def.returnType;
+                }
+                else if (def.definitionType == DefinitionType.FUNCTION) {
+                    return Type.func(def);
                 }
             }
             return Type.any;
@@ -41,13 +50,17 @@ export class Type {
 
     public readonly assignable: boolean;
     public readonly getMemberType: (member: string | number) => Type
+    public readonly data: ExtraData
+
     constructor(
         public readonly name: string,
-        {getMemberType = (m) => Type.unknown}: {
+        {getMemberType = (m) => Type.unknown, data = null}: {
             getMemberType?: (member: string | number) => Type,
+            data?: ExtraData
         } = {}
     ) {
         this.getMemberType = getMemberType;
+        this.data = data;
     }
 
     matches(other: Type) {

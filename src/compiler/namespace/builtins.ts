@@ -6,6 +6,7 @@ import { ActionBlock, CodeBlock } from "../codeBlock.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { DefinitionType, FunctionDefinition, ValueDefinition } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
+import { TYPE_DOMAIN_ACTIONS } from "../../data/constants.ts";
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
     return {
@@ -19,14 +20,20 @@ export function generateGameValueHook(valueName: string, dfName: string, target:
 
 
 export function generateActionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, target: TargetType = TargetType.UNSET): FunctionDefinition {
+    let actionDef = AD.actions.get(codeblock)?.[actionDFName];
+
+    // TODO: support multiple return values
+    let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
+    let tcReturnType = dfReturnType ? AD.dfTypeToTC.get(dfReturnType)! : null;
+
     return {
         definitionType: DefinitionType.FUNCTION,
+        returnType: tcReturnType,
         compile: (args, namedArgs, ctx): [CodeValue, CodeBlock[]] => {
             let tags: ActionTagValue[] = [];
             // todo: default tag values
 
             // tag parsing
-            let actionDef = AD.actions.get(codeblock)?.[actionDFName];
             if (actionDef) {
                 for (const [nameExpr, arg] of namedArgs.entries()) {
                     let tagDef = actionDef.tcTagMap[nameExpr.token.value];
@@ -64,10 +71,22 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                 }
             }
 
-            let code: CodeBlock[] = [
-                new ActionBlock(codeblock,{action: actionDFName, args: args.filter(v => v instanceof TangibleValue), tags: tags, target: target})
-            ]
-            return [new EmptyValue(), code];
+            let code = new ActionBlock(codeblock,{
+                action: actionDFName, 
+                args: args.filter(v => v instanceof TangibleValue), 
+                tags: tags, 
+                target: target
+            });
+
+            let returnValue: CodeValue;
+            if (tcReturnType) {
+                returnValue = ctx.tvp.newTempVar(tcReturnType);
+                code.args.unshift(returnValue as VariableValue);
+            } else {
+                returnValue = new EmptyValue()
+            }
+
+            return [returnValue, [code]];
         }
     }
 }
@@ -139,3 +158,20 @@ export function registerBuiltinNamespaces() {
         ...gameValueEntries(TargetType.UNSET, v => v.targetType == AD.GameValueTargetType.UNTARGETED)
     ]));
 }
+
+//=-------------------=\\
+//=- type namespaces -=\\
+//=-------------------=\\
+
+function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition} {
+    let members = {};
+    for (const actionName of TYPE_DOMAIN_ACTIONS[typeName]) {
+        let tcName = AD.getTCActionName(DFCodeblockName.SET_VARIABLE,actionName);
+        members[tcName] = generateActionHook(tcName, DFCodeblockName.SET_VARIABLE, actionName);
+    }
+    return members;
+}
+
+export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
+    num: new Namespace('num', typeActionMembers('num'))
+};

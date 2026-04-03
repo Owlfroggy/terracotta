@@ -4,7 +4,7 @@ import { EventStatement, ExpressionStatement, Statement } from "../ast/statement
 import { Token, TokenType } from "../ast/token.ts";
 import { TCError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
-import { Type } from "./type.ts";
+import { FuncTypeData, Type } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 
 export enum VariableScope {
@@ -244,9 +244,11 @@ export class TypeProcessor {
         else if (expression instanceof AccessExpression) {
             return this.getRequirements(expression.accessee, frame);
         }
-        else if (expression instanceof CallExpression && expression.callee.getRealExpression() instanceof AtomicExpression) {
-            // if calling an identifier as a function, dont count that identifier as a requirement
-            return this.getRequirements(expression.args, frame);
+        else if (expression instanceof CallExpression) {
+            // the return type of a function doesn't depend on its args so the args don't need to be known
+            // some shenanigans are gonna need to be done for functions that depend on tags but
+            // i wont worry about that rn
+            return []
         }
         else if (expression instanceof AtomicExpression) {
             if (expression.token.type == TokenType.IDENTIFIER && expression.token.value in Namespace.registry) {
@@ -376,8 +378,11 @@ export class TypeProcessor {
             return this.evaluateExpression(expression.accessee).getMemberType(expression.propertyName.value);
         }
         else if (expression instanceof CallExpression) {
-            // TODO: implement functions
-            // also remember CallOrStartExpression!!!
+            let calleeType = this.evaluateExpression(expression.callee);
+            if (calleeType.name == 'func') {
+                let data = calleeType.data as FuncTypeData
+                return data.definition.returnType ?? Type.unknown;
+            }
             return Type.unknown;
         }
         else if (expression instanceof BinaryExpression) {

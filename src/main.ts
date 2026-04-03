@@ -14,17 +14,18 @@ import { dirWithoutRelations } from "./util/debug.ts";
 registerBuiltinNamespaces()
 
 let test = `
-// testing parser here
--default.dignus() - --2;
-
 playerevent join {
-    default.sendMessage('should be -5 -3 4 6');
-    default.sendMessage(-5); // -5
-    default.sendMessage(-5 - -2); // -3
-    line dingus = -5;
-    default.sendMessage(-dingus - 1); // 4
-    line blongus = -dingus;
-    default.sendMessage(blongus + 1); // 6
+    line dingus = num.round(5.2, mode="Floor");
+
+    default.sendMessage(dingus + 1); // 6
+}
+
+playerevent sneak {
+    default.sendMessage(
+        "you're y level (clamped): "
+        +
+        num.clamp(default.y, 49, 51)
+    );
 }
 `
 

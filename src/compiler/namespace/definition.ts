@@ -13,6 +13,7 @@ export type Definition = FunctionDefinition | ValueDefinition;
 
 export interface FunctionDefinition {
     definitionType: DefinitionType.FUNCTION,
+    returnType: Type | null,
     // todo: signature
     compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext): [CodeValue, CodeBlock[]];
 }

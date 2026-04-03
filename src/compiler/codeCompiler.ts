@@ -225,7 +225,8 @@ export class CodeCompiler {
                 // TODO: args
                 // TODO: handle return types
                 let [value, code] = callee.definition.compile(args,namedArgs, this.getEvaluationContext());
-                return [new EmptyValue(e), [...preCode, ...argCode, ...code]];
+                value.astNode = e;
+                return [value, [...preCode, ...argCode, ...code]];
             }
             else {
                 return [new MissingValue(e), [...preCode]];
