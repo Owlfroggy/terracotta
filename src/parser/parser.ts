@@ -524,7 +524,7 @@ export class Parser {
             }
         } else {
             // this branch will run every time for a error-free ast
-            left = nudProps.processor(bp); // advances position
+            left = nudProps.processor(nudProps.bp); // advances position
         }
 
         let ledProps = this.currentTokenLEDProps();

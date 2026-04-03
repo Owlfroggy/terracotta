@@ -3,13 +3,18 @@ import { actions, DFCodeblockName } from "../df/actiondump.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { ActionBlock, CodeBlock } from "./codeBlock.ts";
 import { EvaluationContext } from "./codeCompiler.ts";
-import { ActionTagValue, CodeValue, MissingValue, TangibleValue } from "./codeValue.ts";
+import { ActionTagValue, CodeValue, MissingValue, NumberValue, TangibleValue } from "./codeValue.ts";
 
-type OperationHandler = (left: TangibleValue, right: TangibleValue, ctx: EvaluationContext) => [TangibleValue, CodeBlock[]];
-
-type OperationDefinition = {
+type BinaryOperationHandler = (left: TangibleValue, right: TangibleValue, ctx: EvaluationContext) => [TangibleValue, CodeBlock[]];
+type BinaryOperationDefinition = {
     resultType: Type,
-    handler: OperationHandler,
+    handler: BinaryOperationHandler,
+}
+
+type UnaryOperationHandler = (val: TangibleValue, ctx: EvaluationContext) => [TangibleValue, CodeBlock[]];
+type UnaryOperationDefinition = {
+    resultType: Type,
+    handler: UnaryOperationHandler,
 }
 
 
@@ -37,7 +42,12 @@ export const INCREMENTOR_OPERATIONS: Map<TokenType, TokenType> = new Map([
 ]);  
 
 export class Operations {
-    static binaryOperations: Map<Type,Map<TokenType,Map<Type,OperationDefinition>>> = new Map();
+    static binaryOperations: Map<Type,Map<TokenType,Map<Type,BinaryOperationDefinition>>> = new Map();
+    static unaryOperations: Map<TokenType, Map<Type, UnaryOperationDefinition>> = new Map();
+
+    //=---------------------=\\
+    //=- binary operations -=\\
+    //=---------------------=\\
 
     /**
      * @param bidirectional If true, automatically register `right op left -> result`
@@ -47,7 +57,7 @@ export class Operations {
         left: Type, op: TokenType, right: Type, 
         result: Type, 
         commutative: boolean, 
-        handler: OperationHandler
+        handler: BinaryOperationHandler
     ) {
         for (const [l, r] of ((commutative && left != right) ? [[left, right], [right, left]] : [[left, right]])) {
             let leftMap = this.binaryOperations.get(l);
@@ -110,6 +120,68 @@ export class Operations {
         );
     }
 
+    //=--------------------=\\
+    //=- unary operations -=\\
+    //=--------------------=\\
+
+    /**
+     * @param bidirectional If true, automatically register `right op left -> result`
+     * as well as `left op right -> result` (assuming that left and right are different)
+     */
+    static registerUnary(
+        op: TokenType, val: Type, 
+        result: Type, 
+        handler: UnaryOperationHandler
+    ) {
+        let opMap = this.unaryOperations.get(op);
+        if (opMap == undefined) {
+            opMap = new Map();
+            this.unaryOperations.set(op, opMap)
+        };
+
+        opMap.set(val, {
+            resultType: result,
+            handler: handler,
+        });
+    }
+
+    static evaluateUnaryValue(op: Token, val: CodeValue, ctx: EvaluationContext): [CodeValue, CodeBlock[]] {
+        let opSymbol = op.value;
+        let opType = INCREMENTOR_OPERATIONS.has(op.type) ? INCREMENTOR_OPERATIONS.get(op.type)! : op.type;
+        // make sure left and right are both tangible
+        if (!(val instanceof TangibleValue)) {
+            if (!(val instanceof MissingValue)) {
+                ctx.reportError(
+                    op.startPos, op.endPos, 
+                    `Operation '${opSymbol}' cannot be applied to ${val.constructor.name}`
+                );
+            }
+            return [new MissingValue(op.parent ?? op), []];
+        }
+
+        let valType = val.getType(ctx);
+        let def = this.unaryOperations.get(opType)?.get(valType);
+
+        if (!def) {
+            ctx.reportError(
+                op.startPos, op.endPos,
+                `Incompatible types, operation '${opSymbol}' cannot be applied to type '${valType.name}'`
+            );
+            return [new MissingValue(op.parent ?? op), []];
+        }
+
+        return def.handler(val, ctx);
+    }
+
+    /** returns Type.unknown if this is not a valid operaton */
+    static evaluateUnaryType(op: TokenType, right: Type): Type {
+        return (
+            this.unaryOperations.get(op)?.get(right)?.resultType
+            ?? Type.unknown
+        );
+    }
+
+
     static isAssignmentOperator(op: TokenType): boolean {
         if (op == TokenType.EQUALS) return true;
         return INCREMENTOR_OPERATIONS.has(op);
@@ -120,7 +192,7 @@ export class Operations {
 //=- handler generators -=\\
 //=----------------------=\\
 
-function singleActionHandler(resultType: Type, action: string, tags: ActionTagValue[] = [], codeblock: DFCodeblockName = DFCodeblockName.SET_VARIABLE): OperationHandler {
+function singleActionHandler(resultType: Type, action: string, tags: ActionTagValue[] = [], codeblock: DFCodeblockName = DFCodeblockName.SET_VARIABLE): BinaryOperationHandler {
     return (left, right, ctx) => {
         let v = ctx.tvp.newTempVar(resultType);
         let block = new ActionBlock(codeblock,{
@@ -135,6 +207,29 @@ function singleActionHandler(resultType: Type, action: string, tags: ActionTagVa
 //=-------------------------=\\
 //=- operation definitions -=\\
 //=-------------------------=\\
+
+//=- unary operations -=\\
+
+Operations.registerUnary(TokenType.MINUS, Type.num, Type.num, (val, ctx) => {
+    if (val instanceof NumberValue) {
+        let valString = val.value;
+        if (valString.startsWith("-")) {
+            valString = valString.substring(1);
+        } else {
+            valString = "-" + valString;
+        }
+        return [new NumberValue(valString, val.astNode?.parent ?? undefined), []];
+    } else {
+        let v = ctx.tvp.newTempVar(Type.num);
+        let block = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+            action: "x",
+            args: [v, val, new NumberValue("-1")],
+        });
+        return [v, [block]];
+    }
+})
+
+// binary ops below this point
 
 //=- num -=\\
 

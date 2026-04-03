@@ -133,9 +133,9 @@ export enum BindingPower {
     MULT,
     EXPO,
     TYPECAST,
+    PREFIX,
     CALL,
     ACCESS,
-    PREFIX,
     GROUP,
     ATOM,
 }

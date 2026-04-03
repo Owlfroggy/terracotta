@@ -8,7 +8,7 @@ import { ActionBlock, CodeBlock, EventBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
@@ -172,6 +172,14 @@ export class CodeCompiler {
                 this.getEvaluationContext()
             )
             return [result, [...lCode, ...rCode, ...oprCode]];
+        }
+        if (e instanceof UnaryPrefixExpression) {
+            let [right, rCode] = this.compileExpression(e.right);
+            let [result, oprCode] = Operations.evaluateUnaryValue(
+                e.operator, right, 
+                this.getEvaluationContext()
+            )
+            return [result, [...rCode, ...oprCode]];
         }
         else if (e instanceof CallExpression) {
             let [callee, preCode] = this.compileExpression(e.callee);

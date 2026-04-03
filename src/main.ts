@@ -14,36 +14,17 @@ import { dirWithoutRelations } from "./util/debug.ts";
 registerBuiltinNamespaces()
 
 let test = `
+// testing parser here
+-default.dignus() - --2;
+
 playerevent join {
-    default.sendMessage("+ 7",      5 + 2);
-    default.sendMessage("- 3",      5 - 2);
-    default.sendMessage("* 10",     5 * 2);
-    default.sendMessage("/ 2.5",    5 / 2);
-    default.sendMessage("** 25",    5 ** 2);
-    
-
-    default.sendMessage("| 21",     5 | 20);
-    default.sendMessage("& 4",      5 & 20);
-    default.sendMessage("^ 17",     5 ^ 20);
-    default.sendMessage("<<",       5 << 20);
-    default.sendMessage(">>",       5 >> 20);
-    default.sendMessage(">>>",      5 >>> 20);
-    
-    default.sendMessage("^|",       5 ^| 20);
-    default.sendMessage("^&",       5 ^& 20);
-    default.sendMessage("^^",       5 ^^ 20);
-    default.sendMessage("^<<",      5 ^<< 20);
-    default.sendMessage("^>>",      5 ^>> 20);
-    default.sendMessage("^>>>",     5 ^>>> 20);
-
-    // thanks df for giving us the beauty of
-    // value Preciseunsignedrightshiftequals 2
-    line value = 0.020;
-    value ^>>>= 0.020;
-    default.sendMessage(value);
-
-    // i still have no idea how these precise operators work btw
-    // but they compile into the right codeblock so 👍
+    default.sendMessage('should be -5 -3 4 6');
+    default.sendMessage(-5); // -5
+    default.sendMessage(-5 - -2); // -3
+    line dingus = -5;
+    default.sendMessage(-dingus - 1); // 4
+    line blongus = -dingus;
+    default.sendMessage(blongus + 1); // 6
 }
 `
 

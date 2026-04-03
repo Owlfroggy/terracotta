@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, ListExpression, TypecastExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { TCError } from "../error/error.ts";
@@ -383,6 +383,12 @@ export class TypeProcessor {
         else if (expression instanceof BinaryExpression) {
             return Operations.evaluateBinaryType(
                 this.evaluateExpression(expression.left, frame),
+                expression.operator.type,
+                this.evaluateExpression(expression.right, frame),
+            )
+        }
+        else if (expression instanceof UnaryPrefixExpression) {
+            return Operations.evaluateUnaryType(
                 expression.operator.type,
                 this.evaluateExpression(expression.right, frame),
             )
