@@ -376,8 +376,8 @@ export class TypeProcessor {
 
     evaluateExplicitType(expression: TypeExpression): Type {
         let name = expression.baseType.value;
-        if (name in Type.registry) {
-            return Type.registry[name];
+        if (Type[name] && Type[name] instanceof Type) {
+            return Type[name];
         } else {
             this.reportError(
                 expression.baseType.startPos, expression.baseType.endPos,

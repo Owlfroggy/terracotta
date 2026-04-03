@@ -1,17 +1,20 @@
 import { DFCodeblockName, TargetType } from "../../df/actiondump.ts";
-import { TCError } from "../../error/error.ts";
-import { ActionBlock, CodeBlock } from "../codeBlock.ts";
-import { EvaluationContext } from "../codeCompiler.ts";
-import { CodeValue, TangibleValue, ActionTagValue, EmptyValue, StringValue, VariableValue } from "../codeValue.ts";
+import { DFValueType } from "../../df/actiondump.ts";
 import * as AD from "../../df/actiondump.ts";
-import { AtomicExpression } from "../../ast/expression.ts";
+import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
+import { ActionBlock, CodeBlock } from "../codeBlock.ts";
 import { Type } from "../../typeProcessor/type.ts";
-import { DefinitionType } from "./namespace.ts";
+import { DefinitionType, FunctionDefinition, ValueDefinition } from "./definition.ts";
+import { Namespace } from "./namespace.ts";
 
-export interface FunctionDefinition {
-    definitionType: DefinitionType.FUNCTION,
-    // todo: signature
-    compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext): [CodeValue, CodeBlock[]];
+export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
+    return {
+        definitionType: DefinitionType.VALUE,
+        returnType: AD.dfTypeToTC.get(AD.gameValues[dfName]?.type ?? DFValueType.ANY_TYPE)!,
+        compile: (ctx) => {
+            return [new GameValueValue(dfName, target), []];
+        }
+    }
 }
 
 
@@ -66,5 +69,48 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             ]
             return [new EmptyValue(), code];
         }
+    }
+}
+
+function codeblockActionEntries(block: DFCodeblockName, target: TargetType = TargetType.UNSET): [string, FunctionDefinition][] {
+    let actions = Object.values(AD.actions.get(block)!);
+    return actions.filter(a => !a.isLegacy).map(
+        a => {
+            let tcName = AD.getTCActionName(block, a.name);
+            return [tcName, generateActionHook(tcName, block, a.name, target)]
+        }
+    )
+}
+
+function gameValueEntries(target: TargetType, filter: (v: AD.GameValue) => boolean) {
+    return (
+        Object.values(AD.gameValues)
+            .filter(filter)
+            .map(v => {
+                let tcName = AD.getTCGameValueName(v.name);
+                return [tcName, generateGameValueHook(
+                    tcName,
+                    v.name,
+                    target
+                )]
+            })
+    );
+}
+
+export function registerBuiltinNamespaces() {
+    // player action namespaces
+    for (const [identifier, target] of [
+        ["selected",   TargetType.SELECTION],
+        ["default",    TargetType.DEFAULT],
+        ["killer",     TargetType.KILLER],
+        ["damager",    TargetType.DAMAGER],
+        ["shooter",    TargetType.SHOOTER],
+        ["victim",     TargetType.VICTIM],
+        ["allPlayers", TargetType.ALL_PLAYERS],
+    ] as [string, TargetType][]) {
+        new Namespace(identifier, Object.fromEntries([
+            ...codeblockActionEntries(DFCodeblockName.PLAYER_ACTION, target),
+            ...gameValueEntries(target, v => v.targetType == AD.GameValueTargetType.TARGETS_ANYTHING || v.targetType == AD.GameValueTargetType.TARGETS_PLAYERS)
+        ]));
     }
 }

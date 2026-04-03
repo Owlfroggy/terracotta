@@ -4,7 +4,6 @@ import { Type } from "../typeProcessor/type.ts";
 import { ActionBlock, CodeBlock } from "./codeBlock.ts";
 import { EvaluationContext } from "./codeCompiler.ts";
 import { CodeValue, MissingValue, TangibleValue } from "./codeValue.ts";
-import { TempVarProvider } from "./tempVarProvider.ts";
 
 type OperationHandler = (left: TangibleValue, right: TangibleValue, ctx: EvaluationContext) => [TangibleValue, CodeBlock[]];
 
@@ -116,7 +115,6 @@ function singleActionHandler(resultType: Type, action: string, codeblock: DFCode
 //=-------------------------=\\
 //=- operation definitions -=\\
 //=-------------------------=\\
-
 
 Operations.registerBinary(Type.num, TokenType.PLUS, Type.num, Type.num, false, 
     singleActionHandler(Type.num, "+"));

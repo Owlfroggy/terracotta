@@ -1,6 +1,12 @@
+import { DefinitionType } from "../compiler/namespace/definition.ts";
+import { Namespace } from "../compiler/namespace/namespace.ts";
+
 export class Type {
-    public static registry: {[name: string]: Type} = {};
-    
+    /** types that variables can store */
+    public static assignableTypes: Set<string> = new Set([
+        'any', 'num', 'str', 'txt', 'list', 'dict', 'item', 'loc', 'vec', 'pot', 'par', 'snd'
+    ])
+
     public static any = new Type('any');
     public static num = new Type('num');
     public static str = new Type('str');
@@ -16,13 +22,35 @@ export class Type {
     public static var = new Type('var');
     public static unknown = this.any; // just in case unknown type ever needs to be separated
 
+    // public static func = (definition: Definition) => {
+    //     return new Type('func', {});
+    // }
 
-    constructor(
-        public readonly name: string
-    ) {
-        if (name in Type.registry) {
-            throw new Error(`Attempted to register type '${name}' even though a type of that name already exists`);
+    public static namespace = (namespace: Namespace) => {
+        let getMemberType = (m: string | number) => {
+            if (m in namespace.members) {
+                let def = namespace.members[m];
+                if (def.definitionType == DefinitionType.VALUE) {
+                    return def.returnType;
+                }
+            }
+            return Type.any;
         }
-        Type.registry[name] = this;
+        return new Type('namespace',{getMemberType})
+    }
+
+    public readonly assignable: boolean;
+    public readonly getMemberType: (member: string | number) => Type
+    constructor(
+        public readonly name: string,
+        {getMemberType = (m) => Type.unknown}: {
+            getMemberType?: (member: string | number) => Type,
+        } = {}
+    ) {
+        this.getMemberType = getMemberType;
+    }
+
+    matches(other: Type) {
+        return this.name == other.name;
     }
 }

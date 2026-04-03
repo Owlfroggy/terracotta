@@ -3,9 +3,8 @@ import { getCodeblockIdentifier, Tag, TargetType } from "../df/actiondump.ts";
 import * as AD from "../df/actiondump.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { dirWithoutRelations } from "../util/debug.ts";
 import { EvaluationContext } from "./codeCompiler.ts";
-import { FunctionDefinition } from "./namespace/functionDefinition.ts";
+import { FunctionDefinition } from "./namespace/definition.ts";
 import { Namespace } from "./namespace/namespace.ts";
 
 //=--------------------=\\
@@ -132,7 +131,6 @@ export class StringValue extends TangibleValue {
         return `str('${this.value}')`;
     }
 }
-
 
 export class StyledTextValue extends TangibleValue {
     constructor(

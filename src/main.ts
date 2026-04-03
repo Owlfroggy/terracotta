@@ -3,6 +3,7 @@ import { BinaryExpression, Expression, AtomicExpression, GroupExpression, ListEx
 import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SelectionStatement, SingleKeywordStatement, Statement, WhileStatement } from "./ast/statement.ts";
 import { Token, TokenType } from "./ast/token.ts";
 import { CodeCompiler } from "./compiler/codeCompiler.ts";
+import { registerBuiltinNamespaces } from "./compiler/namespace/builtins.ts";
 import { Namespace } from "./compiler/namespace/namespace.ts";
 import { TCError } from "./error/error.ts";
 import { Lexer } from "./parser/lexer.ts";
@@ -10,16 +11,12 @@ import { Parser } from "./parser/parser.ts";
 import { TypeProcessor } from "./typeProcessor/typeProcessor.ts";
 import { dirWithoutRelations } from "./util/debug.ts";
 
+registerBuiltinNamespaces()
+
 let test = `
-
 playerevent join {
-    default.sendMessage("youre health is "+default.health);
-}
-
-playerevent takeDamage {
-    default.sendActionBar(
-        "oh no!!! " + default.health + "/" + default.maxHealth 
-    );
+    line dingus = 5;
+    default.sendMessage("youre health is "+default.health+dingus);
 }
 `
 
@@ -221,10 +218,10 @@ const typeChecker = new TypeProcessor();
 typeChecker.collectionStage(parser.statements);
 typeChecker.evaluationStage()
 
-// console.log("type checker output-----")
-// // console.log(typeChecker.globalFrame.getVariableType("yeehaw"))
-// // console.dir(typeChecker.globalFrame,{depth: 6});
-// console.log(`${typeChecker.globalFrame}`);
+console.log("type checker output-----")
+// console.log(typeChecker.globalFrame.getVariableType("yeehaw"))
+// console.dir(typeChecker.globalFrame,{depth: 6});
+console.log(`${typeChecker.globalFrame}`);
 
 const compiler = new CodeCompiler(parser.statements, {types: typeChecker});
 let output = compiler.compile({outputFormat: "DFONLINE"});
