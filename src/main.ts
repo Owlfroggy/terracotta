@@ -14,9 +14,36 @@ import { dirWithoutRelations } from "./util/debug.ts";
 registerBuiltinNamespaces()
 
 let test = `
-playerevent takeDamage {
-    default.sendMessage("owchie: "+game.eventDamage);
-    game.cancelEvent();
+playerevent join {
+    default.sendMessage("+ 7",      5 + 2);
+    default.sendMessage("- 3",      5 - 2);
+    default.sendMessage("* 10",     5 * 2);
+    default.sendMessage("/ 2.5",    5 / 2);
+    default.sendMessage("** 25",    5 ** 2);
+    
+
+    default.sendMessage("| 21",     5 | 20);
+    default.sendMessage("& 4",      5 & 20);
+    default.sendMessage("^ 17",     5 ^ 20);
+    default.sendMessage("<<",       5 << 20);
+    default.sendMessage(">>",       5 >> 20);
+    default.sendMessage(">>>",      5 >>> 20);
+    
+    default.sendMessage("^|",       5 ^| 20);
+    default.sendMessage("^&",       5 ^& 20);
+    default.sendMessage("^^",       5 ^^ 20);
+    default.sendMessage("^<<",      5 ^<< 20);
+    default.sendMessage("^>>",      5 ^>> 20);
+    default.sendMessage("^>>>",     5 ^>>> 20);
+
+    // thanks df for giving us the beauty of
+    // value Preciseunsignedrightshiftequals 2
+    line value = 0.020;
+    value ^>>>= 0.020;
+    default.sendMessage(value);
+
+    // i still have no idea how these precise operators work btw
+    // but they compile into the right codeblock so 👍
 }
 `
 
