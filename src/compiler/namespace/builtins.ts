@@ -113,4 +113,23 @@ export function registerBuiltinNamespaces() {
             ...gameValueEntries(target, v => v.targetType == AD.GameValueTargetType.TARGETS_ANYTHING || v.targetType == AD.GameValueTargetType.TARGETS_PLAYERS)
         ]));
     }
+
+    // entity action namespaces
+    for (const [identifier, target] of [
+        ["selectedEntity",   TargetType.SELECTION],
+        ["defaultEntity",    TargetType.DEFAULT],
+        ["killerEntity",     TargetType.KILLER],
+        ["damagerEntity",    TargetType.DAMAGER],
+        ["shooterEntity",    TargetType.SHOOTER],
+        ["victimEntity",     TargetType.VICTIM],
+        ["projectileEntity", TargetType.PROJECTILE],
+        ["allEntities",      TargetType.ALL_PLAYERS],
+        ["allMobs",          TargetType.ALL_MOBS],
+        ["lastEntity",       TargetType.LAST_ENTITY],
+    ] as [string, TargetType][]) {
+        new Namespace(identifier, Object.fromEntries([
+            ...codeblockActionEntries(DFCodeblockName.ENTITY_ACTION, target),
+            ...gameValueEntries(target, v => v.targetType == AD.GameValueTargetType.TARGETS_ANYTHING || v.targetType == AD.GameValueTargetType.TARGETS_ENTITIES)
+        ]));
+    }
 }

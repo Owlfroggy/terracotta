@@ -15,8 +15,8 @@ registerBuiltinNamespaces()
 
 let test = `
 playerevent join {
-    line dingus = default.maxHealth;
-    default.sendMessage("youre health is "+default.health+dingus);
+    defaultEntity.remove();
+    default.sendMessage(defaultEntity.maxHealth);
 }
 `
 
