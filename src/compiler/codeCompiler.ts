@@ -14,6 +14,7 @@ import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
 import { DefinitionType } from "./namespace/definition.ts";
+import { Type } from "../typeProcessor/type.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -248,7 +249,7 @@ export class CodeCompiler {
                 if (!(accessee instanceof MissingValue)) {
                     this.reportError(
                         e.propertyName.startPos, e.propertyName.endPos,
-                        `Property access not allowed on this value` // TODO: better error message
+                        `Property access not allowed on type '${accessee.getType(this.getEvaluationContext()).name}'` // TODO: better error message
                     );
                 }
                 return [new MissingValue(e), preCode];
@@ -333,6 +334,15 @@ export class CodeCompiler {
                         e.left.startPos, e.left.endPos,
                         `Left-hand side of an assignment statement must be a variable`
                     )
+                    return [];
+                }
+
+                let valueType = value.getType(this.getEvaluationContext());
+                if (!Type.assignableTypes.has(valueType.name)){
+                    this.reportError(
+                        e.right.startPos, e.right.endPos,
+                        `Type '${valueType.name}' cannot be stored in variables`
+                    );
                     return [];
                 }
 

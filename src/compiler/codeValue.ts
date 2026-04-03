@@ -48,10 +48,18 @@ export abstract class TangibleValue extends CodeValue {
 //=-------------------=\\
 
 export class NamespaceValue extends InternalValue {
+    private type: Type;
     constructor(
         public namespace: Namespace,
         astNode?: ASTNode
-    ) { super(astNode); }
+    ) { 
+        super(astNode); 
+        this.type = Type.namespace(namespace);
+    }
+
+    getType(ctx: EvaluationContext): Type {
+        return this.type;
+    }
 }
 
 export class FunctionValue extends InternalValue {

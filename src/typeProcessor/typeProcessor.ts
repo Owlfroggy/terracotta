@@ -5,6 +5,7 @@ import { Token, TokenType } from "../ast/token.ts";
 import { TCError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
 import { Type } from "./type.ts";
+import { Namespace } from "../compiler/namespace/namespace.ts";
 
 export enum VariableScope {
     GLOBAL,
@@ -247,6 +248,14 @@ export class TypeProcessor {
             // if calling an identifier as a function, dont count that identifier as a requirement
             return this.getRequirements(expression.args, frame);
         }
+        else if (expression instanceof AtomicExpression) {
+            if (expression.token.type == TokenType.IDENTIFIER && expression.token.value in Namespace.registry) {
+                // dont count namespace identifiers as variable requirements
+                return []
+            } else {
+                return this.getRequirements(expression.token, frame);
+            }
+        }
         else if (expression instanceof Token && expression.type == TokenType.IDENTIFIER) {
             return [{item: expression.value, atPos: expression.startPos}];
         }
@@ -345,7 +354,12 @@ export class TypeProcessor {
         if (expression instanceof AtomicExpression) {
             let token = expression.token;
             switch (token.type) {
-                case TokenType.IDENTIFIER: return frame.getVariableType(token.value,token.startPos);
+                case TokenType.IDENTIFIER: {
+                    if (token.value in Namespace.registry) {
+                        return Type.namespace(Namespace.registry[token.value]);
+                    }
+                    return frame.getVariableType(token.value,token.startPos)
+                };
                 case TokenType.NUMERIC_LITERAL: return Type.num;
                 case TokenType.STRING_LITERAL: return Type.str;
                 case TokenType.STYLED_LITERAL: return Type.txt;
@@ -357,6 +371,9 @@ export class TypeProcessor {
         }
         else if (expression instanceof TypecastExpression) {
             return this.evaluateExplicitType(expression.type);
+        }
+        else if (expression instanceof AccessExpression) {
+            return this.evaluateExpression(expression.accessee).getMemberType(expression.propertyName.value);
         }
         else if (expression instanceof CallExpression) {
             // TODO: implement functions
