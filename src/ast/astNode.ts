@@ -1,3 +1,4 @@
+import { Statement } from "./statement.ts";
 import { Token } from "./token.ts";
 
 export class ASTNode {
@@ -10,6 +11,23 @@ export class ASTNode {
         /** exclusive */
         public readonly endPos: number,
     ) {}
+
+    getRoot(): RootNode {
+        return this.parent!.getRoot();
+    }
+}
+
+
+export class RootNode extends ASTNode {
+    public scriptContents: string;
+
+    constructor(
+        public readonly statements: Statement[],
+    ) {super(-1, -1);}
+
+    getRoot(): RootNode {
+        return this;
+    }
 }
 
 export interface CommentHolder {

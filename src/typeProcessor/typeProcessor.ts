@@ -2,7 +2,7 @@ import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
-import { TCError } from "../error/error.ts";
+import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
 import { FuncTypeData, Type } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
@@ -212,11 +212,17 @@ export class VariableId {
 }
 
 export class TypeProcessor {
-    errors: TCError[];
+    errors: TCError[] = [];
     globalFrame: EnvironmentFrame = new EnvironmentFrame(null,null);
     framesByASTNode: Map<ASTNode, EnvironmentFrame> = new Map();
 
-    reportError(startPos: number, endPos: number, error: string) {}
+    reportError(node: ASTNode, error: string) {
+       this.errors.push(new TCNodeError(
+            node,
+            ErrorType.TYPE_PROCESSOR,
+            error
+        ));
+    }
 
     getRequirements(expression: ASTNode, frame: EnvironmentFrame): Requirement[] {
         if (expression instanceof Expression) expression = expression.getRealExpression();
@@ -408,7 +414,7 @@ export class TypeProcessor {
             return Type[name];
         } else {
             this.reportError(
-                expression.baseType.startPos, expression.baseType.endPos,
+                expression,
                 `Invalid type '${name}'`
             );
             return Type.unknown;

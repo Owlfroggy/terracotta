@@ -1,8 +1,8 @@
-import { ASTNode } from "../ast/astNode.ts";
+import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, ProcessStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
-import { ErrorType, TCError } from "../error/error.ts";
+import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { dirWithoutRelations } from "../util/debug.ts";
 
 export const VARIABLE_SCOPE_KEYWORDS = [TokenType.GLOBAL,TokenType.SAVED,TokenType.LOCAL,TokenType.LOCAL];
@@ -135,9 +135,9 @@ export class Parser {
     }
 
 
-    reportError(startPos: number, endPos: number, message: string) {
-        this.errors.push(new TCError(
-            startPos, endPos,
+    reportError(node: ASTNode, message: string) {
+        this.errors.push(new TCNodeError(
+            node,
             ErrorType.PARSER,
             message
         ));
@@ -145,9 +145,9 @@ export class Parser {
 
     /** Reports an error that should not be displayed to the user since
      *  a later compilation sstep will provide a more detailed breakdown */
-    reportUndisplayedError(startPos: number, endPos: number, message: string) {
-        let e = new TCError(
-            startPos, endPos,
+    reportUndisplayedError(node: ASTNode, message: string) {
+        let e = new TCNodeError(
+            node,
             ErrorType.PARSER,
             message
         );
@@ -165,7 +165,7 @@ export class Parser {
             return [currentToken, true];
         } else {
             this.reportError(
-                currentToken.startPos, currentToken.endPos,
+                currentToken,
                 `expected ${Array.isArray(type) ? ("one of "+type.map(t => TokenType[t]).join(", ")) : TokenType[type]} got ${currentToken}`
             );
             return [currentToken, false];
@@ -232,7 +232,7 @@ export class Parser {
             && type != TokenType.IDENTIFIER
         ) {
             this.reportUndisplayedError(
-                token.startPos, token. endPos,
+                token,
                 `Expected atomic expression, got ${token}`
             );
             return new MissingExpression(token.startPos);
@@ -504,7 +504,7 @@ export class Parser {
         if (nudProps == null) {
             // EVERYTHING IN THIS IF STATEMENT IS ERROR RECOVERY!!
             this.reportUndisplayedError(
-                this.currentToken().startPos, this.currentToken().endPos,
+                this.currentToken(),
                 `Expected a value here, got ${this.currentToken()}`
             );
             let missing = new MissingExpression(this.currentToken().startPos);
@@ -704,12 +704,12 @@ export class Parser {
         return new ReturnStatement(keyword, values);
     }
 
-    parse() {
+    parse(): RootNode {
         this.statements.length = 0;
         this.errors.length = 0;
+        this.position = 0;
 
         let chunk = this.parseChunkExpression(TokenType.MISSING, TokenType.EOF) as ChunkExpression;
-        this.statements.push(...chunk.statements);
 
         // assign 'parent' field of all nodes
         let processChildren = (n: ASTNode) => {
@@ -736,8 +736,16 @@ export class Parser {
             }
         }
 
-        for (const statement of this.statements) {
+        let statements = [];
+        let root = new RootNode(statements)
+
+        for (const statement of chunk.statements) {
             processChildren(statement);
+            statement.parent = root;
+            root.children.push(statement);
+            root.statements.push(statement);
         }
+
+        return root;
     }
 }

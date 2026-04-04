@@ -7,7 +7,7 @@ import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/u
 import { ActionBlock, CodeBlock, EventBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
-import { ErrorType, TCError } from "../error/error.ts";
+import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression, GroupExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
@@ -21,10 +21,11 @@ export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS;
 
 export type HeaderType = EventType | UserMethodType;
 
+export type CompliationEnvironment = {types: TypeProcessor};
 export type EvaluationContext = {
     tvp: TempVarProvider,
     types: TypeProcessor,
-    reportError: (startPos: number, endPos: number, message: string) => void,
+    reportError: (node: ASTNode, message: string) => void,
 }
 
 function jsonize(line: CodeBlock[]): string {
@@ -79,7 +80,7 @@ export class CodeCompiler {
 
     constructor(
         public ast: Statement[],
-        public env: {types: TypeProcessor},
+        public env: CompliationEnvironment,
     ) {}
 
     getEvaluationContext(): EvaluationContext {
@@ -90,9 +91,9 @@ export class CodeCompiler {
         }
     }
 
-    reportError = (startPos: number, endPos: number, message: string) => {
-        this.errors.push(new TCError(
-            startPos, endPos,
+    reportError = (node: ASTNode, message: string) => {
+        this.errors.push(new TCNodeError(
+            node,
             ErrorType.COMPILER,
             message
         ));
@@ -125,7 +126,7 @@ export class CodeCompiler {
                 let dfEvent = tcEventToDf.get(headerType)?.[tcEvent];
                 if (dfEvent == undefined) {
                     this.reportError(
-                        s.eventName.startPos, s.eventName.endPos, 
+                        s.eventName,
                         `Invalid ${headerType.toLowerCase()} '${tcEvent}'`
                     );
                     dfEvent = `$ERROR$ ${tcEvent}`;
@@ -142,7 +143,7 @@ export class CodeCompiler {
                     
                         if (adAction && !adAction.cancellable) {
                             this.reportError(
-                                m.startPos, m.endPos, 
+                                m,
                                 `${upperFirst(headerType.toLowerCase())} '${tcEvent}' cannot be cancelled automatically`
                             );
                         }
@@ -195,14 +196,14 @@ export class CodeCompiler {
                         let name = argNode.left;
                         if (!(name instanceof AtomicExpression && (name.token.type == TokenType.IDENTIFIER || name.token.type == TokenType.STRING_LITERAL))) {
                             this.reportError(
-                                name.startPos, name.endPos,
+                                name,
                                 `Argument name must be an identifier or string literal`
                             );
                             continue;
                         }
                         if (name.token.value in seenNames) {
                             this.reportError(
-                                argNode.startPos, argNode.endPos,
+                                argNode,
                                 `Argument '${name.token.value}' provided in multiple places`
                             );
                             continue;
@@ -240,7 +241,7 @@ export class CodeCompiler {
                 if (definition == undefined) {
                     // todo: special error messages for if the namespace is a player action or game action or whatever
                     this.reportError(
-                        e.propertyName.startPos, e.propertyName.endPos,
+                        e.propertyName,
                         `'${e.propertyName.value}' is not a property of '${accessee.namespace.identifier}''`
                     )
                     return [new MissingValue(e), preCode];
@@ -257,7 +258,7 @@ export class CodeCompiler {
             } else {
                 if (!(accessee instanceof MissingValue)) {
                     this.reportError(
-                        e.propertyName.startPos, e.propertyName.endPos,
+                        e.propertyName,
                         `Property access not allowed on type '${accessee.getType(this.getEvaluationContext()).name}'` // TODO: better error message
                     );
                 }
@@ -275,7 +276,7 @@ export class CodeCompiler {
                 )
             ) {
                 this.reportError(
-                    e.assignedType.startPos, e.assignedType.endPos,
+                    e.assignedType,
                     `Variable type annotation is not allowed here`
                 );
             }
@@ -298,7 +299,7 @@ export class CodeCompiler {
                         return [new VariableValue(varEntry.id.name, varEntry.id.scope, varEntry.type ?? undefined, e), []];
                     }
                     this.reportError(
-                        e.startPos, e.endPos,
+                        e,
                         `Could not resolve identifier '${e.token.value}'`
                     );
                     return [new MissingValue(e), []];
@@ -350,7 +351,7 @@ export class CodeCompiler {
                     || (e.left.getRealExpression() instanceof AtomicExpression && variable instanceof VariableValue)
                 )) {
                     this.reportError(
-                        e.left.startPos, e.left.endPos,
+                        e.left,
                         `Left-hand side of an assignment statement must be a variable`
                     )
                     return [];
@@ -359,7 +360,7 @@ export class CodeCompiler {
                 let valueType = value.getType(this.getEvaluationContext());
                 if (!Type.assignableTypes.has(valueType.name)){
                     this.reportError(
-                        e.right.startPos, e.right.endPos,
+                        e.right,
                         `Type '${valueType.name}' cannot be stored in variables`
                     );
                     return [];
@@ -368,7 +369,7 @@ export class CodeCompiler {
                 if (!(value instanceof TangibleValue)) {
                     if (!(value instanceof MissingValue)) {
                         this.reportError(
-                            value.astNode?.startPos ?? -1, value.astNode?.endPos ?? -1,
+                            value.astNode ?? e,
                             `${value.constructor.name} cannot be stored in variables`
                         );
                     }
@@ -399,7 +400,7 @@ export class CodeCompiler {
         return [];
     }
 
-    compile({outputFormat}: {outputFormat: "JSON" | "GZIP" | "DFONLINE"}) {
+    compile({outputFormat}: {outputFormat: "GZIP" | "DFONLINE"}) {
         let declarationsToCompile = this.processLineDeclarations(this.ast);
 
         for (const [lineEntry, declaration] of declarationsToCompile) {
@@ -410,20 +411,27 @@ export class CodeCompiler {
 
         //=- join code lines together and export them -=\\
         
-        let finalCodeLines: CodeBlock[][] = [];
+        let output: Map<HeaderType, {[name: string]: string}> = new Map([
+            [DFCodeblockName.PLAYER_EVENT, {}],
+            [DFCodeblockName.ENTITY_EVENT, {}],
+            [DFCodeblockName.GAME_EVENT, {}],
+            [DFCodeblockName.FUNCTION, {}],
+            [DFCodeblockName.PROCESS, {}],
+        ]);
         for (let [headerType, lineList] of this.codeLines.entries()) {
             for (let [name, line] of Object.entries(lineList)) {
-                // TODO: handle line.headerBlock being null by subbing in a default value
-                finalCodeLines.push(
-                    [line.headerBlock!, ...line.code.flat()]
-                );
+                let allCode = [line.headerBlock!, ...line.code.flat()];
+                let serialized: string = "error :(";
+                if (outputFormat == "DFONLINE") {
+                    serialized = `https://dfonline.dev/edit/?template=${gzipize(jsonize(allCode))}`;
+                } else {
+                    serialized = gzipize(jsonize(allCode));
+                }
+
+                output.get(headerType)![name] = serialized;
             }
         }
 
-        switch (outputFormat) {
-            case "JSON":    return finalCodeLines.map(l => jsonize(l));
-            case "GZIP":    return finalCodeLines.map(l => gzipize(jsonize(l)));
-            case "DFONLINE":return finalCodeLines.map(l => `https://dfonline.dev/edit/?template=${gzipize(jsonize(l))}`);
-        }
+        return output;
     }
 }

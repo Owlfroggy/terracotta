@@ -1,4 +1,4 @@
-import { ErrorType, TCError } from "../error/error.ts";
+import { ErrorType, TCError, TCManualError } from "../error/error.ts";
 import { Token, TokenType } from "../ast/token.ts";
 
 export class Lexer {
@@ -11,12 +11,13 @@ export class Lexer {
         public options: {
             includeWhitespaceTokens: boolean,
             includeSingleLineComments: boolean,
-        }
+        } = {includeSingleLineComments: false, includeWhitespaceTokens: false}
     ) {}
 
     reportError(startPos: number, endPos: number, message: string) {
-        this.errors.push(new TCError(
+        this.errors.push(new TCManualError(
             startPos, endPos,
+            this.script,
             ErrorType.LEXER,
             message
         ));

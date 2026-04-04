@@ -39,7 +39,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                     let tagDef = actionDef.tcTagMap[nameExpr.token.value];
                     if (!tagDef) {
                         ctx.reportError(
-                            nameExpr.startPos, nameExpr.endPos,
+                            nameExpr,
                             `Invalid tag name '${nameExpr.token.value}'`
                         );
                         continue;
@@ -48,7 +48,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                     let valType = arg.getType(ctx);
                     if (!(valType == Type.str || valType == Type.any)) {
                         ctx.reportError(
-                            arg.astNode?.startPos ?? -1, arg.astNode?.endPos ?? -1,
+                            arg.astNode ?? nameExpr,
                             `Expected string (str) for tag value, got '${valType.name}'`
                         );
                         continue;
@@ -57,7 +57,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                     if (arg instanceof StringValue) {
                         if (!(arg.value in tagDef.options)) {
                             ctx.reportError(
-                                arg.astNode?.startPos ?? -1, arg.astNode?.endPos ?? -1,
+                                arg.astNode ?? nameExpr,
                                 `'${arg.value}' is not a valid option for this tag`
                             );
                             continue;

@@ -87,7 +87,7 @@ export class Operations {
             if (!(v instanceof TangibleValue)) {
                 if (!(v instanceof MissingValue)) {
                     ctx.reportError(
-                        op.startPos, op.endPos, 
+                        op,
                         `Operation '${opSymbol}' cannot be applied to ${v.constructor.name}`
                     );
                 }
@@ -101,7 +101,7 @@ export class Operations {
 
         if (!def) {
             ctx.reportError(
-                op.startPos, op.endPos,
+                op,
                 `Incompatible types, operation '${opSymbol}' is not supported for case: ${leftType.name} ${opSymbol} ${rightType.name}`
             );
             return [new MissingValue(op.parent ?? op), []];
@@ -152,7 +152,7 @@ export class Operations {
         if (!(val instanceof TangibleValue)) {
             if (!(val instanceof MissingValue)) {
                 ctx.reportError(
-                    op.startPos, op.endPos, 
+                    op,
                     `Operation '${opSymbol}' cannot be applied to ${val.constructor.name}`
                 );
             }
@@ -164,7 +164,7 @@ export class Operations {
 
         if (!def) {
             ctx.reportError(
-                op.startPos, op.endPos,
+                op,
                 `Incompatible types, operation '${opSymbol}' cannot be applied to type '${valType.name}'`
             );
             return [new MissingValue(op.parent ?? op), []];
