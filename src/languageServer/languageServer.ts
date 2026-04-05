@@ -170,7 +170,6 @@ export class LanguageServer {
             let node = doc.getAstNodeAtIndex(index);
             if (node == null) return; // todo: this is bad
             let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
-            slog(`kablingus ${envFrame.astNode}`)
 
             function visualizeNodeAncestors(node: ASTNode, prev: ASTNode | null = null): string {
                 // if (node.parent == null) 
@@ -178,8 +177,8 @@ export class LanguageServer {
                 let thisNodeString = `${node.keyInParent} ${node}${cString}\n`;
                 return (node.parent == null ? "" : visualizeNodeAncestors(node.parent, node)) + thisNodeString;
             }
-            // slog("\nNode trace:");
-            // slog(visualizeNodeAncestors(node));
+            slog("\nNode trace:");
+            slog(visualizeNodeAncestors(node));
 
             let includeGenerics = true;
 
@@ -217,8 +216,6 @@ export class LanguageServer {
                 let seenVars: Map<string, Map<VariableScope, Type>> = new Map();
                 let varFrame: EnvironmentFrame | null = envFrame;
 
-                slog(`kablongus ${varFrame!.variables.size} ${varFrame.astNode}`);
-
                 while (varFrame != null) {
                     for (const scopeLayer of varFrame.variables.values()) {
                         for (const varLayer of scopeLayer.values()) {
@@ -231,9 +228,6 @@ export class LanguageServer {
                     }
                     varFrame = varFrame.parent;
                 }
-
-                slog(`hjasdfg ${seenVars.size}`);
-
 
                 // turn variable data into items
                 for (const [name, scopeLayer] of seenVars.entries()) {
