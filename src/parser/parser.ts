@@ -444,7 +444,7 @@ export class Parser {
                 this.expect(TokenType.COMMA);
             }
         }
-        let [closer, closerFound] = this.expect(TokenType.CLOSE_CURLY);
+        let [closer, closerFound] = this.expectOrMissing(TokenType.CLOSE_CURLY);
         return new DictionaryExpression(opener, entries, closer);
     }
 
