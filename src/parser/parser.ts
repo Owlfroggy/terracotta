@@ -728,7 +728,7 @@ export class Parser {
                             throw `->> Node owned by multiple parents??`;
                         } else {
                             c.parent = n;
-                            c.key = k;
+                            c.keyInParent = k;
                             n.children.push(c);
                             processChildren(c);
                         }

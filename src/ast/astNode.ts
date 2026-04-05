@@ -7,7 +7,7 @@ export class ASTNode {
      * the key in this node's parent that references this node 
      * this.parent[this.key] = this
      * */
-    public key: string = "";
+    public keyInParent: string = "";
     /** 
      * guaranteed to be sorted:
      * order is based on startPos, least to greatest

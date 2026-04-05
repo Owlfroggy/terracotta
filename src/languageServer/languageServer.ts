@@ -1,8 +1,14 @@
 import * as rpc from "vscode-jsonrpc/node.js"
 import * as AD from "../df/actiondump.ts"
-import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI } from "vscode-languageserver";
+import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind } from "vscode-languageserver";
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
+import { ASTNode } from "../ast/astNode.ts";
+import { AccessExpression } from "../ast/expression.ts";
+import { access } from "node:fs";
+import { NamespaceTypeData } from "../typeProcessor/type.ts";
+import { Namespace } from "../compiler/namespace/namespace.ts";
+import { DefinitionType } from "../compiler/namespace/definition.ts";
 
 type ServerTCConfiguration = {
     dfRank: AD.DFRank,
@@ -12,6 +18,39 @@ type ServerTCConfiguration = {
 //function that other things can call to log to the language server output when debugging
 export let slog = (...data: any[]) => {}
 export let snotif = (message: string, type: MessageType = MessageType.Info) => {}
+
+function generateNamespaceMemberCompletions(namespace: Namespace): CompletionItem[] {
+    let items: CompletionItem[] = [];
+    for (let [name, def] of Object.entries(namespace.members)) {
+        if (def.definitionType == DefinitionType.FUNCTION) {
+            // let isUnusable = !AD.RankCheck(tcConfig.dfRank,action?.RequiresRank!)
+            // if (isUnusable && tcConfig.rankBehavior == "hideInaccessible") { return }
+            items.push({
+                label: name,
+                kind: CompletionItemKind.Method,
+                commitCharacters: ["("],
+                data: {
+                    // type: CompletionItemType.DomainAction,
+                    // domainId: domain.Identifier,
+                    // memberId: action?.TCId,
+                },
+            })
+        }
+        else if (def.definitionType == DefinitionType.VALUE) {
+            items.push({
+                label: name,
+                kind: CompletionItemKind.Field,
+                commitCharacters: [";"],
+                data: {
+                    // type: CompletionItemType.DomainValue,
+                    // domainId: domain.Identifier,
+                    // memberId: value?.TCId
+                }
+            })
+        }
+    }
+    return items;
+}
 
 
 export class LanguageServer {
@@ -112,11 +151,28 @@ export class LanguageServer {
             let index = doc?.linePositionToIndex(param.position);
             if (index == undefined) return
 
-            let items: (CompletionItem | CompletionItem[])[] = [
-                {label: "dingus"}
-            ];
+            let items: (CompletionItem | CompletionItem[])[] = [];
 
-            slog(doc.getAstNodeAtIndex(index).constructor.name);
+            let node = doc.getAstNodeAtIndex(index);
+            if (node == null) return; // todo: this is bad
+
+            function visualizeNodeAncestors(node: ASTNode, prev: ASTNode | null = null): string {
+                // if (node.parent == null) 
+                let cString = node.children.map(c => `\n    ${c == prev ? "> " : ""}${c.keyInParent}  ${c}`).join("")
+                let thisNodeString = `${node.keyInParent} ${node}${cString}\n`;
+                return (node.parent == null ? "" : visualizeNodeAncestors(node.parent, node)) + thisNodeString;
+            }
+            slog("\nNode trace:");
+            slog(visualizeNodeAncestors(node));
+
+            if (node.parent instanceof AccessExpression && (node.keyInParent == "accessorToken" || node.keyInParent == "propertyName")) {
+                let accesseeType = doc.workspace.typeProcessor.evaluateExpression(node.parent.accessee, doc.workspace.typeProcessor.getNodeFrame(node));
+                if (accesseeType.name == "namespace") {
+                    let namespace = (accesseeType.data as NamespaceTypeData).namespace;
+                    items = generateNamespaceMemberCompletions(namespace);
+                }
+            }
+            
 
             slog ("Returned",items.length,"items")
             let response: CompletionList = {

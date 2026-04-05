@@ -5,7 +5,11 @@ export type FuncTypeData = {
     definition: FunctionDefinition;
 }
 
-type ExtraData = FuncTypeData | null;
+export type NamespaceTypeData = {
+    namespace: Namespace;
+}
+
+type ExtraData = FuncTypeData | NamespaceTypeData | null;
 
 export class Type {
     /** types that variables can store */
@@ -45,7 +49,7 @@ export class Type {
             }
             return Type.any;
         }
-        return new Type('namespace',{getMemberType})
+        return new Type('namespace',{getMemberType, data: {namespace}})
     }
 
     public readonly assignable: boolean;
