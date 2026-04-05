@@ -165,14 +165,34 @@ export class LanguageServer {
             slog("\nNode trace:");
             slog(visualizeNodeAncestors(node));
 
+            let includeGenerics = true;
+
+            //=--------------------------=\\
+            //=- context specific stuff -=\\
+            //=--------------------------=\\
+
             if (node.parent instanceof AccessExpression && (node.keyInParent == "accessorToken" || node.keyInParent == "propertyName")) {
                 let accesseeType = doc.workspace.typeProcessor.evaluateExpression(node.parent.accessee, doc.workspace.typeProcessor.getNodeFrame(node));
                 if (accesseeType.name == "namespace") {
                     let namespace = (accesseeType.data as NamespaceTypeData).namespace;
                     items = generateNamespaceMemberCompletions(namespace);
+                    includeGenerics = false;
                 }
             }
-            
+
+            //=-----------------=\\
+            //=- generic stuff -=\\
+            //=-----------------=\\
+            if (includeGenerics) {
+                // namespaces
+                for (const id of Object.keys(Namespace.registry)) {
+                    items.push({
+                        label: id,
+                        kind: CompletionItemKind.Module,
+                        commitCharacters: ["."],
+                    });
+                }
+            }
 
             slog ("Returned",items.length,"items")
             let response: CompletionList = {
