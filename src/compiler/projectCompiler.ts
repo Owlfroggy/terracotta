@@ -31,7 +31,7 @@ export async function compileProject(projectPath: string): Promise<CompiledProje
     let errors: TCError[] = [];
 
     let files = await fs.readdir(projectPath, {recursive: true, withFileTypes: true})
-    let lexer = new Lexer("");
+    let lexer = new Lexer();
     let parser = new Parser([]);
         
     for (const file of files) {
@@ -39,8 +39,7 @@ export async function compileProject(projectPath: string): Promise<CompiledProje
         if (!file.name.endsWith(".tc")) continue;
 
         let fileContents = (await fs.readFile(path.join(file.parentPath,file.name))).toString();
-        lexer.script = fileContents;
-        lexer.tokenize();
+        lexer.tokenize(fileContents);
         errors.push(...lexer.errors);
 
         

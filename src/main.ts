@@ -10,12 +10,13 @@ import * as ncp from "copy-paste"
 import * as fs from "node:fs/promises"
 import { compileProject } from "./compiler/projectCompiler.ts";
 import { printError } from "./error/errorHandler.ts";
+import { LanguageServer } from "./languageServer/languageServer.ts";
 
 registerBuiltinNamespaces()
 
 // todo: figure out why this needs to be here and fix it
 // probably by doing a custom loading order
-new Lexer("");
+new Lexer();
 new Parser([]);
 new CodeCompiler([],{types: new TypeProcessor()});
 
@@ -88,8 +89,8 @@ async function Main() {
         if (values.file) {
             let fileContents = (await fs.readFile(values.file)).toString();
 
-            const lexer = new Lexer(fileContents);
-            lexer.tokenize()
+            const lexer = new Lexer();
+            lexer.tokenize(fileContents)
             
             const parser = new Parser(lexer.tokens);
             let root = parser.parse();            
@@ -166,7 +167,7 @@ async function Main() {
         }
     } 
     else if (command == "server") {
-        // StartServer()
+        new LanguageServer()
     }
 }
 

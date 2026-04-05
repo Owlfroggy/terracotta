@@ -1,3 +1,6 @@
+import { pathToFileURL } from "node:url";
+import { URI } from "vscode-languageserver";
+
 export function getOrCreateMapLayer<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {
         map.set(key, defaultValue);
@@ -38,4 +41,8 @@ export function codeifyName(name: string): string {
 
 export function upperFirst(s: string): string {
     return s.substring(0,1).toUpperCase() + s.substring(1);
+}
+
+export function pathToUri(path: string): URI { 
+    return pathToFileURL(path).href;
 }

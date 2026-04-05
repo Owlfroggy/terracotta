@@ -92,6 +92,10 @@ export function dirWithoutRelations(ast) {
     console.dir(clean(ast), {depth: null})
 }
 
+export function stringDirWithoutRelations(ast) {
+    return util.inspect(clean(ast), {depth: null})
+}
+
 
 //=------------------------------------------=\\
 //=- code that was NOT written by a clanker -=\\

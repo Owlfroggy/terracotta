@@ -5,9 +5,9 @@ export class Lexer {
     tokens: Token[] = [];
     errors: TCError[] = [];
     position: number = 0;
+    public script: string;
 
     constructor(
-        public script: string,
         public options: {
             includeWhitespaceTokens: boolean,
             includeSingleLineComments: boolean,
@@ -175,7 +175,8 @@ export class Lexer {
         return new Token(startPos, endPos, TokenType.MULTILINE_COMMENT,commentLines.join("\n"));
     }
 
-    public tokenize() {
+    public tokenize(script: string) {
+        this.script = script;
         this.tokens.length = 0;
         this.errors.length = 0;
         this.position = 0;
