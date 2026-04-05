@@ -20,6 +20,7 @@ export class ASTNode {
 
 export class RootNode extends ASTNode {
     public scriptContents: string;
+    public filePath: string;
 
     constructor(
         public readonly statements: Statement[],

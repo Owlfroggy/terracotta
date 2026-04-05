@@ -78,7 +78,7 @@ export class LanguageServer {
 
             if (param.workspaceFolders != null) {
                 for (const w of param.workspaceFolders) {
-                    this.workspaces.set(w.uri, new WorkspaceManager(w.uri))
+                    this.workspaces.set(w.uri, new WorkspaceManager(w.uri, this))
                 }
             }
 
@@ -142,11 +142,7 @@ export class LanguageServer {
         conn.onNotification("textDocument/didChange", (param: DidChangeTextDocumentParams) => {
             let doc = this.getDocFromUri(param.textDocument.uri)!;
             doc.update(param.contentChanges);
-
-            conn.sendNotification('textDocument/publishDiagnostics', {
-                uri: param.textDocument.uri,
-                diagnostics: doc.diagnostics,
-            });
+            doc.workspace.reanalyze();
         })
 
         conn.onNotification("textDocument/didClose", (param: DidCloseTextDocumentParams) => {

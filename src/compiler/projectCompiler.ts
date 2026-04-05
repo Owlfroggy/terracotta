@@ -37,15 +37,17 @@ export async function compileProject(projectPath: string): Promise<CompiledProje
     for (const file of files) {
         if (!file.isFile()) continue;
         if (!file.name.endsWith(".tc")) continue;
+        let fullPath = path.join(file.parentPath, file.name);
 
         let fileContents = (await fs.readFile(path.join(file.parentPath,file.name))).toString();
-        lexer.tokenize(fileContents);
+        lexer.tokenize(fileContents, fullPath);
         errors.push(...lexer.errors);
 
         
         parser.tokens = lexer.tokens;
         let root = parser.parse();
         root.scriptContents = fileContents;
+        root.filePath = fullPath;
         errors.push(...parser.errors);
         statements.push(...root.statements);
     }

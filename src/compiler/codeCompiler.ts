@@ -401,6 +401,8 @@ export class CodeCompiler {
     }
 
     compile({outputFormat}: {outputFormat: "GZIP" | "DFONLINE"}) {
+        this.errors.length = 0;
+        
         let declarationsToCompile = this.processLineDeclarations(this.ast);
 
         for (const [lineEntry, declaration] of declarationsToCompile) {

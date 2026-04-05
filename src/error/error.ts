@@ -15,6 +15,7 @@ export abstract class TCError {
     /** exclusive */
     abstract getEndPos(): number
     abstract getScriptContents(): string
+    abstract getFilePath(): string
 
     constructor(
         readonly type: ErrorType,
@@ -27,6 +28,7 @@ export class TCManualError extends TCError {
         private startPos: number,
         private endPos: number,
         private scriptContents: string,
+        private filePath: string,
         type: ErrorType,
         message: string,
     ) {super(type, message);}
@@ -41,6 +43,10 @@ export class TCManualError extends TCError {
 
     getScriptContents(): string {
         return this.scriptContents;
+    }
+
+    getFilePath(): string {
+        return this.filePath;
     }
 }
 
@@ -63,5 +69,9 @@ export class TCNodeError extends TCError {
 
     getScriptContents(): string {
         return this.astNode.getRoot().scriptContents;
+    }
+
+    getFilePath(): string {
+        return this.astNode.getRoot().filePath ?? "unknown file";
     }
 }

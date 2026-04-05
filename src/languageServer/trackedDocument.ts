@@ -7,6 +7,7 @@ import { RootNode } from "../ast/astNode.ts";
 import { stringDirWithoutRelations, visualizeStatements } from "../util/debug.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { CodeCompiler } from "../compiler/codeCompiler.ts";
+import { WorkspaceManager } from "./workspaceManager.ts";
 
 export class TrackedDocument {
     contents: string;
@@ -16,19 +17,20 @@ export class TrackedDocument {
     private ast: RootNode;
     private lineStartIndexes: number[] = [];
 
-    public readonly diagnostics: Diagnostic[] = [];
+    public readonly parserDiagnostics: Diagnostic[] = [];
 
     constructor(
-        public uri: URI
+        public uri: URI,
+        public workspace: WorkspaceManager,
     ) {
         this.initialize();
     }
 
-    private linePositionToIndex(position: Position): number {
+    linePositionToIndex(position: Position): number {
         return this.lineStartIndexes[position.line] + position.character;
     }
 
-    private indexToLinePosition(index: number): Position {
+    indexToLinePosition(index: number): Position {
         let left = 0
         let right = this.lineStartIndexes.length - 1
         let resultLine = 0
@@ -62,12 +64,14 @@ export class TrackedDocument {
     }
 
     reparse() {
-        this.lexer.tokenize(this.contents);
+        this.lexer.tokenize(this.contents, this.uri);
         this.ast = this.parser.parse();
+        this.ast.scriptContents = "";
+        this.ast.filePath = this.uri;
 
-        this.diagnostics.length = 0;
+        this.parserDiagnostics.length = 0;
         for (const error of [...this.lexer.errors, ...this.parser.errors]) {
-            this.diagnostics.push({
+            this.parserDiagnostics.push({
                 message: error.message,
                 range: {
                     start: this.indexToLinePosition(error.getStartPos()),
@@ -75,6 +79,8 @@ export class TrackedDocument {
                 },
             })
         }
+
+        this.workspace.combinedAST[this.uri] = this.ast.statements;
         // slog(`-------------->>>>> ${this.diagnostics.length} ${this.lexer.errors.length} ${JSON.stringify(this.lineStartIndexes)} ${this.parser.errors.length}\n${visualizeStatements(this.ast.statements)}\n\n${this.contents}\n\n--------------------------`);
     }
 

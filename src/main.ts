@@ -90,10 +90,12 @@ async function Main() {
             let fileContents = (await fs.readFile(values.file)).toString();
 
             const lexer = new Lexer();
-            lexer.tokenize(fileContents)
+            lexer.tokenize(fileContents, values.file)
             
             const parser = new Parser(lexer.tokens);
-            let root = parser.parse();            
+            let root = parser.parse();
+            root.scriptContents = fileContents;
+            root.filePath = values.file;
             
             if (values.debugprint) {
                 dirWithoutRelations(root.statements);

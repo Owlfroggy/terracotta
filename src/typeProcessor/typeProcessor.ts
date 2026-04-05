@@ -277,6 +277,7 @@ export class TypeProcessor {
     }
 
     collectionStage(statements: Statement[], frame: EnvironmentFrame = this.globalFrame) {
+        this.errors.length = 0;
         for (const statement of statements) {
             // variable assignments
             if (statement instanceof ExpressionStatement 

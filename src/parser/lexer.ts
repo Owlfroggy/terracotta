@@ -6,6 +6,7 @@ export class Lexer {
     errors: TCError[] = [];
     position: number = 0;
     public script: string;
+    private filePath: string;
 
     constructor(
         public options: {
@@ -18,6 +19,7 @@ export class Lexer {
         this.errors.push(new TCManualError(
             startPos, endPos,
             this.script,
+            this.filePath,
             ErrorType.LEXER,
             message
         ));
@@ -175,8 +177,9 @@ export class Lexer {
         return new Token(startPos, endPos, TokenType.MULTILINE_COMMENT,commentLines.join("\n"));
     }
 
-    public tokenize(script: string) {
+    public tokenize(script: string, filePath: string) {
         this.script = script;
+        this.filePath = filePath;
         this.tokens.length = 0;
         this.errors.length = 0;
         this.position = 0;
