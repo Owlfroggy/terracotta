@@ -106,11 +106,17 @@ export class LanguageServer {
         })
 
         conn.onRequest("textDocument/completion", async (param: CompletionParams) => {
-            if (!param.textDocument.uri.endsWith(".tc")) {return}
+            if (!param.textDocument.uri.endsWith(".tc")) return
+            let doc = this.getDocFromUri(param.textDocument.uri);
+            if (doc == undefined) return;
+            let index = doc?.linePositionToIndex(param.position);
+            if (index == undefined) return
 
             let items: (CompletionItem | CompletionItem[])[] = [
                 {label: "dingus"}
             ];
+
+            slog(doc.getAstNodeAtIndex(index).constructor.name);
 
             slog ("Returned",items.length,"items")
             let response: CompletionList = {

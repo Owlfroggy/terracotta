@@ -3,6 +3,15 @@ import { Token } from "./token.ts";
 
 export class ASTNode {
     public parent: ASTNode | null;
+    /** 
+     * the key in this node's parent that references this node 
+     * this.parent[this.key] = this
+     * */
+    public key: string = "";
+    /** 
+     * guaranteed to be sorted:
+     * order is based on startPos, least to greatest
+     */
     public children: ASTNode[] = [];
 
     constructor(
@@ -14,6 +23,10 @@ export class ASTNode {
 
     getRoot(): RootNode {
         return this.parent!.getRoot();
+    }
+
+    toString(): string {
+        return this.constructor.name;
     }
 }
 

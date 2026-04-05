@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import { Lexer } from "../parser/lexer.ts";
 import { Parser } from "../parser/parser.ts";
 import { slog } from "./languageServer.ts";
-import { RootNode } from "../ast/astNode.ts";
+import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { stringDirWithoutRelations, visualizeStatements } from "../util/debug.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { CodeCompiler } from "../compiler/codeCompiler.ts";
@@ -51,6 +51,25 @@ export class TrackedDocument {
             line: resultLine,
             character: index - lineStart
         }
+    }
+
+    // todo: make this more binary searchy?
+    getAstNodeAtIndex(index: number): ASTNode {
+        let node: ASTNode = this.ast;
+        let whoops = 0;
+        while (node.children.length > 0 && whoops < 20) {
+            let oldNode = node;
+            // see if any of this node's children also contain this position
+            for (const c of node.children) {
+                if (c.startPos <= index && index <= c.endPos) {
+                    node = c;
+                    break;
+                }
+            }
+            // if not, this node is the best we can do
+            if (node == oldNode) break;
+        }
+        return node;
     }
 
     refreshLineIndexes(startingAtIndex: number = 0) {

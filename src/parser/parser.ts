@@ -728,11 +728,13 @@ export class Parser {
                             throw `->> Node owned by multiple parents??`;
                         } else {
                             c.parent = n;
+                            c.key = k;
                             n.children.push(c);
                             processChildren(c);
                         }
                     }
                 }
+                n.children.sort((a, b) => a.startPos - b.startPos);
             }
         }
 
