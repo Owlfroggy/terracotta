@@ -26,14 +26,16 @@ export class WorkspaceManager {
     reanalyze() {
         let ast = Object.values(this.combinedAST).flat();
 
-        this.typeProcessor.collectionStage(ast);
-        this.typeProcessor.evaluationStage();
-        this.compiler.ast = ast;
-        this.compiler.compile({outputFormat: 'GZIP'});
+        let typeProcessor = new TypeProcessor();
+        typeProcessor.collectionStage(ast);
+        typeProcessor.evaluationStage();
+        let compiler = new CodeCompiler(ast, {types: typeProcessor});
+        compiler.ast = ast;
+        compiler.compile({outputFormat: 'GZIP'});
 
         let diagnosticsByUri: {[uri: string]: Diagnostic[]} = {};
 
-        for (const e of [...this.compiler.errors, ...this.typeProcessor.errors]) {
+        for (const e of [...compiler.errors, ...typeProcessor.errors]) {
             let doc = this.documents.get(e.getFilePath());
             if (!doc) continue;
             if (!(doc.uri in diagnosticsByUri)) 
