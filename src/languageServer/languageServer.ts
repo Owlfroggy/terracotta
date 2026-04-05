@@ -52,6 +52,19 @@ function generateNamespaceMemberCompletions(namespace: Namespace): CompletionIte
     return items;
 }
 
+const keywordCompletions: CompletionItem[] = [
+    "lscancel", "playerevent", "entityevent", "gameevent", "function", "process",
+    "call", "start",
+    "return", "break", "continue", "endthread", "endallthreads", "wait",
+    "global", "saved", "local", "line",
+    "for", "repeat", "if", "else", "while", "do",
+    "as", "to", "in", "on",
+    "select", "filter",
+].map(kw => ({
+    label: kw,
+    kind: CompletionItemKind.Keyword
+}));
+
 
 export class LanguageServer {
     connection: rpc.MessageConnection;
@@ -192,6 +205,8 @@ export class LanguageServer {
                         commitCharacters: ["."],
                     });
                 }
+                // keywords
+                items.push(...keywordCompletions);
             }
 
             slog ("Returned",items.length,"items")
