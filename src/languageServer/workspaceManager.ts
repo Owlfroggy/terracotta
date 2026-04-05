@@ -27,9 +27,11 @@ export class WorkspaceManager {
         let ast = Object.values(this.combinedAST).flat();
 
         let typeProcessor = new TypeProcessor();
+        this.typeProcessor = typeProcessor;
         typeProcessor.collectionStage(ast);
         typeProcessor.evaluationStage();
         let compiler = new CodeCompiler(ast, {types: typeProcessor});
+        this.compiler = compiler;
         compiler.ast = ast;
         compiler.compile({outputFormat: 'GZIP'});
 
@@ -79,5 +81,6 @@ export class WorkspaceManager {
             this.combinedAST[uri] = [];
             this.documents.set(uri, new TrackedDocument(uri, this))
         }
+        this.reanalyze();
     }
 }

@@ -8,8 +8,8 @@ import { FuncTypeData, Type } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 
 export enum VariableScope {
-    GLOBAL,
     SAVED,
+    GLOBAL,
     LOCAL,
     LINE,
 };

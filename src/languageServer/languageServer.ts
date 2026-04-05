@@ -6,9 +6,10 @@ import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression } from "../ast/expression.ts";
 import { access } from "node:fs";
-import { NamespaceTypeData } from "../typeProcessor/type.ts";
+import { NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { DefinitionType } from "../compiler/namespace/definition.ts";
+import { EnvironmentFrame, VariableScope } from "../typeProcessor/typeProcessor.ts";
 
 type ServerTCConfiguration = {
     dfRank: AD.DFRank,
@@ -168,6 +169,8 @@ export class LanguageServer {
 
             let node = doc.getAstNodeAtIndex(index);
             if (node == null) return; // todo: this is bad
+            let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
+            slog(`kablingus ${envFrame.astNode}`)
 
             function visualizeNodeAncestors(node: ASTNode, prev: ASTNode | null = null): string {
                 // if (node.parent == null) 
@@ -175,8 +178,8 @@ export class LanguageServer {
                 let thisNodeString = `${node.keyInParent} ${node}${cString}\n`;
                 return (node.parent == null ? "" : visualizeNodeAncestors(node.parent, node)) + thisNodeString;
             }
-            slog("\nNode trace:");
-            slog(visualizeNodeAncestors(node));
+            // slog("\nNode trace:");
+            // slog(visualizeNodeAncestors(node));
 
             let includeGenerics = true;
 
@@ -185,7 +188,7 @@ export class LanguageServer {
             //=--------------------------=\\
 
             if (node.parent instanceof AccessExpression && (node.keyInParent == "accessorToken" || node.keyInParent == "propertyName")) {
-                let accesseeType = doc.workspace.typeProcessor.evaluateExpression(node.parent.accessee, doc.workspace.typeProcessor.getNodeFrame(node));
+                let accesseeType = doc.workspace.typeProcessor.evaluateExpression(node.parent.accessee, envFrame);
                 if (accesseeType.name == "namespace") {
                     let namespace = (accesseeType.data as NamespaceTypeData).namespace;
                     items = generateNamespaceMemberCompletions(namespace);
@@ -207,6 +210,63 @@ export class LanguageServer {
                 }
                 // keywords
                 items.push(...keywordCompletions);
+
+                //=- variables -=\\
+
+                // collect variable data
+                let seenVars: Map<string, Map<VariableScope, Type>> = new Map();
+                let varFrame: EnvironmentFrame | null = envFrame;
+
+                slog(`kablongus ${varFrame!.variables.size} ${varFrame.astNode}`);
+
+                while (varFrame != null) {
+                    for (const scopeLayer of varFrame.variables.values()) {
+                        for (const varLayer of scopeLayer.values()) {
+                            for (const variable of varLayer) {
+                                let entries = seenVars.getOrInsert(variable.id.name, new Map());
+                                if (entries.has(variable.id.scope)) continue;
+                                entries.set(variable.id.scope, variable.type ?? Type.unknown);
+                            }
+                        }
+                    }
+                    varFrame = varFrame.parent;
+                }
+
+                slog(`hjasdfg ${seenVars.size}`);
+
+
+                // turn variable data into items
+                for (const [name, scopeLayer] of seenVars.entries()) {
+                    for (const [scope, type] of scopeLayer.entries()) {
+                        let scopeStr = VariableScope[scope].toLowerCase();
+                        let stringifiedName = name;
+                        if (!/^[A-Za-z0-9_]+$/.test(stringifiedName)) {
+                            stringifiedName = '"' + name.replace('\\','\\\\').replace('"', '\\"').replace('\n','\\n') + '"';
+                        }
+                        let multipleVars = (scopeLayer.size > 1 && scope != Math.max(...scopeLayer.keys()));
+                        if (!multipleVars && stringifiedName == name) {
+                            items.push({
+                                label: name,
+                                documentation: {
+                                    kind: 'markdown', 
+                                    value: `\`\`\`tc\n${scopeStr} ${name}: ${type.name}\n\`\`\``
+                                },
+                                kind: CompletionItemKind.Variable,
+                            });
+                        } else {
+                            items.push({
+                                label: multipleVars ? `${name} (${scopeStr})` : name,
+                                documentation: {
+                                    kind: 'markdown', 
+                                    value: `\`\`\`tc\n${scopeStr} ${name}: ${type.name}\n\`\`\``
+                                },
+                                insertText: `${scopeStr} ${stringifiedName}`,
+                                filterText: name,
+                                kind: CompletionItemKind.Variable,
+                            });
+                        }
+                    }
+                }
             }
 
             slog ("Returned",items.length,"items")
@@ -233,7 +293,9 @@ export class LanguageServer {
         })
         
         conn.onNotification("textDocument/didOpen",(param: DidOpenTextDocumentParams) => {
-            this.getDocFromUri(param.textDocument.uri)!.update([{text: param.textDocument.text}]);
+            let doc = this.getDocFromUri(param.textDocument.uri)!;
+            doc.update([{text: param.textDocument.text}]);
+            doc.workspace.reanalyze();
         })
 
         conn.onNotification("textDocument/didChange", (param: DidChangeTextDocumentParams) => {
