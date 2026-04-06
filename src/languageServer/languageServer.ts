@@ -10,6 +10,9 @@ import { NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { DefinitionType } from "../compiler/namespace/definition.ts";
 import { EnvironmentFrame, VariableScope } from "../typeProcessor/typeProcessor.ts";
+import { EventStatement } from "../ast/statement.ts";
+import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
+import { TokenType } from "../ast/token.ts";
 
 type ServerTCConfiguration = {
     dfRank: AD.DFRank,
@@ -193,6 +196,23 @@ export class LanguageServer {
                     items = generateNamespaceMemberCompletions(namespace);
                     includeGenerics = false;
                 }
+            }
+            // event names
+            else if (
+                (node instanceof EventStatement && index > node.type.endPos && index < node.chunk.startPos)
+                || (node.parent instanceof EventStatement && node.keyInParent == "eventName")
+            ) {
+                let s = node instanceof EventStatement ? node : node.parent as EventStatement;
+                let headerType: HeaderType = AD.DFCodeblockName[TokenType[s.type.type]];
+
+                for (const event of Object.keys(tcEventToDf.get(headerType) ?? {})) {
+                    items.push({
+                        label: event,
+                        kind: CompletionItemKind.Event
+                    });
+                }
+
+                includeGenerics = false;
             }
 
             //=-----------------=\\

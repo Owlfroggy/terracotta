@@ -1,7 +1,7 @@
 import { HeaderType } from "../compiler/codeCompiler.ts";
 import { DFCodeblockName } from "../df/actiondump.ts";
 import { ASTNode, CommentHolder } from "./astNode.ts";
-import { ChunkExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "./expression.ts";
+import { ChunkExpression, Expression, GroupExpression, ListExpression, MissingExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "./expression.ts";
 import { Token, TokenType } from "./token.ts";
 
 export class Statement extends ASTNode implements CommentHolder {
@@ -32,7 +32,7 @@ export class EventStatement extends Statement {
         public modifiers: Token[],
         public type: Token,
         public eventName: Token,
-        public chunk: ChunkExpression
+        public chunk: ChunkExpression | MissingExpression
     ) {
         super(modifiers.length > 0 ? modifiers[0].startPos : type.startPos, chunk.endPos);
         this.headerType = DFCodeblockName[TokenType[type.type]];

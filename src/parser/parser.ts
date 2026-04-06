@@ -552,9 +552,10 @@ export class Parser {
         if (!mainKeywordFound) return null;
         
         let [eventName, eventNameFound] = this.expectOrMissing(TokenType.IDENTIFIER)
+
+        let [_, openCurlyFound] = this.expect(TokenType.OPEN_CURLY, false);
         
-        let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
-        if (!chunk) return null;
+        let chunk = openCurlyFound ? this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY)! : new MissingExpression(this.currentToken().startPos);
 
         return new EventStatement(modifiers, mainKeyword, eventName, chunk);
     }

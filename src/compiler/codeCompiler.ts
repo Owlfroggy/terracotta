@@ -8,7 +8,7 @@ import { ActionBlock, CodeBlock, EventBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression, GroupExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, GroupExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
@@ -47,7 +47,7 @@ function gzipize(json: string): string {
     return uint8ToBase64(output)
 }
 
-const tcEventToDf: Map<DFCodeblockName, {[tcName: string]: string}> = new Map();
+export const tcEventToDf: Map<DFCodeblockName, {[tcName: string]: string}> = new Map();
 for (const eventType of [DFCodeblockName.PLAYER_EVENT, DFCodeblockName.ENTITY_EVENT, DFCodeblockName.GAME_EVENT]) {
     let entries = {};
     tcEventToDf.set(eventType,entries);
@@ -407,6 +407,7 @@ export class CodeCompiler {
 
         for (const [lineEntry, declaration] of declarationsToCompile) {
             if (declaration instanceof EventStatement) {
+                if (!(declaration.chunk instanceof ChunkExpression)) continue;
                 lineEntry.code.push(...declaration.chunk.statements.map(this.compileStatement));
             }
         }
