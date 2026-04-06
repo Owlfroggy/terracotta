@@ -12,7 +12,7 @@ import { DefinitionType } from "../compiler/namespace/definition.ts";
 import { EnvironmentFrame, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { EventStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
-import { TokenType } from "../ast/token.ts";
+import { Token, TokenType } from "../ast/token.ts";
 
 type ServerTCConfiguration = {
     dfRank: AD.DFRank,
@@ -212,6 +212,9 @@ export class LanguageServer {
                     });
                 }
 
+                includeGenerics = false;
+            }
+            else if (node instanceof Token && (node.type == TokenType.STRING_LITERAL || node.type == TokenType.STYLED_LITERAL || node.type == TokenType.NUMERIC_LITERAL)) {
                 includeGenerics = false;
             }
 
