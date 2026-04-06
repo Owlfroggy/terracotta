@@ -73,6 +73,7 @@
             "Root": "root",
             "MaxNumber": "max",
             "Tangent": "tan",
+            "ArcTangent2": "atan2",
             "+=": "increment",
             " RoundNumber ": "round",
             "-=": "decrement",
