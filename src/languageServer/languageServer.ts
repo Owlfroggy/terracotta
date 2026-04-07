@@ -12,7 +12,7 @@ import { EnvironmentFrame, VariableScope } from "../typeProcessor/typeProcessor.
 import { EventStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { Token, TokenType } from "../ast/token.ts";
-import { getActionDocumentation, getEventDocumentation } from "./utils.ts";
+import { getActionDocumentation, getEventDocumentation, getValueDocumentation } from "./utils.ts";
 
 type ServerTCConfiguration = {
     dfRank: AD.DFRank,
@@ -177,6 +177,11 @@ export class LanguageServer {
             }
             else if (data.type == CompletionItemType.EVENT) {
                 documentation = getEventDocumentation(data.event);
+            }
+            else if (data.type == CompletionItemType.VALUE) {
+                if (data.definition.gameValue) {
+                    documentation = getValueDocumentation(data.definition.gameValue);
+                }
             }
 
             item.documentation = {

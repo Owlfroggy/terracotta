@@ -1,5 +1,5 @@
 import { AtomicExpression } from "../../ast/expression.ts";
-import { Action, DFValueType, Tag } from "../../df/actiondump.ts";
+import { Action, DFValueType, GameValue, Tag } from "../../df/actiondump.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { CodeBlock } from "../codeBlock.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
@@ -38,5 +38,7 @@ export interface FunctionDefinition {
 export interface ValueDefinition {
     definitionType: DefinitionType.VALUE;
     returnType: Type;
+    /** Is only used for language server purposes, the compiler should never touch this */
+    gameValue?: GameValue,
     compile(ctx: EvaluationContext): [CodeValue, CodeBlock[]];
 }

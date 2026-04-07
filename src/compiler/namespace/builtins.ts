@@ -10,9 +10,11 @@ import { TYPE_DOMAIN_ACTIONS } from "../../data/constants.ts";
 import { sign } from "node:crypto";
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
+    let valueDef = AD.gameValues[dfName];
     return {
         definitionType: DefinitionType.VALUE,
-        returnType: AD.dfTypeToTC.get(AD.gameValues[dfName]?.type ?? DFValueType.ANY_TYPE)!,
+        returnType: AD.dfTypeToTC.get(valueDef?.type ?? DFValueType.ANY_TYPE)!,
+        gameValue: valueDef,
         compile: (ctx) => {
             return [new GameValueValue(dfName, target), []];
         }

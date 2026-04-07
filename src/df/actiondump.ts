@@ -505,7 +505,7 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
         targetType,
         gameValueJson.icon.description.map(line => deColorizeString(line)).join(" "),
         gameValueJson.icon.returnDescription.map(line => deColorizeString(line)).join(" "),
-        gameValueJson.icon.additionalInfo.map(entry => { entry.map(line => deColorizeString(line)).join(" "); }),
+        gameValueJson.icon.additionalInfo.map(entry => entry.map(line => deColorizeString(line)).join(" ")),
         gameValueJson.icon.worksWith,
         gameValueJson.icon.worldExclusive,
     );

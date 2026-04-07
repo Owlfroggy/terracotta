@@ -57,6 +57,29 @@ export function getActionDocumentation(action: Action) {
     return `${worldPlotString}${rankString}${action.description}${infoString}${worksWithString}${paramString}${tagsString}${returnString}`
 }
 
+export function getValueDocumentation(val: AD.GameValue) {
+    let description = val.description
+    let info = val.additionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
+    let worksWithString = ""
+    if (val.worksWith.length > 0) {
+        worksWithString = "\n\n**Works with:**\n\n  ⏵ " + val.worksWith.join("\\\n  ⏵ ")
+    }
+
+    //creating a parameter object so that it can work with the existing string gen is kinda a hack but whatever
+    let returnV = new AD.ParameterValue(
+        val.type,
+        val.returnDescription,
+    )
+
+    let returnP = new AD.Parameter([[returnV]])
+
+    let returnType = getDFParamString([returnP],"\n\n**Value:**\n\n","")
+
+    let worldPlotString = (val.worldPlotExclusive ? "🌐 **World Plot Exclusive**\n\n" : "");
+
+    return `${worldPlotString}${description}${worksWithString}${info}${returnType}`
+}
+
 export function getEventDocumentation(event: Action) {
     let info = event.additionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
     let cancelInfo = event.cancellable ? "\n\n∅ Cancellable" : event.cancelledAutomatically ? "\n\n∅ Cancelled automatically" : ""
