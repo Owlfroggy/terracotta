@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 import { CodeCompiler } from "./compiler/codeCompiler.ts";
-import { registerBuiltinNamespaces } from "./compiler/namespace/builtins.ts";
-import { DFRank } from "./df/actiondump.ts";
+import { generateActionHook, registerBuiltinNamespaces } from "./compiler/namespace/builtins.ts";
+import { DFCodeblockName, DFRank } from "./df/actiondump.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 import { TypeProcessor } from "./typeProcessor/typeProcessor.ts";

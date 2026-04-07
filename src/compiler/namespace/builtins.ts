@@ -4,9 +4,10 @@ import * as AD from "../../df/actiondump.ts";
 import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
 import { Type } from "../../typeProcessor/type.ts";
-import { DefinitionType, FunctionDefinition, ValueDefinition } from "./definition.ts";
+import { ArgumentEntry, ArgumentSignature, DefinitionType, FunctionDefinition, ValueDefinition } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS } from "../../data/constants.ts";
+import { sign } from "node:crypto";
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
     return {
@@ -20,15 +21,53 @@ export function generateGameValueHook(valueName: string, dfName: string, target:
 
 
 export function generateActionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, target: TargetType = TargetType.UNSET): FunctionDefinition {
-    let actionDef = AD.actions.get(codeblock)?.[actionDFName];
+    let actionDef = AD.actions.get(codeblock)?.[actionDFName]!;
 
     // TODO: support multiple return values
     let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
     let tcReturnType = dfReturnType ? AD.dfTypeToTC.get(dfReturnType)! : null;
 
+    let signatures: ArgumentSignature[] = [];
+
+    // create a unique signature for every possible combination of arguments
+    let uniqueSignatures: ArgumentEntry[][] = [[]]
+    for (const parameter of actionDef.parameters) {
+        let groupIndex = -1
+        let initialSignatureAmount = uniqueSignatures.length
+        for (const group of parameter.groups) {
+            let values = [...group];
+            //if being assigned to a variable, exclude first var param from signature
+            if (values[0].type == DFValueType.VARIABLE) {
+                values.shift()
+                if (values.length == 0) {
+                    continue
+                }
+            }
+
+            let tcValues: ArgumentEntry[] = values.map(v => ({
+                name: v.description,
+                type: AD.dfTypeToTC.get(v.type) ?? Type.unknown,
+                optional: v.optional,
+                plural: v.plural,
+                description: v.notes.length > 0 ? v.notes.join("\n") : undefined
+            }));
+
+            groupIndex++
+            for (let i = 0; i < initialSignatureAmount; i++) {
+                if (groupIndex == parameter.groups.length - 1) {
+                    uniqueSignatures[i].push(...tcValues)
+                } else {
+                    uniqueSignatures.push([...uniqueSignatures[i], ...tcValues])
+                }
+            }
+        }
+    }
+
     return {
         definitionType: DefinitionType.FUNCTION,
+        signatures: uniqueSignatures.map(v => ({args: v})),
         returnType: tcReturnType,
+        action: actionDef,
         compile: (args, namedArgs, ctx): [CodeValue, CodeBlock[]] => {
             let tags: ActionTagValue[] = [];
             // todo: default tag values

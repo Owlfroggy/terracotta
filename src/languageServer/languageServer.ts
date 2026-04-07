@@ -8,15 +8,28 @@ import { AccessExpression } from "../ast/expression.ts";
 import { access } from "node:fs";
 import { NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
-import { DefinitionType } from "../compiler/namespace/definition.ts";
+import { DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
 import { EnvironmentFrame, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { EventStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { Token, TokenType } from "../ast/token.ts";
+import { getActionDocumentation } from "./utils.ts";
 
 type ServerTCConfiguration = {
     dfRank: AD.DFRank,
     rankBehavior: "crossOutInaccessible" | "hideInaccessible"
+}
+
+enum CompletionItemType {
+    FUNCTION,
+    VALUE
+}
+type CompletionItemData = {
+    type: CompletionItemType.FUNCTION,
+    definition: FunctionDefinition,
+} | {
+    type: CompletionItemType.VALUE,
+    definition: ValueDefinition,
 }
 
 //function that other things can call to log to the language server output when debugging
@@ -34,10 +47,9 @@ function generateNamespaceMemberCompletions(namespace: Namespace): CompletionIte
                 kind: CompletionItemKind.Method,
                 commitCharacters: ["("],
                 data: {
-                    // type: CompletionItemType.DomainAction,
-                    // domainId: domain.Identifier,
-                    // memberId: action?.TCId,
-                },
+                    type: CompletionItemType.FUNCTION,
+                    definition: def,
+                } as CompletionItemData,
             })
         }
         else if (def.definitionType == DefinitionType.VALUE) {
@@ -46,10 +58,9 @@ function generateNamespaceMemberCompletions(namespace: Namespace): CompletionIte
                 kind: CompletionItemKind.Field,
                 commitCharacters: [";"],
                 data: {
-                    // type: CompletionItemType.DomainValue,
-                    // domainId: domain.Identifier,
-                    // memberId: value?.TCId
-                }
+                    type: CompletionItemType.VALUE,
+                    definition: def,
+                } as CompletionItemData
             })
         }
     }
@@ -152,13 +163,21 @@ export class LanguageServer {
         }) 
 
         conn.onRequest("completionItem/resolve", (item: CompletionItem) => {
-            if (!item.data) { return item }
+            let data = item.data as CompletionItemData;
+            if (!data) { return item; }
+
+            let documentation = "";
+            if (data.type == CompletionItemType.FUNCTION) {
+                if (data.definition.action) {
+                    documentation = getActionDocumentation(data.definition.action);
+                }
+            }
 
             item.documentation = {
                 kind: "markdown",
-                value: "documentation"
-            }
-            return item
+                value: documentation
+            };
+            return item;
         })
 
         conn.onRequest("textDocument/completion", async (param: CompletionParams) => {
