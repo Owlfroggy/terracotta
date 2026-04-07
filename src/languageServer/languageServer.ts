@@ -5,7 +5,6 @@ import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression } from "../ast/expression.ts";
-import { access } from "node:fs";
 import { NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
@@ -13,7 +12,7 @@ import { EnvironmentFrame, VariableScope } from "../typeProcessor/typeProcessor.
 import { EventStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { Token, TokenType } from "../ast/token.ts";
-import { getActionDocumentation } from "./utils.ts";
+import { getActionDocumentation, getEventDocumentation } from "./utils.ts";
 
 type ServerTCConfiguration = {
     dfRank: AD.DFRank,
@@ -22,7 +21,8 @@ type ServerTCConfiguration = {
 
 enum CompletionItemType {
     FUNCTION,
-    VALUE
+    VALUE,
+    EVENT,
 }
 type CompletionItemData = {
     type: CompletionItemType.FUNCTION,
@@ -30,6 +30,9 @@ type CompletionItemData = {
 } | {
     type: CompletionItemType.VALUE,
     definition: ValueDefinition,
+} | {
+    type: CompletionItemType.EVENT,
+    event: AD.Action
 }
 
 //function that other things can call to log to the language server output when debugging
@@ -172,6 +175,9 @@ export class LanguageServer {
                     documentation = getActionDocumentation(data.definition.action);
                 }
             }
+            else if (data.type == CompletionItemType.EVENT) {
+                documentation = getEventDocumentation(data.event);
+            }
 
             item.documentation = {
                 kind: "markdown",
@@ -224,10 +230,14 @@ export class LanguageServer {
                 let s = node instanceof EventStatement ? node : node.parent as EventStatement;
                 let headerType: HeaderType = AD.DFCodeblockName[TokenType[s.type.type]];
 
-                for (const event of Object.keys(tcEventToDf.get(headerType) ?? {})) {
+                for (const [tcEvent, dfEvent] of Object.entries(tcEventToDf.get(headerType) ?? {})) {
                     items.push({
-                        label: event,
-                        kind: CompletionItemKind.Event
+                        label: tcEvent,
+                        kind: CompletionItemKind.Event,
+                        data: {
+                            type: CompletionItemType.EVENT,
+                            event: AD.actions.get(headerType)![dfEvent]
+                        } as CompletionItemData
                     });
                 }
 

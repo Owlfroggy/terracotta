@@ -56,3 +56,10 @@ export function getActionDocumentation(action: Action) {
 
     return `${worldPlotString}${rankString}${action.description}${infoString}${worksWithString}${paramString}${tagsString}${returnString}`
 }
+
+export function getEventDocumentation(event: Action) {
+    let info = event.additionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
+    let cancelInfo = event.cancellable ? "\n\n∅ Cancellable" : event.cancelledAutomatically ? "\n\n∅ Cancelled automatically" : ""
+    let worldPlotString = (event.worldPlotExclusive ? "🌐 **World Plot Exclusive**\n\n" : "");
+    return `${worldPlotString}${event.description}${info}${cancelInfo}`
+}
