@@ -114,6 +114,10 @@ export class CodeCompiler {
     /** Returns an array of statements which need to be compiled */
     processLineDeclarations(statements: Statement[]): [lineEntry: CodeLineEntry, statement: Statement][] {
         let declarationsToCompile: [CodeLineEntry, Statement][] = [];
+
+        // used for throwing errors when having duplicate declarations
+        let statementMap: Map<HeaderType, Map<string, Statement[]>> = new Map();
+
         for (const s of statements) {
             if (s.headerType == null) continue; // maybe throw error here for the time being
 
@@ -150,6 +154,7 @@ export class CodeCompiler {
                     }
                 }
 
+                statementMap.getOrInsert(s.headerType,new Map()).getOrInsert(tcEvent,[]).push(s);
                 lineEntry.headerBlock = new EventBlock(headerType, {action: dfEvent, lsCancel: lsCancel, astNode: s});
             }
             else {
@@ -158,6 +163,19 @@ export class CodeCompiler {
             }
 
             declarationsToCompile.push([lineEntry, s]);
+        }
+
+        // errors for duplicate definitions
+        for (const [headerType, declarations] of statementMap.entries()) {
+            for (const [name, statements] of declarations.entries()) {
+                if (statements.length <= 1) continue;
+                for (const statement of statements) {
+                    this.reportError(
+                        statement instanceof EventStatement ? statement.eventName : statement,
+                        `${upperFirst(headerType.toLowerCase())} '${name}' declared in multiple places`
+                    );
+                }
+            } 
         }
 
         return declarationsToCompile;
