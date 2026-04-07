@@ -345,13 +345,13 @@ export class LanguageServer {
         
         conn.onNotification("textDocument/didOpen",(param: DidOpenTextDocumentParams) => {
             let doc = this.getDocFromUri(param.textDocument.uri)!;
-            doc.update([{text: param.textDocument.text}]);
+            doc.update([{text: param.textDocument.text}], param.textDocument.version);
             doc.workspace.reanalyze();
         })
 
         conn.onNotification("textDocument/didChange", (param: DidChangeTextDocumentParams) => {
             let doc = this.getDocFromUri(param.textDocument.uri)!;
-            doc.update(param.contentChanges);
+            doc.update(param.contentChanges, param.textDocument.version);
             doc.workspace.reanalyze();
         })
 

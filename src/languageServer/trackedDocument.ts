@@ -18,6 +18,7 @@ export class TrackedDocument {
     private lineStartIndexes: number[] = [];
 
     public readonly parserDiagnostics: Diagnostic[] = [];
+    public version: number = 0;
 
     constructor(
         public uri: URI,
@@ -103,7 +104,10 @@ export class TrackedDocument {
         // slog(`-------------->>>>> ${this.diagnostics.length} ${this.lexer.errors.length} ${JSON.stringify(this.lineStartIndexes)} ${this.parser.errors.length}\n${visualizeStatements(this.ast.statements)}\n\n${this.contents}\n\n--------------------------`);
     }
 
-    update(changes: (TextDocumentContentChangeEvent | {text: string})[]) {
+    update(changes: (TextDocumentContentChangeEvent | {text: string})[], version: number) {
+        if (this.version > version) return;
+        this.version = version;
+        
         for (const change of changes) {
             change.text = change.text.replaceAll(/\r\n/g, "\n")
             if (TextDocumentContentChangeEvent.isIncremental(change)) {
