@@ -1,18 +1,19 @@
 import * as rpc from "vscode-jsonrpc/node.js"
 import * as AD from "../df/actiondump.ts"
-import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind } from "vscode-languageserver";
+import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp } from "vscode-languageserver";
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression } from "../ast/expression.ts";
-import { NamespaceTypeData, Type } from "../typeProcessor/type.ts";
+import { AccessExpression, CallExpression, ListExpression } from "../ast/expression.ts";
+import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
 import { EnvironmentFrame, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { EventStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { Token, TokenType } from "../ast/token.ts";
-import { getActionDocumentation, getEventDocumentation, getValueDocumentation } from "./utils.ts";
+import { getActionDocumentation, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
+import { sign } from "node:crypto";
 
 type ServerTCConfiguration = {
     dfRank: AD.DFRank,
@@ -160,9 +161,106 @@ export class LanguageServer {
             
         })
 
+
+        // TODO: handle empties
         conn.onRequest("textDocument/signatureHelp",(param: SignatureHelpParams) => {
-            if (!param.textDocument.uri.endsWith(".tc")) {return}
+            if (!param.textDocument.uri.endsWith(".tc")) return
+            let doc = this.getDocFromUri(param.textDocument.uri);
+            if (doc == undefined) return;
+            let index = doc?.linePositionToIndex(param.position);
+            if (index == undefined) return
+            let node = doc.getAstNodeAtIndex(index);
+            if (node == null) return; // todo: this is bad
+            let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
+
+
+            // find the function call this node is a part of, if there is one
+            let callNode: ASTNode = node;
+            let listFound = false;
+            while (callNode.parent != null) {
+                if (callNode instanceof ListExpression) listFound = true;
+                // checking index < n.endPos is required otherwise placing the caret after
+                // the argument list's closer would be counted as inside the list
+                if (listFound && callNode instanceof CallExpression && index < callNode.endPos) {
+                    break;
+                }
+                callNode = callNode.parent;
+            }
+            if (!(callNode instanceof CallExpression)) return;
+
+            // slog("\nNode trace:");
+            // slog(visualizeNodeAncestors(node));
             
+            let calleeType = doc.workspace.typeProcessor.evaluateExpression(callNode.callee, envFrame);
+            if (calleeType.name != "func") return;
+            let definition = (calleeType.data as FuncTypeData).definition;
+
+            let args = callNode.args.elements;
+            let argTypes = args.map(a => doc.workspace.typeProcessor.evaluateExpression(a, envFrame));
+            let activeArgIndex = 0;
+            for (let i = 0; i < args.length; i++) {
+                let argUpperBound = (
+                    (i == args.length-1 && !callNode.args.hasTrailingDelimiter)
+                    ? callNode.args.closer.startPos+1
+                    : callNode.args.elementStartPositions[i+1]
+                );
+                if (index < argUpperBound) break;
+                activeArgIndex++;
+            }
+
+
+            // build the signature infos
+            let signatureInfos: SignatureInformation[] = []
+            for (const signature of definition.signatures) {
+                let info = {
+                    parameters: [],
+                    label: ""
+                } as SignatureInformation
+
+                let argStrings: string[] = []
+
+                for (const arg of signature.args) {
+                    let argString: string
+                    // if (arg.DFType == "NONE") {
+                    //     if (arg.Description.endsWith(")")) {arg.Description = arg.Description.substring(0,arg.Description.length-1)}
+                    //     argString = `Empty Slot${arg.Description ? " - " + arg.Description : ""}`
+                    // } else {}
+                    argString = `${arg.name}: ${arg.type.name}${arg.plural ? "(s)" : ""}${arg.optional ? "*" : ""}`
+                    info.parameters!.push({label: argString, documentation: arg.description})
+                    argStrings.push(argString)
+                }
+
+                let tagAmount = Object.values(definition.action?.tags ?? {}).length;
+                info.label = `${definition.name}(${argStrings.join(", ")})${tagAmount > 0 ? ` + ${tagAmount} tag${tagAmount > 1 ? "s" : ""}` : ""}`
+
+                let activeParam = 0;
+                let i = 0;
+                // yeah idk how this loop works either i was fighting demons making it
+                while (i < activeArgIndex) {
+                    let param = signature.args[activeParam];
+                    i++;
+                    if (!(i < args.length && activeParam < signature.args.length)) {
+                        activeParam++;
+                        break;
+                    }
+                    if (!(param.plural && param.type.matches(argTypes[i]))) {
+                        activeParam++;
+                    }
+                }
+
+                // always highlight the last parameter if it's something plural (e.g. the texts in SendMessage)
+                if (activeParam >= signature.args.length && signature.args[signature.args.length-1].plural) {
+                    activeParam = signature.args.length-1;
+                }
+
+                info.activeParameter = activeParam;
+                
+                signatureInfos.push(info)
+            }
+
+            return {
+                signatures: signatureInfos,
+            } as SignatureHelp;
         }) 
 
         conn.onRequest("completionItem/resolve", (item: CompletionItem) => {
@@ -204,14 +302,8 @@ export class LanguageServer {
             if (node == null) return; // todo: this is bad
             let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
 
-            function visualizeNodeAncestors(node: ASTNode, prev: ASTNode | null = null): string {
-                // if (node.parent == null) 
-                let cString = node.children.map(c => `\n    ${c == prev ? "> " : ""}${c.keyInParent}  ${c}`).join("")
-                let thisNodeString = `${node.keyInParent} ${node}${cString}\n`;
-                return (node.parent == null ? "" : visualizeNodeAncestors(node.parent, node)) + thisNodeString;
-            }
-            slog("\nNode trace:");
-            slog(visualizeNodeAncestors(node));
+            // slog("\nNode trace:");
+            // slog(visualizeNodeAncestors(node));
 
             let includeGenerics = true;
 

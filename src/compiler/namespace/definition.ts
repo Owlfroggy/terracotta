@@ -26,6 +26,7 @@ export interface ArgumentSignature {
 
 export interface FunctionDefinition {
     definitionType: DefinitionType.FUNCTION,
+    name: string,
     signatures: ArgumentSignature[],
     returnType: Type | null,
     tags?: Tag[],

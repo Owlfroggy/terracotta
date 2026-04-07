@@ -354,6 +354,7 @@ export class Parser {
     parseListExpression = (openerType: TokenType, closerType: TokenType, delimiter: TokenType): ListExpression => {
         let [opener, openerFound] = this.expect(openerType);
         let elements: Expression[] = [];
+        let elementStartPositions: number[] = [opener.endPos];
         while (
             this.currentToken().type != closerType 
             && !this.isLineDelimiter(this.currentToken())
@@ -363,11 +364,12 @@ export class Parser {
             expr.attachedComments.push(...comments);
             elements.push(expr);
             if (this.currentToken().type != closerType) {
-                this.expect(delimiter);
+                let [delimiterToken, delimiterFound] = this.expect(delimiter);
+                elementStartPositions.push(delimiterToken.endPos);
             }
         }
         let [closer, closerFound] = this.expect(closerType);
-        return new ListExpression(opener, elements, closer);
+        return new ListExpression(opener, elements, closer, elementStartPositions);
     }
     
     parseParamListExpression = (openerType: TokenType, closerType: TokenType, delimiter: TokenType, optional: boolean = false): ListExpression<ParameterExpression> | null => {
@@ -376,6 +378,7 @@ export class Parser {
         if (!openerFound) return null;
 
         let elements: ParameterExpression[] = [];
+        let elementStartPositions: number[] = [opener.endPos];
         while (
             this.currentToken().type != closerType 
             && !this.isLineDelimiter()
@@ -389,11 +392,12 @@ export class Parser {
                 elements.push(expr);
             }
             if (this.currentToken().type != closerType) {
-                this.expect(delimiter);
+                let [delimiterToken, delimiterFound] = this.expect(delimiter);
+                elementStartPositions.push(delimiterToken.endPos);
             }
         }
         let [closer, closerFound] = this.expect(closerType);
-        return new ListExpression(opener, elements, closer);
+        return new ListExpression(opener, elements, closer, elementStartPositions);
     }
 
     parseParameterExpression = (): ParameterExpression | null => {

@@ -29,8 +29,6 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
     let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
     let tcReturnType = dfReturnType ? AD.dfTypeToTC.get(dfReturnType)! : null;
 
-    let signatures: ArgumentSignature[] = [];
-
     // create a unique signature for every possible combination of arguments
     let uniqueSignatures: ArgumentEntry[][] = [[]]
     for (const parameter of actionDef.parameters) {
@@ -67,6 +65,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
 
     return {
         definitionType: DefinitionType.FUNCTION,
+        name: functionName,
         signatures: uniqueSignatures.map(v => ({args: v})),
         returnType: tcReturnType,
         action: actionDef,

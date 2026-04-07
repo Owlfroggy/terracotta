@@ -1,3 +1,4 @@
+import { ASTNode } from "../ast/astNode.ts";
 import { Action } from "../df/actiondump.ts";
 import * as AD from "../df/actiondump.ts";
 
@@ -85,4 +86,11 @@ export function getEventDocumentation(event: Action) {
     let cancelInfo = event.cancellable ? "\n\n∅ Cancellable" : event.cancelledAutomatically ? "\n\n∅ Cancelled automatically" : ""
     let worldPlotString = (event.worldPlotExclusive ? "🌐 **World Plot Exclusive**\n\n" : "");
     return `${worldPlotString}${event.description}${info}${cancelInfo}`
+}
+
+export function visualizeNodeAncestors(node: ASTNode, prev: ASTNode | null = null): string {
+    // if (node.parent == null) 
+    let cString = node.children.map(c => `\n    ${c == prev ? "> " : ""}${c.keyInParent}  ${c}`).join("")
+    let thisNodeString = `${node.keyInParent} ${node}${cString}\n`;
+    return (node.parent == null ? "" : visualizeNodeAncestors(node.parent, node)) + thisNodeString;
 }
