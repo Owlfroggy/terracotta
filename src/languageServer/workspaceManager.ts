@@ -8,6 +8,7 @@ import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { CodeCompiler } from "../compiler/codeCompiler.ts";
 import { Statement } from "../ast/statement.ts";
 import { visualizeStatements } from "../util/debug.ts";
+import { inspect } from "node:util";
 
 export class WorkspaceManager {
     documents: Map<URI, TrackedDocument> = new Map();
@@ -28,6 +29,7 @@ export class WorkspaceManager {
 
         let typeProcessor = new TypeProcessor();
         this.typeProcessor = typeProcessor;
+        typeProcessor.errors.length = 0;
         typeProcessor.collectionStage(ast);
         typeProcessor.evaluationStage();
         let compiler = new CodeCompiler(ast, {types: typeProcessor});
