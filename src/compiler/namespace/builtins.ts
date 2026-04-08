@@ -8,6 +8,10 @@ import { ArgumentEntry, ArgumentSignature, DefinitionType, FunctionDefinition, V
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS } from "../../data/constants.ts";
 import { sign } from "node:crypto";
+import { appendFileSync } from "node:fs";
+import { slog } from "../../languageServer/languageServer.ts";
+import { inspect } from "node:util";
+import { group } from "node:console";
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
     let valueDef = AD.gameValues[dfName];
@@ -34,8 +38,26 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
     for (const parameter of actionDef.parameters) {
         let groupIndex = -1
         let initialSignatureAmount = uniqueSignatures.length
-        for (const group of parameter.groups) {
-            let values = [...group];
+
+        let forceOptional = false;
+        let noneDescriptionAddition = ""
+
+        let groups = parameter.groups.map(group => {
+            // this makes it editable without modifying the actiondump's contents
+            group = [...group];
+            // evil type=NONE parsing stuff
+            if (group[group.length-1].type == DFValueType.NONE) {
+                let noneVal = group.pop()!;
+                let noneDesc = noneVal?.description != '' ? noneVal.description : "Df forgot to put this description in the actiondump 😭 just assume it does a default or smth idk blame jeremaster" ;
+                if (noneDesc[noneDesc.length-1] == ")") noneDesc = noneDesc.substring(0,noneDesc.length-1);
+                if (noneDesc[0] == "(") noneDesc = noneDesc.substring(1);
+                forceOptional = true;
+                noneDescriptionAddition = `\nIf left unspecified: ${noneDesc}`;
+            }
+            return group;
+        }).filter(group => group.length > 0);
+
+        for (const values of groups) {
             //if being assigned to a variable, exclude first var param from signature
             if (values[0].type == DFValueType.VARIABLE) {
                 values.shift()
@@ -47,14 +69,14 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             let tcValues: ArgumentEntry[] = values.map(v => ({
                 name: v.description,
                 type: AD.dfTypeToTC.get(v.type) ?? Type.unknown,
-                optional: v.optional,
+                optional: forceOptional || v.optional,
                 plural: v.plural,
-                description: v.notes.length > 0 ? v.notes.join("\n") : undefined
+                description: ((v.notes.length > 0 ? v.notes.join("\n") : '') + noneDescriptionAddition).trim()
             }));
 
             groupIndex++
             for (let i = 0; i < initialSignatureAmount; i++) {
-                if (groupIndex == parameter.groups.length - 1) {
+                if (groupIndex == groups.length - 1) {
                     uniqueSignatures[i].push(...tcValues)
                 } else {
                     uniqueSignatures.push([...uniqueSignatures[i], ...tcValues])
@@ -62,6 +84,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             }
         }
     }
+    uniqueSignatures = uniqueSignatures.filter(s => s.length > 0);
 
     return {
         definitionType: DefinitionType.FUNCTION,
