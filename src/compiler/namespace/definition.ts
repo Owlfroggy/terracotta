@@ -12,7 +12,7 @@ export enum DefinitionType {
 
 export type Definition = FunctionDefinition | ValueDefinition;
 
-export interface ArgumentEntry {
+export interface ParameterSignatureEntry {
     type: Type,
     name: string,
     optional: boolean,
@@ -20,14 +20,14 @@ export interface ArgumentEntry {
     description?: string,
 }
 
-export interface ArgumentSignature {
-    args: ArgumentEntry[],
+export interface ParameterSignature {
+    params: ParameterSignatureEntry[],
 }
 
 export interface FunctionDefinition {
     definitionType: DefinitionType.FUNCTION,
     name: string,
-    signatures: ArgumentSignature[],
+    signatures: ParameterSignature[],
     returnType: Type | null,
     tags?: Tag[],
     /** Is only used for language server purposes, the compiler should never touch this */

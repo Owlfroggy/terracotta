@@ -222,7 +222,7 @@ export class LanguageServer {
 
                 let argStrings: string[] = []
 
-                for (const arg of signature.args) {
+                for (const arg of signature.params) {
                     let argString: string
                     // if (arg.DFType == "NONE") {
                     //     if (arg.Description.endsWith(")")) {arg.Description = arg.Description.substring(0,arg.Description.length-1)}
@@ -239,10 +239,10 @@ export class LanguageServer {
                 info.activeParameter = matchArgsToParams(argTypes, signature)[activeArgIndex] ?? argTypes.length+1;
 
                 // always highlight the last parameter if it's something plural (e.g. the texts in SendMessage)
-                if (info.activeParameter >= signature.args.length && signature.args[signature.args.length-1].plural) {
-                    info.activeParameter = signature.args.length-1;
+                if (info.activeParameter >= signature.params.length && signature.params[signature.params.length-1].plural) {
+                    info.activeParameter = signature.params.length-1;
                 }
-                
+
                 signatureInfos.push(info)
             }
 

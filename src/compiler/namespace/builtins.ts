@@ -4,7 +4,7 @@ import * as AD from "../../df/actiondump.ts";
 import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
 import { Type } from "../../typeProcessor/type.ts";
-import { ArgumentEntry, ArgumentSignature, DefinitionType, FunctionDefinition, ValueDefinition } from "./definition.ts";
+import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS } from "../../data/constants.ts";
 import { sign } from "node:crypto";
@@ -34,7 +34,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
     let tcReturnType = dfReturnType ? AD.dfTypeToTC.get(dfReturnType)! : null;
 
     // create a unique signature for every possible combination of arguments
-    let uniqueSignatures: ArgumentEntry[][] = [[]]
+    let uniqueSignatures: ParameterSignatureEntry[][] = [[]]
     for (const parameter of actionDef.parameters) {
         let groupIndex = -1
         let initialSignatureAmount = uniqueSignatures.length
@@ -66,7 +66,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                 }
             }
 
-            let tcValues: ArgumentEntry[] = values.map(v => ({
+            let tcValues: ParameterSignatureEntry[] = values.map(v => ({
                 name: v.description,
                 type: AD.dfTypeToTC.get(v.type) ?? Type.unknown,
                 optional: forceOptional || v.optional,
@@ -89,7 +89,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
     return {
         definitionType: DefinitionType.FUNCTION,
         name: functionName,
-        signatures: uniqueSignatures.map(v => ({args: v})),
+        signatures: uniqueSignatures.map(v => ({params: v})),
         returnType: tcReturnType,
         action: actionDef,
         compile: (args, namedArgs, ctx): [CodeValue, CodeBlock[]] => {
