@@ -212,35 +212,50 @@ export class LanguageServer {
             }
 
 
+            slog("\n\n");
+
             // build the signature infos
             let signatureInfos: SignatureInformation[] = []
-            for (const signature of definition.signatures) {
+            let bestFitIndex = 0;
+            let bestFitStrength = 0;
+            for (let sigIndex = 0; sigIndex < definition.signatures.length; sigIndex++) {
+                const signature = definition.signatures[sigIndex];
                 let info = {
                     parameters: [],
                     label: ""
                 } as SignatureInformation
 
-                let argStrings: string[] = []
+                let paramStrings: string[] = []
 
-                for (const arg of signature.params) {
-                    let argString: string
-                    // if (arg.DFType == "NONE") {
-                    //     if (arg.Description.endsWith(")")) {arg.Description = arg.Description.substring(0,arg.Description.length-1)}
-                    //     argString = `Empty Slot${arg.Description ? " - " + arg.Description : ""}`
-                    // } else {}
-                    argString = `${arg.name}: ${arg.type.name}${arg.plural ? "(s)" : ""}${arg.optional ? "*" : ""}`
-                    info.parameters!.push({label: argString, documentation: arg.description})
-                    argStrings.push(argString)
+                for (const param of signature.params) {
+                    let paramString: string
+                    paramString = `${param.name}: ${param.type.name}${param.plural ? "(s)" : ""}${param.optional ? "*" : ""}`
+                    info.parameters!.push({label: paramString, documentation: param.description})
+                    paramStrings.push(paramString)
                 }
 
                 let tagAmount = Object.values(definition.action?.tags ?? {}).length;
-                info.label = `${definition.name}(${argStrings.join(", ")})${tagAmount > 0 ? ` + ${tagAmount} tag${tagAmount > 1 ? "s" : ""}` : ""}`
+                info.label = `${definition.name}(${paramStrings.join(", ")})${tagAmount > 0 ? ` + ${tagAmount} tag${tagAmount > 1 ? "s" : ""}` : ""}`
                 
-                info.activeParameter = matchArgsToParams(argTypes, signature)[activeArgIndex] ?? argTypes.length+1;
+                let argsToParams = matchArgsToParams(argTypes, signature);
+                info.activeParameter = argsToParams[activeArgIndex] ?? argTypes.length+1;
 
                 // always highlight the last parameter if it's something plural (e.g. the texts in SendMessage)
                 if (info.activeParameter >= signature.params.length && signature.params[signature.params.length-1].plural) {
                     info.activeParameter = signature.params.length-1;
+                }
+
+                // figure out how many arguments are correct starting from the beginning
+                let strength = 0;
+                for (let argIndex = 0; argIndex < argsToParams.length; argIndex++) {
+                    let paramIndex = argsToParams[argIndex];
+                    if (argTypes[argIndex].matches(signature.params[paramIndex].type)) {
+                        strength++;
+                    }
+                }
+                if (strength > bestFitStrength) {
+                    bestFitIndex = sigIndex;
+                    bestFitStrength = strength;
                 }
 
                 signatureInfos.push(info)
@@ -248,6 +263,7 @@ export class LanguageServer {
 
             return {
                 signatures: signatureInfos,
+                activeSignature: bestFitIndex,
             } as SignatureHelp;
         }) 
 

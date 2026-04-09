@@ -50,7 +50,7 @@ export function pathToUri(path: string): URI {
 }
 
 /** @returns an array where the index represents an argument's index and the value represents 
- * [(number) the index of the parameter it corresponds to] */
+ * the index of the parameter it corresponds to */
 export function matchArgsToParams(argTypes: Type[], signature: ParameterSignature): number[] {
     let out: number[] = []
     let argIndex = 0;
