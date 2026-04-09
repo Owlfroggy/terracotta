@@ -1,5 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { URI } from "vscode-languageserver";
+import { Type } from "../typeProcessor/type.ts";
+import { ArgumentSignature } from "../compiler/namespace/definition.ts";
 
 export function getOrCreateMapLayer<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {
@@ -45,4 +47,58 @@ export function upperFirst(s: string): string {
 
 export function pathToUri(path: string): URI { 
     return pathToFileURL(path).href;
+}
+
+/** @returns an array where the index represents an argument's index and the value represents 
+ * [(number) the index of the parameter it corresponds to] */
+export function matchArgsToParams(argTypes: Type[], signature: ArgumentSignature): number[] {
+    let out: number[] = []
+    let argIndex = 0;
+    let paramIndex = 0;
+
+    function consumeArg() {
+        out.push(paramIndex);
+        argIndex++;
+    }
+    
+    let lastSkippableOptional: number;
+    let lastType = signature.args[signature.args.length-1].type;
+    for (lastSkippableOptional = signature.args.length-1; lastSkippableOptional >= 0; lastSkippableOptional--) {
+        if (!signature.args[lastSkippableOptional].type.matches(lastType)) {
+            break;
+        }
+    }
+
+    for (paramIndex = 0; paramIndex < signature.args.length && argIndex < argTypes.length; paramIndex++) {
+        let p = signature.args[paramIndex];
+        // plural special behavior
+        if (p.plural && !argTypes[argIndex].matches(Type.any)) {
+            // consume args that match this type
+            let consumed = 0;
+            while (argIndex < argTypes.length && argTypes[argIndex].matches(p.type)) {
+                consumeArg();
+                consumed++;
+            }
+            // always consume at least one argument if this is required
+            if (consumed == 0 && !p.optional) consumeArg();
+        } 
+        // optional special behavior
+        else if (p.optional && !argTypes[argIndex].matches(Type.any) && !argTypes[argIndex].matches(p.type) && paramIndex <= lastSkippableOptional) {
+            let canSkip = false;
+            // only skip this param if there's a later param which matches this arg
+            for (let i = paramIndex + 1; i < signature.args.length; i++) {
+                if (argTypes[argIndex].matches(signature.args[i].type)) {
+                    canSkip = true;
+                    break;
+                }
+            }
+            if (!canSkip) consumeArg();
+        } 
+        // default behavior
+        else {
+            consumeArg();
+        }
+    }
+
+    return out;
 }

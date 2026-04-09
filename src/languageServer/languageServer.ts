@@ -14,6 +14,7 @@ import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { getActionDocumentation, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
 import { sign } from "node:crypto";
+import { matchArgsToParams } from "../util/utils.ts";
 
 type ServerTCConfiguration = {
     dfRank: AD.DFRank,
@@ -197,6 +198,8 @@ export class LanguageServer {
 
             let args = callNode.args.elements;
             let argTypes = args.map(a => doc.workspace.typeProcessor.evaluateExpression(a, envFrame));
+            if (callNode.args.hasTrailingDelimiter) argTypes.push(Type.any);
+
             let activeArgIndex = 0;
             for (let i = 0; i < args.length; i++) {
                 let argUpperBound = (
@@ -232,28 +235,13 @@ export class LanguageServer {
 
                 let tagAmount = Object.values(definition.action?.tags ?? {}).length;
                 info.label = `${definition.name}(${argStrings.join(", ")})${tagAmount > 0 ? ` + ${tagAmount} tag${tagAmount > 1 ? "s" : ""}` : ""}`
-
-                let activeParam = 0;
-                let i = 0;
-                // yeah idk how this loop works either i was fighting demons making it
-                while (i < activeArgIndex) {
-                    let param = signature.args[activeParam];
-                    i++;
-                    if (!(i < args.length && activeParam < signature.args.length)) {
-                        activeParam++;
-                        break;
-                    }
-                    if (!(param.plural && param.type.matches(argTypes[i]))) {
-                        activeParam++;
-                    }
-                }
+                
+                info.activeParameter = matchArgsToParams(argTypes, signature)[activeArgIndex] ?? argTypes.length+1;
 
                 // always highlight the last parameter if it's something plural (e.g. the texts in SendMessage)
-                if (activeParam >= signature.args.length && signature.args[signature.args.length-1].plural) {
-                    activeParam = signature.args.length-1;
+                if (info.activeParameter >= signature.args.length && signature.args[signature.args.length-1].plural) {
+                    info.activeParameter = signature.args.length-1;
                 }
-
-                info.activeParameter = activeParam;
                 
                 signatureInfos.push(info)
             }
