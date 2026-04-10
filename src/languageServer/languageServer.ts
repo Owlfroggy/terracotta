@@ -119,7 +119,7 @@ export class LanguageServer {
 
             let response: InitializeResult = {
                 capabilities: {
-                    textDocumentSync: TextDocumentSyncKind.Incremental,
+                    textDocumentSync: TextDocumentSyncKind.Full,
                     //workspace folders
                     workspace: {
                         workspaceFolders: {
@@ -210,9 +210,6 @@ export class LanguageServer {
                 if (index < argUpperBound) break;
                 activeArgIndex++;
             }
-
-
-            slog("\n\n");
 
             // build the signature infos
             let signatureInfos: SignatureInformation[] = []
