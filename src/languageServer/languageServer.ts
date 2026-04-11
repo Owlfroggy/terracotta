@@ -4,7 +4,7 @@ import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocu
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ListExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ListExpression, VariableExpression } from "../ast/expression.ts";
 import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
@@ -76,6 +76,61 @@ function generateNamespaceMemberCompletions(namespace: Namespace): CompletionIte
                     definition: def,
                 } as CompletionItemData
             })
+        }
+    }
+    return items;
+}
+
+function generateVariableCompletions(envFrame: EnvironmentFrame, restrictions: {explicitScope?: VariableScope} = {}): CompletionItem[] {
+    let items: CompletionItem[] = [];
+    // collect variable data
+    let seenVars: Map<string, Map<VariableScope, Type>> = new Map();
+    let varFrame: EnvironmentFrame | null = envFrame;
+
+    while (varFrame != null) {
+        for (const scopeLayer of varFrame.variables.values()) {
+            for (const [scope, varLayer] of scopeLayer.entries()) {
+                if (restrictions.explicitScope !== undefined && scope != restrictions.explicitScope) continue;
+                for (const variable of varLayer) {
+                    let entries = seenVars.getOrInsert(variable.id.name, new Map());
+                    if (entries.has(variable.id.scope)) continue;
+                    entries.set(variable.id.scope, variable.type ?? Type.unknown);
+                }
+            }
+        }
+        varFrame = varFrame.parent;
+    }
+
+    // turn variable data into items
+    for (const [name, scopeLayer] of seenVars.entries()) {
+        for (const [scope, type] of scopeLayer.entries()) {
+            let scopeStr = VariableScope[scope].toLowerCase();
+            let stringifiedName = name;
+            if (!/^[A-Za-z0-9_]+$/.test(stringifiedName)) {
+                stringifiedName = valueToTCString(name);
+            }
+            let multipleVars = (scopeLayer.size > 1 && scope != Math.max(...scopeLayer.keys()));
+            if (!multipleVars && stringifiedName == name) {
+                items.push({
+                    label: name,
+                    documentation: {
+                        kind: 'markdown', 
+                        value: `\`\`\`tc\n${scopeStr} ${name}: ${type.name}\n\`\`\``
+                    },
+                    kind: CompletionItemKind.Variable,
+                });
+            } else {
+                items.push({
+                    label: multipleVars ? `${name} (${scopeStr})` : name,
+                    documentation: {
+                        kind: 'markdown', 
+                        value: `\`\`\`tc\n${scopeStr} ${name}: ${type.name}\n\`\`\``
+                    },
+                    insertText: `${scopeStr} ${stringifiedName}`,
+                    filterText: name,
+                    kind: CompletionItemKind.Variable,
+                });
+            }
         }
     }
     return items;
@@ -335,7 +390,6 @@ export class LanguageServer {
             slog(visualizeNodeAncestors(node));
 
             let includeGenerics = true;
-            let forceIncludeVariables = false;
 
             //=--------------------------=\\
             //=- context specific stuff -=\\
@@ -369,6 +423,12 @@ export class LanguageServer {
                 }
 
                 includeGenerics = false;
+            }
+            // variable names when a scope is provided
+            else if (node instanceof VariableExpression || (node instanceof Token && node.parent instanceof VariableExpression && node.keyInParent == "name")) {
+                let variableExpression = (node instanceof VariableExpression ? node : node.parent) as VariableExpression;
+                includeGenerics = false;
+                items.push(...generateVariableCompletions(envFrame, {explicitScope: VariableScope[TokenType[variableExpression.scope.type]]}));
             }
             else if (node instanceof Token && (node.type == TokenType.STRING_LITERAL || node.type == TokenType.STYLED_LITERAL || node.type == TokenType.NUMERIC_LITERAL)) {
                 includeGenerics = false;
@@ -425,7 +485,7 @@ export class LanguageServer {
                             }
                             includeGenerics = false;
                             if (!(node instanceof Token && node.type == TokenType.STRING_LITERAL)) {
-                                forceIncludeVariables = true;
+                                items.push(...generateVariableCompletions(envFrame));
                             }
                         }
                     }
@@ -478,60 +538,8 @@ export class LanguageServer {
                 }
                 // keywords
                 items.push(...keywordCompletions);
-            }
-
-            if (includeGenerics || forceIncludeVariables) {
-                //=- variables -=\\
-
-                // collect variable data
-                let seenVars: Map<string, Map<VariableScope, Type>> = new Map();
-                let varFrame: EnvironmentFrame | null = envFrame;
-
-                while (varFrame != null) {
-                    for (const scopeLayer of varFrame.variables.values()) {
-                        for (const varLayer of scopeLayer.values()) {
-                            for (const variable of varLayer) {
-                                let entries = seenVars.getOrInsert(variable.id.name, new Map());
-                                if (entries.has(variable.id.scope)) continue;
-                                entries.set(variable.id.scope, variable.type ?? Type.unknown);
-                            }
-                        }
-                    }
-                    varFrame = varFrame.parent;
-                }
-
-                // turn variable data into items
-                for (const [name, scopeLayer] of seenVars.entries()) {
-                    for (const [scope, type] of scopeLayer.entries()) {
-                        let scopeStr = VariableScope[scope].toLowerCase();
-                        let stringifiedName = name;
-                        if (!/^[A-Za-z0-9_]+$/.test(stringifiedName)) {
-                            stringifiedName = valueToTCString(name);
-                        }
-                        let multipleVars = (scopeLayer.size > 1 && scope != Math.max(...scopeLayer.keys()));
-                        if (!multipleVars && stringifiedName == name) {
-                            items.push({
-                                label: name,
-                                documentation: {
-                                    kind: 'markdown', 
-                                    value: `\`\`\`tc\n${scopeStr} ${name}: ${type.name}\n\`\`\``
-                                },
-                                kind: CompletionItemKind.Variable,
-                            });
-                        } else {
-                            items.push({
-                                label: multipleVars ? `${name} (${scopeStr})` : name,
-                                documentation: {
-                                    kind: 'markdown', 
-                                    value: `\`\`\`tc\n${scopeStr} ${name}: ${type.name}\n\`\`\``
-                                },
-                                insertText: `${scopeStr} ${stringifiedName}`,
-                                filterText: name,
-                                kind: CompletionItemKind.Variable,
-                            });
-                        }
-                    }
-                }
+                // variables
+                items.push(...generateVariableCompletions(envFrame));
             }
 
             slog ("Returned",items.length,"items")
