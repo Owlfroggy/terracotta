@@ -1,6 +1,6 @@
 import * as rpc from "vscode-jsonrpc/node.js"
 import * as AD from "../df/actiondump.ts"
-import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp } from "vscode-languageserver";
+import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp, MarkupContent } from "vscode-languageserver";
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
@@ -81,7 +81,8 @@ function generateNamespaceMemberCompletions(namespace: Namespace): CompletionIte
     return items;
 }
 
-function generateVariableCompletions(envFrame: EnvironmentFrame, restrictions: {explicitScope?: VariableScope} = {}): CompletionItem[] {
+function generateVariableCompletions(envFrame: EnvironmentFrame, options: {explicitScope?: VariableScope, replaceString?: Token, doc?: TrackedDocument, excludeName?: string} = {}): CompletionItem[] {
+    if (options.replaceString != undefined && options.doc == undefined) throw new Error("options.doc must be provided if options.replaceString is present");
     let items: CompletionItem[] = [];
     // collect variable data
     let seenVars: Map<string, Map<VariableScope, Type>> = new Map();
@@ -90,8 +91,9 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, restrictions: {
     while (varFrame != null) {
         for (const scopeLayer of varFrame.variables.values()) {
             for (const [scope, varLayer] of scopeLayer.entries()) {
-                if (restrictions.explicitScope !== undefined && scope != restrictions.explicitScope) continue;
+                if (options.explicitScope !== undefined && scope != options.explicitScope) continue;
                 for (const variable of varLayer) {
+                    if (options.excludeName !== undefined && variable.id.name == options.excludeName) continue;
                     let entries = seenVars.getOrInsert(variable.id.name, new Map());
                     if (entries.has(variable.id.scope)) continue;
                     entries.set(variable.id.scope, variable.type ?? Type.unknown);
@@ -106,19 +108,36 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, restrictions: {
         for (const [scope, type] of scopeLayer.entries()) {
             let scopeStr = VariableScope[scope].toLowerCase();
             let stringifiedName = name;
-            if (!/^[A-Za-z0-9_]+$/.test(stringifiedName)) {
-                stringifiedName = valueToTCString(name);
+            if (!/^[A-Za-z0-9_]+$/.test(stringifiedName) || options.replaceString) {
+                stringifiedName = valueToTCString(name, options.replaceString?.getStringExtraData().quoteChar ?? '"');
             }
             let multipleVars = (scopeLayer.size > 1 && scope != Math.max(...scopeLayer.keys()));
+            let documentation: MarkupContent = {
+                kind: 'markdown', 
+                value: `\`\`\`tc\n${scopeStr} ${stringifiedName}: ${type.name}\n\`\`\``
+            };
             if (!multipleVars && stringifiedName == name) {
                 items.push({
                     label: name,
-                    documentation: {
-                        kind: 'markdown', 
-                        value: `\`\`\`tc\n${scopeStr} ${name}: ${type.name}\n\`\`\``
-                    },
+                    documentation: documentation,
                     kind: CompletionItemKind.Variable,
                 });
+            } else if (options.replaceString && options.doc) {
+                items.push({
+                    label: name,
+                    documentation: documentation,
+                    kind: CompletionItemKind.Variable,
+                    textEdit: {
+                        range: {
+                            start: options.doc.indexToLinePosition(options.replaceString.startPos), 
+                            end: options.doc.indexToLinePosition(options.replaceString.endPos),
+                            // start: param.position,
+                            // end: param.position,
+                        },
+                        newText: stringifiedName,
+                    },
+                    filterText: stringifiedName,
+                })
             } else {
                 items.push({
                     label: multipleVars ? `${name} (${scopeStr})` : name,
@@ -126,7 +145,7 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, restrictions: {
                         kind: 'markdown', 
                         value: `\`\`\`tc\n${scopeStr} ${name}: ${type.name}\n\`\`\``
                     },
-                    insertText: `${scopeStr} ${stringifiedName}`,
+                    insertText: `${options.explicitScope ? '' : scopeStr+" "}${stringifiedName}`,
                     filterText: name,
                     kind: CompletionItemKind.Variable,
                 });
@@ -395,6 +414,7 @@ export class LanguageServer {
             //=- context specific stuff -=\\
             //=--------------------------=\\
 
+            let [callNode, definition] = getNearestCallNode(node, doc.workspace.typeProcessor, envFrame, index);
             if (node.parent instanceof AccessExpression && (node.keyInParent == "accessorToken" || node.keyInParent == "propertyName")) {
                 let accesseeType = doc.workspace.typeProcessor.evaluateExpression(node.parent.accessee, envFrame);
                 if (accesseeType.name == "namespace") {
@@ -428,16 +448,18 @@ export class LanguageServer {
             else if (node instanceof VariableExpression || (node instanceof Token && node.parent instanceof VariableExpression && node.keyInParent == "name")) {
                 let variableExpression = (node instanceof VariableExpression ? node : node.parent) as VariableExpression;
                 includeGenerics = false;
-                items.push(...generateVariableCompletions(envFrame, {explicitScope: VariableScope[TokenType[variableExpression.scope.type]]}));
+                items.push(...generateVariableCompletions(envFrame, {
+                    explicitScope: VariableScope[TokenType[variableExpression.scope.type]],
+                    replaceString: node instanceof Token && node.type == TokenType.STRING_LITERAL ? node : undefined,
+                    doc: doc,
+                    excludeName: node instanceof Token ? node.value : undefined,
+                }));
             }
             else if (node instanceof Token && (node.type == TokenType.STRING_LITERAL || node.type == TokenType.STYLED_LITERAL || node.type == TokenType.NUMERIC_LITERAL)) {
                 includeGenerics = false;
             }
-
-
             // action tags
-            let [callNode, definition] = getNearestCallNode(node, doc.workspace.typeProcessor, envFrame, index);
-            if (callNode && definition) {
+            else if (callNode && definition) {
                 if (definition.action && node.getClosestAncestor(ListExpression) == callNode.args) {
                     let closestBinary = node.getClosestAncestor(BinaryExpression);
                     // tag value
@@ -490,7 +512,7 @@ export class LanguageServer {
                         }
                     }
                     // tag name
-                    else if (!(node instanceof Token && node.parent instanceof AtomicExpression && node.type != TokenType.IDENTIFIER)) {
+                    else if (includeGenerics && !(node instanceof Token && node.parent instanceof AtomicExpression && node.type != TokenType.IDENTIFIER)) {
                         let existingTags: string[] = [];
                         // figure out what tags already exist
                         for (const arg of callNode.args.elements) {
