@@ -29,7 +29,6 @@ export interface FunctionDefinition {
     name: string,
     signatures: ParameterSignature[],
     returnType: Type | null,
-    tags?: Tag[],
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,
     // todo: signature

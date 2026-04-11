@@ -2,6 +2,8 @@ import { pathToFileURL } from "node:url";
 import { URI } from "vscode-languageserver";
 import { Type } from "../typeProcessor/type.ts";
 import { ParameterSignature } from "../compiler/namespace/definition.ts";
+import { BinaryExpression, Expression } from "../ast/expression.ts";
+import { TokenType } from "../ast/token.ts";
 
 export function getOrCreateMapLayer<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {
@@ -50,15 +52,27 @@ export function pathToUri(path: string): URI {
 }
 
 /** @returns an array where the index represents an argument's index and the value represents 
- * the index of the parameter it corresponds to */
-export function matchArgsToParams(argTypes: Type[], signature: ParameterSignature): number[] {
+ * the index of the parameter it corresponds to
+ * 
+ * -1 means this argument is a tag/named arg */
+export function matchArgsToParams(args: Expression[], argTypes: Type[], signature: ParameterSignature): number[] {
     let out: number[] = []
     let argIndex = 0;
     let paramIndex = 0;
 
+    function skipTags() {
+        let arg = args[argIndex];
+        while (arg && arg instanceof BinaryExpression && arg.operator.type == TokenType.EQUALS) {
+            out.push(-1);
+            argIndex++;
+            arg = args[argIndex];
+        }
+    }
+
     function consumeArg() {
         out.push(paramIndex);
         argIndex++;
+        skipTags();
     }
     
     let lastSkippableOptional: number;
@@ -68,6 +82,8 @@ export function matchArgsToParams(argTypes: Type[], signature: ParameterSignatur
             break;
         }
     }
+
+    skipTags();
 
     for (paramIndex = 0; paramIndex < signature.params.length && argIndex < argTypes.length; paramIndex++) {
         let p = signature.params[paramIndex];
@@ -101,4 +117,9 @@ export function matchArgsToParams(argTypes: Type[], signature: ParameterSignatur
     }
 
     return out;
+}
+
+/** wraps value in quotes and takes care of necessary escape sequences */
+export function valueToTCString(value: string, quoteChar: string = '"'): string {
+    return quoteChar + value.replace('\\','\\\\').replace(quoteChar, '\\'+quoteChar).replace('\n','\\n') + quoteChar;
 }

@@ -4,17 +4,17 @@ import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocu
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, CallExpression, ListExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ListExpression } from "../ast/expression.ts";
 import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
-import { EnvironmentFrame, VariableScope } from "../typeProcessor/typeProcessor.ts";
+import { EnvironmentFrame, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { EventStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
-import { Token, TokenType } from "../ast/token.ts";
+import { StringExtraData, Token, TokenType } from "../ast/token.ts";
 import { getActionDocumentation, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
 import { sign } from "node:crypto";
-import { matchArgsToParams } from "../util/utils.ts";
+import { matchArgsToParams, valueToTCString } from "../util/utils.ts";
 
 type ServerTCConfiguration = {
     dfRank: AD.DFRank,
@@ -25,6 +25,8 @@ enum CompletionItemType {
     FUNCTION,
     VALUE,
     EVENT,
+    TAG_NAME,
+    TAG_OPTION,
 }
 type CompletionItemData = {
     type: CompletionItemType.FUNCTION,
@@ -35,6 +37,13 @@ type CompletionItemData = {
 } | {
     type: CompletionItemType.EVENT,
     event: AD.Action
+} | {
+    type: CompletionItemType.TAG_NAME,
+    tag: AD.Tag,
+} | {
+    type: CompletionItemType.TAG_OPTION,
+    tag: AD.Tag,
+    option: string,
 }
 
 //function that other things can call to log to the language server output when debugging
@@ -85,6 +94,26 @@ const keywordCompletions: CompletionItem[] = [
     kind: CompletionItemKind.Keyword
 }));
 
+function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFrame: EnvironmentFrame, index: number): [callNode: CallExpression, definition: FunctionDefinition] | [null, null] {
+    // find the function call this node is a part of, if there is one
+    let callNode: ASTNode = node;
+    let listFound = false;
+    while (callNode.parent != null) {
+        if (callNode instanceof ListExpression) listFound = true;
+        // checking index < n.endPos is required otherwise placing the caret after
+        // the argument list's closer would be counted as inside the list
+        if (listFound && callNode instanceof CallExpression && index < callNode.endPos) {
+            break;
+        }
+        callNode = callNode.parent;
+    }
+    if (!(callNode instanceof CallExpression)) return [null, null];
+    
+    let calleeType = typeProcessor.evaluateExpression(callNode.callee, envFrame);
+    if (calleeType.name != "func") return [null, null];
+    let definition = (calleeType.data as FuncTypeData).definition;
+    return [callNode, definition];
+}
 
 export class LanguageServer {
     connection: rpc.MessageConnection;
@@ -136,7 +165,7 @@ export class LanguageServer {
                     //completion
                     completionProvider: {
                         resolveProvider: true,
-                        triggerCharacters: [".","?",'"',"'"],
+                        triggerCharacters: [".","?",'"',"'","="],
                         completionItem: {
                             labelDetailsSupport: true
                         }
@@ -175,26 +204,8 @@ export class LanguageServer {
             let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
 
 
-            // find the function call this node is a part of, if there is one
-            let callNode: ASTNode = node;
-            let listFound = false;
-            while (callNode.parent != null) {
-                if (callNode instanceof ListExpression) listFound = true;
-                // checking index < n.endPos is required otherwise placing the caret after
-                // the argument list's closer would be counted as inside the list
-                if (listFound && callNode instanceof CallExpression && index < callNode.endPos) {
-                    break;
-                }
-                callNode = callNode.parent;
-            }
-            if (!(callNode instanceof CallExpression)) return;
-
-            // slog("\nNode trace:");
-            // slog(visualizeNodeAncestors(node));
-            
-            let calleeType = doc.workspace.typeProcessor.evaluateExpression(callNode.callee, envFrame);
-            if (calleeType.name != "func") return;
-            let definition = (calleeType.data as FuncTypeData).definition;
+            let [callNode, definition] = getNearestCallNode(node, doc.workspace.typeProcessor, envFrame, index);
+            if (callNode == null || definition == null) return;
 
             let args = callNode.args.elements;
             let argTypes = args.map(a => doc.workspace.typeProcessor.evaluateExpression(a, envFrame));
@@ -232,20 +243,36 @@ export class LanguageServer {
                 }
 
                 let tagAmount = Object.values(definition.action?.tags ?? {}).length;
-                info.label = `${definition.name}(${paramStrings.join(", ")})${tagAmount > 0 ? ` + ${tagAmount} tag${tagAmount > 1 ? "s" : ""}` : ""}`
+                let tagString = tagAmount > 0 ? ` + ${tagAmount} tag${tagAmount > 1 ? "s" : ""}` : "";
+                info.label = `${definition.name}(${paramStrings.join(", ")})${tagString}`
                 
-                let argsToParams = matchArgsToParams(argTypes, signature);
-                info.activeParameter = argsToParams[activeArgIndex] ?? argTypes.length+1;
+                info.parameters?.push({label: tagString});
 
+                let argsToParams = matchArgsToParams(args,argTypes, signature);
+                info.activeParameter = argsToParams[activeArgIndex] ?? argTypes.length;
+
+                // highlight tags string if this arg is a tag
+                slog("args to params: ",JSON.stringify(argsToParams));
+                slog("active:", info.activeParameter, "index:",activeArgIndex);;
+                if (info.activeParameter == -1) {
+                    info.activeParameter = info.parameters!.length-1;
+                    slog('hekjhahkjkhfdskhjdsfahjksafdhkjadsfhkjhsafjkd');
+                }
                 // always highlight the last parameter if it's something plural (e.g. the texts in SendMessage)
-                if (info.activeParameter >= signature.params.length && signature.params[signature.params.length-1].plural) {
+                else if (info.activeParameter >= signature.params.length && signature.params[signature.params.length-1].plural) {
                     info.activeParameter = signature.params.length-1;
                 }
+                // if the argument is beyond the parameter list, by default it will land at the extra param for tags
+                // therefore it needs to be bumped up one to display properly
+                else if (info.activeParameter == signature.params.length) {
+                    info.activeParameter++;
+                }
 
-                // figure out how many arguments are correct starting from the beginning
+                // score how many arguments are correct to figure out which signature should be shown
                 let strength = 0;
                 for (let argIndex = 0; argIndex < argsToParams.length; argIndex++) {
                     let paramIndex = argsToParams[argIndex];
+                    if (paramIndex == -1) continue;
                     if (argTypes[argIndex].matches(signature.params[paramIndex].type)) {
                         strength++;
                     }
@@ -282,6 +309,10 @@ export class LanguageServer {
                     documentation = getValueDocumentation(data.definition.gameValue);
                 }
             }
+            else if (data.type == CompletionItemType.TAG_NAME) {
+                let options = Object.entries(data.tag.options).map(([name, data]) => `\`${name}\`${data.description.length > 0 ? " - "+data.description : ""}`).join("\n\n")
+                documentation = `**${data.tag.name}**\n\nOptions: \n\n${options}`;
+            }
 
             item.documentation = {
                 kind: "markdown",
@@ -303,10 +334,11 @@ export class LanguageServer {
             if (node == null) return; // todo: this is bad
             let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
 
-            // slog("\nNode trace:");
-            // slog(visualizeNodeAncestors(node));
+            slog("\nNode trace:");
+            slog(visualizeNodeAncestors(node));
 
             let includeGenerics = true;
+            let forceIncludeVariables = false;
 
             //=--------------------------=\\
             //=- context specific stuff -=\\
@@ -345,6 +377,96 @@ export class LanguageServer {
                 includeGenerics = false;
             }
 
+
+            // action tags
+            let [callNode, definition] = getNearestCallNode(node, doc.workspace.typeProcessor, envFrame, index);
+            if (callNode && definition) {
+                if (definition.action && node.getClosestAncestor(ListExpression) == callNode.args) {
+                    let closestBinary = node.getClosestAncestor(BinaryExpression);
+                    // tag value
+                    if (
+                        closestBinary 
+                        && closestBinary.isChildOf(callNode.args) 
+                        && closestBinary.operator.type == TokenType.EQUALS 
+                        && closestBinary.left instanceof AtomicExpression
+                        && (closestBinary.left.token.type == TokenType.STRING_LITERAL || closestBinary.left.token.type == TokenType.IDENTIFIER)
+                    ) {
+                        let tagName = closestBinary.left.token.value;
+                        let tag = definition.action.tcTagMap[tagName];
+                        let extraStringData: StringExtraData | null = (node instanceof Token && node.type == TokenType.STRING_LITERAL) ? node.getStringExtraData() : null;
+                        if (tag) {
+                            for (const [optName, optData] of Object.entries(tag.options)) {
+                                let stringified = valueToTCString(optName, extraStringData?.quoteChar ?? '"');
+                                let item: CompletionItem = {
+                                    label: optName,
+                                    kind: CompletionItemKind.EnumMember,
+                                    sortText: "\u0000"+optName,
+                                    data: {
+                                        type: CompletionItemType.TAG_OPTION,
+                                        tag: tag,
+                                        option: optName,
+                                    } as CompletionItemData
+                                };
+                                if (node instanceof Token && node.parent instanceof AtomicExpression && extraStringData?.isClosed) {
+                                    slog(`YEEEEE HAWWW \n${JSON.stringify({start: doc.indexToLinePosition(node.startPos), end: doc.indexToLinePosition(node.endPos)})}\n${JSON.stringify(param.position)}\n`,optName);
+                                    item.textEdit = {
+                                        range: {
+                                            start: doc.indexToLinePosition(node.startPos), 
+                                            end: doc.indexToLinePosition(node.endPos),
+                                            // start: param.position,
+                                            // end: param.position,
+                                        },
+                                        newText: stringified,
+                                    };
+                                    if (node.type == TokenType.STRING_LITERAL) {
+                                        item.filterText = stringified//extraData.quoteChar + stringified + extraData.quoteChar;
+                                    }
+                                } else {
+                                    item.insertText = valueToTCString(optName);
+                                }
+                                items.push(item);
+                            }
+                            includeGenerics = false;
+                            if (!(node instanceof Token && node.type == TokenType.STRING_LITERAL)) {
+                                forceIncludeVariables = true;
+                            }
+                        }
+                    }
+                    // tag name
+                    else if (!(node instanceof Token && node.parent instanceof AtomicExpression && node.type != TokenType.IDENTIFIER)) {
+                        let existingTags: string[] = [];
+                        // figure out what tags already exist
+                        for (const arg of callNode.args.elements) {
+                            if (
+                                arg instanceof BinaryExpression 
+                                && arg.operator.type == TokenType.EQUALS 
+                                && arg.left instanceof AtomicExpression
+                                && (arg.left.token.type == TokenType.STRING_LITERAL || arg.left.token.type == TokenType.IDENTIFIER)
+                            ) {
+                                existingTags.push(arg.left.token.value);
+                            }
+                        }
+
+                        for (const tag of Object.values(definition.action.tags)) {
+                            let tcName = AD.getTCTagName(tag.name);
+                            if (existingTags.includes(tcName)) continue;
+
+                            items.push({
+                                label: tcName,
+                                insertText: tcName,
+                                kind: CompletionItemKind.Enum,
+                                commitCharacters: ["="],
+                                data: {
+                                    type: CompletionItemType.TAG_NAME,
+                                    tag: tag,
+                                } as CompletionItemData,
+                                sortText: "\u0000"+tcName
+                            });
+                        }
+                    }
+                }
+            }
+
             //=-----------------=\\
             //=- generic stuff -=\\
             //=-----------------=\\
@@ -359,7 +481,9 @@ export class LanguageServer {
                 }
                 // keywords
                 items.push(...keywordCompletions);
+            }
 
+            if (includeGenerics || forceIncludeVariables) {
                 //=- variables -=\\
 
                 // collect variable data
@@ -385,7 +509,7 @@ export class LanguageServer {
                         let scopeStr = VariableScope[scope].toLowerCase();
                         let stringifiedName = name;
                         if (!/^[A-Za-z0-9_]+$/.test(stringifiedName)) {
-                            stringifiedName = '"' + name.replace('\\','\\\\').replace('"', '\\"').replace('\n','\\n') + '"';
+                            stringifiedName = valueToTCString(name);
                         }
                         let multipleVars = (scopeLayer.size > 1 && scope != Math.max(...scopeLayer.keys()));
                         if (!multipleVars && stringifiedName == name) {

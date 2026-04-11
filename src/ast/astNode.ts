@@ -28,6 +28,23 @@ export class ASTNode {
     toString(): string {
         return this.constructor.name;
     }
+
+    getClosestAncestor<T extends ASTNode>(type: new (...args: any[]) => T): T | null {
+        if (this instanceof type) {
+            return this;
+        } else {
+            return this.parent?.getClosestAncestor(type) ?? null;
+        }
+    }
+
+    isChildOf(parent: ASTNode): boolean {
+        let n = this.parent;
+        while (n != null) {
+            if (n == parent) return true;
+            n = n.parent;
+        }
+        return false;
+    }
 }
 
 
