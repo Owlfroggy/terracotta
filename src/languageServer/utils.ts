@@ -1,6 +1,7 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { Action } from "../df/actiondump.ts";
 import * as AD from "../df/actiondump.ts";
+import { dfTypeToString } from "../df/constants.ts";
 
 function getDFParamString(parameters: AD.Parameter[], header: string, noParamsFallback: string) {
     if (parameters.length == 0) { return noParamsFallback }
@@ -23,7 +24,7 @@ function getDFParamString(parameters: AD.Parameter[], header: string, noParamsFa
                 // main string
                 let pluralSuffix = value.plural ? "(s)" : ""
                 let optionalSuffix = value.optional ? "*" : ""
-                valueStrings.push(`\`${AD.dfTypeToString.get(value.type)}${pluralSuffix}${optionalSuffix}\` ${value.description.length + notesString.length > 0 ? "-" : ""} ${value.description}${notesString}`)
+                valueStrings.push(`\`${dfTypeToString.get(value.type)}${pluralSuffix}${optionalSuffix}\` ${value.description.length + notesString.length > 0 ? "-" : ""} ${value.description}${notesString}`)
             }
             groupStrings.push(valueStrings.join("\\\n"))
         }

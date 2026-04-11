@@ -4,6 +4,7 @@ import { Type } from "../typeProcessor/type.ts";
 import { ParameterSignature } from "../compiler/namespace/definition.ts";
 import { BinaryExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
+import { slog } from "../languageServer/languageServer.ts";
 
 export function getOrCreateMapLayer<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {

@@ -1,7 +1,6 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { DoStatement, EventStatement, ExpressionStatement, FunctionStatement, ProcessStatement, Statement } from "../ast/statement.ts";
 import { TokenType } from "../ast/token.ts";
-import { DFCodeblockName } from "../df/actiondump.ts";
 import { TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/utils.ts";
 import { ActionBlock, CodeBlock, EventBlock } from "./codeBlock.ts";
@@ -15,6 +14,7 @@ import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
 import { DefinitionType } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
+import { DFCodeblockName } from "../df/constants.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 

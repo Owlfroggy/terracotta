@@ -1,5 +1,5 @@
 import { AtomicExpression } from "../../ast/expression.ts";
-import { Action, DFValueType, GameValue, Tag } from "../../df/actiondump.ts";
+import { Action, GameValue, Tag } from "../../df/actiondump.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { CodeBlock } from "../codeBlock.ts";
 import { EvaluationContext } from "../codeCompiler.ts";

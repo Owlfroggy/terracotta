@@ -6,7 +6,7 @@ import { Parser } from "../parser/parser.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { TCError } from "../error/error.ts";
 import { CodeCompiler } from "./codeCompiler.ts";
-import { DFCodeblockName } from "../df/actiondump.ts";
+import { DFCodeblockName } from "../df/constants.ts";
 
 export type CompiledTemplate = string
 

@@ -15,9 +15,10 @@ import { StringExtraData, Token, TokenType } from "../ast/token.ts";
 import { getActionDocumentation, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
 import { sign } from "node:crypto";
 import { matchArgsToParams, valueToTCString } from "../util/utils.ts";
+import { DFCodeblockName, DFRank } from "../df/constants.ts";
 
 type ServerTCConfiguration = {
-    dfRank: AD.DFRank,
+    dfRank: DFRank,
     rankBehavior: "crossOutInaccessible" | "hideInaccessible"
 }
 
@@ -130,7 +131,7 @@ export class LanguageServer {
         conn.listen()
 
         let configuration: ServerTCConfiguration = {
-            dfRank: AD.DFRank.OVERLORD,
+            dfRank: DFRank.OVERLORD,
             rankBehavior: "crossOutInaccessible"
         }
         
@@ -358,7 +359,7 @@ export class LanguageServer {
                 || (node.parent instanceof EventStatement && node.keyInParent == "eventName")
             ) {
                 let s = node instanceof EventStatement ? node : node.parent as EventStatement;
-                let headerType: HeaderType = AD.DFCodeblockName[TokenType[s.type.type]];
+                let headerType: HeaderType = DFCodeblockName[TokenType[s.type.type]];
 
                 for (const [tcEvent, dfEvent] of Object.entries(tcEventToDf.get(headerType) ?? {})) {
                     items.push({

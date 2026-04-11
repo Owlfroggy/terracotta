@@ -1,5 +1,6 @@
 import { Token, TokenType } from "../ast/token.ts";
-import { actions, DFCodeblockName } from "../df/actiondump.ts";
+import { actions } from "../df/actiondump.ts";
+import { DFCodeblockName } from "../df/constants.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { ActionBlock, CodeBlock } from "./codeBlock.ts";
 import { EvaluationContext } from "./codeCompiler.ts";

@@ -1,6 +1,7 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { getCodeblockIdentifier, Tag, TargetType } from "../df/actiondump.ts";
+import { Tag } from "../df/actiondump.ts";
 import * as AD from "../df/actiondump.ts";
+import { dfTypeToTC, getCodeblockIdentifier, TargetType } from "../df/constants.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { EvaluationContext } from "./codeCompiler.ts";
@@ -218,8 +219,8 @@ export class GameValueValue extends TangibleValue {
     getType(ctx: EvaluationContext): Type {
         let dfType = AD.gameValues[this.value]?.type;
         if (!dfType) return Type.unknown;
-        // console.log(dfType, AD.dfTypeToTC[dfType])
-        return AD.dfTypeToTC.get(dfType)!;
+        // console.log(dfType, dfTypeToTC[dfType])
+        return dfTypeToTC.get(dfType)!;
     }
 
     templateForm() {

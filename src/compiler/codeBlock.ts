@@ -1,6 +1,6 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { DFCodeblockName, getCodeblockIdentifier, TargetType } from "../df/actiondump.ts";
 import * as AD from "../df/actiondump.ts";
+import { DFCodeblockName, getCodeblockIdentifier, TargetType } from "../df/constants.ts";
 import { ActionTagValue, TangibleValue } from "./codeValue.ts";
 
 //=-------------------------------=\\

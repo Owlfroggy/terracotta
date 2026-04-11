@@ -1,5 +1,4 @@
-import { DFCodeblockName, TargetType } from "../../df/actiondump.ts";
-import { DFValueType } from "../../df/actiondump.ts";
+import { DFCodeblockName, dfTypeToTC, DFValueType, GameValueTargetType, TargetType } from "../../df/constants.ts";
 import * as AD from "../../df/actiondump.ts";
 import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
@@ -17,7 +16,7 @@ export function generateGameValueHook(valueName: string, dfName: string, target:
     let valueDef = AD.gameValues[dfName];
     return {
         definitionType: DefinitionType.VALUE,
-        returnType: AD.dfTypeToTC.get(valueDef?.type ?? DFValueType.ANY_TYPE)!,
+        returnType: dfTypeToTC.get(valueDef?.type ?? DFValueType.ANY_TYPE)!,
         gameValue: valueDef,
         compile: (ctx) => {
             return [new GameValueValue(dfName, target), []];
@@ -31,7 +30,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
 
     // TODO: support multiple return values
     let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
-    let tcReturnType = dfReturnType ? AD.dfTypeToTC.get(dfReturnType)! : null;
+    let tcReturnType = dfReturnType ? dfTypeToTC.get(dfReturnType)! : null;
 
     // create a unique signature for every possible combination of arguments
     let uniqueSignatures: ParameterSignatureEntry[][] = [[]]
@@ -68,7 +67,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
 
             let tcValues: ParameterSignatureEntry[] = values.map(v => ({
                 name: v.description,
-                type: AD.dfTypeToTC.get(v.type) ?? Type.unknown,
+                type: dfTypeToTC.get(v.type) ?? Type.unknown,
                 optional: forceOptional || v.optional,
                 plural: v.plural,
                 description: ((v.notes.length > 0 ? v.notes.join("\n") : '') + noneDescriptionAddition).trim()
@@ -192,7 +191,7 @@ export function registerBuiltinNamespaces() {
     ] as [string, TargetType][]) {
         new Namespace(identifier, Object.fromEntries([
             ...codeblockActionEntries(DFCodeblockName.PLAYER_ACTION, target),
-            ...gameValueEntries(target, v => v.targetType == AD.GameValueTargetType.TARGETS_ANYTHING || v.targetType == AD.GameValueTargetType.TARGETS_PLAYERS)
+            ...gameValueEntries(target, v => v.targetType == GameValueTargetType.TARGETS_ANYTHING || v.targetType == GameValueTargetType.TARGETS_PLAYERS)
         ]));
     }
 
@@ -211,14 +210,14 @@ export function registerBuiltinNamespaces() {
     ] as [string, TargetType][]) {
         new Namespace(identifier, Object.fromEntries([
             ...codeblockActionEntries(DFCodeblockName.ENTITY_ACTION, target),
-            ...gameValueEntries(target, v => v.targetType == AD.GameValueTargetType.TARGETS_ANYTHING || v.targetType == AD.GameValueTargetType.TARGETS_ENTITIES)
+            ...gameValueEntries(target, v => v.targetType == GameValueTargetType.TARGETS_ANYTHING || v.targetType == GameValueTargetType.TARGETS_ENTITIES)
         ]));
     }
 
     // game action namespace
     new Namespace("game", Object.fromEntries([
         ...codeblockActionEntries(DFCodeblockName.GAME_ACTION, TargetType.UNSET),
-        ...gameValueEntries(TargetType.UNSET, v => v.targetType == AD.GameValueTargetType.UNTARGETED)
+        ...gameValueEntries(TargetType.UNSET, v => v.targetType == GameValueTargetType.UNTARGETED)
     ]));
 }
 

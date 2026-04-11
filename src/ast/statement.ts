@@ -1,5 +1,5 @@
 import { HeaderType } from "../compiler/codeCompiler.ts";
-import { DFCodeblockName } from "../df/actiondump.ts";
+import { DFCodeblockName } from "../df/constants.ts";
 import { ASTNode, CommentHolder } from "./astNode.ts";
 import { ChunkExpression, Expression, GroupExpression, ListExpression, MissingExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "./expression.ts";
 import { Token, TokenType } from "./token.ts";
