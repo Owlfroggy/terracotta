@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { DoStatement, EventStatement, ExpressionStatement, FunctionStatement, ProcessStatement, Statement } from "../ast/statement.ts";
+import { DoStatement, EventStatement, ExpressionStatement, Statement } from "../ast/statement.ts";
 import { TokenType } from "../ast/token.ts";
 import { TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/utils.ts";
@@ -8,7 +8,7 @@ import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, GroupExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
+import { CodeValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";

@@ -13,7 +13,6 @@ import { EventStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { StringExtraData, Token, TokenType } from "../ast/token.ts";
 import { getActionDocumentation, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
-import { sign } from "node:crypto";
 import { matchArgsToParams, valueToTCString } from "../util/utils.ts";
 import { DFCodeblockName, DFRank } from "../df/constants.ts";
 
@@ -253,11 +252,8 @@ export class LanguageServer {
                 info.activeParameter = argsToParams[activeArgIndex] ?? argTypes.length;
 
                 // highlight tags string if this arg is a tag
-                slog("args to params: ",JSON.stringify(argsToParams));
-                slog("active:", info.activeParameter, "index:",activeArgIndex);;
                 if (info.activeParameter == -1) {
                     info.activeParameter = info.parameters!.length-1;
-                    slog('hekjhahkjkhfdskhjdsfahjksafdhkjadsfhkjhsafjkd');
                 }
                 // always highlight the last parameter if it's something plural (e.g. the texts in SendMessage)
                 else if (info.activeParameter >= signature.params.length && signature.params[signature.params.length-1].plural) {
@@ -410,7 +406,6 @@ export class LanguageServer {
                                     } as CompletionItemData
                                 };
                                 if (node instanceof Token && node.parent instanceof AtomicExpression && extraStringData?.isClosed) {
-                                    slog(`YEEEEE HAWWW \n${JSON.stringify({start: doc.indexToLinePosition(node.startPos), end: doc.indexToLinePosition(node.endPos)})}\n${JSON.stringify(param.position)}\n`,optName);
                                     item.textEdit = {
                                         range: {
                                             start: doc.indexToLinePosition(node.startPos), 

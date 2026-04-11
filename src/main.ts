@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 import { CodeCompiler } from "./compiler/codeCompiler.ts";
-import { generateActionHook, registerBuiltinNamespaces } from "./compiler/namespace/builtins.ts";
+import { registerBuiltinNamespaces } from "./compiler/namespace/builtins.ts";
 import { Lexer } from "./parser/lexer.ts";
 import { Parser } from "./parser/parser.ts";
 import { TypeProcessor } from "./typeProcessor/typeProcessor.ts";

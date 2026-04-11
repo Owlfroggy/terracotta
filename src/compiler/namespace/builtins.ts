@@ -6,11 +6,6 @@ import { Type } from "../../typeProcessor/type.ts";
 import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS } from "../../data/constants.ts";
-import { sign } from "node:crypto";
-import { appendFileSync } from "node:fs";
-import { slog } from "../../languageServer/languageServer.ts";
-import { inspect } from "node:util";
-import { group } from "node:console";
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
     let valueDef = AD.gameValues[dfName];

@@ -1,12 +1,8 @@
-import { Diagnostic, DidChangeTextDocumentParams, Position, TextDocumentContentChangeEvent, URI } from "vscode-languageserver";
+import { Diagnostic, Position, TextDocumentContentChangeEvent, URI } from "vscode-languageserver";
 import * as fs from "node:fs/promises";
 import { Lexer } from "../parser/lexer.ts";
 import { Parser } from "../parser/parser.ts";
-import { slog } from "./languageServer.ts";
 import { ASTNode, RootNode } from "../ast/astNode.ts";
-import { stringDirWithoutRelations, visualizeStatements } from "../util/debug.ts";
-import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
-import { CodeCompiler } from "../compiler/codeCompiler.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 
 export class TrackedDocument {
@@ -107,7 +103,7 @@ export class TrackedDocument {
     update(changes: (TextDocumentContentChangeEvent | {text: string})[], version: number) {
         if (this.version > version) return;
         this.version = version;
-        
+
         for (const change of changes) {
             change.text = change.text.replaceAll(/\r\n/g, "\n")
             if (TextDocumentContentChangeEvent.isIncremental(change)) {

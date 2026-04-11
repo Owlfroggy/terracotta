@@ -1,7 +1,6 @@
 import * as util from "node:util";
 import { Token, TokenType } from "../ast/token.ts";
 import { VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { TCError } from "../error/error.ts";
 import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SelectionStatement, SingleKeywordStatement, Statement, WhileStatement } from "../ast/statement.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { ASTNode } from "../ast/astNode.ts";
