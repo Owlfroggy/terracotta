@@ -5,6 +5,7 @@ import { ParameterSignature } from "../compiler/namespace/definition.ts";
 import { BinaryExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
 import { slog } from "../languageServer/languageServer.ts";
+import { sign } from "node:crypto";
 
 export function getOrCreateMapLayer<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {
@@ -61,7 +62,7 @@ export function matchArgsToParams(args: Expression[], argTypes: Type[], signatur
     let argIndex = 0;
     let paramIndex = 0;
 
-    function skipTags() {
+    function handleTags() {
         let arg = args[argIndex];
         while (arg && arg instanceof BinaryExpression && arg.operator.type == TokenType.EQUALS) {
             out.push(-1);
@@ -73,7 +74,7 @@ export function matchArgsToParams(args: Expression[], argTypes: Type[], signatur
     function consumeArg() {
         out.push(paramIndex);
         argIndex++;
-        skipTags();
+        handleTags();
     }
     
     let lastSkippableOptional: number;
@@ -84,15 +85,15 @@ export function matchArgsToParams(args: Expression[], argTypes: Type[], signatur
         }
     }
 
-    skipTags();
+    handleTags();
 
     for (paramIndex = 0; paramIndex < signature.params.length && argIndex < argTypes.length; paramIndex++) {
         let p = signature.params[paramIndex];
         // plural special behavior
-        if (p.plural && !argTypes[argIndex].matches(Type.any)) {
-            // consume args that match this type
+        if (p.plural && (!argTypes[argIndex].matches(Type.any) || paramIndex == signature.params.length-1)) {
+            // consume args that match this type OR any args if this plural is the last param
             let consumed = 0;
-            while (argIndex < argTypes.length && argTypes[argIndex].matches(p.type)) {
+            while (argIndex < argTypes.length && (argTypes[argIndex].matches(p.type) || paramIndex == signature.params.length-1)) {
                 consumeArg();
                 consumed++;
             }
