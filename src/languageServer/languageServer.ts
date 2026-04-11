@@ -388,6 +388,7 @@ export class LanguageServer {
                     if (
                         closestBinary 
                         && closestBinary.isChildOf(callNode.args) 
+                        && (node.isChildOf(closestBinary.right) || node == closestBinary.operator)
                         && closestBinary.operator.type == TokenType.EQUALS 
                         && closestBinary.left instanceof AtomicExpression
                         && (closestBinary.left.token.type == TokenType.STRING_LITERAL || closestBinary.left.token.type == TokenType.IDENTIFIER)
