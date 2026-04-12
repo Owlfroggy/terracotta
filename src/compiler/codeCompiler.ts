@@ -424,11 +424,19 @@ export class CodeCompiler {
                 new BracketBlock({type: BracketType.IF, direction: BracketDirection.CLOSE}),
             ];
 
-            if (s.elseChunk) {
+            if (s.elseContents) {
+                let elseContentsCode: CodeBlock[] = [];
+
+                if (s.elseContents instanceof IfStatement) {
+                    elseContentsCode = this.compileStatement(s.elseContents);
+                } else {
+                    elseContentsCode = s.elseContents.statements.map(this.compileStatement).flat();
+                }
+                
                 code.push(
                     new ElseBlock({}),
                     new BracketBlock({type: BracketType.IF, direction: BracketDirection.OPEN}),
-                        ...s.elseChunk.statements.map(this.compileStatement).flat(),
+                        ...elseContentsCode,
                     new BracketBlock({type: BracketType.IF, direction: BracketDirection.CLOSE}),
                 )
             }

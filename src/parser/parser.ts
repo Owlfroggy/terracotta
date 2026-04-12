@@ -629,14 +629,18 @@ export class Parser {
         if (chunk == null) return null;
 
         let elseKeyword: Token | null = null;
-        let elseChunk: ChunkExpression | null = null;
+        let elseContents: IfStatement | ChunkExpression | null = null;
 
         if (this.currentToken().type == TokenType.ELSE) {
             elseKeyword = this.consume();
-            elseChunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
+            if (this.currentToken().type == TokenType.IF) {
+                elseContents = this.parseIfStatement();
+            } else {
+                elseContents = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
+            }
         }
 
-        return new IfStatement(keyword, condition, chunk, elseKeyword, elseChunk);
+        return new IfStatement(keyword, condition, chunk, elseKeyword, elseContents);
     }
 
     parseWhileStatement = (): WhileStatement | null => {

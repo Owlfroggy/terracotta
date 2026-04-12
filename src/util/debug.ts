@@ -178,7 +178,7 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof RepeatStatement) {
         return `repeat${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
     } else if (e instanceof IfStatement) {
-        return `if ${recurse(e.condition)} ${recurse(e.chunk)} ${e.elseChunk ? `else ${recurse(e.elseChunk)}` : ''}`;
+        return `if ${recurse(e.condition)} ${recurse(e.chunk)} ${e.elseContents ? `else ${recurse(e.elseContents)}` : ''}`;
     } else if (e instanceof WhileStatement) {
         return `while ${recurse(e.condition)} ${recurse(e.chunk)}`;
     } else if (e instanceof DoStatement) {
