@@ -1,12 +1,13 @@
 import { Diagnostic, URI } from "vscode-languageserver";
 import { TrackedDocument } from "./trackedDocument.ts";
 import * as fs from "node:fs/promises"
-import { LanguageServer} from "./languageServer.ts";
+import { LanguageServer, snotif} from "./languageServer.ts";
 import * as path from "node:path";
 import { pathToUri } from "../util/utils.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { CodeCompiler } from "../compiler/codeCompiler.ts";
 import { Statement } from "../ast/statement.ts";
+import { inspect } from "node:util";
 
 export class WorkspaceManager {
     documents: Map<URI, TrackedDocument> = new Map();
@@ -30,10 +31,15 @@ export class WorkspaceManager {
         typeProcessor.errors.length = 0;
         typeProcessor.collectionStage(ast);
         typeProcessor.evaluationStage();
+
         let compiler = new CodeCompiler(ast, {types: typeProcessor});
         this.compiler = compiler;
         compiler.ast = ast;
-        compiler.compile({outputFormat: 'GZIP'});
+        try {
+            compiler.compile({outputFormat: 'GZIP'});
+        } catch (e) {
+            snotif(`Internal compiler error: ${inspect(e)}`)
+        }
 
         let diagnosticsByUri: {[uri: string]: Diagnostic[]} = {};
 

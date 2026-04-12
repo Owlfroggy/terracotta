@@ -1,14 +1,14 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { DoStatement, EventStatement, ExpressionStatement, Statement } from "../ast/statement.ts";
+import { DoStatement, EventStatement, ExpressionStatement, IfStatement, Statement } from "../ast/statement.ts";
 import { TokenType } from "../ast/token.ts";
 import { TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/utils.ts";
-import { ActionBlock, CodeBlock, EventBlock } from "./codeBlock.ts";
+import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, EventBlock, IfBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, GroupExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { CodeValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
+import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
@@ -407,6 +407,22 @@ export class CodeCompiler {
                 let [_, code] = this.compileExpression(e);
                 return code;
             }
+        }
+        else if (s instanceof IfStatement) {
+            let [value, code] = this.compileExpression(s.condition);
+            if (!(value instanceof TangibleValue))
+                throw new Error(`got ${value.constructor.name} as if statement value :(`);
+            
+            return [
+                ...code,
+                new IfBlock(DFCodeblockName.IF_VARIABLE,{
+                    action: "!=",
+                    args: [value, new NumberValue("0")],
+                }),
+                new BracketBlock({type: BracketType.IF, direction: BracketDirection.OPEN}),
+                    ...s.chunk.statements.map(this.compileStatement).flat(),
+                new BracketBlock({type: BracketType.IF, direction: BracketDirection.CLOSE}),
+            ];
         }
         else if (s instanceof DoStatement) {
             if (s.whileKeyword && s.whileCondition) {

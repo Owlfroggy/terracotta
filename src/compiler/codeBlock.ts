@@ -116,11 +116,11 @@ export class IfBlock extends ActionBlock {
         block: DFCodeblockName, 
         {action, args = [], tags = [], target = TargetType.UNSET, inverted = false, astNode = null} : {
             action: string,
-            args: [],
-            tags: [],
-            target: TargetType
-            inverted: boolean,
-            astNode: ASTNode | null,
+            args?: TangibleValue[],
+            tags?: [],
+            target?: TargetType
+            inverted?: boolean,
+            astNode?: ASTNode | null,
         }
     ) {
         super(block, {action, args, tags, target, astNode});
