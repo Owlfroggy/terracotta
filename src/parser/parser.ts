@@ -628,18 +628,15 @@ export class Parser {
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
         if (chunk == null) return null;
 
-        let statement = new IfStatement(keyword, condition, chunk);
+        let elseKeyword: Token | null = null;
+        let elseChunk: ChunkExpression | null = null;
 
         if (this.currentToken().type == TokenType.ELSE) {
-            let elseKeyword = this.consume();
-            let elseChunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
-            if (elseChunk != null) {
-                statement.elseKeyword = elseKeyword;
-                statement.elseChunk = elseChunk;
-            }
+            elseKeyword = this.consume();
+            elseChunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
         }
 
-        return statement;
+        return new IfStatement(keyword, condition, chunk, elseKeyword, elseChunk);
     }
 
     parseWhileStatement = (): WhileStatement | null => {

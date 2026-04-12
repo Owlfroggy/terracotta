@@ -3,7 +3,7 @@ import { DoStatement, EventStatement, ExpressionStatement, IfStatement, Statemen
 import { TokenType } from "../ast/token.ts";
 import { TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/utils.ts";
-import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, EventBlock, IfBlock } from "./codeBlock.ts";
+import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, IfBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
@@ -409,12 +409,12 @@ export class CodeCompiler {
             }
         }
         else if (s instanceof IfStatement) {
-            let [value, code] = this.compileExpression(s.condition);
+            let [value, valueCode] = this.compileExpression(s.condition);
             if (!(value instanceof TangibleValue))
                 throw new Error(`got ${value.constructor.name} as if statement value :(`);
             
-            return [
-                ...code,
+            let code = [
+                ...valueCode,
                 new IfBlock(DFCodeblockName.IF_VARIABLE,{
                     action: "!=",
                     args: [value, new NumberValue("0")],
@@ -423,6 +423,17 @@ export class CodeCompiler {
                     ...s.chunk.statements.map(this.compileStatement).flat(),
                 new BracketBlock({type: BracketType.IF, direction: BracketDirection.CLOSE}),
             ];
+
+            if (s.elseChunk) {
+                code.push(
+                    new ElseBlock({}),
+                    new BracketBlock({type: BracketType.IF, direction: BracketDirection.OPEN}),
+                        ...s.elseChunk.statements.map(this.compileStatement).flat(),
+                    new BracketBlock({type: BracketType.IF, direction: BracketDirection.CLOSE}),
+                )
+            }
+
+            return code;
         }
         else if (s instanceof DoStatement) {
             if (s.whileKeyword && s.whileCondition) {
