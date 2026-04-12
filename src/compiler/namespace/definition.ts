@@ -35,6 +35,17 @@ export interface FunctionDefinition {
     compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext): [CodeValue, CodeBlock[]];
 }
 
+/**
+ * Normal compile() is what will be used in expressions and will output a number.
+ * To get the raw if block, use compileIf()
+ */
+export interface ConditionDefinition extends FunctionDefinition {
+    /** Will always be Type.num */
+    returnType: Type,
+    /** Should always return an EmptyValue */
+    compileIf(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext): [CodeValue, CodeBlock[]];
+}
+
 export interface ValueDefinition {
     definitionType: DefinitionType.VALUE;
     returnType: Type;

@@ -58,7 +58,7 @@ function generateNamespaceMemberCompletions(namespace: Namespace): CompletionIte
             // if (isUnusable && tcConfig.rankBehavior == "hideInaccessible") { return }
             items.push({
                 label: name,
-                kind: CompletionItemKind.Method,
+                kind: (def as any).compileIf ? CompletionItemKind.Property : CompletionItemKind.Method,
                 commitCharacters: ["("],
                 data: {
                     type: CompletionItemType.FUNCTION,

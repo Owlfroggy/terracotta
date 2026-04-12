@@ -1,9 +1,9 @@
 import { DFCodeblockName, dfTypeToTC, DFValueType, GameValueTargetType, TargetType } from "../../df/constants.ts";
 import * as AD from "../../df/actiondump.ts";
-import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
-import { ActionBlock, CodeBlock } from "../codeBlock.ts";
+import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, NumberValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
+import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../codeBlock.ts";
 import { Type } from "../../typeProcessor/type.ts";
-import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition } from "./definition.ts";
+import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS } from "../../data/constants.ts";
 
@@ -148,12 +148,39 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
     }
 }
 
-function codeblockActionEntries(block: DFCodeblockName, target: TargetType = TargetType.UNSET): [string, FunctionDefinition][] {
+export function generateConditionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, target: TargetType = TargetType.UNSET): ConditionDefinition {
+    let def = generateActionHook(functionName, codeblock, actionDFName, target) as ConditionDefinition;
+    def.compileIf = def.compile;
+    def.compile = (args, namedArgs, ctx) => {
+        let tempVar = ctx.tvp.newTempVar(Type.num);
+        let [item, code] = def.compileIf(args, namedArgs, ctx);
+        code = [
+            // initialize temp var
+            new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                action: "=",
+                args: [tempVar, new NumberValue("0")]
+            }),
+            // evaluate argument expressions, if block will be at the very end
+            ...code,
+            new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.IF}),
+                // set temp var to 1 if condition is true
+                new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "=",
+                    args: [tempVar, new NumberValue("1")]
+                }),
+            new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.IF}),
+        ]
+        return [tempVar, code];
+    }
+    return def
+}
+
+function codeblockActionEntries(block: DFCodeblockName, target: TargetType, generator: typeof generateActionHook | typeof generateConditionHook = generateActionHook): [string, FunctionDefinition][] {
     let actions = Object.values(AD.actions.get(block)!);
     return actions.filter(a => !a.isLegacy).map(
         a => {
             let tcName = AD.getTCActionName(block, a.name);
-            return [tcName, generateActionHook(tcName, block, a.name, target)]
+            return [tcName, generator(tcName, block, a.name, target)]
         }
     )
 }
@@ -186,6 +213,7 @@ export function registerBuiltinNamespaces() {
     ] as [string, TargetType][]) {
         new Namespace(identifier, Object.fromEntries([
             ...codeblockActionEntries(DFCodeblockName.PLAYER_ACTION, target),
+            ...codeblockActionEntries(DFCodeblockName.IF_PLAYER, target, generateConditionHook),
             ...gameValueEntries(target, v => v.targetType == GameValueTargetType.TARGETS_ANYTHING || v.targetType == GameValueTargetType.TARGETS_PLAYERS)
         ]));
     }
@@ -205,6 +233,7 @@ export function registerBuiltinNamespaces() {
     ] as [string, TargetType][]) {
         new Namespace(identifier, Object.fromEntries([
             ...codeblockActionEntries(DFCodeblockName.ENTITY_ACTION, target),
+            ...codeblockActionEntries(DFCodeblockName.IF_ENTITY, target, generateConditionHook),
             ...gameValueEntries(target, v => v.targetType == GameValueTargetType.TARGETS_ANYTHING || v.targetType == GameValueTargetType.TARGETS_ENTITIES)
         ]));
     }
@@ -212,6 +241,7 @@ export function registerBuiltinNamespaces() {
     // game action namespace
     new Namespace("game", Object.fromEntries([
         ...codeblockActionEntries(DFCodeblockName.GAME_ACTION, TargetType.UNSET),
+        ...codeblockActionEntries(DFCodeblockName.IF_GAME, TargetType.UNSET, generateConditionHook),
         ...gameValueEntries(TargetType.UNSET, v => v.targetType == GameValueTargetType.UNTARGETED)
     ]));
 }

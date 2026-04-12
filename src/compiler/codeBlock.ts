@@ -7,8 +7,14 @@ import { ActionTagValue, TangibleValue } from "./codeValue.ts";
 //=- warning! this file sucks :( -=\\
 //=-------------------------------=\\
 
-export enum BracketType {IF, REPEAT};
-export enum BracketDirection {OPEN, CLOSE};
+export enum BracketType {
+    IF = "norm", 
+    REPEAT = "repeat",
+};
+export enum BracketDirection {
+    OPEN = "open", 
+    CLOSE = "close"
+};
 
 export abstract class CodeBlock {
     constructor(
@@ -16,7 +22,7 @@ export abstract class CodeBlock {
         public astNode: ASTNode | null,
     ) {}
 
-    templateForm() {
+    templateForm(): any {
         return {
             id: "block",
             block: getCodeblockIdentifier(this.block)
@@ -160,8 +166,16 @@ export class BracketBlock extends CodeBlock {
         direction: BracketDirection,
         astNode?: ASTNode | null,
     }) {
-        super(DFCodeblockName.ELSE, astNode);
+        super(DFCodeblockName.BRACKET, astNode);
         this.type = type;
         this.direction = direction;
+    }
+
+    templateForm() {
+        return {
+            id: "bracket",
+            direct: this.direction,
+            type: this.type,
+        };
     }
 }

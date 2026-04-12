@@ -52,6 +52,7 @@ export enum DFCodeblockName {
     REPEAT = "REPEAT",
     CONTROL = "CONTROL",
     SELECT_OBJECT = "SELECT OBJECT",
+    BRACKET = "BRACKET",
 }
 
 export enum TargetType {
@@ -99,6 +100,7 @@ export function getCodeblockIdentifier(name: DFCodeblockName) {
         case DFCodeblockName.REPEAT:        return "repeat";
         case DFCodeblockName.CONTROL:       return "control";
         case DFCodeblockName.SELECT_OBJECT: return "select_obj";
+        case DFCodeblockName.BRACKET:       return "bracket";
         default: throw new Error(`No identifier for codeblock '${name}'`);
     }
 }
