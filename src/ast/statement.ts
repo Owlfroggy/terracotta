@@ -84,10 +84,10 @@ export class IfStatement extends Statement {
     constructor(
         public keyword: Token,
         public condition: GroupExpression,
-        public chunk: ChunkExpression,
+        public chunk: ChunkExpression | null,
         public elseKeyword: Token | null = null,
         public elseContents: IfStatement | ChunkExpression | null = null,
-    ) {super(keyword.startPos, elseContents ? elseContents.endPos : chunk.endPos);}
+    ) {super(keyword.startPos, elseContents ? elseContents.endPos : chunk ? chunk.endPos : condition.endPos);}
 }
 
 export class WhileStatement extends Statement {

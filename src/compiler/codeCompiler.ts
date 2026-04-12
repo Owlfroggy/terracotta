@@ -7,7 +7,7 @@ import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, El
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, GroupExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, GroupExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
@@ -346,6 +346,9 @@ export class CodeCompiler {
         else if (e instanceof GroupExpression) {
             return this.compileExpression(e.expression);
         }
+        else if (e instanceof MissingExpression) {
+            return [new MissingValue(e), []];
+        }
         throw new Error(`no idea how to compile this: ${e.constructor.name}`);
     }
 
@@ -410,8 +413,13 @@ export class CodeCompiler {
         }
         else if (s instanceof IfStatement) {
             let [value, valueCode] = this.compileExpression(s.condition);
-            if (!(value instanceof TangibleValue))
-                throw new Error(`got ${value.constructor.name} as if statement value :(`);
+            if (value instanceof MissingValue) return [] // error handled by parser
+            if (!(value instanceof TangibleValue)) {
+                this.reportError(s.condition.getRealExpression(), `Cannot check truthiness of '${value.constructor.name}'`);
+                return [];
+            }
+
+            if (!s.chunk) return [];
             
             let code = [
                 ...valueCode,
