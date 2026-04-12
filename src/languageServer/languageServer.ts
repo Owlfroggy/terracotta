@@ -455,11 +455,9 @@ export class LanguageServer {
                     excludeName: node instanceof Token ? node.value : undefined,
                 }));
             }
-            else if (node instanceof Token && (node.type == TokenType.STRING_LITERAL || node.type == TokenType.STYLED_LITERAL || node.type == TokenType.NUMERIC_LITERAL)) {
-                includeGenerics = false;
-            }
+
             // action tags
-            else if (callNode && definition) {
+            if (includeGenerics && callNode && definition) {
                 if (definition.action && node.getClosestAncestor(ListExpression) == callNode.args) {
                     let closestBinary = node.getClosestAncestor(BinaryExpression);
                     // tag value
@@ -544,6 +542,10 @@ export class LanguageServer {
                         }
                     }
                 }
+            }
+
+            if (node instanceof Token && (node.type == TokenType.STRING_LITERAL || node.type == TokenType.STYLED_LITERAL || node.type == TokenType.NUMERIC_LITERAL)) {
+                includeGenerics = false;
             }
 
             //=-----------------=\\
