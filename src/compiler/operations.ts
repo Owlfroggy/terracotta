@@ -325,5 +325,26 @@ Operations.registerBinary(Type.vec, TokenType.SLASH, Type.num, Type.vec, true, (
     ]];
 });
 
+//=- loc -=\\
+
+Operations.registerBinary(Type.loc, TokenType.PLUS, Type.vec, Type.loc, false, 
+    singleActionHandler(Type.loc, "ShiftOnVector"));
+
+Operations.registerBinary(Type.loc, TokenType.MINUS, Type.vec, Type.loc, false, (left, right, ctx) => {
+    let reversedVecResult = ctx.tvp.newTempVar(Type.vec);
+    let result = ctx.tvp.newTempVar(Type.loc);
+
+    return [result, [
+        new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+            action: "MultiplyVector",
+            args: [reversedVecResult, right, new NumberValue("-1")]
+        }),
+        new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+            action: "ShiftOnVector",
+            args: [result, left, reversedVecResult],
+        })
+    ]]
+});
+
 
 // Operations.registerBinary(Type.txt, TokenType.PLUS, Type.any, Type.txt, true);
