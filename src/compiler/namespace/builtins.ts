@@ -7,6 +7,7 @@ import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDe
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS } from "../../data/constants.ts";
 import { VEC_CONSTRUCTOR } from "./constructors.ts";
+import { validateArguments } from "../../util/utils.ts";
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
     let valueDef = AD.gameValues[dfName];
@@ -80,11 +81,12 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         }
     }
     uniqueSignatures = uniqueSignatures.filter(s => s.length > 0);
+    let signatures = uniqueSignatures.map(v => ({params: v}));
 
     return {
         definitionType: DefinitionType.FUNCTION,
         name: functionName,
-        signatures: uniqueSignatures.map(v => ({params: v})),
+        signatures,
         returnType: tcReturnType,
         action: actionDef,
         compile: (args, namedArgs, ctx, callNode): [CodeValue, CodeBlock[]] => {
@@ -128,6 +130,9 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                     }
                 }
             }
+
+            // arg validation
+            validateArguments(args, callNode, signatures, ctx);
 
             let code = new ActionBlock(codeblock,{
                 action: actionDFName, 

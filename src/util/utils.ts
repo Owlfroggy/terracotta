@@ -1,9 +1,14 @@
 import { pathToFileURL } from "node:url";
-import { URI } from "vscode-languageserver";
+import { FoldingRangeRefreshRequest, LSPErrorCodes, URI } from "vscode-languageserver";
 import { Type } from "../typeProcessor/type.ts";
-import { ParameterSignature } from "../compiler/namespace/definition.ts";
-import { BinaryExpression, Expression } from "../ast/expression.ts";
+import { ParameterSignature, ParameterSignatureEntry } from "../compiler/namespace/definition.ts";
+import { BinaryExpression, CallExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
+import { CodeValue, MissingValue } from "../compiler/codeValue.ts";
+import { EvaluationContext } from "../compiler/codeCompiler.ts";
+import { slog } from "../languageServer/languageServer.ts";
+import { ASTNode } from "../ast/astNode.ts";
+import { argv } from "node:process";
 
 export function getOrCreateMapLayer<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {
@@ -119,7 +124,114 @@ export function matchArgsToParams(args: Expression[], argTypes: Type[], signatur
     return out;
 }
 
+/** does NOT do anything with tags */
+export function validateArguments(args: CodeValue[], callNode: CallExpression, signatures: ParameterSignature[], ctx: EvaluationContext): ParameterSignature | null {
+    let argExpressions = callNode.args.elements;
+    let argTypes = args.map(v => v.getType(ctx));
+
+    let workingSignatures: ParameterSignature[] = [];
+    let signatureErrors: Map<ParameterSignature, [ASTNode, string][]> = new Map();
+
+    //let positionalArgCount = argExpressions.filter(arg => !(arg instanceof BinaryExpression && arg.operator.type == TokenType.EQUALS)).length;
+    for (const sig of signatures) {
+        let errors: [ASTNode, string][] = [];
+        signatureErrors.set(sig, errors);
+        let argsToParams = matchArgsToParams(argExpressions, argTypes, sig);
+        
+        // if (args.length != sig.params.length) {
+        //     signatureErrors.get(sig)?.push([callNode.callee, `Expected ${sig.params.length} argument${sig.params.length == 1 ? "" : "s"}, got ${args.length}`]);
+        //     works = false;
+        // }
+
+        let tooManyArguments = false;
+        let unfilledRequiredParams: Set<ParameterSignatureEntry> = new Set();
+        for (const p of sig.params) if (!p.optional) unfilledRequiredParams.add(p);
+        
+        let argIndex;
+        let argValueIndex = 0;
+        for (argIndex = 0; argIndex < argExpressions.length; argIndex++) {
+            if (argsToParams[argIndex] == -1) {
+                errors.push([argExpressions[argIndex], `Named arguments are not allowed here`]);
+                continue;
+            };
+
+            let param = sig.params[argsToParams[argIndex]];
+            if (!param) {
+                tooManyArguments = true;
+                break;
+            };
+            if (!param.type.matches(argTypes[argIndex]) && !(args[argValueIndex] instanceof MissingValue)) {
+                errors.push([argExpressions[argIndex], `Expected ${param.type.name} for parameter '${param.name}', got ${argTypes[argIndex].name}`]);
+            }
+            unfilledRequiredParams.delete(param);
+            argValueIndex++;
+        }
+
+        if (tooManyArguments) {
+            errors.push([callNode.callee, `Too many arguments. Expected ${sig.params.length} argument${ps(args.length)} but got ${args.length}`]);
+            continue;
+        }
+        else if (unfilledRequiredParams.size > 0) {
+            let msg = (
+                (unfilledRequiredParams.size == 1
+                    ? `Too few arguments. 1 parameter requires a value but is not assigned one:\n    `
+                    : `Too few arguments. ${unfilledRequiredParams.size} parameters require a value but are not assigned one:\n    `
+                )
+                + [...unfilledRequiredParams.values().map(p => `'${p.name}' requires type '${p.type.name}'`)].join("\n    ")
+            );
+            errors.push([callNode.callee, msg])
+        }
+
+        if (errors.length == 0) workingSignatures.push(sig);
+    }
+
+    if (workingSignatures.length == 0) {
+        // if there are multiple signatures, report the errors on the
+        // callee itself so a cleaner breakdown can be provided
+        if (signatures.length > 1) {
+            ctx.reportError(
+                callNode.callee,
+                `Given arguments list (${argTypes.map(t => t.name).join(", ")}) does not match any of this function's signatures, a detailed breakdown is below:\n\n`
+                + [...signatureErrors.entries().map(
+                    ([sig, errors]) => {
+                        return (
+                            `Signature (${sig.params.map(p => p.name + ": " + p.type.name).join(", ")}) had ${errors.length} error${ps(errors.length)}:\n`
+                            + errors.map(([node, error]) => "- "+error).join("\n")
+                        );
+                    }
+                )].join("\n\n")
+            );
+        }
+        // if there's only one signature, report errors where they appear for convenience
+        else {
+            for (const [callNode, message] of signatureErrors.get(signatures[0])!){ 
+                ctx.reportError(callNode, message);
+            }
+        }
+        return null;
+    }
+
+    // return the longest signature which works
+    let longestSig: ParameterSignature = workingSignatures[0];
+    for (let sig of workingSignatures) {
+        if (sig.params.length > longestSig.params.length) {
+            longestSig = sig;
+        }
+    }
+    return longestSig;
+}
+
+
 /** wraps value in quotes and takes care of necessary escape sequences */
 export function valueToTCString(value: string, quoteChar: string = '"'): string {
     return quoteChar + value.replace('\\','\\\\').replace(quoteChar, '\\'+quoteChar).replace('\n','\\n') + quoteChar;
+}
+
+/** 
+ * stands for 'plural s' (i think)
+ * @returns '' if count == 1, else returns 's' 
+ * */
+export function ps(count: number, inverse: boolean = false): 's' | '' {
+    if (inverse) return count == 1 ? 's' : '';
+    return count == 1 ? '' : 's';
 }

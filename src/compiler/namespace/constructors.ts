@@ -1,5 +1,6 @@
 import { DFCodeblockName } from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
+import { validateArguments } from "../../util/utils.ts";
 import { ActionBlock } from "../codeBlock.ts";
 import { CodeValue, MissingValue, NumberValue, TangibleValue, VectorValue } from "../codeValue.ts";
 import { DefinitionType, FunctionDefinition } from "./definition.ts";
@@ -10,6 +11,7 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
     returnType: Type.vec,
     signatures: [
         {
+            name: "normal",
             params: [
                 {name: "x", type: Type.num, optional: false, plural: false},
                 {name: "y", type: Type.num, optional: false, plural: false},
@@ -17,6 +19,7 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
             ]
         },
         {
+            name: "value",
             params: [
                 {name: "value", type: Type.num, optional: false, plural: false, description: "Creates a vector with its x, y, and z components all set to this value"},
             ]
@@ -25,20 +28,20 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
     // TODO: proper arg validation
     compile(args, namedArgs, ctx, callNode) {
         let x: CodeValue, y: CodeValue, z: CodeValue;
-        if (args.length == 3) {
-            x = args[0];
-            y = args[1];
-            z = args[2];
-        } else if (args.length == 1) {
+
+        let workingSignature = validateArguments(args, callNode, this.signatures, ctx);
+        if (workingSignature == null) {
+            return [new MissingValue(callNode), []];
+        }
+        else if (workingSignature.name == "value") {
             x = args[0];
             y = args[0];
             z = args[0];
-        } else {
-            ctx.reportError(
-                callNode.args,
-                "(temporary error) not enough arguments"
-            );
-            return [new MissingValue(callNode), []];
+        }
+        else {
+            x = args[0];
+            y = args[1];
+            z = args[2];
         }
 
         // constant vector

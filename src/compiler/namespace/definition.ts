@@ -22,6 +22,7 @@ export interface ParameterSignatureEntry {
 
 export interface ParameterSignature {
     params: ParameterSignatureEntry[],
+    name?: string,
 }
 
 export interface FunctionDefinition {
