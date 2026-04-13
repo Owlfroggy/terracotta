@@ -588,12 +588,26 @@ export const OVERRIDES: {
     actionSignatures: {
         "PLAYER ACTION": {
             "SendMessage": [
-                {
-                    params: [
-                        {name: "Message to send", type: Type.any, optional: true, plural: true}
-                    ]
-                }
+                {params: [ {name: "Message to send", type: Type.any, optional: true, plural: true} ]}
             ]
+        },
+        "SET VARIABLE": {
+            "+": [
+                {params: [ {name: "Numbers to add", type: Type.num, optional: false, plural: true} ]},
+                {params: [ {name: "Vectors to add", type: Type.vec, optional: false, plural: true} ]},
+            ],
+            "-": [
+                {params: [ {name: "Numbers to subtract", type: Type.num, optional: false, plural: true} ]},
+                {params: [ {name: "Vectors to subtract", type: Type.vec, optional: false, plural: true} ]},
+            ],
+            "x": [
+                {params: [ {name: "Numbers to multiply by", type: Type.num, optional: false, plural: true} ]},
+                {params: [ {name: "Vectors to multiply by", type: Type.vec, optional: false, plural: true} ]},
+            ],
+            "/": [
+                {params: [ {name: "Numbers to divide by", type: Type.num, optional: false, plural: true} ]},
+                {params: [ {name: "Vectors to divide by", type: Type.vec, optional: false, plural: true} ]},
+            ],
         }
     }
 }
