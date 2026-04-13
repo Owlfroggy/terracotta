@@ -8,6 +8,7 @@ import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS } from "../../data/constants.ts";
 import { VEC_CONSTRUCTOR } from "./constructors.ts";
 import { validateArguments } from "../../util/utils.ts";
+import { OVERRIDES } from "../../data/overrides.ts";
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
     let valueDef = AD.gameValues[dfName];
@@ -29,59 +30,68 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
     let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
     let tcReturnType = dfReturnType ? dfTypeToTC.get(dfReturnType)! : null;
 
-    // create a unique signature for every possible combination of arguments
-    let uniqueSignatures: ParameterSignatureEntry[][] = [[]]
-    for (const parameter of actionDef.parameters) {
-        let groupIndex = -1
-        let initialSignatureAmount = uniqueSignatures.length
-
-        let forceOptional = false;
-        let noneDescriptionAddition = ""
-
-        let groups = parameter.groups.map(group => {
-            // this makes it editable without modifying the actiondump's contents
-            group = [...group];
-            // evil type=NONE parsing stuff
-            if (group[group.length-1].type == DFValueType.NONE) {
-                let noneVal = group.pop()!;
-                let noneDesc = noneVal?.description != '' ? noneVal.description : "Df forgot to put this description in the actiondump 😭 just assume it does a default or smth idk blame jeremaster" ;
-                if (noneDesc[noneDesc.length-1] == ")") noneDesc = noneDesc.substring(0,noneDesc.length-1);
-                if (noneDesc[0] == "(") noneDesc = noneDesc.substring(1);
-                forceOptional = true;
-                noneDescriptionAddition = `\nIf left unspecified: ${noneDesc}`;
-            }
-            return group;
-        }).filter(group => group.length > 0);
-
-        for (const values of groups) {
-            //if being assigned to a variable, exclude first var param from signature
-            if (values[0].type == DFValueType.VARIABLE) {
-                values.shift()
-                if (values.length == 0) {
-                    continue
+    //=- signature generation -=\\
+    let signatures: ParameterSignature[];
+    // if this signature has been manually specified, use that
+    if (OVERRIDES.actionSignatures[codeblock]?.[actionDFName]) {
+        signatures = OVERRIDES.actionSignatures[codeblock][actionDFName];
+    } 
+    // otherwise generate one from the actiondump
+    else {
+        // create a unique signature for every possible combination of arguments
+        let uniqueSignatures: ParameterSignatureEntry[][] = [[]]
+        for (const parameter of actionDef.parameters) {
+            let groupIndex = -1
+            let initialSignatureAmount = uniqueSignatures.length
+    
+            let forceOptional = false;
+            let noneDescriptionAddition = ""
+    
+            let groups = parameter.groups.map(group => {
+                // this makes it editable without modifying the actiondump's contents
+                group = [...group];
+                // evil type=NONE parsing stuff
+                if (group[group.length-1].type == DFValueType.NONE) {
+                    let noneVal = group.pop()!;
+                    let noneDesc = noneVal?.description != '' ? noneVal.description : "Df forgot to put this description in the actiondump 😭 just assume it does a default or smth idk blame jeremaster" ;
+                    if (noneDesc[noneDesc.length-1] == ")") noneDesc = noneDesc.substring(0,noneDesc.length-1);
+                    if (noneDesc[0] == "(") noneDesc = noneDesc.substring(1);
+                    forceOptional = true;
+                    noneDescriptionAddition = `\nIf left unspecified: ${noneDesc}`;
                 }
-            }
-
-            let tcValues: ParameterSignatureEntry[] = values.map(v => ({
-                name: v.description,
-                type: dfTypeToTC.get(v.type) ?? Type.unknown,
-                optional: forceOptional || v.optional,
-                plural: v.plural,
-                description: ((v.notes.length > 0 ? v.notes.join("\n") : '') + noneDescriptionAddition).trim()
-            }));
-
-            groupIndex++
-            for (let i = 0; i < initialSignatureAmount; i++) {
-                if (groupIndex == groups.length - 1) {
-                    uniqueSignatures[i].push(...tcValues)
-                } else {
-                    uniqueSignatures.push([...uniqueSignatures[i], ...tcValues])
+                return group;
+            }).filter(group => group.length > 0);
+    
+            for (const values of groups) {
+                //if being assigned to a variable, exclude first var param from signature
+                if (values[0].type == DFValueType.VARIABLE) {
+                    values.shift()
+                    if (values.length == 0) {
+                        continue
+                    }
+                }
+    
+                let tcValues: ParameterSignatureEntry[] = values.map(v => ({
+                    name: v.description,
+                    type: dfTypeToTC.get(v.type) ?? Type.unknown,
+                    optional: forceOptional || v.optional,
+                    plural: v.plural,
+                    description: ((v.notes.length > 0 ? v.notes.join("\n") : '') + noneDescriptionAddition).trim()
+                }));
+    
+                groupIndex++
+                for (let i = 0; i < initialSignatureAmount; i++) {
+                    if (groupIndex == groups.length - 1) {
+                        uniqueSignatures[i].push(...tcValues)
+                    } else {
+                        uniqueSignatures.push([...uniqueSignatures[i], ...tcValues])
+                    }
                 }
             }
         }
+        uniqueSignatures = uniqueSignatures.filter(s => s.length > 0);
+        signatures = uniqueSignatures.map(v => ({params: v}));
     }
-    uniqueSignatures = uniqueSignatures.filter(s => s.length > 0);
-    let signatures = uniqueSignatures.map(v => ({params: v}));
 
     return {
         definitionType: DefinitionType.FUNCTION,

@@ -1,5 +1,13 @@
-{
-    "actionNames": {
+import { ParameterSignature } from "../compiler/namespace/definition.ts";
+import { Type } from "../typeProcessor/type.ts";
+
+export const OVERRIDES: {
+    actionNames: {[codeblock: string]: {[dfName: string]: string}},
+    tagNames: {[dfName: string]: string},
+    gameValueNames: {[dfName: string]: string},
+    actionSignatures: {[codeblock: string]: {[actionDFName: string]: ParameterSignature[]}}
+} = {
+    actionNames: {
         "PLAYER EVENT": {
             "Leave": "leave",
             "Join": "join"
@@ -335,7 +343,7 @@
             " Range ": "range"
         }
     },
-    "tagNames": {
+    tagNames: {
         "Message Style": "style",
         "Time Unit": "unit",
         "Reduced Debug Info Enabled": "reduceInfo",
@@ -477,7 +485,7 @@
         "Movement Key": "key",
         "Redstone Power Mode": "mode"
     },
-    "gameValueNames": {
+    gameValueNames: {
         "X-Coordinate": "x",
         "Y-Coordinate": "y",
         "Z-Coordinate": "z",
@@ -492,7 +500,7 @@
         "Entity Width": "width",
         "Entity Height": "height"
     },
-    "returnTypes": {
+    /* returnTypes: {
         "set_var": {
             "String": "str",
             "TranslateColors": "str",
@@ -575,6 +583,17 @@
             "Adjacent": "loc",
             "Path": "loc",
             "Sphere": "loc"
+        }
+    }, */
+    actionSignatures: {
+        "PLAYER ACTION": {
+            "SendMessage": [
+                {
+                    params: [
+                        {name: "Message to send", type: Type.any, optional: true, plural: true}
+                    ]
+                }
+            ]
         }
     }
 }

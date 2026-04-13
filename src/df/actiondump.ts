@@ -4,9 +4,9 @@ import { DATA_PATH } from "../util/fileUtils.ts";
 import { codeifyName, deColorizeString } from "../util/utils.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName, DFRank, DFValueType, GameValueTargetType, RANK_ORDER } from "./constants.ts";
+import { OVERRIDES } from "../data/overrides.ts";
 
 const ACTION_DUMP_JSON      = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"actiondump.json") )).toString());
-const OVERRIDES_JSON        = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"overrides.json") )).toString());
 
 //==========[ classes ]=========\\
 
@@ -155,7 +155,7 @@ export function rankCheck(ownedRank: DFRank, requiredRank: DFRank) {
 }
 
 export function getTCActionName(block: DFCodeblockName, dfSignName: string) {
-    let override = OVERRIDES_JSON.actionNames[block]?.[dfSignName];
+    let override = OVERRIDES.actionNames[block]?.[dfSignName];
     if (override) return override;
 
     let iconName = actions.get(block)?.[dfSignName]?.iconName!;
@@ -175,13 +175,13 @@ export function getTCActionName(block: DFCodeblockName, dfSignName: string) {
 }
 
 export function getTCTagName(name: string) {
-    let override = OVERRIDES_JSON.tagNames[name];
+    let override = OVERRIDES.tagNames[name];
     if (override) return override;
     return codeifyName(name.match(/(^\w+(?: \w+)?)/)?.[1] ?? name);
 }
 
 export function getTCGameValueName(dfValueName: string) {
-    let override = OVERRIDES_JSON.gameValueNames[dfValueName];
+    let override = OVERRIDES.gameValueNames[dfValueName];
     if (override) return override;
     return codeifyName(dfValueName);
 }
