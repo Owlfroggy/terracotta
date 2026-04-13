@@ -6,7 +6,7 @@ import { Type } from "../../typeProcessor/type.ts";
 import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS } from "../../data/constants.ts";
-import { VEC_CONSTRUCTOR } from "./constructors.ts";
+import { LOC_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
 import { validateArguments } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
 
@@ -277,5 +277,6 @@ function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition
 
 export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
     num: new Namespace('num', typeActionMembers('num')),
-    vec: new Namespace('vec', typeActionMembers('vec'), VEC_CONSTRUCTOR)
+    vec: new Namespace('vec', typeActionMembers('vec'), VEC_CONSTRUCTOR),
+    loc: new Namespace('loc', typeActionMembers('loc'), LOC_CONSTRUCTOR),
 };

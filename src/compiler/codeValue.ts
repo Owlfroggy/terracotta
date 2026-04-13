@@ -193,6 +193,41 @@ export class VectorValue extends TangibleValue {
     }
 }
 
+export class LocationValue extends TangibleValue {
+    constructor(
+        public x: string,
+        public y: string,
+        public z: string,
+        public pitch: string,
+        public yaw: string,
+        astNode?: ASTNode
+    ) { super(astNode); }
+
+    getType(ctx: EvaluationContext): Type {
+        return Type.loc;
+    }
+
+    templateForm() {
+        return {
+            "id": "loc",
+            "data": {
+                "isBlock": false,
+                "loc": {
+                    "x": this.x,
+                    "y": this.y,
+                    "z": this.z,
+                    "pitch": this.pitch,
+                    "yaw": this.yaw,
+                }
+            }
+        };
+    }
+
+    toString(): string {
+        return `loc(${this.x}, ${this.y}, ${this.z}, ${this.pitch}, ${this.yaw})`;
+    }
+}
+
 export class VariableValue extends TangibleValue {
     readonly variableId: VariableId;
 

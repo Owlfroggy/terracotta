@@ -4,7 +4,7 @@ import { Type } from "../typeProcessor/type.ts";
 import { ParameterSignature, ParameterSignatureEntry } from "../compiler/namespace/definition.ts";
 import { BinaryExpression, CallExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
-import { CodeValue, MissingValue } from "../compiler/codeValue.ts";
+import { CodeValue, MissingValue, VariableValue } from "../compiler/codeValue.ts";
 import { EvaluationContext } from "../compiler/codeCompiler.ts";
 import { slog } from "../languageServer/languageServer.ts";
 import { ASTNode } from "../ast/astNode.ts";
