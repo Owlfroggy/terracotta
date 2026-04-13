@@ -81,7 +81,7 @@ export function matchArgsToParams(args: Expression[], argTypes: Type[], signatur
     }
     
     let lastSkippableOptional: number;
-    let lastType = signature.params[signature.params.length-1].type;
+    let lastType = signature.params[signature.params.length-1]?.type ?? Type.any;
     for (lastSkippableOptional = signature.params.length-1; lastSkippableOptional >= 0; lastSkippableOptional--) {
         if (!signature.params[lastSkippableOptional].type.matches(lastType)) {
             break;
@@ -126,6 +126,7 @@ export function matchArgsToParams(args: Expression[], argTypes: Type[], signatur
 
 /** does NOT do anything with tags */
 export function validateArguments(args: CodeValue[], callNode: CallExpression, signatures: ParameterSignature[], ctx: EvaluationContext, allowNamedArgs: boolean = false): ParameterSignature | null {
+    if (signatures.length == 0) signatures = [{params: []}];
     let argExpressions = callNode.args.elements;
     let argTypes = args.map(v => v.getType(ctx));
 
