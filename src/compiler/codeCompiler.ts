@@ -243,7 +243,7 @@ export class CodeCompiler {
                 }
                 // TODO: args
                 // TODO: handle return types
-                let [value, code] = callee.definition.compile(args,namedArgs, this.getEvaluationContext());
+                let [value, code] = callee.definition.compile(args,namedArgs, this.getEvaluationContext(), e);
                 value.astNode = e;
                 return [value, [...preCode, ...argCode, ...code]];
             }

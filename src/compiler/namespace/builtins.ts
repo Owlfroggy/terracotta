@@ -86,7 +86,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         signatures: uniqueSignatures.map(v => ({params: v})),
         returnType: tcReturnType,
         action: actionDef,
-        compile: (args, namedArgs, ctx): [CodeValue, CodeBlock[]] => {
+        compile: (args, namedArgs, ctx, callNode): [CodeValue, CodeBlock[]] => {
             let tags: ActionTagValue[] = [];
             // todo: default tag values
 
@@ -151,9 +151,9 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
 export function generateConditionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, target: TargetType = TargetType.UNSET): ConditionDefinition {
     let def = generateActionHook(functionName, codeblock, actionDFName, target) as ConditionDefinition;
     def.compileIf = def.compile;
-    def.compile = (args, namedArgs, ctx) => {
+    def.compile = (args, namedArgs, ctx, callNode) => {
         let tempVar = ctx.tvp.newTempVar(Type.num);
-        let [item, code] = def.compileIf(args, namedArgs, ctx);
+        let [item, code] = def.compileIf(args, namedArgs, ctx, callNode);
         code = [
             // initialize temp var
             new ActionBlock(DFCodeblockName.SET_VARIABLE,{

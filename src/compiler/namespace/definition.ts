@@ -1,4 +1,4 @@
-import { AtomicExpression } from "../../ast/expression.ts";
+import { AtomicExpression, CallExpression } from "../../ast/expression.ts";
 import { Action, GameValue, Tag } from "../../df/actiondump.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { CodeBlock } from "../codeBlock.ts";
@@ -32,7 +32,7 @@ export interface FunctionDefinition {
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,
     // todo: signature
-    compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext): [CodeValue, CodeBlock[]];
+    compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression): [CodeValue, CodeBlock[]];
 }
 
 /**
@@ -43,7 +43,7 @@ export interface ConditionDefinition extends FunctionDefinition {
     /** Will always be Type.num */
     returnType: Type,
     /** Should always return an EmptyValue */
-    compileIf(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext): [CodeValue, CodeBlock[]];
+    compileIf(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression): [CodeValue, CodeBlock[]];
 }
 
 export interface ValueDefinition {
