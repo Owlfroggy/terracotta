@@ -280,5 +280,50 @@ Operations.registerBinary(Type.str, TokenType.PLUS, Type.num, Type.str, true,
 Operations.registerBinary(Type.str, TokenType.PLUS, Type.str, Type.str, true, 
     singleActionHandler(Type.str, "String"));
 
+//=- vec -=\\
+
+Operations.registerBinary(Type.vec, TokenType.PLUS, Type.vec, Type.vec, false, 
+    singleActionHandler(Type.vec, "+"));
+
+Operations.registerBinary(Type.vec, TokenType.MINUS, Type.vec, Type.vec, false, 
+    singleActionHandler(Type.vec, "-"));
+
+Operations.registerBinary(Type.vec, TokenType.STAR, Type.vec, Type.vec, false, 
+    singleActionHandler(Type.vec, "x"));
+
+Operations.registerBinary(Type.vec, TokenType.SLASH, Type.vec, Type.vec, false, 
+    singleActionHandler(Type.vec, "/"));
+
+Operations.registerBinary(Type.vec, TokenType.STAR, Type.num, Type.vec, true, 
+    singleActionHandler(Type.vec, "MultiplyVector"));
+
+Operations.registerBinary(Type.vec, TokenType.SLASH, Type.num, Type.vec, true, (left, right, ctx) => {
+    let numResult = ctx.tvp.newTempVar(Type.num);
+    let vecResult = ctx.tvp.newTempVar(Type.vec);
+
+    let num: TangibleValue;
+    let vec: TangibleValue;
+    if (left.getType(ctx).matches(Type.num)) {
+        num = left;
+        vec = right;
+    } else {
+        num = right;
+        vec = left;
+    }
+    // otherwise, do the normal operation. if the user wants precision, they can veccast it themselves
+    
+
+    return [vecResult, [
+        new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+            action: "/",
+            args: [numResult, new NumberValue("1"), num]
+        }),
+        new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+            action: "MultiplyVector",
+            args: [vecResult, vec, numResult],
+        })
+    ]];
+});
+
 
 // Operations.registerBinary(Type.txt, TokenType.PLUS, Type.any, Type.txt, true);
