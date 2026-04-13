@@ -160,7 +160,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression, s
                 tooManyArguments = true;
                 break;
             };
-            if (!param.type.matches(argTypes[argIndex]) && !(args[argValueIndex] instanceof MissingValue)) {
+            if (!param.type.matches(Type.any) && !param.type.matches(argTypes[argIndex]) && !(args[argValueIndex] instanceof MissingValue)) {
                 errors.push([argExpressions[argIndex], `Expected ${param.type.name} for parameter '${param.name}', got ${argTypes[argIndex].name}`]);
             }
             unfilledRequiredParams.delete(param);
