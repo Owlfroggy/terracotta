@@ -12,7 +12,7 @@ import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, Num
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
-import { DefinitionType } from "./namespace/definition.ts";
+import { DefinitionType, FunctionDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName } from "../df/constants.ts";
 
@@ -202,7 +202,23 @@ export class CodeCompiler {
         }
         else if (e instanceof CallExpression) {
             let [callee, preCode] = this.compileExpression(e.callee);
+
+            let definition: FunctionDefinition | null = null;
             if (callee instanceof FunctionValue) {
+                definition = callee.definition;
+            } else if (callee instanceof NamespaceValue) {
+                if (callee.namespace.nameFunction) {
+                    definition = callee.namespace.nameFunction;
+                } else {
+                    this.reportError(e.callee, `'${callee.namespace.identifier}' cannot be called as a function`);
+                }
+            } 
+            // error case; no definition could be found
+            else {
+                this.reportError(e.callee, `Type ${callee.getType(this.getEvaluationContext())} cannot be called as a function`);
+            }
+
+            if (definition) {
                 // parse args
                 let args: CodeValue[] = [];
                 let namedArgs: Map<AtomicExpression, CodeValue> = new Map();
@@ -243,7 +259,7 @@ export class CodeCompiler {
                 }
                 // TODO: args
                 // TODO: handle return types
-                let [value, code] = callee.definition.compile(args,namedArgs, this.getEvaluationContext(), e);
+                let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(), e);
                 value.astNode = e;
                 return [value, [...preCode, ...argCode, ...code]];
             }

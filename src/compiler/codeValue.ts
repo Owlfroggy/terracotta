@@ -165,6 +165,34 @@ export class StyledTextValue extends TangibleValue {
     }
 }
 
+export class VectorValue extends TangibleValue {
+    constructor(
+        public x: string,
+        public y: string,
+        public z: string,
+        astNode?: ASTNode
+    ) { super(astNode); }
+
+    getType(ctx: EvaluationContext): Type {
+        return Type.vec;
+    }
+
+    templateForm() {
+        return {
+            "id": "vec",
+            "data": {
+                "x": this.x,
+                "y": this.y,
+                "z": this.z,
+            }
+        };
+    }
+
+    toString(): string {
+        return `vec(${this.x}, ${this.y}, ${this.z})`;
+    }
+}
+
 export class VariableValue extends TangibleValue {
     readonly variableId: VariableId;
 

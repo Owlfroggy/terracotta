@@ -6,6 +6,7 @@ import { Type } from "../../typeProcessor/type.ts";
 import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS } from "../../data/constants.ts";
+import { VEC_CONSTRUCTOR } from "./constructors.ts";
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
     let valueDef = AD.gameValues[dfName];
@@ -260,5 +261,6 @@ function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition
 }
 
 export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
-    num: new Namespace('num', typeActionMembers('num'))
+    num: new Namespace('num', typeActionMembers('num')),
+    vec: new Namespace('vec', typeActionMembers('vec'), VEC_CONSTRUCTOR)
 };

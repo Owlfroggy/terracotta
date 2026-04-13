@@ -4,7 +4,7 @@ import { ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
-import { FuncTypeData, Type } from "./type.ts";
+import { FuncTypeData, NamespaceTypeData, Type } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 
 export enum VariableScope {
@@ -388,6 +388,10 @@ export class TypeProcessor {
             if (calleeType.name == 'func') {
                 let data = calleeType.data as FuncTypeData
                 return data.definition.returnType ?? Type.unknown;
+            }
+            else if (calleeType.name == 'namespace') {
+                let data = calleeType.data as NamespaceTypeData;
+                return data.namespace.nameFunction?.returnType ?? Type.unknown;
             }
             return Type.unknown;
         }

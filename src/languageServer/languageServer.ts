@@ -184,8 +184,13 @@ function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFram
     if (!(callNode instanceof CallExpression)) return [null, null];
     
     let calleeType = typeProcessor.evaluateExpression(callNode.callee, envFrame);
-    if (calleeType.name != "func") return [null, null];
-    let definition = (calleeType.data as FuncTypeData).definition;
+    let definition: FunctionDefinition | null = null;
+    if (calleeType.name == "func") {
+        definition = (calleeType.data as FuncTypeData).definition
+    } else if (calleeType.name == "namespace") {
+        definition = (calleeType.data as NamespaceTypeData).namespace.nameFunction ?? null;
+    }
+    if (!definition) return [null, null];
     return [callNode, definition];
 }
 
