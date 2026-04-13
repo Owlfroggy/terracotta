@@ -125,7 +125,7 @@ export function matchArgsToParams(args: Expression[], argTypes: Type[], signatur
 }
 
 /** does NOT do anything with tags */
-export function validateArguments(args: CodeValue[], callNode: CallExpression, signatures: ParameterSignature[], ctx: EvaluationContext): ParameterSignature | null {
+export function validateArguments(args: CodeValue[], callNode: CallExpression, signatures: ParameterSignature[], ctx: EvaluationContext, allowNamedArgs: boolean = false): ParameterSignature | null {
     let argExpressions = callNode.args.elements;
     let argTypes = args.map(v => v.getType(ctx));
 
@@ -151,7 +151,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression, s
         let argValueIndex = 0;
         for (argIndex = 0; argIndex < argExpressions.length; argIndex++) {
             if (argsToParams[argIndex] == -1) {
-                errors.push([argExpressions[argIndex], `Named arguments are not allowed here`]);
+                if (!allowNamedArgs) errors.push([argExpressions[argIndex], `Named arguments are not allowed here`]);
                 continue;
             };
 

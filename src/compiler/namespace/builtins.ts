@@ -142,7 +142,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             }
 
             // arg validation
-            validateArguments(args, callNode, signatures, ctx);
+            validateArguments(args, callNode, signatures, ctx, true);
 
             let code = new ActionBlock(codeblock,{
                 action: actionDFName, 
