@@ -215,7 +215,7 @@ export class CodeCompiler {
             } 
             // error case; no definition could be found
             else {
-                this.reportError(e.callee, `Type ${callee.getType(this.getEvaluationContext())} cannot be called as a function`);
+                this.reportError(e.callee, `Type '${callee.getType(this.getEvaluationContext()).name}' cannot be called as a function`);
             }
 
             if (definition) {
