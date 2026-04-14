@@ -244,7 +244,7 @@ export class LanguageServer {
                     //completion
                     completionProvider: {
                         resolveProvider: true,
-                        triggerCharacters: [".","?",'"',"'","="],
+                        triggerCharacters: [".","?",'"',"'"],
                         completionItem: {
                             labelDetailsSupport: true
                         }
