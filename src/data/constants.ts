@@ -1,3 +1,5 @@
+//controls which set var actions go into which domains
+//! IF A SET_VAR ACTION ISN'T PRESENT IN THIS TABLE IT WON'T BE ACCESSIBLE AT ALL !
 export const TYPE_DOMAIN_ACTIONS = {
     var: [
         //stuff in var category
@@ -29,4 +31,22 @@ export const TYPE_DOMAIN_ACTIONS = {
     vec: ["Vector", "VectorBetween", "GetVectorComp", "SetVectorComp", "GetVectorLength", "SetVectorLength", "MultiplyVector", "AddVectors", "SubtractVectors", "AlignVector", "RotateAroundAxis", "RotateAroundVec", "ReflectVector", "CrossProduct", "DotProduct", "DirectionName", "RotationVector", "RandomVector", "SwapVectorComp"],
     pot: ["GetPotionType", "SetPotionType", "GetPotionAmp", "SetPotionAmp", "GetPotionDur", "SetPotionDur"],
     snd: ["GetSoundType", "SetSoundType", "GetSoundVariant", "SetSoundVariant", "GetCustomSound", "SetCustomSound", "GetSoundPitch", "SetSoundPitch", "GetSoundVolume", "SetSoundVolume"],
+}
+
+//controls which if var actions go into which domains
+//! IF A IF_VAR ACTION ISN'T PRESENT IN THIS TABLE IT WON'T BE ACCESSIBLE AT ALL !
+export const TYPE_DOMAIN_CONDITIONS = {
+    var: ["=", "!=", " InRange ", "VarExists", "VarIsType", "ValueIsEmpty"],
+    game: [],
+    num: [">=", ">", "<=", "<"],
+    str: ["StringMatches", "Contains", "StartsWith", "EndsWith", "IsFiltered"],
+    txt: [],
+    loc: ["LocIsNear"],
+    item: ["ItemEquals", "ItemIsBlock", "BlockIsSolid", "ItemHasTag", "ItemHasEnchant", "ItemIsUnbreakable"],
+    list: ["ListContains", "ListValueEq", "ListSizeEquals"],
+    dict: ["DictHasKey", "DictHasKeys", "DictValueEquals"],
+    par: [],
+    vec: [],
+    pot: [],
+    snd: [],
 }
