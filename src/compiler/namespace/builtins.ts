@@ -258,6 +258,7 @@ export function registerBuiltinNamespaces() {
     new Namespace("game", Object.fromEntries([
         ...codeblockActionEntries(DFCodeblockName.GAME_ACTION, TargetType.UNSET),
         ...codeblockActionEntries(DFCodeblockName.IF_GAME, TargetType.UNSET, generateConditionHook),
+        ...Object.entries(typeActionMembers('game')),
         ...gameValueEntries(TargetType.UNSET, v => v.targetType == GameValueTargetType.UNTARGETED)
     ]));
 }
@@ -276,6 +277,7 @@ function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition
 }
 
 export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
+    var: new Namespace('var', typeActionMembers('var')),
     num: new Namespace('num', typeActionMembers('num')),
     vec: new Namespace('vec', typeActionMembers('vec'), VEC_CONSTRUCTOR),
     loc: new Namespace('loc', typeActionMembers('loc'), LOC_CONSTRUCTOR),

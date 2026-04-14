@@ -2,18 +2,27 @@ export const TYPE_DOMAIN_ACTIONS = {
     var: [
         //stuff in var category
         "=","RandomValue","PurgeVars",
+        
+        "RGBColor","HSBColor","HSLColor","GetColorChannels","WebResponse","DecimalRGB",
+        //other stuff
+        "JsonToValue", "ValueToJson",
+    ],
+    game: [
         //stuff in world category
         "GetBlockType","GetBlockData","GetAllBlockData","GetBlockGrowth","GetBlockPower","GetLight"," GetSignText ","ContainerName","ContainerLock","GetContainerItems","GetLecternBook","GetLecternPage","Raycast",
         //stuff in misc category
-        "BlockHardness","BlockResistance","RGBColor","HSBColor","HSLColor","GetColorChannels","WebResponse","DecimalRGB",
-        //other stuff
-        "JsonToValue", "ValueToJson",
+        "BlockHardness","BlockResistance",
     ],
     num: ["+", "-", "x", "/", "%", "+=", "-=", "Exponent", "Root", "Logarithm", "ParseNumber", "AbsoluteValue", "ClampNumber", "WrapNum", "Average", "RandomNumber", " RoundNumber ", "MinNumber", "MaxNumber", "NormalRandom", "Sine", "Cosine", "Tangent", "Noise", "GradientNoise", "CellularNoise", "ValueNoise", "Bitwise", "BounceNum", "ArcTangent2", "Interpolate", ],
     str: ["String", "ReplaceString", "RemoveString", "TrimString", "SplitString", "JoinString", "SetCase", "StringLength", "RepeatString", "FormatTime", "TranslateColors", "Base64Decode", "Base64Encode", "GzipDecompress", "GzipCompress", "SanitizeTags", "BytesToString", "StringToBytes", "AllRegexGroups", "GetRegexGroup", "NamedRegexGrps", "IndexOfSubstring", "SegmentString"],
     txt: ["StyledText", "ClearFormatting", "GetMiniMessageExpr", "ParseMiniMessage", "TrimStyledText", "ContentLength"],
     loc: ["GetCoord", "SetCoord", "SetAllCoords", "ShiftOnAxis", "ShiftAllAxes", "ShiftInDirection", "ShiftAllDirections", "ShiftToward", "ShiftOnVector", "GetDirection", " SetDirection ", "ShiftRotation", "FaceLocation", "AlignLoc", "Distance", "GetCenterLoc", "RandomLoc", "ClampLoc"],
-    item: ["GetItemType", "SetItemType", " GetItemName ", " SetItemName ", " GetItemLore ", "GetLoreLine", " SetItemLore ", "GetItemAmount", "SetItemAmount", "GetMaxAmount", "GetItemDura", "SetItemDura", "SetBreakability", " GetItemEnchants ", " SetItemEnchants ", "AddItemEnchant", "RemItemEnchant", "ClearEnchants", "GetHeadOwner", " SetHeadTexture ", " GetBookText ", "SetBookText", "GetItemTag", "GetAllItemTags", "SetItemTag", "RemoveItemTag", "ClearItemTag", "GetItemEffects", "SetItemEffects", "GetCanPlaceOn", "SetCanPlaceOn", "GetCanDestroy", "SetCanDestroy", "GetItemRarity", "GetLodestoneLoc", "SetLodestoneLoc", "SetArmorTrim", "GetItemColor", "SetItemColor", "GetItemAttribute", "AddItemAttribute", "SetMapTexture", "GetItemFood", "SetMaxAmount", "GetBlockByMCTag", "GetItemByMCTag", "SetItemGlowing", "AddItemToolRule", "SetItemMaxDura", "SetItemTool", "SetItemHideTooltip", "GetBlockDrops", "AddItemLore", "RemoveItemAttrs", "ClearItemAttrs", "GetCrossbowProj", "SetCrossbowProj", "SetBundleItems", "SetBreakSound", "SetConsumable", "GetItemLeftover", "SetModelDataNums", "SetItemRarity", "GetBundleItems", "SetModelDataStrs", "GetModelDataStrs", "SetItemLeftover", "SetItemModel", "GetTooltipStyle", "GetModelDataNums", "GetBreakSound", "SetItemWeapon", "GetConsumable", "HiddenComponents", "GetItemModel", "SetAllItemTags", "GetItemWeapon", "SetTooltipStyle"],
+    item: [
+        // stuff in misc category
+        "BlockHardness","BlockResistance",
+        // other stuff
+        "GetItemType", "SetItemType", " GetItemName ", " SetItemName ", " GetItemLore ", "GetLoreLine", " SetItemLore ", "GetItemAmount", "SetItemAmount", "GetMaxAmount", "GetItemDura", "SetItemDura", "SetBreakability", " GetItemEnchants ", " SetItemEnchants ", "AddItemEnchant", "RemItemEnchant", "ClearEnchants", "GetHeadOwner", " SetHeadTexture ", " GetBookText ", "SetBookText", "GetItemTag", "GetAllItemTags", "SetItemTag", "RemoveItemTag", "ClearItemTag", "GetItemEffects", "SetItemEffects", "GetCanPlaceOn", "SetCanPlaceOn", "GetCanDestroy", "SetCanDestroy", "GetItemRarity", "GetLodestoneLoc", "SetLodestoneLoc", "SetArmorTrim", "GetItemColor", "SetItemColor", "GetItemAttribute", "AddItemAttribute", "SetMapTexture", "GetItemFood", "SetMaxAmount", "GetBlockByMCTag", "GetItemByMCTag", "SetItemGlowing", "AddItemToolRule", "SetItemMaxDura", "SetItemTool", "SetItemHideTooltip", "GetBlockDrops", "AddItemLore", "RemoveItemAttrs", "ClearItemAttrs", "GetCrossbowProj", "SetCrossbowProj", "SetBundleItems", "SetBreakSound", "SetConsumable", "GetItemLeftover", "SetModelDataNums", "SetItemRarity", "GetBundleItems", "SetModelDataStrs", "GetModelDataStrs", "SetItemLeftover", "SetItemModel", "GetTooltipStyle", "GetModelDataNums", "GetBreakSound", "SetItemWeapon", "GetConsumable", "HiddenComponents", "GetItemModel", "SetAllItemTags", "GetItemWeapon", "SetTooltipStyle"
+    ],
     list: ["CreateList", "AppendValue", "AppendList", "GetListValue", "PopListValue", "SetListValue", "GetValueIndex", "ListLength", "InsertListValue", "RemoveListValue", "RemoveListIndex", "DedupList", "TrimList", "SortList", "ReverseList", "RandomizeList", "FlattenList", "DestructureList", ],
     dict: ["CreateDict", "SetDictValue", "GetDictValue", "GetDictSize", "RemoveDictEntry", "ClearDict", "GetDictKeys", "GetDictValues", "AppendDict", "SortDict"],
     par: ["GetParticleType", "SetParticleType", "GetParticleAmount", "SetParticleAmount", "GetParticleSprd", "SetParticleSprd", "GetParticleSize", "SetParticleSize", "GetParticleMat", "SetParticleMat", "GetParticleColor", "SetParticleColor", "GetParticleMotion", "SetParticleMotion", "GetParticleRoll", "SetParticleRoll", "SetParticleOpac", "GetParticleOpac", "GetParticleFade", "SetParticleFade", "GetParticleDur", "SetParticleDur", "SetParticlePower", "GetParticlePower"],
