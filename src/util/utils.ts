@@ -4,11 +4,13 @@ import { Type } from "../typeProcessor/type.ts";
 import { ParameterSignature, ParameterSignatureEntry } from "../compiler/namespace/definition.ts";
 import { BinaryExpression, CallExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
-import { CodeValue, MissingValue, VariableValue } from "../compiler/codeValue.ts";
+import { CodeValue, MissingValue, NumberValue, VariableValue } from "../compiler/codeValue.ts";
 import { EvaluationContext } from "../compiler/codeCompiler.ts";
 import { slog } from "../languageServer/languageServer.ts";
 import { ASTNode } from "../ast/astNode.ts";
 import { argv } from "node:process";
+import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../compiler/codeBlock.ts";
+import { DFCodeblockName } from "../df/constants.ts";
 
 export function getOrCreateMapLayer<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {
@@ -235,4 +237,25 @@ export function valueToTCString(value: string, quoteChar: string = '"'): string 
 export function ps(count: number, inverse: boolean = false): 's' | '' {
     if (inverse) return count == 1 ? 's' : '';
     return count == 1 ? '' : 's';
+}
+
+export function expressionizeIfBlock(ifCode: CodeBlock[], ctx: EvaluationContext): [VariableValue, CodeBlock[]] {
+    let tempVar = ctx.tvp.newTempVar(Type.num);
+    ifCode = [
+        // initialize temp var
+        new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+            action: "=",
+            args: [tempVar, new NumberValue("0")]
+        }),
+        // evaluate argument expressions, if block will be at the very end
+        ...ifCode,
+        new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.IF}),
+            // set temp var to 1 if condition is true
+            new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                action: "=",
+                args: [tempVar, new NumberValue("1")]
+            }),
+        new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.IF}),
+    ]
+    return [tempVar, ifCode];
 }

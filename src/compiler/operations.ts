@@ -2,9 +2,10 @@ import { Token, TokenType } from "../ast/token.ts";
 import { actions } from "../df/actiondump.ts";
 import { DFCodeblockName } from "../df/constants.ts";
 import { Type } from "../typeProcessor/type.ts";
-import { ActionBlock, CodeBlock } from "./codeBlock.ts";
+import { ActionBlock, CodeBlock, IfBlock } from "./codeBlock.ts";
 import { EvaluationContext } from "./codeCompiler.ts";
 import { ActionTagValue, CodeValue, MissingValue, NumberValue, TangibleValue } from "./codeValue.ts";
+import { expressionizeIfBlock } from "../util/utils.ts";
 
 type BinaryOperationHandler = (left: TangibleValue, right: TangibleValue, ctx: EvaluationContext) => [TangibleValue, CodeBlock[]];
 type BinaryOperationDefinition = {
@@ -98,7 +99,7 @@ export class Operations {
 
         let leftType = left.getType(ctx);
         let rightType = right.getType(ctx);
-        let def = this.binaryOperations.get(leftType)?.get(opType)?.get(rightType);
+        let def = this.getBinaryDefinition(leftType, op.type, rightType);
 
         if (!def) {
             ctx.reportError(
@@ -113,11 +114,16 @@ export class Operations {
 
     /** returns Type.unknown if this is not a valid operaton */
     static evaluateBinaryType(left: Type, op: TokenType, right: Type): Type {
+        return this.getBinaryDefinition(left, op, right)?.resultType ?? Type.unknown;
+    }
+    
+    private static getBinaryDefinition(left: Type, op: TokenType, right: Type): BinaryOperationDefinition | null {
         return (
-            this.binaryOperations.get(left)?.get(op)?.get(right)?.resultType
-            ?? this.binaryOperations.get(left)?.get(op)?.get(Type.any)?.resultType
-            ?? this.binaryOperations.get(Type.any)?.get(op)?.get(right)?.resultType
-            ?? Type.unknown
+            this.binaryOperations.get(left)?.get(op)?.get(right)
+            ?? this.binaryOperations.get(left)?.get(op)?.get(Type.any)
+            ?? this.binaryOperations.get(Type.any)?.get(op)?.get(right)
+            ?? this.binaryOperations.get(Type.any)?.get(op)?.get(Type.any)
+            ?? null
         );
     }
 
@@ -205,6 +211,17 @@ function singleActionHandler(resultType: Type, action: string, tags: ActionTagVa
     }
 }
 
+function singleConditionHandler(action: string, tags: ActionTagValue[] = [], codeblock: DFCodeblockName = DFCodeblockName.IF_VARIABLE): BinaryOperationHandler {
+    return (left, right, ctx) => {
+        let block = new IfBlock(codeblock,{
+            action: action,
+            args: [left, right],
+            tags: tags,
+        });
+        return expressionizeIfBlock([block], ctx);
+    }
+}
+
 //=-------------------------=\\
 //=- operation definitions -=\\
 //=-------------------------=\\
@@ -230,7 +247,24 @@ Operations.registerUnary(TokenType.MINUS, Type.num, Type.num, (val, ctx) => {
     }
 })
 
-// binary ops below this point
+//=- comparison operations -=\\
+Operations.registerBinary(Type.any, TokenType.DOUBLE_EQUALS, Type.any, Type.num, false, 
+    singleConditionHandler("="));
+
+Operations.registerBinary(Type.any, TokenType.BANG_EQUALS, Type.any, Type.num, false, 
+    singleConditionHandler("!="));
+
+Operations.registerBinary(Type.num, TokenType.LESS, Type.num, Type.num, false, 
+    singleConditionHandler("<"));
+
+Operations.registerBinary(Type.num, TokenType.LESS_EQUALS, Type.num, Type.num, false, 
+    singleConditionHandler("<="));
+
+Operations.registerBinary(Type.num, TokenType.GREATER, Type.num, Type.num, false, 
+    singleConditionHandler(">"));
+
+Operations.registerBinary(Type.num, TokenType.GREATER_EQUALS, Type.num, Type.num, false, 
+    singleConditionHandler(">="));
 
 //=- num -=\\
 

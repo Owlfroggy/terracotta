@@ -117,7 +117,7 @@ export class IfBlock extends ActionBlock {
         {action, args = [], tags = [], target = TargetType.UNSET, inverted = false, astNode = null} : {
             action: string,
             args?: TangibleValue[],
-            tags?: [],
+            tags?: ActionTagValue[],
             target?: TargetType
             inverted?: boolean,
             astNode?: ASTNode | null,

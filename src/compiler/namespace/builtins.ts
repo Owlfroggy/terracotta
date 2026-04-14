@@ -7,7 +7,7 @@ import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDe
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { LOC_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
-import { validateArguments } from "../../util/utils.ts";
+import { expressionizeIfBlock, validateArguments } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
@@ -168,25 +168,8 @@ export function generateConditionHook(functionName: string, codeblock: DFCodeblo
     let def = generateActionHook(functionName, codeblock, actionDFName, target) as ConditionDefinition;
     def.compileIf = def.compile;
     def.compile = (args, namedArgs, ctx, callNode) => {
-        let tempVar = ctx.tvp.newTempVar(Type.num);
         let [item, code] = def.compileIf(args, namedArgs, ctx, callNode);
-        code = [
-            // initialize temp var
-            new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                action: "=",
-                args: [tempVar, new NumberValue("0")]
-            }),
-            // evaluate argument expressions, if block will be at the very end
-            ...code,
-            new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.IF}),
-                // set temp var to 1 if condition is true
-                new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                    action: "=",
-                    args: [tempVar, new NumberValue("1")]
-                }),
-            new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.IF}),
-        ]
-        return [tempVar, code];
+        return expressionizeIfBlock(code, ctx);
     }
     return def
 }
