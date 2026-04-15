@@ -9,6 +9,7 @@ import { TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constant
 import { LOC_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
 import { expressionizeIfBlock, validateArguments } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
+import { slog } from "../../languageServer/languageServer.ts";
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
     let valueDef = AD.gameValues[dfName];
@@ -152,6 +153,51 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             });
 
             let returnValue: CodeValue;
+
+            if (tcReturnType) {
+                returnValue = ctx.tvp.newTempVar(tcReturnType);
+                code.args.unshift(returnValue as VariableValue);
+            } else {
+                returnValue = new EmptyValue()
+            }
+
+            return [returnValue, [code]];
+        }
+    }
+}
+
+export function generateTagSpecifiedActionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, tagOptions: {[tag: string]: string}, signatures: ParameterSignature[], target: TargetType = TargetType.UNSET): FunctionDefinition {
+    let actionDef = AD.actions.get(codeblock)?.[actionDFName]!;
+
+    let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
+    let tcReturnType = dfReturnType ? dfTypeToTC.get(dfReturnType)! : null;
+
+    return {
+        definitionType: DefinitionType.FUNCTION,
+        name: functionName,
+        signatures,
+        returnType: tcReturnType,
+        compile: (args, namedArgs, ctx, callNode): [CodeValue, CodeBlock[]] => {
+            let tags: ActionTagValue[] = [];
+            // todo: default tag values
+
+            for (const [name, option] of Object.entries(tagOptions)) {
+                let tagDef = actionDef.tags[name];
+                tags.push(new ActionTagValue(tagDef, option))
+            }
+
+            // arg validation
+            validateArguments(args, callNode, signatures, ctx);
+
+            let code = new ActionBlock(codeblock,{
+                action: actionDFName, 
+                args: args.filter(v => v instanceof TangibleValue), 
+                tags: tags, 
+                target: target
+            });
+
+            let returnValue: CodeValue;
+            
             if (tcReturnType) {
                 returnValue = ctx.tvp.newTempVar(tcReturnType);
                 code.args.unshift(returnValue as VariableValue);
@@ -250,6 +296,114 @@ export function registerBuiltinNamespaces() {
 //=- type namespaces -=\\
 //=-------------------=\\
 
+// TODO: write descriptions for all these functions and get their documentation working
+export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition} = {
+    // rounding
+    floor: generateTagSpecifiedActionHook(
+        "floor", DFCodeblockName.SET_VARIABLE, " RoundNumber ",
+        {"Round Mode": "Floor"},
+        [{params: [
+            {name: "Number to floor", type: Type.num, optional: false, plural: false},
+            {name: "Round multiple", type: Type.num, optional: true, plural: false},
+        ]}]
+    ),
+    ceil: generateTagSpecifiedActionHook(
+        "ceil", DFCodeblockName.SET_VARIABLE, " RoundNumber ",
+        {"Round Mode": "Ceiling"},
+        [{params: [
+            {name: "Number to ceiling", type: Type.num, optional: false, plural: false},
+            {name: "Round multiple", type: Type.num, optional: true, plural: false},
+        ]}]
+    ),
+    
+    // degrees trig functions
+    asin: generateTagSpecifiedActionHook(
+        "asin", DFCodeblockName.SET_VARIABLE, "Sine",
+        {"Sine Variant": "Inverse sine (arcsine)"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),
+    sinh: generateTagSpecifiedActionHook(
+        "sinh", DFCodeblockName.SET_VARIABLE, "Sine",
+        {"Sine Variant": "Hyperbolic sine"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),    
+    acos: generateTagSpecifiedActionHook(
+        "acos", DFCodeblockName.SET_VARIABLE, "Cosine",
+        {"Cosine Variant": "Inverse cosine (arccosine)"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),
+    cosh: generateTagSpecifiedActionHook(
+        "cosh", DFCodeblockName.SET_VARIABLE, "Cosine",
+        {"Cosine Variant": "Hyperbolic cosine"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),    
+    atan: generateTagSpecifiedActionHook(
+        "atan", DFCodeblockName.SET_VARIABLE, "Tangent",
+        {"Tangent Variant": "Inverse tangent (arctangent)"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),
+    tanh: generateTagSpecifiedActionHook(
+        "tanh", DFCodeblockName.SET_VARIABLE, "Tangent",
+        {"Tangent Variant": "Hyperbolic tangent"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),
+    
+    // radians trig functions
+    sinr: generateTagSpecifiedActionHook(
+        "sinr", DFCodeblockName.SET_VARIABLE, "Sine",
+        {"Input": "Radians"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),
+    asinr: generateTagSpecifiedActionHook(
+        "asinr", DFCodeblockName.SET_VARIABLE, "Sine",
+        {"Input": "Radians", "Sine Variant": "Inverse sine (arcsine)"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),
+    sinhr: generateTagSpecifiedActionHook(
+        "sinhr", DFCodeblockName.SET_VARIABLE, "Sine",
+        {"Input": "Radians", "Sine Variant": "Hyperbolic sine"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),    
+    cosr: generateTagSpecifiedActionHook(
+        "cosr", DFCodeblockName.SET_VARIABLE, "Cosine",
+        {"Input": "Radians"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),
+    acosr: generateTagSpecifiedActionHook(
+        "acosr", DFCodeblockName.SET_VARIABLE, "Cosine",
+        {"Input": "Radians", "Cosine Variant": "Inverse cosine (arccosine)"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),
+    coshr: generateTagSpecifiedActionHook(
+        "coshr", DFCodeblockName.SET_VARIABLE, "Cosine",
+        {"Input": "Radians", "Cosine Variant": "Hyperbolic cosine"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),    
+    tanr: generateTagSpecifiedActionHook(
+        "tanr", DFCodeblockName.SET_VARIABLE, "Tangent",
+        {"Input": "Radians"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),
+    atanr: generateTagSpecifiedActionHook(
+        "atanr", DFCodeblockName.SET_VARIABLE, "Tangent",
+        {"Input": "Radians", "Tangent Variant": "Inverse tangent (arctangent)"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),
+    tanhr: generateTagSpecifiedActionHook(
+        "tanhr", DFCodeblockName.SET_VARIABLE, "Tangent",
+        {"Input": "Radians", "Tangent Variant": "Hyperbolic tangent"},
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+    ),
+    atan2r: generateTagSpecifiedActionHook(
+        "atan2r", DFCodeblockName.SET_VARIABLE, "ArcTangent2",
+        {"Output Type": "Radians"},
+        [{params: [ 
+            {name: "Y", type: Type.num, optional: false, plural: false}, 
+            {name: "X", type: Type.num, optional: false, plural: false}, 
+        ]}]
+    ),
+}
+
 function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition} {
     let members = {};
     for (const actionName of TYPE_DOMAIN_ACTIONS[typeName]) {
@@ -265,7 +419,7 @@ function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition
 
 export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
     var: new Namespace('var', typeActionMembers('var')),
-    num: new Namespace('num', typeActionMembers('num')),
+    num: new Namespace('num', {...typeActionMembers('num'), ...NUM_NAMESPACE_INJECTIONS}),
     vec: new Namespace('vec', typeActionMembers('vec'), VEC_CONSTRUCTOR),
     loc: new Namespace('loc', typeActionMembers('loc'), LOC_CONSTRUCTOR),
 };
