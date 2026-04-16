@@ -7,6 +7,7 @@ export class TempVarProvider {
 
     newTempVar(type: Type): VariableValue {
         let v = new VariableValue(`@__TC_TMP_${this.count}`, VariableScope.LINE, type);
+        v.isTempVar = true;
         this.count++;
         return v;
     }

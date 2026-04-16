@@ -230,6 +230,7 @@ export class LocationValue extends TangibleValue {
 
 export class VariableValue extends TangibleValue {
     readonly variableId: VariableId;
+    public isTempVar: boolean = false;
 
     constructor(
         public name: string,
