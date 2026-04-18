@@ -23,6 +23,16 @@ export abstract class CodeValue {
     getType(ctx: EvaluationContext): Type {
         return Type.unknown;
     }
+
+    /** 
+     * Returns true if this value compiles to a single code item with a known value.
+     * 
+     * When called on variables/game values/etc, this returns false since the value could be anything.
+     * 
+     * When called on anything with % codes, this will return false 
+     * (since there's basically a variable contained in there).
+     * */
+    abstract isCompileTimeConstant(): boolean
 }
 
 /**
@@ -32,6 +42,8 @@ export abstract class CodeValue {
  */
 export abstract class InternalValue extends CodeValue {
     constructor(astNode?: ASTNode) { super(astNode); }
+
+    isCompileTimeConstant() { return false; }
 }
 
 /**
@@ -42,6 +54,8 @@ export abstract class TangibleValue extends CodeValue {
     constructor(astNode?: ASTNode) { super(astNode); }
 
     abstract templateForm(): any;
+    
+    isCompileTimeConstant() { return true; }
 }
 
 //=-------------------=\\
@@ -268,6 +282,8 @@ export class VariableValue extends TangibleValue {
         };
     }
 
+    isCompileTimeConstant() { return false; }
+
     toString(): string {
         return `var${this.explicitType ? `<${this.explicitType.name}>` : ""}(${this.scope}, '${this.name}')`;
     }
@@ -296,6 +312,8 @@ export class GameValueValue extends TangibleValue {
             }
         };
     }
+
+    isCompileTimeConstant() { return false; }
 }
 
 export class ActionTagValue extends TangibleValue {
@@ -327,4 +345,6 @@ export class ActionTagValue extends TangibleValue {
             "slot": this.definition.chestSlot
         };
     }
+
+    isCompileTimeConstant() { return this.variable == undefined; }
 }

@@ -229,7 +229,7 @@ function singleConditionHandler(action: string, tags: ActionTagValue[] = [], cod
 //=- unary operations -=\\
 
 Operations.registerUnary(TokenType.MINUS, Type.num, Type.num, (val, ctx) => {
-    if (val instanceof NumberValue) {
+    if (val instanceof NumberValue && val.isCompileTimeConstant()) {
         let valString = val.value;
         if (valString.startsWith("-")) {
             valString = valString.substring(1);
