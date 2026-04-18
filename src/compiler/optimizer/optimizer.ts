@@ -2,6 +2,7 @@ import { TypeProcessor, VariableId } from "../../typeProcessor/typeProcessor.ts"
 import { CodeBlock } from "../codeBlock.ts";
 import { CodeBlockMatcher, MATCH_FAILED } from "./matcher.ts";
 import { OPT_condenseSingleCondition } from "./passes/condenseSingleCondition.ts";
+import { OPT_condenseSetChain } from "./passes/condenseSetChain.ts";
 
 /**
  * @returns true if the line was changed
@@ -9,6 +10,7 @@ import { OPT_condenseSingleCondition } from "./passes/condenseSingleCondition.ts
 type OptimizationPass = (line: CodeBlock[], matcher: CodeBlockMatcher) => boolean;
 
 const OPTIMIZATION_PASSES = [
+    OPT_condenseSetChain,
     OPT_condenseSingleCondition,
 ]
 
