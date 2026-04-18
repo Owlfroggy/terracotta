@@ -2,7 +2,7 @@ import { DFCodeblockName } from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { VariableScope } from "../../typeProcessor/typeProcessor.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, IfBlock } from "../codeBlock.ts";
-import { NumberValue, VariableValue } from "../codeValue.ts";
+import { CodeValue, NumberValue, VariableValue } from "../codeValue.ts";
 
 export const MATCH_FAILED = Symbol("Codeblock match failed");
 export const ALL_IF_BLOCK_TYPES = [DFCodeblockName.IF_ENTITY, DFCodeblockName.IF_GAME, DFCodeblockName.IF_PLAYER, DFCodeblockName.IF_VARIABLE];
@@ -38,7 +38,15 @@ export type CodeValueFilter = TempVarValueFilter | VarValueFilter | NumValueFilt
 export interface CodeBlockFilter {
     block?: DFCodeblockName | DFCodeblockName[],
     action?: string,
-    args?: CodeValueFilter[]
+    /** 
+     * If a CodeValue is passed in, it will only match an arg 
+     * value if the two values are represented by the same object.
+     * 
+     * (e.g. `n1 = new NumberValue("1")`, `n2 = new NumberValue("1")`, n1 will not match n2 unless a CodeValueFilter is used)
+     * 
+     * This is fine when using temp vars but should generally be avoided for anything else.
+     */
+    args?: (CodeValueFilter | CodeValue)[]
 }
 
 export class CodeBlockMatcher {
@@ -69,8 +77,11 @@ export class CodeBlockMatcher {
             for (let i = 0; i < filter.args.length; i++) {
                 let blockArg = block.args[i];
                 let argFilter = filter.args[i];
-    
-                if (argFilter.accepts == ValueFilterType.TEMP_VAR) {
+
+                if (argFilter instanceof CodeValue) {
+                    if (argFilter != blockArg) throw MATCH_FAILED;
+                }
+                else if (argFilter.accepts == ValueFilterType.TEMP_VAR) {
                     if (!(blockArg instanceof VariableValue)) throw MATCH_FAILED;
                     if (!blockArg.isTempVar) throw MATCH_FAILED;
                 }

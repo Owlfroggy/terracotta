@@ -1,9 +1,7 @@
 import { DFCodeblockName } from "../../../df/constants.ts";
-import { VariableScope } from "../../../typeProcessor/typeProcessor.ts";
 import { ActionBlock, BracketDirection, BracketType, CodeBlock, IfBlock } from "../../codeBlock.ts";
 import { VariableValue } from "../../codeValue.ts";
 import { ALL_IF_BLOCK_TYPES, CodeBlockMatcher, ValueFilterType } from "../matcher.ts";
-import { CodeOptimizer } from "../optimizer.ts";
 
 export function OPT_condenseSingleCondition(line: CodeBlock[], matcher: CodeBlockMatcher): boolean {
     let [spliceStartIndex, tempVarInitializer] = matcher.codeblock<ActionBlock>({
@@ -14,12 +12,7 @@ export function OPT_condenseSingleCondition(line: CodeBlock[], matcher: CodeBloc
             {accepts: ValueFilterType.NUM, value: "0"}
         ]
     });
-    const conditionTempVarPattern = {
-        accepts: ValueFilterType.VAR, 
-        scope: VariableScope.LINE,
-        name: (tempVarInitializer.args[0] as VariableValue).name, 
-    };
-
+    const conditionTempVar = (tempVarInitializer.args[0] as VariableValue);
 
     let [userIfBlockIndex, userIfBlock] = matcher.codeblock<IfBlock>({
         block: ALL_IF_BLOCK_TYPES,
@@ -31,7 +24,7 @@ export function OPT_condenseSingleCondition(line: CodeBlock[], matcher: CodeBloc
             block: DFCodeblockName.SET_VARIABLE,
             action: "=",
             args: [
-                conditionTempVarPattern,
+                conditionTempVar,
                 {accepts: ValueFilterType.NUM, value: "1"}
             ]
         })
@@ -42,7 +35,7 @@ export function OPT_condenseSingleCondition(line: CodeBlock[], matcher: CodeBloc
         block: DFCodeblockName.IF_VARIABLE,
         action: "!=",
         args: [
-            conditionTempVarPattern,
+            conditionTempVar,
             {accepts: ValueFilterType.NUM, value: "0"}
         ]
     })
