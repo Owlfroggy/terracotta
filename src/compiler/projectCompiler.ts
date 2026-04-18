@@ -57,7 +57,7 @@ export async function compileProject(projectPath: string): Promise<CompiledProje
     typeProcessor.evaluationStage()
     errors.push(...typeProcessor.errors);
 
-    let codeCompiler = new CodeCompiler(statements, {types: typeProcessor});
+    let codeCompiler = new CodeCompiler(statements, {types: typeProcessor, optimizationsEnabled: true});
     let templates = codeCompiler.compile({outputFormat: "GZIP"});
     errors.push(...codeCompiler.errors);
 

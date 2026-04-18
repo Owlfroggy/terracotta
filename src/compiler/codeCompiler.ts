@@ -15,13 +15,14 @@ import { Operations } from "./operations.ts";
 import { DefinitionType, FunctionDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName } from "../df/constants.ts";
+import { CodeOptimizer } from "./optimizer/optimizer.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
 
 export type HeaderType = EventType | UserMethodType;
 
-export type CompliationEnvironment = {types: TypeProcessor};
+export type CompliationEnvironment = {types: TypeProcessor, optimizationsEnabled: boolean};
 export type EvaluationContext = {
     tvp: TempVarProvider,
     types: TypeProcessor,
@@ -489,7 +490,9 @@ export class CodeCompiler {
             }
         }
 
-        //=- join code lines together and export them -=\\
+        //=- join code lines together and optimize them -=\\
+
+        const optimizer = new CodeOptimizer(this.env.types);
         
         let output: Map<HeaderType, {[name: string]: string}> = new Map([
             [DFCodeblockName.PLAYER_EVENT, {}],
@@ -500,12 +503,17 @@ export class CodeCompiler {
         ]);
         for (let [headerType, lineList] of this.codeLines.entries()) {
             for (let [name, line] of Object.entries(lineList)) {
-                let allCode = [line.headerBlock!, ...line.code.flat()];
+                let joinedCode = [line.headerBlock!, ...line.code.flat()];
+
+                if (this.env.optimizationsEnabled) {
+                    optimizer.optimize(joinedCode);
+                }
+
                 let serialized: string = "error :(";
                 if (outputFormat == "DFONLINE") {
-                    serialized = `https://dfonline.dev/edit/?template=${gzipize(jsonize(allCode))}`;
+                    serialized = `https://dfonline.dev/edit/?template=${gzipize(jsonize(joinedCode))}`;
                 } else {
-                    serialized = gzipize(jsonize(allCode));
+                    serialized = gzipize(jsonize(joinedCode));
                 }
 
                 output.get(headerType)![name] = serialized;

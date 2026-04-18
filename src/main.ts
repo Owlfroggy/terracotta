@@ -18,7 +18,7 @@ registerBuiltinNamespaces()
 // probably by doing a custom loading order
 new Lexer();
 new Parser([]);
-new CodeCompiler([],{types: new TypeProcessor()});
+new CodeCompiler([],{types: new TypeProcessor(), optimizationsEnabled: false});
 
 let test = `
 playerevent join {
@@ -114,7 +114,7 @@ async function Main() {
                 console.log(`${typeChecker.globalFrame}`);
             }
 
-            const compiler = new CodeCompiler(root.statements, {types: typeChecker});
+            const compiler = new CodeCompiler(root.statements, {types: typeChecker, optimizationsEnabled: true});
             let results = compiler.compile({outputFormat: values.outmode?.toUpperCase() as any ?? "GZIP"});
 
             let errors = [...lexer.errors, ...parser.errors, ...typeChecker.errors, ...compiler.errors];

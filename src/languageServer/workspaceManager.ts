@@ -14,7 +14,7 @@ export class WorkspaceManager {
 
     combinedAST: {[uri: string]: Statement[]} = {};
     typeProcessor: TypeProcessor = new TypeProcessor();
-    compiler: CodeCompiler = new CodeCompiler([], {types: this.typeProcessor});
+    compiler: CodeCompiler = new CodeCompiler([], {types: this.typeProcessor, optimizationsEnabled: true});
 
     constructor(
         public uri: URI,
@@ -32,7 +32,7 @@ export class WorkspaceManager {
         typeProcessor.collectionStage(ast);
         typeProcessor.evaluationStage();
 
-        let compiler = new CodeCompiler(ast, {types: typeProcessor});
+        let compiler = new CodeCompiler(ast, {types: typeProcessor, optimizationsEnabled: true});
         this.compiler = compiler;
         compiler.ast = ast;
         try {
