@@ -11,6 +11,7 @@ import { compileProject } from "./compiler/projectCompiler.ts";
 import { printError } from "./error/errorHandler.ts";
 import { LanguageServer } from "./languageServer/languageServer.ts";
 import { DFRank } from "./df/constants.ts";
+import { PCodeParser } from "./pcode/pcodeParser.ts";
 
 registerBuiltinNamespaces()
 
@@ -19,6 +20,8 @@ registerBuiltinNamespaces()
 new Lexer();
 new Parser([]);
 new CodeCompiler([],{types: new TypeProcessor(), optimizationsEnabled: false});
+
+new PCodeParser();
 
 let test = `
 playerevent join {

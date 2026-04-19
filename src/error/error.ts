@@ -75,3 +75,13 @@ export class TCNodeError extends TCError {
         return this.astNode.getRoot().filePath ?? "unknown file";
     }
 }
+
+export class PCodeError {
+    constructor(
+        /** inclusive, relative to the start of the expression */
+        readonly startPos: number,
+        /** exclusive, relative to the start of the expression */
+        readonly endPos: number,
+        readonly message: string = "",
+    ) {}
+}
