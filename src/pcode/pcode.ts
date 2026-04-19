@@ -105,3 +105,15 @@ export class IndexPCode extends PCode {
         return `%index(${this.args.map(a=>a.join("")).join(",")})`
     }
 }
+
+export class EntryPCode extends PCode {
+    constructor(
+        /** this has a max length of 2 bc of the weird parsing rules */
+        public args: PCode[][],
+        startPos?: number, endPos?: number
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return `%entry(${this.args.map(a=>a.join("")).join(",")})`
+    }
+}

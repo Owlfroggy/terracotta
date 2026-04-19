@@ -1,5 +1,5 @@
 import { PCodeError } from "../error/error.ts";
-import { PCode, PCodeTarget, SegmentPCode, TargetPCode, VarPCode, RoundPCode, RandomPCode, IndexPCode } from "./pcode.ts";
+import { PCode, PCodeTarget, SegmentPCode, TargetPCode, VarPCode, RoundPCode, RandomPCode, IndexPCode, EntryPCode } from "./pcode.ts";
 
 export class PCodeParser {
     private expr: string;
@@ -13,6 +13,7 @@ export class PCodeParser {
             [/%round\(/y, this.parseRound],
             [/%random\(/y, this.parseRandom],
             [/%index\(/y, this.parseIndex],
+            [/%entry\(/y, this.parseEntry],
             [new RegExp(`%(${Object.values(PCodeTarget).join("|")})`,'y'), this.parseTarget],
             [/.+?(?=%|$)/y, this.parseSegment],
         ];
@@ -103,6 +104,38 @@ export class PCodeParser {
         );
     }
 
+    private parseEntry = (match: RegExpMatchArray): IndexPCode => {
+        let openParenIndex = match.index! + match[0].length - 1;
+        let closeParenIndex = this.getClosingParenIndex(openParenIndex);
+
+        // search for The comma
+        let delimiterIndex = -1;
+        for (let i = openParenIndex+1; i < closeParenIndex; i++) {
+            if (this.expr[i] == ",") {
+                delimiterIndex = i;
+                break;
+            }
+        }
+
+        // if there is no delimiter, count the entire thing as the first arg
+        if (delimiterIndex == -1) {
+            return new EntryPCode(
+                [this.parseRange(openParenIndex+1, closeParenIndex)],
+                match.index!, closeParenIndex+1
+            );
+        }
+        // otherwise its business as usual
+        else {
+            return new EntryPCode(
+                [
+                    this.parseRange(openParenIndex+1, delimiterIndex),
+                    this.parseRange(delimiterIndex+1, closeParenIndex),
+                ],
+                match.index!, closeParenIndex+1
+            );
+        }
+    }
+
     private parseTarget = (match: RegExpMatchArray): TargetPCode => {
         return new TargetPCode(PCodeTarget[match[1]], match.index!, match.index! + match[0].length);
     }
@@ -153,7 +186,7 @@ export class PCodeParser {
 }
 
 let parsed = new PCodeParser().parse(
-    "%random(%index(%uuid stats, 3), %var(%uuid gamblingPower))"
+    "%entry(%var(,),key) + %var(dingus)"
 );
 console.dir(parsed, {depth: null})
 console.log(parsed[1].join(""))
