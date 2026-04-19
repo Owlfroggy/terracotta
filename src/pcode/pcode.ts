@@ -72,3 +72,14 @@ export class VarPCode extends PCode {
         return `%var(${this.name.join("")})`
     }
 }
+
+export class RoundPCode extends PCode {
+    constructor(
+        public value: PCode[],
+        startPos: number, endPos: number
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return `%round(${this.value.join("")})`
+    }
+}

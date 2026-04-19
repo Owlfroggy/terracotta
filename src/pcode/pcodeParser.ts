@@ -1,5 +1,5 @@
 import { PCodeError } from "../error/error.ts";
-import { PCode, PCodeTarget, SegmentPCode, TargetPCode, VarPCode } from "./pcode.ts";
+import { PCode, PCodeTarget, SegmentPCode, TargetPCode, VarPCode, RoundPCode } from "./pcode.ts";
 
 export class PCodeParser {
     private expr: string;
@@ -10,6 +10,7 @@ export class PCodeParser {
     constructor() {
         this.codeParsers = [
             [/%var\(/y, this.parseVar],
+            [/%round\(/y, this.parseRound],
             [new RegExp(`%(${Object.values(PCodeTarget).join("|")})`,'y'), this.parseTarget],
             [/.+?(?=%|$)/y, this.parseSegment],
         ];
@@ -41,6 +42,16 @@ export class PCodeParser {
         let closeParenIndex = this.getClosingParenIndex(openParenIndex);
 
         return new VarPCode(
+            this.parseRange(openParenIndex+1,closeParenIndex),
+            match.index!, closeParenIndex+1
+        );
+    }
+    
+    private parseRound = (match: RegExpMatchArray): RoundPCode => {
+        let openParenIndex = match.index! + match[0].length - 1;
+        let closeParenIndex = this.getClosingParenIndex(openParenIndex);
+
+        return new RoundPCode(
             this.parseRange(openParenIndex+1,closeParenIndex),
             match.index!, closeParenIndex+1
         );
@@ -96,7 +107,7 @@ export class PCodeParser {
 }
 
 let parsed = new PCodeParser().parse(
-    "%var(%var(%uuid victimUUID) coins)"
+    "%round(0.119)"
 );
 console.dir(parsed, {depth: null})
 console.log(parsed[1].join(""))
