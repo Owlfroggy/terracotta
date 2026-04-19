@@ -83,3 +83,25 @@ export class RoundPCode extends PCode {
         return `%round(${this.value.join("")})`
     }
 }
+
+export class RandomPCode extends PCode {
+    constructor(
+        public args: PCode[][],
+        startPos: number, endPos: number
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return `%random(${this.args.map(a=>a.join("")).join(",")})`
+    }
+}
+
+export class IndexPCode extends PCode {
+    constructor(
+        public args: PCode[][],
+        startPos: number, endPos: number
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return `%index(${this.args.map(a=>a.join("")).join(",")})`
+    }
+}
