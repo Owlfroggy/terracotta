@@ -16,8 +16,8 @@ export enum PCodeTarget {
 }
 
 /**
- * NOTE: startPos and endPos are relative to the start of the SCRIPT just like other ast nodes
- * they are NOT relative to the start of the string that contains them!!!!
+ * NOTE: startPos and endPos are relative to the start of the 
+ * expression, NOT to the start of a script
  * 
  * they will also ONLY be accurate for pcodes parsed from strings.
  * modifying pcodes directly with code does not update their start/end positions,

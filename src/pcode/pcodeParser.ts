@@ -138,7 +138,7 @@ export class PCodeParser {
                         codes.push(pcode);
                     }
 
-                    i = pcode.endPos;
+                    i = pcode.endPos!;
                     break;
                 }
             }
