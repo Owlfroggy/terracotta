@@ -25,8 +25,8 @@ export enum PCodeTarget {
  */
 export abstract class PCode {
     constructor(
-        public startPos: number, 
-        public endPos: number,
+        public startPos?: number, 
+        public endPos?: number,
     ) {}
 }
 
@@ -43,7 +43,7 @@ export class RootPCode extends PCode {
 export class TargetPCode extends PCode {
     constructor(
         public target: PCodeTarget,
-        startPos: number, endPos: number,
+        startPos?: number, endPos?: number,
     ) { super(startPos, endPos); }
 
     toString() {
@@ -54,7 +54,7 @@ export class TargetPCode extends PCode {
 export class SegmentPCode extends PCode {
     constructor(
         public contents: string,
-        startPos: number, endPos: number
+        startPos?: number, endPos?: number
     ) { super(startPos, endPos); }
 
     toString() {
@@ -65,7 +65,7 @@ export class SegmentPCode extends PCode {
 export class VarPCode extends PCode {
     constructor(
         public name: PCode[],
-        startPos: number, endPos: number
+        startPos?: number, endPos?: number
     ) { super(startPos, endPos); }
 
     toString() {
@@ -76,7 +76,7 @@ export class VarPCode extends PCode {
 export class RoundPCode extends PCode {
     constructor(
         public value: PCode[],
-        startPos: number, endPos: number
+        startPos?: number, endPos?: number
     ) { super(startPos, endPos); }
 
     toString() {
@@ -87,7 +87,7 @@ export class RoundPCode extends PCode {
 export class RandomPCode extends PCode {
     constructor(
         public args: PCode[][],
-        startPos: number, endPos: number
+        startPos?: number, endPos?: number
     ) { super(startPos, endPos); }
 
     toString() {
@@ -98,7 +98,7 @@ export class RandomPCode extends PCode {
 export class IndexPCode extends PCode {
     constructor(
         public args: PCode[][],
-        startPos: number, endPos: number
+        startPos?: number, endPos?: number
     ) { super(startPos, endPos); }
 
     toString() {
