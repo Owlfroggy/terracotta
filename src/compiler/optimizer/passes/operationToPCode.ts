@@ -56,7 +56,7 @@ export function OPT_operationToPCode(line: CodeBlock[], optimizer: CodeOptimizer
             expr = ensurePCodeness(arg.value);
         }
         else if (arg instanceof VariableValue) {
-            expr = [new VarPCode(ensurePCodeness(arg.name))];
+            expr = [new VarPCode(ensurePCodeness(arg.name), undefined, undefined, arg.variableId)];
         }
         else {
             throw new Error(`Cannot convert ${arg.constructor.name} to pcode`);
@@ -68,8 +68,18 @@ export function OPT_operationToPCode(line: CodeBlock[], optimizer: CodeOptimizer
     }
 
     let replacement = new MathPCode(codes);
+
     let usage = usages[0];
-    (line[usage.blockIndex] as ActionBlock).args[usage.argIndex] = new NumberValue([replacement]);
+    if (usage.pcodePath) {
+        let argToModify = (line[usage.blockIndex] as ActionBlock).args[usage.argIndex] as NumberValue;
+        let pcodeToModify = argToModify.value as PCode[];
+        for (let i = 0; i < usage.pcodePath.length-1; i++) {
+            pcodeToModify = pcodeToModify[usage.pcodePath[i]];
+        }
+        pcodeToModify[usage.pcodePath[usage.pcodePath.length-1]] = replacement;
+    } else {
+        (line[usage.blockIndex] as ActionBlock).args[usage.argIndex] = new NumberValue([replacement]);
+    }
     line.splice(setBlockIndex,1);
 
     return true;

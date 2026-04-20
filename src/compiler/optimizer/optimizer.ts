@@ -7,6 +7,7 @@ import { CodeValue, NumberValue, VariableValue } from "../codeValue.ts";
 import { Action } from "../../df/actiondump.ts";
 import { DFValueType } from "../../df/constants.ts";
 import { OPT_operationToPCode } from "./passes/operationToPCode.ts";
+import { PCode, VarPCode } from "../../pcode/pcode.ts";
 
 /**
  * @returns true if the line was changed
@@ -16,6 +17,7 @@ type OptimizationPass = (line: CodeBlock[], optimizer: CodeOptimizer) => boolean
 interface VariableUsage {
     blockIndex: number,
     argIndex: number,
+    pcodePath?: (string | number)[],
 }
 
 const OPTIMIZATION_PASSES = [
@@ -77,6 +79,31 @@ export class CodeOptimizer {
         return true;
     }
 
+    /**
+     * NOTE: if a pcode matches `filter`, its children will NOT be searched
+     */
+    private searchPCode(code: PCode[] | PCode, filter: (PCode) => boolean, matchPaths: (string | number)[][], workingPath: (string | number)[] = []) {
+        if (Array.isArray(code)) {
+            for (let i = 0; i < code.length; i++) {
+                workingPath.push(i)
+                this.searchPCode(code[i], filter, matchPaths, workingPath);
+                workingPath.pop();
+            }
+        } else if (code instanceof PCode) {
+            if (filter(code)) {
+                // match found! record its path
+                matchPaths.push([...workingPath]);
+                return;
+            } 
+
+            for (let [key, value] of Object.entries(code)) {
+                workingPath.push(key)
+                this.searchPCode(value, filter, matchPaths, workingPath);
+                workingPath.pop();
+            }
+        }
+    }
+
     // TODO: also search pcodes
     /**
      * @param startIndex inclusive
@@ -88,9 +115,20 @@ export class CodeOptimizer {
             if (!(block instanceof ActionBlock)) continue;
             for (let a = 0; a < block.args.length; a++) {
                 let arg = block.args[a];
-                if (!(arg instanceof VariableValue)) continue;
-                if (arg.variableId == varId) {
-                    usages.push({blockIndex: i, argIndex: a});
+                if (arg instanceof VariableValue) {
+                    if (arg.variableId == varId) {
+                        usages.push({blockIndex: i, argIndex: a});
+                    }
+                }
+                else if (arg instanceof NumberValue && typeof arg.value != "string") {
+                    let paths: (string | number)[][] = [];
+                    // TODO: update this condition to take user-created %vars() into account
+                    this.searchPCode(
+                        arg.value, 
+                        pcode => (pcode instanceof VarPCode && pcode.varId == varId),
+                        paths
+                    );
+                    usages.push(...paths.map(p => ({blockIndex: i, argIndex: a, pcodePath: p})));
                 }
             }
         }
@@ -102,5 +140,11 @@ export class CodeOptimizer {
         for (const pass of OPTIMIZATION_PASSES) {
             this.runPass(line, pass);
         }
+    }
+}
+
+function dingus() {
+    function recurse() {
+        
     }
 }
