@@ -2,6 +2,7 @@ import { ASTNode } from "../ast/astNode.ts";
 import { Tag } from "../df/actiondump.ts";
 import * as AD from "../df/actiondump.ts";
 import { dfTypeToTC, getCodeblockIdentifier, TargetType } from "../df/constants.ts";
+import { PCode } from "../pcode/pcode.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { EvaluationContext } from "./codeCompiler.ts";
@@ -109,7 +110,7 @@ export class MissingValue extends InternalValue {
 
 export class NumberValue extends TangibleValue {
     constructor(
-        public value: string,
+        public value: string | PCode[],
         astNode?: ASTNode
     ) { super(astNode); }
 
@@ -124,6 +125,10 @@ export class NumberValue extends TangibleValue {
                 "name": this.value
             }
         };
+    }
+
+    isCompileTimeConstant(): this is {value: string} {
+        return typeof this.value == "string";
     }
 
     toString(): string {
@@ -247,13 +252,13 @@ export class VariableValue extends TangibleValue {
     public isTempVar: boolean = false;
 
     constructor(
-        public name: string,
+        public name: string | PCode[],
         public scope: VariableScope,
         private explicitType?: Type,
         astNode?: ASTNode
     ) { 
         super(astNode); 
-        this.variableId = VariableId.get(scope,name);
+        this.variableId = VariableId.get(scope,name.toString());
     }
 
     getType(ctx: EvaluationContext): Type {
