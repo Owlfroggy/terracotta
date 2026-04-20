@@ -235,9 +235,3 @@ export class PCodeParser {
         return [this.errors, this.parseRange(0, expr.length)]
     }
 }
-
-let parsed = new PCodeParser().parse(
-    "%math(%math(9 + 10) % %var(dingus"
-);
-console.dir(parsed, {depth: null})
-console.log(parsed[1].join(""))

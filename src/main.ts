@@ -21,8 +21,6 @@ new Lexer();
 new Parser([]);
 new CodeCompiler([],{types: new TypeProcessor(), optimizationsEnabled: false});
 
-new PCodeParser();
-
 let test = `
 playerevent join {
     default.sendMessage(s"dingus" as str + "dongus");
