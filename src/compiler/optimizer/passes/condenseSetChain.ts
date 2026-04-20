@@ -20,7 +20,7 @@ export function OPT_condenseSetChain(line: CodeBlock[], optimizer: CodeOptimizer
 
 
     let actionDef = AD.actions.get(actualSetBlock.block)![actualSetBlock.action];
-    // if (!optimizer.matcher)
+    if (!optimizer.actionIsSetter(actionDef)) return false;
 
     let tempVar = actualSetBlock.args[0];
     let [unneededSetBlockIndex, unneededSetBlock] = optimizer.matcher.codeblock<ActionBlock>({

@@ -1,8 +1,11 @@
-import { TypeProcessor, VariableId } from "../../typeProcessor/typeProcessor.ts";
+import { TypeProcessor, VariableId, VariableScope } from "../../typeProcessor/typeProcessor.ts";
 import { CodeBlock } from "../codeBlock.ts";
 import { CodeBlockMatcher, MATCH_FAILED } from "./matcher.ts";
 import { OPT_condenseSingleCondition } from "./passes/condenseSingleCondition.ts";
 import { OPT_condenseSetChain } from "./passes/condenseSetChain.ts";
+import { VariableValue } from "../codeValue.ts";
+import { Action } from "../../df/actiondump.ts";
+import { DFValueType } from "../../df/constants.ts";
 
 /**
  * @returns true if the line was changed
@@ -42,6 +45,23 @@ export class CodeOptimizer {
             }
 
         } while (changes > 0)
+    }
+
+
+    isVarPCondensable(variable: VariableValue, line: CodeBlock[]) {
+        // this is temporary!
+        // there should be much more sophisticated checking than this
+        if (variable.scope != VariableScope.LINE) return false;
+        if (typeof variable.name != "string") return false;
+        return true;
+    }
+
+    actionIsSetter(actionDef: Action): boolean {
+        if (!actionDef) return false;
+        if (actionDef.parameters.length == 0) return false;
+        let firstParam = actionDef.parameters[0].groups[0][0];
+        if (!(firstParam.type == DFValueType.VARIABLE && firstParam.description == "Variable to set")) return false;
+        return true;
     }
 
     optimize(line: CodeBlock[]) {
