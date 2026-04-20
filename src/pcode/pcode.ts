@@ -1,3 +1,5 @@
+import { VariableId } from "../typeProcessor/typeProcessor.ts";
+
 export enum PCodeTarget {
     default = "default",
     defaultuuid = "defaultuuid",
@@ -73,7 +75,7 @@ export class SegmentPCode extends PCode {
 export class OperationPCode extends PCode {
     constructor(
         public op: PCodeOperation,
-        pos: number
+        pos?: number
     ) { super(pos, pos); }
 
     toString() {
@@ -84,7 +86,7 @@ export class OperationPCode extends PCode {
 export class MathPCode extends PCode {
     constructor(
         public expr: PCode[],
-        startPos: number, endPos: number,
+        startPos?: number, endPos?: number,
     ) { super(startPos, endPos) }
 
     toString() {
@@ -95,7 +97,12 @@ export class MathPCode extends PCode {
 export class VarPCode extends PCode {
     constructor(
         public name: PCode[],
-        startPos?: number, endPos?: number
+        startPos?: number, endPos?: number,
+        /** 
+         * Used internally by the compiler to keep track of the var that created this pcode. 
+         * PCodes outputted by parsing a string should never have this since the scope there is ambiguous.
+         * */
+        public varId?: VariableId,
     ) { super(startPos, endPos); }
 
     toString() {

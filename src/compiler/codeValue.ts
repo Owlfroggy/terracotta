@@ -122,7 +122,7 @@ export class NumberValue extends TangibleValue {
         return {
             "id": "num",
             "data": {
-                "name": this.value
+                "name": typeof this.value == "string" ? this.value : this.value.join("")
             }
         };
     }

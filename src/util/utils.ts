@@ -11,6 +11,7 @@ import { ASTNode } from "../ast/astNode.ts";
 import { argv } from "node:process";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../compiler/codeBlock.ts";
 import { DFCodeblockName } from "../df/constants.ts";
+import { PCode, SegmentPCode } from "../pcode/pcode.ts";
 
 export function getOrCreateMapLayer<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {
@@ -258,4 +259,19 @@ export function expressionizeIfBlock(ifCode: CodeBlock[], ctx: EvaluationContext
         new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.IF}),
     ]
     return [tempVar, ifCode];
+}
+
+/**
+ * Top 10 function names!!
+ * 
+ * @param value if a string is passed in, converts it to an array
+ * with a segment pcode representing that string's value.
+ * if a PCode[] expression is passed in, returns it.
+ */
+export function ensurePCodeness(value: string | PCode[]): PCode[] {
+    if (typeof value == "string") {
+        return [new SegmentPCode(value)];
+    } else {
+        return value;
+    }
 }
