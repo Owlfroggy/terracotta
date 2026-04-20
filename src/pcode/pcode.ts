@@ -15,6 +15,14 @@ export enum PCodeTarget {
     selected = "selected",
 }
 
+export enum PCodeOperation {
+    "+" = "+",
+    "-" = "-",
+    "*" = "*",
+    "/" = "/",
+    "%" = "%",
+}
+
 /**
  * NOTE: startPos and endPos are relative to the start of the 
  * expression, NOT to the start of a script
@@ -59,6 +67,28 @@ export class SegmentPCode extends PCode {
 
     toString() {
         return this.contents;
+    }
+}
+
+export class OperationPCode extends PCode {
+    constructor(
+        public op: PCodeOperation,
+        pos: number
+    ) { super(pos, pos); }
+
+    toString() {
+        return this.op;
+    }
+}
+
+export class MathPCode extends PCode {
+    constructor(
+        public expr: PCode[],
+        startPos: number, endPos: number,
+    ) { super(startPos, endPos) }
+
+    toString() {
+        return `%math(${this.expr.join("")})`;
     }
 }
 

@@ -1,5 +1,9 @@
 import { PCodeError } from "../error/error.ts";
-import { PCode, PCodeTarget, SegmentPCode, TargetPCode, VarPCode, RoundPCode, RandomPCode, IndexPCode, EntryPCode } from "./pcode.ts";
+import { PCode, PCodeTarget, SegmentPCode, TargetPCode, VarPCode, RoundPCode, RandomPCode, IndexPCode, EntryPCode, PCodeOperation, OperationPCode, MathPCode } from "./pcode.ts";
+
+const MATH_SEGMENT_REGEX = new RegExp(
+    `.+?(?=[${Object.values(PCodeOperation).map(v=>"\\"+v).join("")}]|$)`,'y'
+);
 
 export class PCodeParser {
     private expr: string;
@@ -14,11 +18,20 @@ export class PCodeParser {
             [/%random\(/y, this.parseRandom],
             [/%index\(/y, this.parseIndex],
             [/%entry\(/y, this.parseEntry],
+            [/%math\(/y, this.parseMath],
             [new RegExp(`%(${Object.values(PCodeTarget).join("|")})`,'y'), this.parseTarget],
             [/.+?(?=%|$)/y, this.parseSegment],
         ];
     }
 
+    private matchInRange(regex: RegExp, rangeStart: number, rangeEnd: number, matchFrom: number): RegExpMatchArray | null {
+        regex.lastIndex = matchFrom-rangeStart;
+        let match = regex.exec(this.expr.substring(rangeStart, rangeEnd));
+        if (match != null) {
+            match.index += rangeStart;
+        }
+        return match;
+    }
 
     private reportError(startPos: number, endPos: number, message: string) {
         this.errors.push(new PCodeError(
@@ -135,6 +148,43 @@ export class PCodeParser {
             );
         }
     }
+    
+    private parseMath = (match: RegExpMatchArray): MathPCode => {
+        let openParenIndex = match.index! + match[0].length - 1;
+        let closeParenIndex = this.getClosingParenIndex(openParenIndex);
+
+        let codes: PCode[] = [];
+        let segmentStart = openParenIndex+1;
+        while (segmentStart < closeParenIndex) {
+            // try a % code
+            let parseResults = this.parseRange(segmentStart, closeParenIndex, 1);
+            if (parseResults.length == 1 && !(parseResults[0] instanceof SegmentPCode)) {
+                codes.push(parseResults[0]);
+                segmentStart = parseResults[0].endPos!;
+                continue;
+            }
+
+            // if char is an op, add the operator
+            let op = PCodeOperation[this.expr[segmentStart]];
+            if ( op != undefined ) {
+                codes.push(new OperationPCode(op, segmentStart));
+                segmentStart++;
+                continue;
+            }
+
+            // otherwise add everything up to the next op as a segment
+            MATH_SEGMENT_REGEX.lastIndex = segmentStart;
+            let match = this.matchInRange(MATH_SEGMENT_REGEX, openParenIndex, closeParenIndex, segmentStart);
+            let segment = this.parseSegment(match!);
+            codes.push(segment);
+            segmentStart = segment.endPos!;
+        }
+
+        return new MathPCode(
+            codes,
+            match.index!, closeParenIndex+1
+        );
+    }
 
     private parseTarget = (match: RegExpMatchArray): TargetPCode => {
         return new TargetPCode(PCodeTarget[match[1]], match.index!, match.index! + match[0].length);
@@ -148,15 +198,13 @@ export class PCodeParser {
      * @param startPos inclusive
      * @param endPos exclusive
      */
-    private parseRange = (startPos: number, endPos: number): PCode[] => {
+    private parseRange = (startPos: number, endPos: number, maxCodes: number = -1): PCode[] => {
         let codes: PCode[] = [];
         let i = startPos;
-        while (i < endPos) {
+        while (i < endPos && (maxCodes == -1 || codes.length < maxCodes)) {
             for (const [regex, handler] of this.codeParsers) {
-                regex.lastIndex = i-startPos;
-                let match = regex.exec(this.expr.substring(startPos, endPos));
+                let match = this.matchInRange(regex, startPos, endPos, i);
                 if (match != null) {
-                    match.index += startPos;
                     let pcode = handler(match);
 
                     // if this is a segment and the last thing was also a segment,
@@ -186,7 +234,7 @@ export class PCodeParser {
 }
 
 let parsed = new PCodeParser().parse(
-    "%entry(%var(,),key) + %var(dingus)"
+    "%math(%math(9 + 10) % %var(dingus))"
 );
 console.dir(parsed, {depth: null})
 console.log(parsed[1].join(""))
