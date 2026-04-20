@@ -216,7 +216,7 @@ export class CodeCompiler {
             } 
             // error case; no definition could be found
             else {
-                this.reportError(e.callee, `Type '${callee.getType(this.getEvaluationContext()).name}' cannot be called as a function`);
+                this.reportError(e.callee, `Type '${callee.getType(this.env.types).name}' cannot be called as a function`);
             }
 
             if (definition) {
@@ -294,7 +294,7 @@ export class CodeCompiler {
                 if (!(accessee instanceof MissingValue)) {
                     this.reportError(
                         e.propertyName,
-                        `Property access not allowed on type '${accessee.getType(this.getEvaluationContext()).name}'` // TODO: better error message
+                        `Property access not allowed on type '${accessee.getType(this.env.types).name}'` // TODO: better error message
                     );
                 }
                 return [new MissingValue(e), preCode];
@@ -395,7 +395,7 @@ export class CodeCompiler {
                     return [];
                 }
 
-                let valueType = value.getType(this.getEvaluationContext());
+                let valueType = value.getType(this.env.types);
                 if (!Type.assignableTypes.has(valueType.name)){
                     this.reportError(
                         e.right,

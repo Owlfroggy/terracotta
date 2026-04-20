@@ -97,8 +97,8 @@ export class Operations {
             }
         }
 
-        let leftType = left.getType(ctx);
-        let rightType = right.getType(ctx);
+        let leftType = left.getType(ctx.types);
+        let rightType = right.getType(ctx.types);
         let def = this.getBinaryDefinition(leftType, op.type, rightType);
 
         if (!def) {
@@ -166,7 +166,7 @@ export class Operations {
             return [new MissingValue(op.parent ?? op), []];
         }
 
-        let valType = val.getType(ctx);
+        let valType = val.getType(ctx.types);
         let def = this.unaryOperations.get(opType)?.get(valType);
 
         if (!def) {
@@ -337,7 +337,7 @@ Operations.registerBinary(Type.vec, TokenType.SLASH, Type.num, Type.vec, true, (
 
     let num: TangibleValue;
     let vec: TangibleValue;
-    if (left.getType(ctx).matches(Type.num)) {
+    if (left.getType(ctx.types).matches(Type.num)) {
         num = left;
         vec = right;
     } else {

@@ -4,7 +4,7 @@ import * as AD from "../df/actiondump.ts";
 import { dfTypeToTC, getCodeblockIdentifier, TargetType } from "../df/constants.ts";
 import { PCode } from "../pcode/pcode.ts";
 import { Type } from "../typeProcessor/type.ts";
-import { VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
+import { TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { EvaluationContext } from "./codeCompiler.ts";
 import { FunctionDefinition } from "./namespace/definition.ts";
 import { Namespace } from "./namespace/namespace.ts";
@@ -21,7 +21,7 @@ export abstract class CodeValue {
         public astNode?: ASTNode,
     ) {}
 
-    getType(ctx: EvaluationContext): Type {
+    getType(typeProcessor: TypeProcessor): Type {
         return Type.unknown;
     }
 
@@ -73,7 +73,7 @@ export class NamespaceValue extends InternalValue {
         this.type = Type.namespace(namespace);
     }
 
-    getType(ctx: EvaluationContext): Type {
+    getType(typeProcessor: TypeProcessor): Type {
         return this.type;
     }
 }
@@ -114,7 +114,7 @@ export class NumberValue extends TangibleValue {
         astNode?: ASTNode
     ) { super(astNode); }
 
-    getType(ctx: EvaluationContext): Type {
+    getType(typeProcessor: TypeProcessor): Type {
         return Type.num;
     }
 
@@ -142,7 +142,7 @@ export class StringValue extends TangibleValue {
         astNode?: ASTNode
     ) { super(astNode); }
 
-    getType(ctx: EvaluationContext): Type {
+    getType(typeProcessor: TypeProcessor): Type {
         return Type.str;
     }
 
@@ -166,7 +166,7 @@ export class StyledTextValue extends TangibleValue {
         astNode?: ASTNode
     ) { super(astNode); }
 
-    getType(ctx: EvaluationContext): Type {
+    getType(typeProcessor: TypeProcessor): Type {
         return Type.txt;
     }
 
@@ -192,7 +192,7 @@ export class VectorValue extends TangibleValue {
         astNode?: ASTNode
     ) { super(astNode); }
 
-    getType(ctx: EvaluationContext): Type {
+    getType(typeProcessor: TypeProcessor): Type {
         return Type.vec;
     }
 
@@ -222,7 +222,7 @@ export class LocationValue extends TangibleValue {
         astNode?: ASTNode
     ) { super(astNode); }
 
-    getType(ctx: EvaluationContext): Type {
+    getType(typeProcessor: TypeProcessor): Type {
         return Type.loc;
     }
 
@@ -261,11 +261,11 @@ export class VariableValue extends TangibleValue {
         this.variableId = VariableId.get(scope,name.toString());
     }
 
-    getType(ctx: EvaluationContext): Type {
+    getType(typeProcessor: TypeProcessor): Type {
         if (this.explicitType) return this.explicitType;
         // todo: make sure that putting Infinity here isnt as big of a war crime as i think it is
         if (!this.astNode) return Type.unknown;
-        let frame = ctx.types.getNodeFrame(this.astNode);
+        let frame = typeProcessor.getNodeFrame(this.astNode);
 
         return frame.getVariableType(this.variableId, this.astNode?.startPos ?? Infinity);
     }
@@ -301,7 +301,7 @@ export class GameValueValue extends TangibleValue {
         astNode?: ASTNode
     ) {super(astNode);}
 
-    getType(ctx: EvaluationContext): Type {
+    getType(typeProcessor: TypeProcessor): Type {
         let dfType = AD.gameValues[this.value]?.type;
         if (!dfType) return Type.unknown;
         // console.log(dfType, dfTypeToTC[dfType])
@@ -331,7 +331,7 @@ export class ActionTagValue extends TangibleValue {
         super(astNode);
     }
 
-    getType(ctx: EvaluationContext): Type {
+    getType(typeProcessor: TypeProcessor): Type {
         throw new Error("Attempted to get type of an action tag value");
     }
 

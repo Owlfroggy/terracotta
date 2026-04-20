@@ -130,7 +130,7 @@ export function matchArgsToParams(args: Expression[], argTypes: Type[], signatur
 export function validateArguments(args: CodeValue[], callNode: CallExpression, signatures: ParameterSignature[], ctx: EvaluationContext, allowNamedArgs: boolean = false): ParameterSignature | null {
     if (signatures.length == 0) signatures = [{params: []}];
     let argExpressions = callNode.args.elements;
-    let argTypes = args.map(v => v.getType(ctx));
+    let argTypes = args.map(v => v.getType(ctx.types));
 
     let workingSignatures: ParameterSignature[] = [];
     let signatureErrors: Map<ParameterSignature, [ASTNode, string][]> = new Map();
