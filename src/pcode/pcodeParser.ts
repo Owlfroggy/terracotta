@@ -40,7 +40,7 @@ export class PCodeParser {
         ));
     }
 
-    /** Returns -1 if unclosed */
+    /** Returns this.expr.length if unclosed */
     private getClosingParenIndex(openerIndex: number) {
         let count = 0;
         for (let i = openerIndex; i < this.expr.length; i++) {
@@ -49,8 +49,11 @@ export class PCodeParser {
             
             if (count == 0) return i;
         }
-        throw "UNCLOSED PAREN!!!"; // todo: this is temporary
-        return -1;
+        this.reportError(
+            openerIndex, openerIndex+1,
+            `Unclosed parentheses`
+        );
+        return this.expr.length;
     }
 
     /**
@@ -234,7 +237,7 @@ export class PCodeParser {
 }
 
 let parsed = new PCodeParser().parse(
-    "%math(%math(9 + 10) % %var(dingus))"
+    "%math(%math(9 + 10) % %var(dingus"
 );
 console.dir(parsed, {depth: null})
 console.log(parsed[1].join(""))
