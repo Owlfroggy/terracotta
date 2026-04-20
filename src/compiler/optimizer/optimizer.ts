@@ -7,7 +7,7 @@ import { OPT_condenseSetChain } from "./passes/condenseSetChain.ts";
 /**
  * @returns true if the line was changed
  */
-type OptimizationPass = (line: CodeBlock[], matcher: CodeBlockMatcher) => boolean;
+type OptimizationPass = (line: CodeBlock[], optimizer: CodeOptimizer) => boolean;
 
 const OPTIMIZATION_PASSES = [
     OPT_condenseSetChain,
@@ -15,10 +15,10 @@ const OPTIMIZATION_PASSES = [
 ]
 
 export class CodeOptimizer {
-    private matcher: CodeBlockMatcher = new CodeBlockMatcher();
+    public matcher: CodeBlockMatcher = new CodeBlockMatcher();
 
     constructor(
-        private typeProcessor: TypeProcessor,
+        public typeProcessor: TypeProcessor,
         /** This will optimize in-place, meaning the original arrays and codeblocks will be modified */
     ) {}
 
@@ -34,7 +34,7 @@ export class CodeOptimizer {
             for (let i = 0; i < line.length; i++) {
                 this.matcher.index = i;
                 try {
-                    let changed = pass(line, this.matcher);
+                    let changed = pass(line, this);
                     if (changed) changes++;
                 } catch (e) {
                     if (e != MATCH_FAILED) throw e;
