@@ -249,16 +249,24 @@ export class Parser {
         return new VariableExpression(scope, name, type);
     }
 
-    parseTypeExpression = (): TypeExpression => {
-        let [type, typeFound] = this.expectOrMissing(TokenType.IDENTIFIER);
-        return new TypeExpression(type);
+    parseTypeExpression = (): TypeExpression | null  => {
+        let [type, typeFound] = this.expect(TokenType.IDENTIFIER);
+        if (!typeFound) return null;
+        
+        // subtype parsing
+        let subType: ListExpression<TypeExpression> | null = null;
+        if (typeFound && this.currentToken().type == TokenType.OPEN_BRACKET) {
+            subType = this.parseTypedListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA, this.parseTypeExpression);
+        }
+
+        return new TypeExpression(type, subType);
     }
 
     parseTypeAssignmentExpression = (optional: boolean = false): TypeAssignmentExpression | null => {
         if (optional && this.currentToken().type != TokenType.COLON)
             return null;
         let [colon, colonFound] = this.expect(TokenType.COLON);
-        let type = this.parseTypeExpression();
+        let type = this.parseTypeExpression() ?? new TypeExpression(Token.missing(this.currentToken().startPos), null);
         return new TypeAssignmentExpression(colon, type);
     }
 
@@ -270,7 +278,7 @@ export class Parser {
         do {
             if (this.currentToken().type == TokenType.COMMA)
                 this.consume();
-            types.push(this.parseTypeExpression());
+            types.push(this.parseTypeExpression() ?? new TypeExpression(Token.missing(this.currentToken().startPos), null));
         } while (this.currentToken().type == TokenType.COMMA);
         return new MultiTypeAssignmentExpression(colon, types);
     }
@@ -287,7 +295,7 @@ export class Parser {
         return new TypecastExpression(
             left,
             this.consume(),
-            this.parseTypeExpression()
+            this.parseTypeExpression() ?? new TypeExpression(Token.missing(this.currentToken().startPos), null)
         );
     }
 
@@ -372,19 +380,25 @@ export class Parser {
         return new ListExpression(opener, elements, closer, elementStartPositions);
     }
     
-    parseParamListExpression = (openerType: TokenType, closerType: TokenType, delimiter: TokenType, optional: boolean = false): ListExpression<ParameterExpression> | null => {
+    parseTypedListExpression = <T extends Expression>(
+        openerType: TokenType, 
+        closerType: TokenType, 
+        delimiter: TokenType, 
+        parser: (...args: any[]) => T | null, 
+        optional: boolean = false
+    ): ListExpression<T> | null => {
         if (optional && this.currentToken().type != openerType) return null;
         let [opener, openerFound] = this.expect(openerType);
         if (!openerFound) return null;
 
-        let elements: ParameterExpression[] = [];
+        let elements: T[] = [];
         let elementStartPositions: number[] = [opener.endPos];
         while (
             this.currentToken().type != closerType 
             && !this.isLineDelimiter()
         ) {
             let comments = this.consumeComments();
-            let expr = this.parseParameterExpression();
+            let expr = parser();
             if (expr == null) {
                 this.consume();
             } else {
@@ -397,7 +411,7 @@ export class Parser {
             }
         }
         let [closer, closerFound] = this.expect(closerType);
-        return new ListExpression(opener, elements, closer, elementStartPositions);
+        return new ListExpression<T>(opener, elements, closer, elementStartPositions);
     }
 
     parseParameterExpression = (): ParameterExpression | null => {
@@ -569,7 +583,7 @@ export class Parser {
         
         let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
 
-        let params = this.parseParamListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA, true);
+        let params = this.parseTypedListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA, this.parseParameterExpression, true);
 
         let returnType = this.parseMultiTypeAssignmentExpression(true);
 
@@ -584,7 +598,7 @@ export class Parser {
         
         let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
 
-        let params = this.parseParamListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA, true);
+        let params = this.parseTypedListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA, this.parseParameterExpression, true);
 
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
         if (!chunk) return null;
