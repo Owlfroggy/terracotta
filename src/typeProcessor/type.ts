@@ -11,11 +11,19 @@ export type NamespaceTypeData = {
 
 type ExtraData = FuncTypeData | NamespaceTypeData | null;
 
+export type TypeConstructor<F extends ((...args: any[]) => Type)> = F & {constructsType: string}
+
 export class Type {
     /** types that variables can store */
     public static assignableTypes: Set<string> = new Set([
         'any', 'num', 'str', 'txt', 'list', 'dict', 'item', 'loc', 'vec', 'pot', 'par', 'snd'
     ])
+
+    private static makeTypeConstructor<F extends (...args: any[]) => Type>(typeName: string, constructor: F): TypeConstructor<F> {
+        let c = constructor as TypeConstructor<F>;
+        c.constructsType = typeName;
+        return c;
+    }
 
     public static any = new Type('any');
     public static num = new Type('num');
@@ -32,25 +40,31 @@ export class Type {
     public static var = new Type('var');
     public static unknown = this.any; // just in case unknown type ever needs to be separated
 
-    public static func = (definition: FunctionDefinition) => {
-        return new Type('func', {data: {definition}});
-    }
-
-    public static namespace = (namespace: Namespace) => {
-        let getMemberType = (m: string | number) => {
-            if (m in namespace.members) {
-                let def = namespace.members[m];
-                if (def.definitionType == DefinitionType.VALUE) {
-                    return def.returnType;
-                }
-                else if (def.definitionType == DefinitionType.FUNCTION) {
-                    return Type.func(def);
-                }
-            }
-            return Type.any;
+    public static func = this.makeTypeConstructor(
+        'func', 
+        (definition: FunctionDefinition) => {
+            return new Type('func', {data: {definition}});
         }
-        return new Type('namespace',{getMemberType, data: {namespace}})
-    }
+    );
+
+    public static namespace = this.makeTypeConstructor(
+        'namespace',
+        (namespace: Namespace) => {
+            let getMemberType = (m: string | number) => {
+                if (m in namespace.members) {
+                    let def = namespace.members[m];
+                    if (def.definitionType == DefinitionType.VALUE) {
+                        return def.returnType;
+                    }
+                    else if (def.definitionType == DefinitionType.FUNCTION) {
+                        return Type.func(def);
+                    }
+                }
+                return Type.any;
+            }
+            return new Type('namespace',{getMemberType, data: {namespace}})
+        }
+    );
 
     public readonly assignable: boolean;
     public readonly getMemberType: (member: string | number) => Type
@@ -67,7 +81,7 @@ export class Type {
         this.data = data;
     }
 
-    matches(other: Type) {
-        return this.name == other.name;
+    matches = (other: Type) => {
+        return this.name == ((other as any).constructsType ?? other.name);
     }
 }
