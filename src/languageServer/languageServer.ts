@@ -114,7 +114,7 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, options: {expli
             let multipleVars = (scopeLayer.size > 1 && scope != Math.max(...scopeLayer.keys()));
             let documentation: MarkupContent = {
                 kind: 'markdown', 
-                value: `\`\`\`tc\n${scopeStr} ${stringifiedName}: ${type.name}\n\`\`\``
+                value: `\`\`\`tc\n${scopeStr} ${stringifiedName}: ${type}\n\`\`\``
             };
             if (!multipleVars && stringifiedName == name) {
                 items.push({
@@ -141,10 +141,7 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, options: {expli
             } else {
                 items.push({
                     label: multipleVars ? `${name} (${scopeStr})` : name,
-                    documentation: {
-                        kind: 'markdown', 
-                        value: `\`\`\`tc\n${scopeStr} ${name}: ${type.name}\n\`\`\``
-                    },
+                    documentation: documentation,
                     insertText: `${options.explicitScope ? '' : scopeStr+" "}${stringifiedName}`,
                     filterText: name,
                     kind: CompletionItemKind.Variable,

@@ -120,7 +120,7 @@ export const dfTypeToTC: Map<DFValueType, Type> = new Map([
     [DFValueType.LOCATION,      Type.loc],
     [DFValueType.VECTOR,        Type.vec],
     [DFValueType.ITEM,          Type.item],
-    [DFValueType.LIST,          Type.list],
+    [DFValueType.LIST,          Type.list(Type.any)],
     [DFValueType.POTION,        Type.pot],
     [DFValueType.PARTICLE,      Type.par],
     [DFValueType.SOUND,         Type.snd],

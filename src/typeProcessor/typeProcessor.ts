@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
@@ -166,7 +166,7 @@ export class EnvironmentFrame {
         for (const [id, entries] of this.entryLists()) {
             let strEntries: string[] = entries.map(e => {
                 let requirements = e.requirements.map(r => `${r.atPos}>${r.item}`).join(", ");
-                return `[${e.solved ? "√" : "X"} ${e.type?.name ?? 'unknown'} @${e.effectiveBeyondPosition} req:(${requirements}) exp:${e.valueExpression ? e.valueExpression.constructor.name : ''}]`
+                return `[${e.solved ? "√" : "X"} ${e.type?.toString() ?? 'unknown'} @${e.effectiveBeyondPosition} req:(${requirements}) exp:${e.valueExpression ? e.valueExpression.constructor.name : ''}]`
             });
             vars.push(`${id} -> ${strEntries.join(",  ")}`)
         }
@@ -373,6 +373,9 @@ export class TypeProcessor {
                 case TokenType.STYLED_LITERAL: return Type.txt;
                 default: return Type.unknown;
             }
+        }
+        else if (expression instanceof ListExpression) {
+            return Type.list(Type.any, expression.elements.map(elm => this.evaluateExpression(elm)));
         }
         else if (expression instanceof VariableExpression) {
             return frame.getVariableType(VariableId.fromExpression(expression), expression.startPos);

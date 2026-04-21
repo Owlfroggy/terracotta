@@ -9,9 +9,21 @@ export type NamespaceTypeData = {
     namespace: Namespace;
 }
 
-type ExtraData = FuncTypeData | NamespaceTypeData | null;
+export type ListTypeData = {
+    genericType: Type,
+    /** 
+     * NOTE: this is ZERO-INDEXED! 
+     * To get the type of a dfindex, you have to do dfindex - 1
+     * */
+    indexTypes: Type[],
+}
 
-export type TypeConstructor<F extends ((...args: any[]) => Type)> = F & {constructsType: string}
+type ExtraData = FuncTypeData | NamespaceTypeData | ListTypeData | null;
+
+export type TypeConstructor<F extends ((...args: any[]) => Type)> = F & {
+    constructsType: string
+    matches: (Type) => boolean
+}
 
 export class Type {
     /** types that variables can store */
@@ -22,6 +34,9 @@ export class Type {
     private static makeTypeConstructor<F extends (...args: any[]) => Type>(typeName: string, constructor: F): TypeConstructor<F> {
         let c = constructor as TypeConstructor<F>;
         c.constructsType = typeName;
+        c.matches = (other: Type) => {
+            return typeName == ((other as any).constructsType ?? other.name);
+        };
         return c;
     }
 
@@ -29,8 +44,6 @@ export class Type {
     public static num = new Type('num');
     public static str = new Type('str');
     public static txt = new Type('txt');
-    public static list = new Type('list');
-    public static dict = new Type('dict');
     public static item = new Type('item');
     public static loc = new Type('loc');
     public static vec = new Type('vec');
@@ -39,6 +52,35 @@ export class Type {
     public static snd = new Type('snd');
     public static var = new Type('var');
     public static unknown = this.any; // just in case unknown type ever needs to be separated
+    
+    public static list = this.makeTypeConstructor(
+        'list',
+        (genericType: Type, indexTypes: Type[] = []) => {
+            let getMemberType = (m: string | number) => {
+                if (typeof m == 'number') {
+                    // acount for df lists being 1-indexed
+                    let realIndex = m - 1;
+                    if (realIndex < indexTypes.length) {
+                        return indexTypes[realIndex];
+                    } else {
+                        return genericType;
+                    }
+                } else {
+                    return Type.unknown;
+                }
+            }
+            let stringify = () => {
+                if (indexTypes.length > 0) {
+                    return `[${indexTypes.join(", ")}, ...${genericType}]`
+                } else {
+                    return `list<${genericType}>`;
+                }
+            }
+            return new Type('list', {getMemberType, stringify, data: {genericType, indexTypes}});
+        }
+    );
+
+    public static dict = new Type('dict');
 
     public static func = this.makeTypeConstructor(
         'func', 
@@ -67,21 +109,31 @@ export class Type {
     );
 
     public readonly assignable: boolean;
-    public readonly getMemberType: (member: string | number) => Type
+    public readonly getMemberType = (m: string | number) => Type.unknown;
     public readonly data: ExtraData
 
     constructor(
         public readonly name: string,
-        {getMemberType = (m) => Type.unknown, data = null}: {
+        {getMemberType, stringify, data = null}: {
             getMemberType?: (member: string | number) => Type,
+            stringify?: () => string,
             data?: ExtraData
         } = {}
     ) {
-        this.getMemberType = getMemberType;
+        if (getMemberType) this.getMemberType = getMemberType;
+        if (stringify) {
+            this.toString = stringify;
+            this[Symbol.toPrimitive] = stringify;
+        }
         this.data = data;
     }
 
-    matches = (other: Type) => {
-        return this.name == ((other as any).constructsType ?? other.name);
+    toString() {
+        return this.name;
     }
+    [Symbol.toPrimitive] = this.toString;
+
+    matches = (other: Type | TypeConstructor<(...args: any[]) => Type>) => {
+        return this.name == ((other as any).constructsType ?? other.name);
+    };
 }

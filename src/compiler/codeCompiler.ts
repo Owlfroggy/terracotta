@@ -321,7 +321,7 @@ export class CodeCompiler {
         }
         else if (e instanceof ListExpression) {
             let code: CodeBlock[] = [];
-            let tempVar = this.tempVarProvider.newTempVar(Type.list);
+            let tempVar = this.tempVarProvider.newTempVar(Type.list(Type.any));
             let currentChest: TangibleValue[] = [tempVar];
             let createBlockAdded = false;
 
