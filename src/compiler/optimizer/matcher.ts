@@ -55,9 +55,15 @@ export class CodeBlockMatcher {
         public index: number = 0,
     ) {}
 
-    codeblock<T extends CodeBlock>(filter: CodeBlockFilter): [blockIndex: number, block: T] {
+    codeblock<T extends CodeBlock>(filter: CodeBlockFilter, index?: number): [blockIndex: number, block: T] {
         // console.log("asdf", filter);
-        let block = this.line[this.index] as T;
+        let shouldIncrementIndex = false;
+        if (index == undefined) {
+            index = this.index;
+            shouldIncrementIndex = true;
+        }
+
+        let block = this.line[index] as T;
         if (filter.block != undefined) {
             if (Array.isArray(filter.block)) {
                 if (!(filter.block.includes(block.block))) throw MATCH_FAILED;
@@ -97,9 +103,17 @@ export class CodeBlockMatcher {
             }
         }
 
-        let blockIndex = this.index;
-        this.index++;
+        let blockIndex = index;
+        if (shouldIncrementIndex) this.index++;
         return [blockIndex, block]
+    }
+
+    codeblockOrNull<T extends CodeBlock>(filter: CodeBlockFilter, index?: number): [blockIndex: number, block: T] | [-1, null] {
+        try {
+            return this.codeblock<T>(filter, index);
+        } catch {
+            return [-1, null];
+        }
     }
     
     bracket(type?: BracketType, dir?: BracketDirection): [blockIndex: number, block: BracketBlock] {
