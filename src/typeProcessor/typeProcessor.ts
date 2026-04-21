@@ -434,7 +434,17 @@ export class TypeProcessor {
     }
 
     evaluateExplicitType(expression: TypeExpression): Type {
-        let name = expression.baseType.value;
+        // special syntax handling
+        if (expression.type instanceof ListExpression) {
+            let elementTypes: Type[] = [];
+            for (const element of expression.type.elements) {
+                elementTypes.push(this.evaluateExplicitType(element));
+                // TODO: handle the type... case
+            }
+            return Type.list(Type.any,elementTypes);
+        }
+
+        let name = expression.type.value;
         if (Type[name] && Type[name] instanceof Type) {
             if (expression.subType) {
                 this.reportError(

@@ -121,7 +121,11 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof VariableExpression) {
         return `${e.scope.value}${e.name.type == TokenType.IDENTIFIER ? " "+e.name.value : recurse(e.name)}${e.assignedType ? recurse(e.assignedType) : ""}`;
     } else if (e instanceof TypeExpression) {
-        return `\x1b[0;38;5;39;49m${e.baseType.value}\x1b[0m${e.subType ? `[${e.subType.elements.map(e=>recurse(e)).join(", ")}]` : ""}`
+        if (e.type instanceof Token) {
+            return `\x1b[0;38;5;39;49m${e.type.value}\x1b[0m${e.subType ? `[${e.subType.elements.map(e=>recurse(e)).join(", ")}]` : ""}`
+        } else {
+            return '[UNIMPLEMENTED!!!]';
+        }
     } else if (e instanceof TypeAssignmentExpression) {
         return `: ${recurse(e.type)}`;
     } else if (e instanceof MultiTypeAssignmentExpression) {

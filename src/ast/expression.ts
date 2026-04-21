@@ -37,9 +37,10 @@ export class VariableExpression extends Expression {
 
 export class TypeExpression extends Expression {
     constructor(
-        public baseType: Token,
+        public type: Token | ListExpression<TypeExpression>,
+        /** will only be set if `type` is a Token */
         public subType: ListExpression<TypeExpression> | null
-    ) {super(baseType.startPos, subType != null ? subType.endPos : baseType.endPos);}
+    ) {super(type.startPos, subType != null ? subType.endPos : type.endPos);}
 }
 
 
