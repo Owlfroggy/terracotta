@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
@@ -384,7 +384,24 @@ export class TypeProcessor {
             return this.evaluateExplicitType(expression.type);
         }
         else if (expression instanceof AccessExpression) {
-            return this.evaluateExpression(expression.accessee).getMemberType(expression.propertyName.value);
+            return this.evaluateExpression(expression.accessee, frame).getMemberType(expression.propertyName.value);
+        }
+        else if (expression instanceof BracketedAccessExpression) {
+            let propNameExpr = expression.propertyName.getRealExpression();
+            let propName: number | string | undefined = undefined;
+            if (propNameExpr instanceof AtomicExpression) {
+                if (propNameExpr.token.type == TokenType.NUMERIC_LITERAL) {
+                    // TODO: make this actually handle all tc numbers
+                    let parsed = parseInt(propNameExpr.token.value);
+                    if (!isNaN(parsed)) {
+                        propName = parsed;
+                    }
+                }
+                else {
+                    propName = propNameExpr.token.value;
+                }
+            }
+            return this.evaluateExpression(expression.accessee, frame).getMemberType(propName);
         }
         else if (expression instanceof CallExpression) {
             let calleeType = this.evaluateExpression(expression.callee);

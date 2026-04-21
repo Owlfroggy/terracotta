@@ -56,7 +56,7 @@ export class Type {
     public static list = this.makeTypeConstructor(
         'list',
         (genericType: Type, indexTypes: Type[] = []) => {
-            let getMemberType = (m: string | number) => {
+            let getMemberType = (m?: string | number) => {
                 if (typeof m == 'number') {
                     // acount for df lists being 1-indexed
                     let realIndex = m - 1;
@@ -65,9 +65,8 @@ export class Type {
                     } else {
                         return genericType;
                     }
-                } else {
-                    return Type.unknown;
                 }
+                return genericType;
             }
             let stringify = () => {
                 if (indexTypes.length > 0) {
@@ -92,8 +91,8 @@ export class Type {
     public static namespace = this.makeTypeConstructor(
         'namespace',
         (namespace: Namespace) => {
-            let getMemberType = (m: string | number) => {
-                if (m in namespace.members) {
+            let getMemberType = (m?: string | number) => {
+                if (m && m in namespace.members) {
                     let def = namespace.members[m];
                     if (def.definitionType == DefinitionType.VALUE) {
                         return def.returnType;
@@ -109,13 +108,13 @@ export class Type {
     );
 
     public readonly assignable: boolean;
-    public readonly getMemberType = (m: string | number) => Type.unknown;
+    public readonly getMemberType = (m?: string | number) => Type.unknown;
     public readonly data: ExtraData
 
     constructor(
         public readonly name: string,
         {getMemberType, stringify, data = null}: {
-            getMemberType?: (member: string | number) => Type,
+            getMemberType?: (member?: string | number) => Type,
             stringify?: () => string,
             data?: ExtraData
         } = {}

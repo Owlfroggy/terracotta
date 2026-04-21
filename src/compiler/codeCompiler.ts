@@ -1,13 +1,13 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { DoStatement, EventStatement, ExpressionStatement, IfStatement, Statement } from "../ast/statement.ts";
-import { TokenType } from "../ast/token.ts";
+import { Token, TokenType } from "../ast/token.ts";
 import { TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/utils.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, IfBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, GroupExpression, ListExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, Expression, GroupExpression, ListExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
@@ -16,6 +16,7 @@ import { DefinitionType, FunctionDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
+import { access } from "node:fs";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -182,7 +183,7 @@ export class CodeCompiler {
         return declarationsToCompile;
     }
 
-    compileExpression(e: Expression): [CodeValue, CodeBlock[]] {
+    compileExpression(e: Expression | Token): [CodeValue, CodeBlock[]] {
         // TODO: structure this and the compileStatement thing more like how the parser does stuff
         if (e instanceof BinaryExpression) {
             let [left, lCode] = this.compileExpression(e.left);
@@ -268,16 +269,34 @@ export class CodeCompiler {
                 return [new MissingValue(e), [...preCode]];
             }
         }
-        else if (e instanceof AccessExpression) {
+        else if (e instanceof AccessExpression || e instanceof BracketedAccessExpression) {
             let [accessee, preCode] = this.compileExpression(e.accessee);
+
+            let accessor;
+            if (e instanceof AccessExpression) {
+                accessor = new StringValue(e.propertyName.value);
+            } else {
+                let [a, aCode] = this.compileExpression(e.propertyName);
+                accessor = a;
+                preCode.push(...aCode);
+            }
+
             // TODO: handle accessee being missing value
             if (accessee instanceof NamespaceValue) {
-                let definition = accessee.namespace.members[e.propertyName.value];
+                if (!accessor.isCompileTimeConstant()) {
+                    this.reportError(
+                        e.propertyName,
+                        `Namespace properties cannot be accessed dynamically`
+                    );
+                    return [new MissingValue(e), preCode];
+                }
+                let value = (accessor as NumberValue | StringValue).value as string;
+                let definition = accessee.namespace.members[value];
                 if (definition == undefined) {
                     // todo: special error messages for if the namespace is a player action or game action or whatever
                     this.reportError(
                         e.propertyName,
-                        `'${e.propertyName.value}' is not a property of '${accessee.namespace.identifier}''`
+                        `'${value}' is not a property of '${accessee.namespace.identifier}''`
                     )
                     return [new MissingValue(e), preCode];
                 }
@@ -353,33 +372,36 @@ export class CodeCompiler {
             return [tempVar, code];
         }
         else if (e instanceof AtomicExpression) {
-            switch (e.token.type) {
+            return this.compileExpression(e.token);
+        } 
+        else if (e instanceof Token) {
+            switch (e.type) {
                 // identifier resolution all happens here
                 case TokenType.IDENTIFIER: {
-                    let value = e.token.value;
+                    let value = e.value;
                     if (value in Namespace.registry) {
                         let namespace = Namespace.registry[value];
                         return [new NamespaceValue(namespace, e), []];
                     }
                     let frame = this.env.types.getNodeFrame(e);
-                    let varEntry = frame.getVariableEntry(e.token.value, e.token.startPos);
+                    let varEntry = frame.getVariableEntry(e.value, e.startPos);
                     if (varEntry) {
                         return [new VariableValue(varEntry.id.name, varEntry.id.scope, varEntry.type ?? undefined, e), []];
                     }
                     this.reportError(
                         e,
-                        `Could not resolve identifier '${e.token.value}'`
+                        `Could not resolve identifier '${e.value}'`
                     );
                     return [new MissingValue(e), []];
                 }
                 case TokenType.NUMERIC_LITERAL: {
-                    return [new NumberValue(e.token.value,e), []];
+                    return [new NumberValue(e.value,e), []];
                 }
                 case TokenType.STRING_LITERAL: {
-                    return [new StringValue(e.token.value,e), []];
+                    return [new StringValue(e.value,e), []];
                 }
                 case TokenType.STYLED_LITERAL: {
-                    return [new StyledTextValue(e.token.value,e), []];
+                    return [new StyledTextValue(e.value,e), []];
                 }
                 default: {
                     return [new MissingValue(e), []];
