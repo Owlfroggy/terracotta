@@ -433,15 +433,42 @@ export class TypeProcessor {
         }
     }
 
-    evaluateExplicitType(expression: TypeExpression): Type {
+    evaluateExplicitType(expression: TypeExpression, allowEllipses: boolean = false): Type {
+        if (!allowEllipses && expression.ellipses){ 
+            this.reportError(expression.ellipses, `Ellipses are not allowed here`);
+        }
+
         // special syntax handling
         if (expression.type instanceof ListExpression) {
             let elementTypes: Type[] = [];
-            for (const element of expression.type.elements) {
-                elementTypes.push(this.evaluateExplicitType(element));
-                // TODO: handle the type... case
+            let genericType: Type | undefined;
+
+            let nonEllipsesTypeFound = false;
+            // iterate in reverse so ellipses error handling can be done in the same loop as type evaluation
+            for (let i = expression.type.elements.length-1; i >= 0; i--) {
+                let element = expression.type.elements[i];
+                if (element.ellipses) {
+                    if (nonEllipsesTypeFound) {
+                        this.reportError(
+                            element,
+                            `Overflow type must come at the end of the list, after all positional types`
+                        );
+                    }
+                    if (genericType == undefined) {
+                        genericType = this.evaluateExplicitType(element, true);
+                    } else {
+                        this.reportError(
+                            element,
+                            `Lists may only specify one overflow type`
+                        );
+                    }
+                } else {
+                    elementTypes.unshift(this.evaluateExplicitType(element))
+                    nonEllipsesTypeFound = true;
+                }
             }
-            return Type.list(Type.any,elementTypes);
+
+            return Type.list(genericType ?? Type.any,elementTypes);
         }
 
         let name = expression.type.value;
@@ -464,7 +491,9 @@ export class TypeProcessor {
             }
             let argTypes: Type[] = [];
             if (expression.subType != undefined) {
-                argTypes = expression.subType.elements.map(elm => this.evaluateExplicitType(elm))
+                argTypes = expression.subType.elements.map(elm => {
+                    return this.evaluateExplicitType(elm);
+                })
                 if (argTypes.length > constructor.subTypeCount) {
                     this.reportError(
                         expression.subType,

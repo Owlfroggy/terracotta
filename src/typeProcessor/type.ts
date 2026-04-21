@@ -74,7 +74,7 @@ export class Type {
                 if (indexTypes.length > 0) {
                     let genericAddon = "";
                     if (!genericType.matches(Type.any)) {
-                        genericAddon = `, ...${genericType}`;
+                        genericAddon = `, ${genericType}...`;
                     }
                     return `[${indexTypes.join(", ")}${genericAddon}]`
                 } else {
