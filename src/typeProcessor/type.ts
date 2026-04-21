@@ -70,7 +70,11 @@ export class Type {
             }
             let stringify = () => {
                 if (indexTypes.length > 0) {
-                    return `[${indexTypes.join(", ")}, ...${genericType}]`
+                    let genericAddon = "";
+                    if (!genericType.matches(Type.any)) {
+                        genericAddon = `, ...${genericType}`;
+                    }
+                    return `[${indexTypes.join(", ")}${genericAddon}]`
                 } else {
                     return `list<${genericType}>`;
                 }
