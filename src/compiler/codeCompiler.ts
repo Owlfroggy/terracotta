@@ -272,7 +272,7 @@ export class CodeCompiler {
         else if (e instanceof AccessExpression || e instanceof BracketedAccessExpression) {
             let [accessee, preCode] = this.compileExpression(e.accessee);
 
-            let accessor;
+            let accessor: CodeValue;
             if (e instanceof AccessExpression) {
                 accessor = new StringValue(e.propertyName.value);
             } else {
@@ -281,22 +281,46 @@ export class CodeCompiler {
                 preCode.push(...aCode);
             }
 
-            // TODO: handle accessee being missing value
+            if (!(accessor instanceof TangibleValue)) {
+                this.reportError(
+                    e.propertyName,
+                    `Type '${accessor.getType(this.env.types)}' cannot be used as an indexer`
+                );
+                return [new MissingValue(e), preCode];
+            }
+
+            let accesseeType = accessee.getType(this.env.types);
+            let accessorType = accessor.getType(this.env.types);
+            let accessorValue: number | string | undefined = undefined;
+            if (accessor.isCompileTimeConstant()) {
+                if (accessor instanceof NumberValue) {
+                    // todo: actually handle all terracotta numbers
+                    let v = parseInt(accessor.value as string);
+                    if (!isNaN(v)) {
+                        accessorValue = v;
+                    }
+                }
+                else if (accessor instanceof StringValue) {
+                    accessorValue = accessor.value;
+                }
+            }
+
+
+            // namespace accessing
             if (accessee instanceof NamespaceValue) {
-                if (!accessor.isCompileTimeConstant()) {
+                if (accessorValue == undefined) {
                     this.reportError(
                         e.propertyName,
                         `Namespace properties cannot be accessed dynamically`
                     );
                     return [new MissingValue(e), preCode];
                 }
-                let value = (accessor as NumberValue | StringValue).value as string;
-                let definition = accessee.namespace.members[value];
+                let definition = accessee.namespace.members[accessorValue];
                 if (definition == undefined) {
                     // todo: special error messages for if the namespace is a player action or game action or whatever
                     this.reportError(
                         e.propertyName,
-                        `'${value}' is not a property of '${accessee.namespace.identifier}''`
+                        `'${accessorValue}' is not a property of '${accessee.namespace.identifier}'`
                     )
                     return [new MissingValue(e), preCode];
                 }
@@ -309,7 +333,26 @@ export class CodeCompiler {
                 else {
                     return [new MissingValue(e), preCode];
                 }
-            } else {
+            } 
+            // list accessing
+            else if (accesseeType.matches(Type.list)) {
+                if (!accessorType.matches(Type.num)) {
+                    this.reportError(
+                        e.propertyName,
+                        `Type '${accessorType.name}' cannot be used to index into lists`
+                    );
+                }
+                let tempVar = this.tempVarProvider.newTempVar(accesseeType.getMemberType(accessorValue));
+
+                let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "GetListValue",
+                    args: [tempVar, accessee as TangibleValue, accessor]
+                })
+
+                return [tempVar, [...preCode, codeBlock]];
+            } 
+            // error
+            else {
                 if (!(accessee instanceof MissingValue)) {
                     this.reportError(
                         e.propertyName,
