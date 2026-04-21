@@ -1,6 +1,6 @@
 import * as rpc from "vscode-jsonrpc/node.js"
 import * as AD from "../df/actiondump.ts"
-import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp, MarkupContent } from "vscode-languageserver";
+import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp, MarkupContent, HoverParams, Hover } from "vscode-languageserver";
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
@@ -8,13 +8,14 @@ import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, L
 import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
-import { EnvironmentFrame, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
+import { EnvironmentFrame, TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { EventStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { StringExtraData, Token, TokenType } from "../ast/token.ts";
 import { getActionDocumentation, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
 import { matchArgsToParams, valueToTCString } from "../util/utils.ts";
 import { DFCodeblockName, DFRank } from "../df/constants.ts";
+import { OVERRIDES } from "../data/overrides.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -237,6 +238,7 @@ export class LanguageServer {
                             didDelete: yesIWouldLikeToKnowAboutThat,
                         }
                     },
+                    hoverProvider: true,
                     definitionProvider: true,
                     //completion
                     completionProvider: {
@@ -265,6 +267,53 @@ export class LanguageServer {
         conn.onRequest("textDocument/definition",(param: DefinitionParams) => {
             if (!param.textDocument.uri.endsWith(".tc")) {return}
             
+        })
+
+        conn.onRequest("textDocument/hover", (param: HoverParams) => {
+            if (!param.textDocument.uri.endsWith(".tc")) return
+            let doc = this.getDocFromUri(param.textDocument.uri);
+            if (doc == undefined) return;
+            let index = doc?.linePositionToIndex(param.position);
+            if (index == undefined) return;
+            let node = doc.getAstNodeAtIndex(index);
+            if (node == null) return; // todo: this is bad
+            let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
+
+            // TODO: abstract documentation generation into its own function
+            // and just hook into that
+
+            // show variable type on hover
+            if (node instanceof Token && node.type == TokenType.IDENTIFIER) {
+                let queryVarId: string | VariableId = node.value;
+                let queryPosition = node.endPos;
+                if (node.parent instanceof VariableExpression) {
+                    // if the scope is specified here, use that when looking up the var
+                    queryVarId = VariableId.get(VariableScope[TokenType[node.parent.scope.type]], node.value);
+
+                    // if this variable is being assigned to something, query after the assignment has been completed
+                    if (node.parent.parent instanceof BinaryExpression && node.parent.parent.operator.type == TokenType.EQUALS ){ 
+                        queryPosition = node.parent.parent.endPos+1;
+                    }
+                }
+
+                let varEntry = envFrame.getVariableEntry(queryVarId, queryPosition);
+                if (!varEntry) return;
+
+                let name = node.value;
+                let scopeStr = VariableScope[varEntry.id.scope].toLowerCase();
+                let stringifiedName = name;
+                if (!/^[A-Za-z0-9_]+$/.test(stringifiedName)) {
+                    stringifiedName = valueToTCString(name, '"');
+                }
+                let documentation: MarkupContent = {
+                    kind: 'markdown', 
+                    value: `\`\`\`tc\n${scopeStr} ${stringifiedName}: ${varEntry.type}\n\`\`\``
+                };
+                return {contents: documentation, range: {
+                    start: doc.indexToLinePosition(node.startPos),
+                    end: doc.indexToLinePosition(node.endPos),
+                }} as Hover
+            }
         })
 
 
