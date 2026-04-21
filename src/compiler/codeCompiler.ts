@@ -7,7 +7,7 @@ import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, El
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, GroupExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ChunkExpression, Expression, GroupExpression, ListExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
@@ -318,6 +318,39 @@ export class CodeCompiler {
 
             // 
             return [new VariableValue(e.name.value, VariableScope[TokenType[e.scope.type]], undefined, e), []];
+        }
+        else if (e instanceof ListExpression) {
+            let code: CodeBlock[] = [];
+            let tempVar = this.tempVarProvider.newTempVar(Type.list);
+            let currentChest: TangibleValue[] = [tempVar];
+            let createBlockAdded = false;
+
+            function pushCurrentChest() {
+                if (currentChest.length <= 1) return;
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: !createBlockAdded ? "CreateList" : "AppendValue",
+                    args: [...currentChest]
+                }));
+                if (!createBlockAdded) createBlockAdded = true;
+                currentChest = [tempVar]; 
+            }
+
+            for (const element of e.elements) {
+                let [value, valueCode] = this.compileExpression(element);
+                if (!(value instanceof TangibleValue)) {
+                    if (!(value instanceof MissingValue)) {
+                        this.reportError(element, `${value.constructor.name} cannot be stored in lists`);
+                    }
+                    continue;
+                }
+                code.push(...valueCode)
+                currentChest.push(value);
+                if (currentChest.length == 27) {
+                    pushCurrentChest();
+                }
+            }
+            pushCurrentChest();
+            return [tempVar, code];
         }
         else if (e instanceof AtomicExpression) {
             switch (e.token.type) {
