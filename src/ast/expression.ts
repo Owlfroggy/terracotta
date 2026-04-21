@@ -39,8 +39,9 @@ export class TypeExpression extends Expression {
     constructor(
         public type: Token | ListExpression<TypeExpression>,
         /** will only be set if `type` is a Token */
-        public subType: ListExpression<TypeExpression> | null
-    ) {super(type.startPos, subType != null ? subType.endPos : type.endPos);}
+        public subType: ListExpression<TypeExpression> | null,
+        public ellipses: Token | null = null,
+    ) {super(type.startPos, ellipses ? ellipses.endPos : subType != null ? subType.endPos : type.endPos);}
 }
 
 
@@ -62,7 +63,6 @@ export class ParameterExpression extends Expression {
     constructor(
         public name: Token,
         public assignedType: TypeAssignmentExpression | null,
-        public plural: Token | null,
         public assignmentOperator: Token | null,
         public defaultValue: Expression | null
     ) {
@@ -71,7 +71,6 @@ export class ParameterExpression extends Expression {
             // end (pos) me:
             defaultValue ? defaultValue.endPos : 
             assignmentOperator ? assignmentOperator.endPos : 
-            plural ? plural.endPos : 
             assignedType ? assignedType.endPos : 
             name.endPos
         );

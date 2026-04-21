@@ -122,7 +122,7 @@ function recurse(e: ASTNode | null): string {
         return `${e.scope.value}${e.name.type == TokenType.IDENTIFIER ? " "+e.name.value : recurse(e.name)}${e.assignedType ? recurse(e.assignedType) : ""}`;
     } else if (e instanceof TypeExpression) {
         if (e.type instanceof Token) {
-            return `\x1b[0;38;5;39;49m${e.type.value}\x1b[0m${e.subType ? `[${e.subType.elements.map(e=>recurse(e)).join(", ")}]` : ""}`
+            return `\x1b[0;38;5;39;49m${e.type.value}\x1b[0m${e.subType ? `[${e.subType.elements.map(e=>recurse(e)).join(", ")}]` : ""}${e.ellipses ? "..." : ""}`
         } else {
             return '[UNIMPLEMENTED!!!]';
         }
@@ -131,7 +131,7 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof MultiTypeAssignmentExpression) {
         return `: ${e.types.map(t => recurse(t)).join(", ")}`
     } else if (e instanceof ParameterExpression) {
-        return `${recurse(e.name)}${recurse(e.assignedType)}${e.plural ? "..." : ""}${e.assignmentOperator ? " = " : ""}${recurse(e.defaultValue)}`;
+        return `${recurse(e.name)}${recurse(e.assignedType)}${e.assignmentOperator ? " = " : ""}${recurse(e.defaultValue)}`;
     } else if (e instanceof GroupExpression) {
         return recurse(e.expression);
     } else if (e instanceof ListExpression) {

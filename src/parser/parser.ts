@@ -253,21 +253,29 @@ export class Parser {
         let [typeToken, typeTokenFound] = this.expect([TokenType.IDENTIFIER, TokenType.OPEN_BRACKET], false);
         if (!typeTokenFound) return null;
 
+
+        let type: Token | ListExpression<TypeExpression>;
+        let subType: ListExpression<TypeExpression> | null = null;
+        let ellipses: Token | null = null;
         // normal type
         if (typeToken.type == TokenType.IDENTIFIER) {
-            this.consume() // consume type name identifier
+            type = this.consume()
+
             // subtype parsing
-            let subType: ListExpression<TypeExpression> | null = null;
             if (typeTokenFound && this.currentToken().type == TokenType.OPEN_BRACKET) {
                 subType = this.parseTypedListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA, this.parseTypeExpression);
             }
-
-            return new TypeExpression(typeToken, subType);
         } 
         // list literal type
         else {
-            return new TypeExpression(this.parseTypedListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA, this.parseTypeExpression)!, null);
+            type = this.parseTypedListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA, this.parseTypeExpression)!;
         }
+
+        if (this.currentToken().type == TokenType.ELLIPSES) {
+            ellipses = this.consume();
+        }
+
+        return new TypeExpression(type, subType, ellipses)
     }
 
     parseTypeAssignmentExpression = (optional: boolean = false): TypeAssignmentExpression | null => {
@@ -427,19 +435,15 @@ export class Parser {
         if (!nameFound) return null;
 
         let type = this.parseTypeAssignmentExpression(true);
-        let plural: Token | null = null;
         let equals: Token | null = null;
         let defaultValue: Expression | null = null;
         if (type != null) {
-            if (this.currentToken().type == TokenType.ELLIPSES) {
-                plural = this.consume();
-            }
             if (this.currentToken().type == TokenType.EQUALS) {
                 equals = this.consume();
                 defaultValue = this.parseExpression(BindingPower.DEFAULT);
             }
         }
-        return new ParameterExpression(name, type, plural, equals, defaultValue);
+        return new ParameterExpression(name, type, equals, defaultValue);
     }
 
 
