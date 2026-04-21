@@ -22,6 +22,7 @@ type ExtraData = FuncTypeData | NamespaceTypeData | ListTypeData | null;
 
 export type TypeConstructor<F extends ((...args: any[]) => Type)> = F & {
     constructsType: string
+    subTypeCount: number
     matches: (Type) => boolean
 }
 
@@ -31,9 +32,10 @@ export class Type {
         'any', 'num', 'str', 'txt', 'list', 'dict', 'item', 'loc', 'vec', 'pot', 'par', 'snd'
     ])
 
-    private static makeTypeConstructor<F extends (...args: any[]) => Type>(typeName: string, constructor: F): TypeConstructor<F> {
+    private static makeTypeConstructor<F extends (...args: any[]) => Type>(typeName: string, subTypeCount: number, constructor: F): TypeConstructor<F> {
         let c = constructor as TypeConstructor<F>;
         c.constructsType = typeName;
+        c.subTypeCount = subTypeCount;
         c.matches = (other: Type) => {
             return typeName == ((other as any).constructsType ?? other.name);
         };
@@ -54,7 +56,7 @@ export class Type {
     public static unknown = this.any; // just in case unknown type ever needs to be separated
     
     public static list = this.makeTypeConstructor(
-        'list',
+        'list', 1,
         (genericType: Type, indexTypes: Type[] = []) => {
             let getMemberType = (m?: string | number) => {
                 if (typeof m == 'number') {
@@ -86,14 +88,14 @@ export class Type {
     public static dict = new Type('dict');
 
     public static func = this.makeTypeConstructor(
-        'func', 
+        'func', 0,
         (definition: FunctionDefinition) => {
             return new Type('func', {data: {definition}});
         }
     );
 
     public static namespace = this.makeTypeConstructor(
-        'namespace',
+        'namespace', 0,
         (namespace: Namespace) => {
             let getMemberType = (m?: string | number) => {
                 if (m && m in namespace.members) {

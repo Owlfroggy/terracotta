@@ -4,8 +4,9 @@ import { ExpressionStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
-import { FuncTypeData, NamespaceTypeData, Type } from "./type.ts";
+import { FuncTypeData, NamespaceTypeData, Type, TypeConstructor } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
+import { ps } from "../util/utils.ts";
 
 export enum VariableScope {
     SAVED,
@@ -435,7 +436,39 @@ export class TypeProcessor {
     evaluateExplicitType(expression: TypeExpression): Type {
         let name = expression.baseType.value;
         if (Type[name] && Type[name] instanceof Type) {
+            if (expression.subType) {
+                this.reportError(
+                    expression.subType,
+                    `Type '${name}' is not generic and does not support subtypes`
+                );
+            }
             return Type[name];
+        } else if (Type[name].constructsType) {
+            let constructor = Type[name] as TypeConstructor<(...args: any[]) => Type>;
+            if (constructor.subTypeCount == 0) {
+                this.reportError(
+                    expression,
+                    `Type '${name}' cannot be directly assigned`
+                )
+                return Type.unknown;
+            }
+            let argTypes: Type[] = [];
+            if (expression.subType != undefined) {
+                argTypes = expression.subType.elements.map(elm => this.evaluateExplicitType(elm))
+                if (argTypes.length > constructor.subTypeCount) {
+                    this.reportError(
+                        expression.subType,
+                        `Type '${name}' expects ${constructor.subTypeCount} argument${ps(constructor.subTypeCount)}, ${argTypes.length} were provided.`
+                    );
+                    // strip off extra types before passing into constructor
+                    argTypes.length = constructor.subTypeCount;
+                }
+            }
+            // fill in 'any' for non-specified types
+            for (let i = argTypes.length; i < constructor.subTypeCount; i++) {
+                argTypes.push(Type.any);
+            }
+            return constructor(...argTypes);
         } else {
             this.reportError(
                 expression,
