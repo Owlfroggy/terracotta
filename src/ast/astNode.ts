@@ -54,6 +54,14 @@ export class RootNode extends ASTNode {
 
     constructor(
         public readonly statements: Statement[],
+        /** 
+         * Every token that appeared in the script but did not find a place in the AST. 
+         * With an error-free AST, this list should be empty.
+         * 
+         * Tokens in this list will not appear in this node's `children` array, but the tokens
+         * themselves will have their `parent` set to this node.
+         * */
+        public unusedTokens: Token[]
     ) {super(-1, -1);}
 
     getRoot(): RootNode {

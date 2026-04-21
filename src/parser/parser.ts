@@ -744,13 +744,22 @@ export class Parser {
         }
 
         let statements = [];
-        let root = new RootNode(statements)
+        let unusedTokens: Token[] = [];
+        let root = new RootNode(statements, unusedTokens)
 
         for (const statement of chunk.statements) {
             processChildren(statement);
             statement.parent = root;
             root.children.push(statement);
             root.statements.push(statement);
+        }
+
+        // put all unused tokens in the root node
+        for (const token of this.tokens) {
+            if (token.parent == undefined) {
+                token.parent = root;
+                root.unusedTokens.push(token);
+            }
         }
 
         return root;
