@@ -375,7 +375,7 @@ export class TypeProcessor {
             }
         }
         else if (expression instanceof ListExpression) {
-            return Type.list(Type.any, expression.elements.map(elm => this.evaluateExpression(elm)));
+            return Type.list(Type.any, expression.elements.map(elm => this.evaluateExpression(elm, frame)));
         }
         else if (expression instanceof VariableExpression) {
             return frame.getVariableType(VariableId.fromExpression(expression), expression.startPos);
