@@ -16,7 +16,6 @@ import { DefinitionType, FunctionDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
-import { access } from "node:fs";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -161,7 +160,7 @@ export class CodeCompiler {
             }
             else {
                 //TODO: this is very temporary
-                throw new Error(`no idea how to compile this: ${JSON.stringify(s)}`);
+                throw new Error(`no idea how to compile this: ${s.constructor.name}`);
             }
 
             declarationsToCompile.push([lineEntry, s]);
