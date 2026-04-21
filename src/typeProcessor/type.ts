@@ -78,7 +78,7 @@ export class Type {
                     }
                     return `[${indexTypes.join(", ")}${genericAddon}]`
                 } else {
-                    return `list<${genericType}>`;
+                    return `list[${genericType}]`;
                 }
             }
             return new Type('list', {getMemberType, stringify, data: {genericType, indexTypes}});
