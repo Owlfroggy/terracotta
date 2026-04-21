@@ -4,7 +4,7 @@ import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocu
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ListExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, ListExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
 import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
@@ -152,6 +152,15 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, options: {expli
     }
     return items;
 }
+
+const typeNameCompletions: CompletionItem[] = Object.entries(Type).map(([k, v]) => {
+    if (!(v instanceof Type || v.constructsType)) return null;
+    if (!Type.assignableTypes.has(k)) return null;
+    return k
+}).filter(v => v != null).map(n => ({
+    label: n,
+    kind: CompletionItemKind.TypeParameter
+}))
 
 const keywordCompletions: CompletionItem[] = [
     "lscancel", "playerevent", "entityevent", "gameevent", "function", "process",
@@ -505,6 +514,11 @@ export class LanguageServer {
                     doc: doc,
                     excludeName: node instanceof Token ? node.value : undefined,
                 }));
+            }
+            // types if ur inside a type expression
+            else if (node instanceof TypeAssignmentExpression || node.getClosestAncestor(TypeExpression) != null) {
+                includeGenerics = false;
+                items.push(...typeNameCompletions);
             }
 
             // action tags
