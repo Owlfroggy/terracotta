@@ -341,7 +341,25 @@ export class CodeCompiler {
                         e.propertyName,
                         `Type '${accessorType.name}' cannot be used to index into lists`
                     );
+                    return [new MissingValue(e), preCode];
                 }
+                if (typeof accessorValue == "number") {
+                    if (parseFloat((accessor as NumberValue).value as string) != accessorValue) {
+                        this.reportError(
+                            e.propertyName,
+                            `List index must be a whole number`
+                        );
+                        return [new MissingValue(e), preCode];
+                    }
+                    if (accessorValue <= 0) {
+                        this.reportError(
+                            e.propertyName,
+                            `List index must be >= 1${accessorValue == 0 ? " (lists start at index 1 in DiamondFire)" : ""}`
+                        )
+                        return [new MissingValue(e), preCode];
+                    }
+                }
+
                 let tempVar = this.tempVarProvider.newTempVar(accesseeType.getMemberType(accessorValue));
 
                 let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
