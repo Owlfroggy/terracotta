@@ -135,9 +135,9 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                         }
 
                         tags.push(new ActionTagValue(tagDef, arg.value));
-                    } else {
+                    } else if (arg instanceof VariableValue) {
                         // todo: specifiable default vaulues)
-                        tags.push(new ActionTagValue(tagDef, tagDef.defaultOption, arg as VariableValue))
+                        tags.push(new ActionTagValue(tagDef, tagDef.defaultOption, arg))
                     }
                 }
             }
