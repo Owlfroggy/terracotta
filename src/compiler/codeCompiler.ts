@@ -16,6 +16,7 @@ import { DefinitionType, FunctionDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
+import { count } from "node:console";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -591,8 +592,64 @@ export class CodeCompiler {
             }
         }
         else if (s instanceof RepeatStatement) {
+            let innerStatements = s.chunk.statements.map(this.compileStatement).flat();
+
+            let countExpression = s.countExpression?.getRealExpression();
             // TODO: repeat (line i to x)
-            if (s.countExpression) {
+            if (countExpression) {
+                let code: CodeBlock[] = [];
+                let counterVar: VariableValue | undefined;
+                let amountExpr: Expression;
+
+                // with count
+                if (countExpression instanceof BinaryExpression && countExpression.operator.type == TokenType.TO) {
+                    let [cVar, cVarCode] = this.compileExpression(countExpression.left);
+                    code.push(...cVarCode);
+                    if (cVar instanceof VariableValue && !cVar.isTempVar) {
+                        counterVar = cVar;
+                    } else {
+                        this.reportError(
+                            countExpression.left,
+                            `Repeat counter must be a variable`
+                        );
+                    }
+
+                    amountExpr = countExpression.right;
+                } else {
+                    amountExpr = countExpression;
+                }
+
+                let [amount, amountCode] = this.compileExpression(amountExpr);
+                code.push(...amountCode);
+
+                let failed = false;
+                if (!(amount instanceof TangibleValue)) {
+                    if (!(amount instanceof MissingValue)) {
+                        this.reportError(
+                            amountExpr,
+                            `${amount.constructor.name} is not allowed here`
+                        );
+                    }
+                    return [];
+                }
+                let amountType = amount.getType(this.env.types);
+                if (!amountType.matches(Type.num)) {
+                    this.reportError(
+                        amountExpr,
+                        `Expected type 'num' for repeat amount, got '${amountType}'`
+                    );
+                    return [];
+                }
+                code.push(
+                    new SubActionBlock(DFCodeblockName.REPEAT,{
+                        action: "Multiple",
+                        args: counterVar ? [counterVar, amount] : [amount],
+                    }),
+                    new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.REPEAT}),
+                        ...innerStatements,
+                    new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.REPEAT}),
+                )
+                return code;
             } 
             // repeat forever
             else {
@@ -601,7 +658,7 @@ export class CodeCompiler {
                         action: "Forever",
                     }),
                     new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.REPEAT}),
-                        ...s.chunk.statements.map(this.compileStatement).flat(),
+                        ...innerStatements,
                     new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.REPEAT}),
                 ]
             }

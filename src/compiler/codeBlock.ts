@@ -137,7 +137,7 @@ export class SubActionBlock extends ActionBlock {
         {action, subAction = null, args = [], tags = [], target = TargetType.UNSET, inverted = false, astNode = null} : {
             action: string,
             subAction?: string | null
-            args?: [],
+            args?: TangibleValue[],
             tags?: [],
             target?: TargetType
             inverted?: boolean,
