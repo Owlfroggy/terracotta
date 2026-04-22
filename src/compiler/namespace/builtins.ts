@@ -422,4 +422,5 @@ export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
     num: new Namespace('num', {...typeActionMembers('num'), ...NUM_NAMESPACE_INJECTIONS}),
     vec: new Namespace('vec', typeActionMembers('vec'), VEC_CONSTRUCTOR),
     loc: new Namespace('loc', typeActionMembers('loc'), LOC_CONSTRUCTOR),
+    list: new Namespace('list', typeActionMembers('list')),
 };
