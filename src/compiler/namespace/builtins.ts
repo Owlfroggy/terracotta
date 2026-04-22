@@ -116,7 +116,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                         continue;
                     }
 
-                    let valType = arg.getType(ctx);
+                    let valType = arg.getType(ctx.types);
                     if (!(valType == Type.str || valType == Type.any)) {
                         ctx.reportError(
                             arg.astNode ?? nameExpr,
