@@ -592,6 +592,7 @@ export const OVERRIDES: {
             ]
         },
         "SET VARIABLE": {
+            // num
             "+": [
                 {params: [ {name: "Numbers to add", type: Type.num, optional: false, plural: true} ]},
                 {params: [ {name: "Vectors to add", type: Type.vec, optional: false, plural: true} ]},
@@ -608,6 +609,24 @@ export const OVERRIDES: {
                 {params: [ {name: "Numbers to divide by", type: Type.num, optional: false, plural: true} ]},
                 {params: [ {name: "Vectors to divide by", type: Type.vec, optional: false, plural: true} ]},
             ],
+
+            // list
+            "AppendValue": [ {params: [ 
+                {name: "List to append to", type: Type.list(Type.any), optional: false, plural: false} ,
+                {name: "Value(s) to append", type: Type.any, optional: false, plural: true}
+            ]}, ],
+            "AppendList": [ {params: [ 
+                {name: "List to append to", type: Type.list(Type.any), optional: false, plural: false} ,
+                {name: "Lists(s) to append", type: Type.list(Type.any), optional: false, plural: true}
+            ]}, ],
+            "RemoveListIndex": [ {params: [ 
+                {name: "List to change", type: Type.list(Type.any), optional: false, plural: false} ,
+                {name: "Index to remove", type: Type.num, optional: false, plural: true}
+            ]}, ],
+            "RemoveListValue": [ {params: [ 
+                {name: "List to change", type: Type.list(Type.any), optional: false, plural: false} ,
+                {name: "Value(s) to remove", type: Type.any, optional: false, plural: true}
+            ]}, ],
         }
     }
 }
