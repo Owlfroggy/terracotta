@@ -1,9 +1,9 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { DoStatement, EventStatement, ExpressionStatement, IfStatement, Statement } from "../ast/statement.ts";
+import { DoStatement, EventStatement, ExpressionStatement, IfStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/utils.ts";
-import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, IfBlock } from "./codeBlock.ts";
+import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, IfBlock, SubActionBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
@@ -588,6 +588,22 @@ export class CodeCompiler {
                 // TODO: while stuff
             } else {
                 return s.chunk.statements.map(this.compileStatement).flat();
+            }
+        }
+        else if (s instanceof RepeatStatement) {
+            // TODO: repeat (line i to x)
+            if (s.countExpression) {
+            } 
+            // repeat forever
+            else {
+                return [
+                    new SubActionBlock(DFCodeblockName.REPEAT,{
+                        action: "Forever",
+                    }),
+                    new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.REPEAT}),
+                        ...s.chunk.statements.map(this.compileStatement).flat(),
+                    new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.REPEAT}),
+                ]
             }
         }
         return [];
