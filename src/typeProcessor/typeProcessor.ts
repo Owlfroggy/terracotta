@@ -434,8 +434,6 @@ export class TypeProcessor {
     }
 
     evaluateExplicitType(expression: TypeExpression, allowEllipses: boolean = false): Type {
-        if (expression == undefined) return Type.unknown;
-
         if (!allowEllipses && expression.ellipses){ 
             this.reportError(expression.ellipses, `Ellipses are not allowed here`);
         }
@@ -482,7 +480,7 @@ export class TypeProcessor {
                 );
             }
             return Type[name];
-        } else if (Type[name].constructsType) {
+        } else if (Type[name] && Type[name].constructsType) {
             let constructor = Type[name] as TypeConstructor<(...args: any[]) => Type>;
             if (constructor.subTypeCount == 0) {
                 this.reportError(
