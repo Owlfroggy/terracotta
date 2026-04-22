@@ -1,6 +1,6 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { ExpressionStatement, Statement } from "../ast/statement.ts";
+import { ExpressionStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
@@ -277,6 +277,26 @@ export class TypeProcessor {
         }
     }
 
+    applyStatementVariables(statement: Statement, frame: EnvironmentFrame) { 
+        // repeat counter var
+        if (statement instanceof RepeatStatement && statement.countExpression) {
+            let countExpression = statement.countExpression.getRealExpression();
+            if (
+                countExpression instanceof BinaryExpression 
+                && countExpression.operator.type == TokenType.TO
+            ) {
+                let varExpr = countExpression.left;
+                if (varExpr instanceof VariableExpression) {
+                    let varId = VariableId.get(
+                        VariableScope[TokenType[varExpr.scope.type]],
+                        varExpr.name.value
+                    );
+                    frame.registerVariable(varId, Type.num, statement.chunk.startPos);
+                }
+            }
+        }
+    }
+
     collectionStage(statements: Statement[], frame: EnvironmentFrame = this.globalFrame) {
         for (const statement of statements) {
             // variable assignments
@@ -305,8 +325,6 @@ export class TypeProcessor {
                     statement.endPos
                 );
             }
-
-
             //=- stuff below here is for entering child frames -=\\
             else {
                 for (const c of statement.children){ 
@@ -314,6 +332,7 @@ export class TypeProcessor {
                         let newFrame = frame.addChild(c);
                         this.framesByASTNode.set(statement, newFrame);
                         this.collectionStage(c.statements, newFrame);
+                        this.applyStatementVariables(statement, newFrame);
                     }
                 }
             }
