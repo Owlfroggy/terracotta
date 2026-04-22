@@ -143,13 +143,16 @@ export class GroupExpression extends Expression {
 export class ListExpression<T extends Expression = Expression> extends Expression {
     public hasTrailingDelimiter: boolean;
     constructor(
-        public opener: Token,
+        public opener: Token | null,
         public elements: T[],
         public closer: Token,
         /** If the list has a trailing delimiter, this will contain one entry more than the number of elements */
         public elementStartPositions: number[],
     ) {
-        super(opener.startPos, closer.endPos);
+        super(
+            opener ? opener.startPos : elements.length > 0 ? elements[0].startPos : closer.endPos, 
+            closer.endPos
+        );
         this.hasTrailingDelimiter = elementStartPositions.length > elements.length;
     }
 }

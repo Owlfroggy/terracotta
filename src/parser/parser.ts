@@ -77,8 +77,6 @@ export class Parser {
             [TokenType.AS,              {bp: BindingPower.TYPECAST, processor: this.parseTypecastExpression}],
 
             [TokenType.TO,              {bp: BindingPower.LOOP_KW,  processor: this.parseBinaryExpression}],
-            [TokenType.IN,              {bp: BindingPower.LOOP_KW,  processor: this.parseBinaryExpression}],
-            [TokenType.ON,              {bp: BindingPower.LOOP_KW,  processor: this.parseBinaryExpression}],
 
             [TokenType.OPEN_PAREN,      {bp: BindingPower.CALL,     processor: this.parseCallExpression}],
             [TokenType.DOT,             {bp: BindingPower.ACCESS,   processor: this.parseAccessExpression}],
@@ -375,10 +373,18 @@ export class Parser {
         );
     }
 
-    parseListExpression = (openerType: TokenType, closerType: TokenType, delimiter: TokenType): ListExpression => {
-        let [opener, openerFound] = this.expect(openerType);
+    /**
+     * @param openerType if null, no opener will be expected
+     */
+    parseListExpression = (openerType: TokenType | null, closerType: TokenType | TokenType[], delimiter: TokenType): ListExpression => {
+        let opener: Token | null = null;
+        if (openerType) {
+            let [o, _] = this.expect(openerType);
+            opener = o;
+        }
+
         let elements: Expression[] = [];
-        let elementStartPositions: number[] = [opener.endPos];
+        let elementStartPositions: number[] = [opener?.endPos ?? this.currentToken().startPos];
         while (
             this.currentToken().type != closerType 
             && !this.isLineDelimiter(this.currentToken())
@@ -392,7 +398,7 @@ export class Parser {
                 elementStartPositions.push(delimiterToken.endPos);
             }
         }
-        let [closer, closerFound] = this.expect(closerType);
+        let [closer, closerFound] = this.expectOrMissing(closerType);
         return new ListExpression(opener, elements, closer, elementStartPositions);
     }
     
@@ -621,12 +627,15 @@ export class Parser {
     parseForStatement = (): ForStatement | null => {
         let keyword = this.consume();
 
-        let header = this.parseGroupExpression(BindingPower.DEFAULT);
+        let [openParen, openParenFound] = this.expect(TokenType.OPEN_PAREN);
+        if (!openParenFound) return null;
 
+        let variableList = this.parseListExpression(null, TokenType.OF, TokenType.COMMA);
+        let iteratorExpression = this.parseExpression(BindingPower.DEFAULT);
+        let [closeParen, closeParenFound] = this.expectOrMissing(TokenType.CLOSE_PAREN);
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
-        if (chunk == null) return null;
 
-        return new ForStatement(keyword, header, chunk);
+        return new ForStatement(keyword, openParen, variableList, iteratorExpression, closeParen, chunk);
     }
 
     parseRepeatStatement = (): RepeatStatement | null => {

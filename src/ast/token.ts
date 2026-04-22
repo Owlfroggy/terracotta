@@ -46,8 +46,7 @@ export enum TokenType {
     AS,
 
     TO,
-    IN,
-    ON,
+    OF,
 
     SELECT,
     FILTER,

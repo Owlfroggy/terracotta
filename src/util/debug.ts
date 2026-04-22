@@ -135,7 +135,7 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof GroupExpression) {
         return recurse(e.expression);
     } else if (e instanceof ListExpression) {
-        return `${e.opener.value}${e.elements.map(visualizeExpression).join(", ")}${e.opener.value == "[" ? "]" : ")"}`
+        return `${e.opener?.value ?? ""}${e.elements.map(visualizeExpression).join(", ")}${recurse(e.closer)}`
     } else if (e instanceof DictionaryEntryExpression) {
         let key;
         if (e.key instanceof Token || (e.key instanceof GroupExpression && e.key.expression instanceof BinaryExpression)) {
@@ -178,7 +178,7 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof ProcessStatement) {
         return `process ${recurse(e.name)}${recurse(e.args)} ${recurse(e.chunk)}`
     } else if (e instanceof ForStatement) {
-        return `for ${recurse(e.headerExpression)} ${recurse(e.chunk)}`;
+        return `for (${e.variableList.elements.map(v=>recurse(v)).join(", ")} ${recurse(e.variableList.closer)} ${recurse(e.iteratorExpression)}${recurse(e.closer)} ${recurse(e.chunk)}`;
     } else if (e instanceof RepeatStatement) {
         return `repeat${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
     } else if (e instanceof IfStatement) {
