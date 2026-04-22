@@ -434,6 +434,8 @@ export class TypeProcessor {
     }
 
     evaluateExplicitType(expression: TypeExpression, allowEllipses: boolean = false): Type {
+        if (expression == undefined) return Type.unknown;
+
         if (!allowEllipses && expression.ellipses){ 
             this.reportError(expression.ellipses, `Ellipses are not allowed here`);
         }
