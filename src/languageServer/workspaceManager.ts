@@ -32,7 +32,7 @@ export class WorkspaceManager {
         typeProcessor.collectionStage(ast);
         typeProcessor.evaluationStage();
 
-        let compiler = new CodeCompiler(ast, {types: typeProcessor, optimizationsEnabled: true});
+        let compiler = new CodeCompiler(ast, {types: typeProcessor, optimizationsEnabled: false});
         this.compiler = compiler;
         compiler.ast = ast;
         try {
