@@ -34,7 +34,8 @@ export const OVERRIDES: {
             "SetTabListInfo": "setTabListInfo",
             "SetPlayerWeather": "setWeather",
             "SetPlayerTime": "setTime",
-            "AttackAnimation": "sendAttackAnimation"
+            "AttackAnimation": "sendAttackAnimation",
+            "SetMaxHealth": "setMaxHealth",
         },
         "ENTITY ACTION": {
             "SetBaby": "setIsBaby",
