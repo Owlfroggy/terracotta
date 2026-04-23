@@ -275,3 +275,12 @@ export function ensurePCodeness(value: string | PCode[]): PCode[] {
         return value;
     }
 }
+
+export function allAreCompTimeConstant(args: CodeValue[]) {
+    for (const arg of args) {
+        if (!arg.isCompileTimeConstant()) {
+            return false;
+        }
+    }
+    return true;
+}
