@@ -77,13 +77,13 @@ export class ForStatement extends Statement {
         public keyword: Token,
         public opener: Token,
         public variableList: ListExpression,
-        public iteratorExpression: Expression,
+        public iteratorExpression: Expression | null,
         public closer: Token,
         public chunk: ChunkExpression | null,
     ) {
         super(
             keyword.startPos,
-            chunk?.endPos ?? closer.endPos
+            chunk?.endPos ?? (closer.type == TokenType.MISSING ? null : closer.endPos) ?? iteratorExpression?.endPos ?? variableList.endPos
         );
     }
 }

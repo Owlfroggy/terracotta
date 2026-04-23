@@ -376,7 +376,7 @@ export class Parser {
     /**
      * @param openerType if null, no opener will be expected
      */
-    parseListExpression = (openerType: TokenType | null, closerType: TokenType | TokenType[], delimiter: TokenType): ListExpression => {
+    parseListExpression = (openerType: TokenType | null, closerType: TokenType | TokenType[], delimiter: TokenType, exitIfNoDelimiter: boolean = false): ListExpression => {
         let opener: Token | null = null;
         if (openerType) {
             let [o, _] = this.expect(openerType);
@@ -394,6 +394,9 @@ export class Parser {
             expr.attachedComments.push(...comments);
             elements.push(expr);
             if (this.currentToken().type != closerType) {
+                if (exitIfNoDelimiter && this.currentToken().type != delimiter) {
+                    break;
+                }
                 let [delimiterToken, delimiterFound] = this.expect(delimiter);
                 elementStartPositions.push(delimiterToken.endPos);
             }
@@ -630,10 +633,17 @@ export class Parser {
         let [openParen, openParenFound] = this.expect(TokenType.OPEN_PAREN);
         if (!openParenFound) return null;
 
-        let variableList = this.parseListExpression(null, TokenType.OF, TokenType.COMMA);
-        let iteratorExpression = this.parseExpression(BindingPower.DEFAULT);
+        let variableList = this.parseListExpression(null, TokenType.OF, TokenType.COMMA, true);
+
+        let iteratorExpression: Expression | null = null;
+        if (variableList.closer.type == TokenType.OF)
+            iteratorExpression = this.parseExpression(BindingPower.DEFAULT);
+
         let [closeParen, closeParenFound] = this.expectOrMissing(TokenType.CLOSE_PAREN);
-        let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
+
+        let chunk: ChunkExpression | null = null;
+        if (closeParenFound)
+            chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
 
         return new ForStatement(keyword, openParen, variableList, iteratorExpression, closeParen, chunk);
     }
