@@ -7,7 +7,7 @@ import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, GroupExpression, ListExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
 import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
-import { DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
+import { Definition, DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
 import { EnvironmentFrame, TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { EventStatement, ForStatement, RepeatStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
@@ -18,6 +18,7 @@ import { DFCodeblockName, DFRank } from "../df/constants.ts";
 import { OVERRIDES } from "../data/overrides.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
+import { brotliDecompress } from "node:zlib";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -53,35 +54,35 @@ type CompletionItemData = {
 export let slog = (...data: any[]) => {}
 export let snotif = (message: string, type: MessageType = MessageType.Info) => {}
 
-function generateNamespaceMemberCompletions(namespace: Namespace): CompletionItem[] {
-    let items: CompletionItem[] = [];
-    for (let [name, def] of Object.entries(namespace.members)) {
-        if (def.definitionType == DefinitionType.FUNCTION) {
-            // let isUnusable = !AD.RankCheck(tcConfig.dfRank,action?.RequiresRank!)
-            // if (isUnusable && tcConfig.rankBehavior == "hideInaccessible") { return }
-            items.push({
-                label: name,
-                kind: (def as any).compileIf ? CompletionItemKind.Property : CompletionItemKind.Method,
-                commitCharacters: ["("],
-                data: {
-                    type: CompletionItemType.FUNCTION,
-                    definition: def,
-                } as CompletionItemData,
-            })
-        }
-        else if (def.definitionType == DefinitionType.VALUE) {
-            items.push({
-                label: name,
-                kind: CompletionItemKind.Field,
-                commitCharacters: [";"],
-                data: {
-                    type: CompletionItemType.VALUE,
-                    definition: def,
-                } as CompletionItemData
-            })
+function generateDefinitionCompletion(name: string, def: Definition): CompletionItem {
+    if (def.definitionType == DefinitionType.FUNCTION) {
+        // let isUnusable = !AD.RankCheck(tcConfig.dfRank,action?.RequiresRank!)
+        // if (isUnusable && tcConfig.rankBehavior == "hideInaccessible") { return }
+        return {
+            label: name,
+            kind: (def as any).compileIf ? CompletionItemKind.Property : CompletionItemKind.Method,
+            commitCharacters: ["("],
+            data: {
+                type: CompletionItemType.FUNCTION,
+                definition: def,
+            } as CompletionItemData,
         }
     }
-    return items;
+    else {
+        return {
+            label: name,
+            kind: CompletionItemKind.Field,
+            commitCharacters: [";"],
+            data: {
+                type: CompletionItemType.VALUE,
+                definition: def,
+            } as CompletionItemData
+        }
+    }
+}
+
+function generateNamespaceMemberCompletions(namespace: Namespace): CompletionItem[] {    
+    return Object.entries(namespace.members).map(([name, def]) => generateDefinitionCompletion(name, def));
 }
 
 function generateVariableCompletions(envFrame: EnvironmentFrame, options: {explicitScope?: VariableScope, replaceString?: Token, doc?: TrackedDocument, excludeName?: string} = {}): CompletionItem[] {
@@ -654,6 +655,24 @@ export class LanguageServer {
                 items.push(...keywordCompletions);
                 // variables
                 items.push(...generateVariableCompletions(envFrame));
+                // for loop actions
+                let closestForLoop = node.getClosestAncestor(ForStatement);
+                if (
+                    closestForLoop
+                    && (
+                        node == closestForLoop.iteratorExpression
+                        || (node instanceof Token && node.parent == closestForLoop.iteratorExpression)
+                        || (node instanceof Token && node.parent instanceof AtomicExpression && node.parent.parent == closestForLoop.iteratorExpression)
+                    )
+                ) {
+                    items.push(...Object.entries(REPEAT_ACTIONS).map(
+                        ([name, data]) => {
+                            let item = generateDefinitionCompletion(name, data.def);
+                            item.sortText = "\u0001"+item.label;
+                            return item;
+                        }
+                    ));
+                }
             }
 
             slog ("Returned",items.length,"items")
