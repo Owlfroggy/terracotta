@@ -541,10 +541,14 @@ export class CodeCompiler {
                     action: "=",
                     args: [variable as VariableValue,value]
                 })]
-            } 
-
-            // all other expressions
-            else {
+            }
+            // wait 1 tick syntactic sugar
+            else if (e instanceof AtomicExpression && e.token.type == TokenType.IDENTIFIER && e.token.value == "wait") {
+                return [new ActionBlock(DFCodeblockName.CONTROL,{
+                    action: "Wait"
+                })];
+            } else {
+                // all other expressions
                 let [_, code] = this.compileExpression(e);
                 return code;
             }
