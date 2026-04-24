@@ -4,7 +4,7 @@ import { Type } from "../typeProcessor/type.ts";
 import { ParameterSignature, ParameterSignatureEntry } from "../compiler/namespace/definition.ts";
 import { BinaryExpression, CallExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
-import { CodeValue, MissingValue, NumberValue, VariableValue } from "../compiler/codeValue.ts";
+import { CodeValue, MissingValue, NumberValue, TangibleValue, VariableValue } from "../compiler/codeValue.ts";
 import { EvaluationContext } from "../compiler/codeCompiler.ts";
 import { slog } from "../languageServer/languageServer.ts";
 import { ASTNode } from "../ast/astNode.ts";
@@ -164,7 +164,13 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression, s
                 tooManyArguments = true;
                 break;
             };
-            if (!param.type.matches(Type.any) && !param.type.matches(argTypes[argIndex]) && !(args[argValueIndex] instanceof MissingValue)) {
+            if (args[argValueIndex] instanceof MissingValue) {
+                // dont error for missing values
+            }
+            else if (!(args[argValueIndex] instanceof TangibleValue)) {
+                errors.push([argExpressions[argIndex],`${args[argValueIndex].constructor.name} cannot be passed to functions`]);
+            }
+            else if (!param.type.matches(Type.any) && !param.type.matches(argTypes[argIndex]) && !(args[argValueIndex] instanceof MissingValue)) {
                 errors.push([argExpressions[argIndex], `Expected ${param.type.name} for parameter '${param.name}', got ${argTypes[argIndex].name}`]);
             }
             unfilledRequiredParams.delete(param);
