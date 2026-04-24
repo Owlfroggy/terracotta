@@ -99,7 +99,7 @@ export class Operations {
 
         let leftType = left.getType(ctx.types);
         let rightType = right.getType(ctx.types);
-        let def = this.getBinaryDefinition(leftType, op.type, rightType);
+        let def = this.getBinaryDefinition(leftType, opType, rightType);
 
         if (!def) {
             ctx.reportError(
