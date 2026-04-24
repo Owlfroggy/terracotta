@@ -709,16 +709,27 @@ export class CodeCompiler {
                 (headerCode[headerCode.length-1] as ActionBlock).args.unshift(...varValues) // add vars
                 code.push(...headerCode)
             }
-            // TODO: iterate over lists, dicts
             else {
                 let [iteratorValue, iteratorValueCode] = this.compileExpression(iteratorExpr);
-                if (!(iteratorValue instanceof MissingValue)) {
-                    this.reportError(
-                        iteratorExpr,
-                        `Cannot iterate over type '${iteratorValue.getType(this.env.types).name}'`
-                    );
+                code.push(...iteratorValueCode);
+                
+                // iterate over lists & dicts
+                if (iteratorValue.getType(this.env.types).matches(Type.list) && iteratorValue instanceof TangibleValue) { 
+                    code.push(new ActionBlock(DFCodeblockName.REPEAT, {
+                        action: "ForEach",
+                        args: [...varValues, iteratorValue]
+                    }));
                 }
-                return [];
+                // error for uniterable type     (is uniterable a word?? probably moreso than initerable)
+                else {
+                    if (!(iteratorValue instanceof MissingValue)) {
+                        this.reportError(
+                            iteratorExpr,
+                            `Cannot iterate over type '${iteratorValue.getType(this.env.types).name}'`
+                        );
+                    }
+                    return [];
+                }
             }
 
             if (s.variableList.elements.length != 0 && s.variableList.elements.length != expectedVars) {
