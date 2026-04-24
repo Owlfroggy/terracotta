@@ -16,6 +16,8 @@ import { getActionDocumentation, getEventDocumentation, getValueDocumentation, v
 import { matchArgsToParams, valueToTCString } from "../util/utils.ts";
 import { DFCodeblockName, DFRank } from "../df/constants.ts";
 import { OVERRIDES } from "../data/overrides.ts";
+import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
+import { isForLoopActionCall } from "../util/astUtils.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -190,9 +192,21 @@ function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFram
     }
     if (!(callNode instanceof CallExpression)) return [null, null];
     
+    let closestForLoop = callNode.getClosestAncestor(ForStatement);
+
     let calleeType = typeProcessor.evaluateExpression(callNode.callee, envFrame);
     let definition: FunctionDefinition | null = null;
-    if (calleeType.name == "func") {
+    // special for loop actions
+    if (
+        closestForLoop 
+        && closestForLoop?.iteratorExpression 
+        && (callNode == closestForLoop.iteratorExpression || callNode.isChildOf(closestForLoop.iteratorExpression))
+        && isForLoopActionCall(callNode)
+    ) {
+        definition = REPEAT_ACTIONS[callNode.callee.token.value]!.def;
+    } 
+    // normal functions
+    else if (calleeType.name == "func") {
         definition = (calleeType.data as FuncTypeData).definition
     } else if (calleeType.name == "namespace") {
         definition = (calleeType.data as NamespaceTypeData).namespace.nameFunction ?? null;
