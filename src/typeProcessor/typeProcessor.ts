@@ -8,6 +8,7 @@ import { FuncTypeData, NamespaceTypeData, Type, TypeConstructor } from "./type.t
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { ps } from "../util/utils.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
+import { isForLoopActionCall } from "../util/astUtils.ts";
 
 export enum VariableScope {
     SAVED,
@@ -302,12 +303,7 @@ export class TypeProcessor {
 
             let varExprs = statement.variableList.elements;
             let iteratorExpr = statement.iteratorExpression?.getRealExpression();
-            if (
-                iteratorExpr instanceof CallExpression 
-                && iteratorExpr.callee instanceof AtomicExpression
-                && iteratorExpr.callee.token.type == TokenType.IDENTIFIER
-                && iteratorExpr.callee.token.value in REPEAT_ACTIONS
-            ) {
+            if (isForLoopActionCall(iteratorExpr)) {
                 varTypes.push(REPEAT_ACTIONS[iteratorExpr.callee.token.value].returnType);
             }
 

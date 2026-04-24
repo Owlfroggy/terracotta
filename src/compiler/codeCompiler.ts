@@ -18,6 +18,7 @@ import { DFCodeblockName } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
 import { count } from "node:console";
 import { REPEAT_ACTIONS } from "./namespace/builtins.ts";
+import { isForLoopActionCall } from "../util/astUtils.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -701,12 +702,7 @@ export class CodeCompiler {
             let expectedVars: number = 1;
             let iteratorExpr = s.iteratorExpression.getRealExpression();
             // built-in actions
-            if (
-                iteratorExpr instanceof CallExpression 
-                && iteratorExpr.callee instanceof AtomicExpression
-                && iteratorExpr.callee.token.type == TokenType.IDENTIFIER
-                && iteratorExpr.callee.token.value in REPEAT_ACTIONS
-            ) {
+            if (isForLoopActionCall(iteratorExpr)) {
                 let definition = REPEAT_ACTIONS[iteratorExpr.callee.token.value].def;
                 let [_, headerCode] = this.compileCallExpression(iteratorExpr, definition);
                 // TODO: error for incorrect # of vars
