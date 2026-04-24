@@ -81,7 +81,23 @@ export class Type {
                     return `list[${genericType}]`;
                 }
             }
-            return new Type('list', {getMemberType, stringify, data: {genericType, indexTypes}});
+            let strictMatchCallback = (other: Type) => {
+                if (other.matches(Type.list)) {
+                    let otherData = other.data as ListTypeData;
+                    // make sure theres the same number of index types
+                    if (indexTypes.length != otherData.indexTypes.length)
+                        return false;
+                    // make sure the index types all match
+                    for (let i = 0; i < indexTypes.length; i++) {
+                        if (!indexTypes[i].strictlyMatches(otherData.indexTypes[i]))
+                            return false;
+                    }
+                    // make sure generic type matches
+                    return genericType.strictlyMatches(otherData.genericType);
+                }
+                return false;
+            }
+            return new Type('list', {getMemberType, strictMatchCallback, stringify, data: {genericType, indexTypes}});
         }
     );
 
@@ -119,13 +135,15 @@ export class Type {
 
     constructor(
         public readonly name: string,
-        {getMemberType, stringify, data = null}: {
+        {getMemberType, strictMatchCallback, stringify, data = null}: {
             getMemberType?: (member?: string | number) => Type,
+            strictMatchCallback?: (other: Type) => boolean,
             stringify?: () => string,
             data?: ExtraData
         } = {}
     ) {
         if (getMemberType) this.getMemberType = getMemberType;
+        if (strictMatchCallback) this.strictlyMatches = strictMatchCallback;
         if (stringify) {
             this.toString = stringify;
             this[Symbol.toPrimitive] = stringify;
@@ -138,7 +156,14 @@ export class Type {
     }
     [Symbol.toPrimitive] = this.toString;
 
+    /** Only compares type names, does not compare contents/generic subtypes */
     matches = (other: Type | TypeConstructor<(...args: any[]) => Type>) => {
         return this.name == ((other as any).constructsType ?? other.name);
     };
+
+    // this method is overridden by types that have subtypes
+    /** Does take subtypes into account */
+    strictlyMatches = (other: Type) => {
+        return this.matches(other)
+    }
 }
