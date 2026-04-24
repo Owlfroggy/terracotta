@@ -9,7 +9,7 @@ import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts"
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
 import { EnvironmentFrame, TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { EventStatement, RepeatStatement } from "../ast/statement.ts";
+import { EventStatement, ForStatement, RepeatStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { StringExtraData, Token, TokenType } from "../ast/token.ts";
 import { getActionDocumentation, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
@@ -300,13 +300,19 @@ export class LanguageServer {
                     queryVarId = VariableId.get(VariableScope[TokenType[node.parent.scope.type]], node.value);
 
                     let closestGroup = node.getClosestAncestor(GroupExpression);
+                    let closestList = node.getClosestAncestor(ListExpression);
 
                     // if this variable is being assigned to something, query after the assignment has been completed
                     if (node.parent.parent instanceof BinaryExpression && node.parent.parent.operator.type == TokenType.EQUALS ){ 
                         queryPosition = node.parent.parent.endPos+1;
                     }
+                    // repeat (var to ...)
                     else if (closestGroup && closestGroup.keyInParent == "countExpression" && closestGroup.parent instanceof RepeatStatement) {
                         queryPosition = closestGroup.parent.chunk.startPos+1;
+                    }
+                    // for (var of ...)
+                    else if (closestList && closestList.keyInParent == "variableList" && closestList.parent instanceof ForStatement && closestList.parent.chunk) {
+                        queryPosition = closestList.parent.chunk.startPos+1;
                     }
                 }
 
