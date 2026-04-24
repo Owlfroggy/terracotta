@@ -289,11 +289,7 @@ export class TypeProcessor {
             ) {
                 let varExpr = countExpression.left;
                 if (varExpr instanceof VariableExpression) {
-                    let varId = VariableId.get(
-                        VariableScope[TokenType[varExpr.scope.type]],
-                        varExpr.name.value
-                    );
-                    frame.registerVariable(varId, Type.num, statement.chunk.startPos);
+                    frame.registerVariable(varExpr.getVarId(), Type.num, statement.chunk.startPos);
                 }
             }
         }
@@ -310,11 +306,7 @@ export class TypeProcessor {
             for (let i = 0; i < varExprs.length; i++) {
                 let varExpr = varExprs[i];
                 if (!(varExpr instanceof VariableExpression)) continue;
-                let varId = VariableId.get(
-                    VariableScope[TokenType[varExpr.scope.type]],
-                    varExpr.name.value
-                );
-                frame.registerVariable(varId, varTypes[i] ?? Type.any, statement.chunk.startPos);
+                frame.registerVariable(varExpr.getVarId(), varTypes[i] ?? Type.any, statement.chunk.startPos);
             }
         }
     }

@@ -1,6 +1,7 @@
+import { VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { ASTNode, CommentHolder } from "./astNode.ts";
 import { Statement } from "./statement.ts";
-import { Token } from "./token.ts";
+import { Token, TokenType } from "./token.ts";
 
 export class Expression extends ASTNode implements CommentHolder {
     attachedComments: Token[] = [];
@@ -33,6 +34,13 @@ export class VariableExpression extends Expression {
         public name: Token,
         public assignedType: TypeAssignmentExpression | null,
     ) {super(scope.startPos, assignedType ? assignedType.endPos : name.endPos);}
+
+    getVarId() {
+        return VariableId.get(
+            VariableScope[TokenType[this.scope.type]],
+            this.name.value
+        )
+    }
 }
 
 export class TypeExpression extends Expression {

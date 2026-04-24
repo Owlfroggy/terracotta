@@ -312,7 +312,7 @@ export class LanguageServer {
                 let queryPosition = node.endPos;
                 if (node.parent instanceof VariableExpression) {
                     // if the scope is specified here, use that when looking up the var
-                    queryVarId = VariableId.get(VariableScope[TokenType[node.parent.scope.type]], node.value);
+                    queryVarId = node.parent.getVarId();
 
                     let closestGroup = node.getClosestAncestor(GroupExpression);
                     let closestList = node.getClosestAncestor(ListExpression);
