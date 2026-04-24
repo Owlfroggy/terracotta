@@ -1,7 +1,7 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { DoStatement, EventStatement, ExpressionStatement, ForStatement, IfStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
-import { TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
+import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, ps, upperFirst } from "../util/utils.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, IfBlock, SubActionBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
@@ -446,15 +446,11 @@ export class CodeCompiler {
             switch (e.type) {
                 // identifier resolution all happens here
                 case TokenType.IDENTIFIER: {
-                    let value = e.value;
-                    if (value in Namespace.registry) {
-                        let namespace = Namespace.registry[value];
-                        return [new NamespaceValue(namespace, e), []];
-                    }
-                    let frame = this.env.types.getNodeFrame(e);
-                    let varEntry = frame.getVariableEntry(e.value, e.startPos);
-                    if (varEntry) {
-                        return [new VariableValue(varEntry.id.name, varEntry.id.scope, varEntry.type ?? undefined, e), []];
+                    let resolved = this.env.types.resolveIdentifier(e);
+                    if (resolved instanceof Namespace) {
+                        return [new NamespaceValue(resolved, e), []];
+                    } else if (isVariableEntry(resolved)) {
+                        return [new VariableValue(resolved.id.name, resolved.id.scope, resolved.type ?? undefined, e), []];
                     }
                     this.reportError(
                         e,

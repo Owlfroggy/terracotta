@@ -9,6 +9,7 @@ import { Namespace } from "../compiler/namespace/namespace.ts";
 import { ps } from "../util/utils.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
+import { Definition } from "../compiler/namespace/definition.ts";
 
 export enum VariableScope {
     SAVED,
@@ -21,7 +22,7 @@ const SCOPE_PRIORITY = [VariableScope.LINE, VariableScope.LOCAL, VariableScope.G
 
 type Requirement = {item: VariableId | string, atPos: number};
 
-type VariableEntry = {
+export interface VariableEntry {
     id: VariableId,
     solved: boolean,
     type: Type | null,
@@ -29,6 +30,19 @@ type VariableEntry = {
     valueExpression: Expression | null,
     forLoopVarPos?: number,
     effectiveBeyondPosition: number
+}
+
+// this function is bad but i dont care
+export function isVariableEntry(obj): obj is VariableEntry {
+    return (
+        obj instanceof Object
+        && 'id' in obj
+        && 'solved' in obj
+        && 'type' in obj
+        && 'requirements' in obj
+        && 'valueExpression' in obj
+        && 'effectiveBeyondPosition' in obj
+    )
 }
 
 export class EnvironmentFrame {
@@ -228,6 +242,19 @@ export class TypeProcessor {
             ErrorType.TYPE_PROCESSOR,
             error
         ));
+    }
+
+    public resolveIdentifier(identifier: Token): Namespace | VariableEntry | Definition | null {
+        let value: string = identifier.value;
+        let frame: EnvironmentFrame = this.getNodeFrame(identifier);
+
+        let namespace = Namespace.registry[value];
+        if (namespace != undefined) return namespace;
+
+        let varEntry = frame.getVariableEntry(value, identifier.startPos);
+        if (varEntry != undefined) return varEntry;
+
+        return null;
     }
 
     getRequirements(expression: ASTNode, frame: EnvironmentFrame): Requirement[] {
@@ -430,10 +457,14 @@ export class TypeProcessor {
             let token = expression.token;
             switch (token.type) {
                 case TokenType.IDENTIFIER: {
-                    if (token.value in Namespace.registry) {
-                        return Type.namespace(Namespace.registry[token.value]);
+                    let resolved = this.resolveIdentifier(token);
+                    if (resolved instanceof Namespace) {
+                        return Type.namespace(resolved);
                     }
-                    return frame.getVariableType(token.value,token.startPos)
+                    else if (isVariableEntry(resolved) && resolved.type != null) {
+                        return resolved.type;
+                    }
+                    return Type.unknown;
                 };
                 case TokenType.NUMERIC_LITERAL: return Type.num;
                 case TokenType.STRING_LITERAL: return Type.str;
