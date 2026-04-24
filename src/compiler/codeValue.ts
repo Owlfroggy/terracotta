@@ -248,7 +248,6 @@ export class LocationValue extends TangibleValue {
 }
 
 export class VariableValue extends TangibleValue {
-    private readonly variableId: VariableId;
     public isTempVar: boolean = false;
 
     constructor(
@@ -268,7 +267,7 @@ export class VariableValue extends TangibleValue {
         if (!this.astNode) return Type.unknown;
         let frame = typeProcessor.getNodeFrame(this.astNode);
 
-        return frame.getVariableType(this.variableId, this.astNode?.startPos ?? Infinity);
+        return frame.getVariableType(this.getVarId(), this.astNode?.startPos ?? Infinity);
     }
 
     templateForm() {
