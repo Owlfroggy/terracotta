@@ -3,12 +3,12 @@ import { Type } from "../../typeProcessor/type.ts";
 import { allAreCompTimeConstant, validateArguments } from "../../util/utils.ts";
 import { ActionBlock } from "../codeBlock.ts";
 import { CodeValue, LocationValue, MissingValue, NumberValue, TangibleValue, VectorValue } from "../codeValue.ts";
-import { DefinitionType, FunctionDefinition } from "./definition.ts";
+import { DefinitionType, FunctionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 
 export const VEC_CONSTRUCTOR: FunctionDefinition = {
     definitionType: DefinitionType.FUNCTION,
     name: "vec",
-    returnType: Type.vec,
+    defaultReturnType: Type.vec,
     signatures: [
         {
             name: "normal",
@@ -25,7 +25,7 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
             ]
         },
     ],
-    // TODO: proper arg validation
+    getReturnType: USE_DEFAULT_RETURN_TYPE,
     compile(args, namedArgs, ctx, callNode) {
         let x: CodeValue, y: CodeValue, z: CodeValue;
 
@@ -65,7 +65,7 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
 export const LOC_CONSTRUCTOR: FunctionDefinition = {
     definitionType: DefinitionType.FUNCTION,
     name: "loc",
-    returnType: Type.loc,
+    defaultReturnType: Type.loc,
     signatures: [
         {
             params: [
@@ -77,6 +77,7 @@ export const LOC_CONSTRUCTOR: FunctionDefinition = {
             ]
         }
     ],
+    getReturnType: USE_DEFAULT_RETURN_TYPE,
     compile(args, namedArgs, ctx, callNode) {
         let tempVar = ctx.tvp.newTempVar(Type.loc);
 

@@ -9,7 +9,7 @@ import { Namespace } from "../compiler/namespace/namespace.ts";
 import { ps } from "../util/utils.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
-import { Definition, isFunctionDefinition } from "../compiler/namespace/definition.ts";
+import { Definition, FunctionDefinition, isFunctionDefinition } from "../compiler/namespace/definition.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
 import { slog } from "../languageServer/languageServer.ts";
 
@@ -522,15 +522,16 @@ export class TypeProcessor {
         }
         else if (expression instanceof CallExpression) {
             let calleeType = this.evaluateExpression(expression.callee);
+            let def: FunctionDefinition | null;
             if (calleeType.name == 'func') {
-                let data = calleeType.data as FuncTypeData
-                return data.definition.returnType ?? Type.unknown;
+                def = (calleeType.data as FuncTypeData).definition;
             }
             else if (calleeType.name == 'namespace') {
-                let data = calleeType.data as NamespaceTypeData;
-                return data.namespace.nameFunction?.returnType ?? Type.unknown;
+                def = (calleeType.data as NamespaceTypeData).namespace.nameFunction!;
+            } else {
+                return Type.unknown;
             }
-            return Type.unknown;
+            return def.getReturnType(expression.args.elements) ?? Type.unknown;
         }
         else if (expression instanceof BinaryExpression) {
             return Operations.evaluateBinaryType(

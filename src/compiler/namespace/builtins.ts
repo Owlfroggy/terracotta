@@ -3,7 +3,7 @@ import * as AD from "../../df/actiondump.ts";
 import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, NumberValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../codeBlock.ts";
 import { Type } from "../../typeProcessor/type.ts";
-import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition } from "./definition.ts";
+import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { LOC_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
@@ -101,8 +101,9 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         definitionType: DefinitionType.FUNCTION,
         name: functionName,
         signatures,
-        returnType: tcReturnType,
+        defaultReturnType: tcReturnType,
         action: actionDef,
+        getReturnType: USE_DEFAULT_RETURN_TYPE,
         compile: (args, namedArgs, ctx, callNode): [CodeValue, CodeBlock[]] => {
             let tags: ActionTagValue[] = [];
             // todo: default tag values
@@ -179,7 +180,8 @@ export function generateTagSpecifiedActionHook(functionName: string, codeblock: 
         definitionType: DefinitionType.FUNCTION,
         name: functionName,
         signatures,
-        returnType: tcReturnType,
+        defaultReturnType: tcReturnType,
+        getReturnType: USE_DEFAULT_RETURN_TYPE,
         compile: (args, namedArgs, ctx, callNode): [CodeValue, CodeBlock[]] => {
             let tags: ActionTagValue[] = [];
             // todo: default tag values

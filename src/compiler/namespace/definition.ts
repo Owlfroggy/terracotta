@@ -1,4 +1,4 @@
-import { AtomicExpression, CallExpression } from "../../ast/expression.ts";
+import { AtomicExpression, CallExpression, Expression } from "../../ast/expression.ts";
 import { Action, GameValue, Tag } from "../../df/actiondump.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { CodeBlock } from "../codeBlock.ts";
@@ -29,7 +29,8 @@ export interface FunctionDefinition {
     definitionType: DefinitionType.FUNCTION,
     name: string,
     signatures: ParameterSignature[],
-    returnType: Type | null,
+    defaultReturnType: Type | null,
+    getReturnType: (args: Expression[]) => Type | null,
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,
     // todo: signature
@@ -42,7 +43,7 @@ export interface FunctionDefinition {
  */
 export interface ConditionDefinition extends FunctionDefinition {
     /** Will always be Type.num */
-    returnType: Type,
+    defaultReturnType: Type,
     /** Should always return an EmptyValue */
     compileIf(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression): [CodeValue, CodeBlock[]];
 }
@@ -67,4 +68,8 @@ export function isValueDefinition(obj): obj is ValueDefinition {
         obj instanceof Object
         && obj.definitionType == DefinitionType.VALUE
     );
+}
+
+export function USE_DEFAULT_RETURN_TYPE(this: FunctionDefinition, args: Expression[]) {
+    return this.defaultReturnType
 }

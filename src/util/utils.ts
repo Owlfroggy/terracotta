@@ -2,7 +2,7 @@ import { pathToFileURL } from "node:url";
 import { FoldingRangeRefreshRequest, LSPErrorCodes, URI } from "vscode-languageserver";
 import { Type } from "../typeProcessor/type.ts";
 import { ParameterSignature, ParameterSignatureEntry } from "../compiler/namespace/definition.ts";
-import { BinaryExpression, CallExpression, Expression } from "../ast/expression.ts";
+import { AtomicExpression, BinaryExpression, CallExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
 import { CodeValue, MissingValue, NumberValue, TangibleValue, VariableValue } from "../compiler/codeValue.ts";
 import { EvaluationContext } from "../compiler/codeCompiler.ts";
@@ -12,6 +12,7 @@ import { argv } from "node:process";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../compiler/codeBlock.ts";
 import { DFCodeblockName } from "../df/constants.ts";
 import { PCode, SegmentPCode } from "../pcode/pcode.ts";
+import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 
 export function getOrCreateMapLayer<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {
@@ -289,4 +290,31 @@ export function allAreCompTimeConstant(args: CodeValue[]) {
         }
     }
     return true;
+}
+
+/**
+ * Intended for use in return type getters
+ * 
+ * Tags will only have an entry in the dict if they are set to a constant value.
+ */
+export function getTagsAndArgTypes(args: Expression[], types: TypeProcessor): [argTypes: Type[], tagConstants: {[name: string]: string}] {
+    let argTypes: Type[] = [];
+    let tagConstants: {[name: string]: string} = {};
+
+    for (const arg of args) {
+        if (
+            arg instanceof BinaryExpression 
+            && arg.operator.type == TokenType.EQUALS
+            && arg.left instanceof AtomicExpression
+            && arg.left.token.type == TokenType.IDENTIFIER
+            && arg.right instanceof AtomicExpression
+            && arg.right.token.type == TokenType.STRING_LITERAL
+        ) {
+            tagConstants[arg.left.token.value] = arg.right.token.value;
+        } else {
+            argTypes.push(types.evaluateExpression(arg, types.getNodeFrame(arg)));
+        }
+    }
+
+    return [argTypes, tagConstants];
 }
