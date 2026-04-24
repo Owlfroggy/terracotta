@@ -428,10 +428,10 @@ export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
     list: new Namespace('list', typeActionMembers('list')),
 };
 
-export const REPEAT_ACTIONS: {[tcName: string]: FunctionDefinition} = {
-    range: generateActionHook('range', DFCodeblockName.REPEAT, " Range "),
-    grid: generateActionHook('grid', DFCodeblockName.REPEAT, "Grid"),
-    adjacent: generateActionHook('grid', DFCodeblockName.REPEAT, "Adjacent"),
-    path: generateActionHook('path', DFCodeblockName.REPEAT, "Path"),
-    sphere: generateActionHook('sphere', DFCodeblockName.REPEAT, "Sphere"),
+export const REPEAT_ACTIONS: {[tcName: string]: {def: FunctionDefinition, returnType: Type}} = {
+    range:      {def: generateActionHook('range', DFCodeblockName.REPEAT, " Range "),   returnType: Type.num},
+    grid:       {def: generateActionHook('grid', DFCodeblockName.REPEAT, "Grid"),       returnType: Type.loc},
+    adjacent:   {def: generateActionHook('grid', DFCodeblockName.REPEAT, "Adjacent"),   returnType: Type.loc},
+    path:       {def: generateActionHook('path', DFCodeblockName.REPEAT, "Path"),       returnType: Type.loc},
+    sphere:     {def: generateActionHook('sphere', DFCodeblockName.REPEAT, "Sphere"),   returnType: Type.loc},
 }

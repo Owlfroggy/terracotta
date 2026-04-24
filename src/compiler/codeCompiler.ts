@@ -707,7 +707,7 @@ export class CodeCompiler {
                 && iteratorExpr.callee.token.type == TokenType.IDENTIFIER
                 && iteratorExpr.callee.token.value in REPEAT_ACTIONS
             ) {
-                let definition = REPEAT_ACTIONS[iteratorExpr.callee.token.value];
+                let definition = REPEAT_ACTIONS[iteratorExpr.callee.token.value].def;
                 let [_, headerCode] = this.compileCallExpression(iteratorExpr, definition);
                 // TODO: error for incorrect # of vars
                 (headerCode[headerCode.length-1] as ActionBlock).args.unshift(...varValues) // add vars

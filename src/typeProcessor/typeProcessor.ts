@@ -1,12 +1,13 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { ExpressionStatement, RepeatStatement, Statement } from "../ast/statement.ts";
+import { ExpressionStatement, ForStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
 import { FuncTypeData, NamespaceTypeData, Type, TypeConstructor } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { ps } from "../util/utils.ts";
+import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 
 export enum VariableScope {
     SAVED,
@@ -293,6 +294,31 @@ export class TypeProcessor {
                     );
                     frame.registerVariable(varId, Type.num, statement.chunk.startPos);
                 }
+            }
+        }
+        // for loop vars
+        else if (statement instanceof ForStatement && statement.iteratorExpression && statement.chunk) {
+            let varTypes: Type[] = [];
+
+            let varExprs = statement.variableList.elements;
+            let iteratorExpr = statement.iteratorExpression?.getRealExpression();
+            if (
+                iteratorExpr instanceof CallExpression 
+                && iteratorExpr.callee instanceof AtomicExpression
+                && iteratorExpr.callee.token.type == TokenType.IDENTIFIER
+                && iteratorExpr.callee.token.value in REPEAT_ACTIONS
+            ) {
+                varTypes.push(REPEAT_ACTIONS[iteratorExpr.callee.token.value].returnType);
+            }
+
+            for (let i = 0; i < varExprs.length; i++) {
+                let varExpr = varExprs[i];
+                if (!(varExpr instanceof VariableExpression)) continue;
+                let varId = VariableId.get(
+                    VariableScope[TokenType[varExpr.scope.type]],
+                    varExpr.name.value
+                );
+                frame.registerVariable(varId, varTypes[i] ?? Type.any, statement.chunk.startPos);
             }
         }
     }
