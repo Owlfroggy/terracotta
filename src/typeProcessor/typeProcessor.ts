@@ -434,7 +434,19 @@ export class TypeProcessor {
             }
         }
         else if (expression instanceof ListExpression) {
-            return Type.list(Type.any, expression.elements.map(elm => this.evaluateExpression(elm, frame)));
+            let elementTypes = expression.elements.map(elm => this.evaluateExpression(elm, frame));
+            let singleTypeList: boolean = true;
+            for (let i = 1; i < elementTypes.length; i++) {
+                if (!elementTypes[i].strictlyMatches(elementTypes[i-1])) {
+                    singleTypeList = false;
+                    break;
+                }
+            }
+            if (singleTypeList) {
+                return Type.list(elementTypes[0]);
+            } else {
+                return Type.list(Type.any, elementTypes);
+            }
         }
         else if (expression instanceof VariableExpression) {
             return frame.getVariableType(VariableId.fromExpression(expression), expression.startPos);
