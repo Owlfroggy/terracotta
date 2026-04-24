@@ -27,6 +27,7 @@ type VariableEntry = {
     type: Type | null,
     requirements: Requirement[], 
     valueExpression: Expression | null,
+    forLoopVarPos?: number,
     effectiveBeyondPosition: number
 }
 
@@ -50,6 +51,7 @@ export class EnvironmentFrame {
         effectiveBeyondPosition: number,
         requirements: Requirement[] = [], 
         valueExpression: Expression | null = null,
+        forLoopVarPos?: number,
     ) {
         let entry: VariableEntry = {
             id: id,
@@ -57,6 +59,7 @@ export class EnvironmentFrame {
             type: type,
             requirements: requirements,
             valueExpression: valueExpression,
+            forLoopVarPos: forLoopVarPos,
             effectiveBeyondPosition: effectiveBeyondPosition,
         }
         // TODO: update all these to use the new util function (im too lazy rn)
@@ -296,17 +299,29 @@ export class TypeProcessor {
         // for loop vars
         else if (statement instanceof ForStatement && statement.iteratorExpression && statement.chunk) {
             let varTypes: Type[] = [];
+            let requirements: Requirement[];
 
             let varExprs = statement.variableList.elements;
             let iteratorExpr = statement.iteratorExpression?.getRealExpression();
             if (isForLoopActionCall(iteratorExpr)) {
                 varTypes.push(REPEAT_ACTIONS[iteratorExpr.callee.token.value].returnType);
+                requirements = [];
+            }
+            else {
+                requirements = this.getRequirements(statement.iteratorExpression, frame);
             }
 
             for (let i = 0; i < varExprs.length; i++) {
                 let varExpr = varExprs[i];
                 if (!(varExpr instanceof VariableExpression)) continue;
-                frame.registerVariable(varExpr.getVarId(), varTypes[i] ?? Type.any, statement.chunk.startPos);
+                frame.registerVariable(
+                    varExpr.getVarId(), 
+                    varTypes[i] ?? null, 
+                    statement.chunk.startPos, 
+                    requirements, 
+                    statement.iteratorExpression, 
+                    i
+                );
             }
         }
     }
@@ -378,7 +393,17 @@ export class TypeProcessor {
                     if (!allRequirementsSolved) continue;
                     if (!entry.valueExpression) continue;
     
-                    entry.type = this.evaluateExpression(entry.valueExpression, frame);
+                    let exprType = this.evaluateExpression(entry.valueExpression, frame);
+                    if (entry.forLoopVarPos != undefined) {
+                        if (exprType.matches(Type.list) && entry.forLoopVarPos == 0) {
+                            entry.type = exprType.getMemberType();
+                        } else {
+                            entry.type = Type.unknown;
+                        }
+                    } else {
+                        entry.type = exprType;
+                    }
+
                     entry.solved = true;
                     newSolves++;
                 }
