@@ -313,9 +313,17 @@ export class TypeProcessor {
 
             for (let i = 0; i < varExprs.length; i++) {
                 let varExpr = varExprs[i];
-                if (!(varExpr instanceof VariableExpression)) continue;
+                let varId: VariableId | undefined;
+                if (varExpr instanceof VariableExpression) {
+                    varId = varExpr.getVarId();
+                } else if (varExpr instanceof AtomicExpression && varExpr.token.type == TokenType.IDENTIFIER) {
+                    let varEntry = frame.getVariableEntry(varExpr.token.value, varExpr.startPos);
+                    if (varEntry) varId = varEntry.id;
+                }
+                if (!varId) continue;
+
                 frame.registerVariable(
-                    varExpr.getVarId(), 
+                    varId, 
                     varTypes[i] ?? null, 
                     statement.chunk.startPos, 
                     requirements, 
