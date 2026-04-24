@@ -128,7 +128,6 @@ export class Parser {
             [TokenType.CONTINUE,            this.parseSingleKeywordStatement],
             [TokenType.ENDTHREAD,           this.parseSingleKeywordStatement],
             [TokenType.ENDALLTHREADS,       this.parseSingleKeywordStatement],
-            [TokenType.WAIT,                this.parseSingleKeywordStatement],
         ]);
     }
 
@@ -728,7 +727,7 @@ export class Parser {
     parseSingleKeywordStatement = (): SingleKeywordStatement => {
         let keyword = this.consume();
         let args: ListExpression | null = null;
-        if (keyword.type == TokenType.WAIT || keyword.type == TokenType.ENDALLTHREADS) {
+        if (keyword.type == TokenType.ENDALLTHREADS) {
             if (this.currentToken().type == TokenType.OPEN_PAREN) {
                 args = this.parseListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA)
             }

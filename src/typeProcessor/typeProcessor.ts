@@ -9,7 +9,9 @@ import { Namespace } from "../compiler/namespace/namespace.ts";
 import { ps } from "../util/utils.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
-import { Definition } from "../compiler/namespace/definition.ts";
+import { Definition, isFunctionDefinition } from "../compiler/namespace/definition.ts";
+import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
+import { slog } from "../languageServer/languageServer.ts";
 
 export enum VariableScope {
     SAVED,
@@ -251,6 +253,8 @@ export class TypeProcessor {
         let namespace = Namespace.registry[value];
         if (namespace != undefined) return namespace;
 
+        if (value in GLOBAL_SCOPE_INJECTIONS) return GLOBAL_SCOPE_INJECTIONS[value];
+
         let varEntry = frame.getVariableEntry(value, identifier.startPos);
         if (varEntry != undefined) return varEntry;
 
@@ -460,6 +464,9 @@ export class TypeProcessor {
                     let resolved = this.resolveIdentifier(token);
                     if (resolved instanceof Namespace) {
                         return Type.namespace(resolved);
+                    }
+                    else if (isFunctionDefinition(resolved)) {
+                        return Type.func(resolved);
                     }
                     else if (isVariableEntry(resolved) && resolved.type != null) {
                         return resolved.type;

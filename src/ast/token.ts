@@ -29,7 +29,6 @@ export enum TokenType {
     CONTINUE,
     ENDTHREAD,
     ENDALLTHREADS,
-    WAIT,
 
     GLOBAL,
     SAVED,

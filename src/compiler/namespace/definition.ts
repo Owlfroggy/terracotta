@@ -54,3 +54,17 @@ export interface ValueDefinition {
     gameValue?: GameValue,
     compile(ctx: EvaluationContext): [CodeValue, CodeBlock[]];
 }
+
+export function isFunctionDefinition(obj): obj is FunctionDefinition {
+    return (
+        obj instanceof Object
+        && obj.definitionType == DefinitionType.FUNCTION
+    );
+}
+
+export function isValueDefinition(obj): obj is ValueDefinition {
+    return (
+        obj instanceof Object
+        && obj.definitionType == DefinitionType.VALUE
+    );
+}

@@ -12,7 +12,7 @@ import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, Num
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
-import { DefinitionType, FunctionDefinition } from "./namespace/definition.ts";
+import { DefinitionType, FunctionDefinition, isFunctionDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
@@ -449,6 +449,8 @@ export class CodeCompiler {
                     let resolved = this.env.types.resolveIdentifier(e);
                     if (resolved instanceof Namespace) {
                         return [new NamespaceValue(resolved, e), []];
+                    } else if (isFunctionDefinition(resolved)) {
+                        return [new FunctionValue(resolved, e), []];
                     } else if (isVariableEntry(resolved)) {
                         return [new VariableValue(resolved.id.name, resolved.id.scope, resolved.type ?? undefined, e), []];
                     }

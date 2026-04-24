@@ -19,6 +19,7 @@ import { OVERRIDES } from "../data/overrides.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
 import { brotliDecompress } from "node:zlib";
+import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -168,7 +169,7 @@ const typeNameCompletions: CompletionItem[] = Object.entries(Type).map(([k, v]) 
 const keywordCompletions: CompletionItem[] = [
     "lscancel", "playerevent", "entityevent", "gameevent", "function", "process",
     "call", "start",
-    "return", "break", "continue", "endthread", "endallthreads", "wait",
+    "return", "break", "continue", "endthread", "endallthreads",
     "global", "saved", "local", "line",
     "for", "repeat", "if", "else", "while", "do",
     "as", "to", "in", "on",
@@ -177,6 +178,10 @@ const keywordCompletions: CompletionItem[] = [
     label: kw,
     kind: CompletionItemKind.Keyword
 }));
+
+const globalScopeInjectionCompletions: CompletionItem[] = Object.entries(GLOBAL_SCOPE_INJECTIONS).map(
+    ([name, def]) => generateDefinitionCompletion(name, def)
+);
 
 function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFrame: EnvironmentFrame, index: number): [callNode: CallExpression, definition: FunctionDefinition] | [null, null] {
     // find the function call this node is a part of, if there is one
@@ -194,9 +199,10 @@ function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFram
     if (!(callNode instanceof CallExpression)) return [null, null];
     
     let closestForLoop = callNode.getClosestAncestor(ForStatement);
-
+    
     let calleeType = typeProcessor.evaluateExpression(callNode.callee, envFrame);
     let definition: FunctionDefinition | null = null;
+    slog("calleeType");
     // special for loop actions
     if (
         closestForLoop 
@@ -653,6 +659,9 @@ export class LanguageServer {
                 }
                 // keywords
                 items.push(...keywordCompletions);
+
+                items.push(...globalScopeInjectionCompletions);
+
                 // variables
                 items.push(...generateVariableCompletions(envFrame));
                 // for loop actions
