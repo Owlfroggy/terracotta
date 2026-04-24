@@ -398,7 +398,7 @@ export class TypeProcessor {
                 for (const c of statement.children){ 
                     if (c instanceof ChunkExpression) {
                         let newFrame = frame.addChild(c);
-                        this.framesByASTNode.set(statement, newFrame);
+                        this.framesByASTNode.set(c, newFrame);
                         this.collectionStage(c.statements, newFrame);
                         this.applyStatementVariables(statement, newFrame);
                     }
