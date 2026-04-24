@@ -489,7 +489,7 @@ export class TypeProcessor {
                 }
             }
             if (singleTypeList) {
-                return Type.list(elementTypes[0]);
+                return Type.list(elementTypes[0] ?? Type.any);
             } else {
                 return Type.list(Type.any, elementTypes);
             }
