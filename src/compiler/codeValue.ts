@@ -248,7 +248,7 @@ export class LocationValue extends TangibleValue {
 }
 
 export class VariableValue extends TangibleValue {
-    readonly variableId: VariableId;
+    private readonly variableId: VariableId;
     public isTempVar: boolean = false;
 
     constructor(
@@ -256,9 +256,10 @@ export class VariableValue extends TangibleValue {
         public scope: VariableScope,
         private explicitType?: Type,
         astNode?: ASTNode
-    ) { 
-        super(astNode); 
-        this.variableId = VariableId.get(scope,name.toString());
+    ) { super(astNode); }
+
+    getVarId(): VariableId {
+        return VariableId.get(this.scope,this.name.toString());;
     }
 
     getType(typeProcessor: TypeProcessor): Type {

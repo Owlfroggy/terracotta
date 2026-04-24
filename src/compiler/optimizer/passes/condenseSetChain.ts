@@ -25,7 +25,7 @@ export function OPT_condenseSetChain(line: CodeBlock[], optimizer: CodeOptimizer
 
     let tempVar = actualSetBlock.args[0];
     if (!(tempVar instanceof VariableValue)) return false;
-    let usages = optimizer.findVariableUsages(line, tempVar.variableId, actualSetBlockIndex);
+    let usages = optimizer.findVariableUsages(line, tempVar.getVarId(), actualSetBlockIndex);
 
     let unneededSetBlockIndex: number | undefined, unneededSetBlock: ActionBlock | undefined;
     for (const u of usages) {
@@ -40,7 +40,7 @@ export function OPT_condenseSetChain(line: CodeBlock[], optimizer: CodeOptimizer
                 tempVar,
             ]
         }, u.blockIndex)
-        
+
         if (thisSetBlock != null) {
             // if there are multiple set blocks, dont bother trying to condense
             if (unneededSetBlock != undefined) {

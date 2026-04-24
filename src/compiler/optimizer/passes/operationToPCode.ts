@@ -45,7 +45,7 @@ export function OPT_operationToPCode(line: CodeBlock[], optimizer: CodeOptimizer
 
     let varToReplace = setBlock.args[0];
     if (!(varToReplace instanceof VariableValue)) return false;
-    let usages = optimizer.findVariableUsages(line, varToReplace.variableId, setBlockIndex+1);
+    let usages = optimizer.findVariableUsages(line, varToReplace.getVarId(), setBlockIndex+1);
     if (usages.length != 1) return false; //only condense if the var is used only once
 
     let codes: PCode[] = [];
@@ -56,7 +56,7 @@ export function OPT_operationToPCode(line: CodeBlock[], optimizer: CodeOptimizer
             expr = ensurePCodeness(arg.value);
         }
         else if (arg instanceof VariableValue) {
-            expr = [new VarPCode(ensurePCodeness(arg.name), undefined, undefined, arg.variableId)];
+            expr = [new VarPCode(ensurePCodeness(arg.name), undefined, undefined, arg.getVarId())];
         }
         else {
             throw new Error(`Cannot convert ${arg.constructor.name} to pcode`);

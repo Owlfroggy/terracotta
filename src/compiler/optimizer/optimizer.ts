@@ -116,7 +116,7 @@ export class CodeOptimizer {
             for (let a = 0; a < block.args.length; a++) {
                 let arg = block.args[a];
                 if (arg instanceof VariableValue) {
-                    if (arg.variableId == varId) {
+                    if (arg.getVarId() == varId) {
                         usages.push({blockIndex: i, argIndex: a});
                     }
                 }
