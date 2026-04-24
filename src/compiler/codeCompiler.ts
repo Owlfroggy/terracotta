@@ -1,8 +1,8 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { DoStatement, EventStatement, ExpressionStatement, IfStatement, RepeatStatement, Statement } from "../ast/statement.ts";
+import { DoStatement, EventStatement, ExpressionStatement, ForStatement, IfStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { getOrCreateDictLayer, getOrCreateMapLayer, upperFirst } from "../util/utils.ts";
+import { getOrCreateDictLayer, getOrCreateMapLayer, ps, upperFirst } from "../util/utils.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, IfBlock, SubActionBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
@@ -17,6 +17,7 @@ import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
 import { count } from "node:console";
+import { REPEAT_ACTIONS } from "./namespace/builtins.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -183,6 +184,52 @@ export class CodeCompiler {
         return declarationsToCompile;
     }
 
+    compileCallExpression(e: CallExpression, definition: FunctionDefinition): [CodeValue, CodeBlock[]] {
+        // parse args
+        let args: CodeValue[] = [];
+        let namedArgs: Map<AtomicExpression, CodeValue> = new Map();
+        let seenNames: {[name: string]: true} = {};
+        let argCode: CodeBlock[] = [];
+        for (const argNode of e.args.elements) {
+            //named arg
+            if (argNode instanceof BinaryExpression && argNode.operator.type == TokenType.EQUALS) {
+                let name = argNode.left;
+                if (!(name instanceof AtomicExpression && (name.token.type == TokenType.IDENTIFIER || name.token.type == TokenType.STRING_LITERAL))) {
+                    this.reportError(
+                        name,
+                        `Argument name must be an identifier or string literal`
+                    );
+                    continue;
+                }
+                if (name.token.value in seenNames) {
+                    this.reportError(
+                        argNode,
+                        `Argument '${name.token.value}' provided in multiple places`
+                    );
+                    continue;
+                }
+
+                seenNames[name.token.value] = true;
+
+                let [value, code] = this.compileExpression(argNode.right);
+                namedArgs.set(name, value);
+                argCode.push(...code);
+            } 
+            //normal arg
+            else {
+                let [value, code] = this.compileExpression(argNode);
+                args.push(value)
+                argCode.push(...code);
+            }
+            
+        }
+        // TODO: args
+        // TODO: handle return types
+        let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(), e);
+        value.astNode = e;
+        return [value, [...argCode, ...code]];
+    }
+
     compileExpression(e: Expression | Token): [CodeValue, CodeBlock[]] {
         // TODO: structure this and the compileStatement thing more like how the parser does stuff
         if (e instanceof BinaryExpression) {
@@ -221,49 +268,8 @@ export class CodeCompiler {
             }
 
             if (definition) {
-                // parse args
-                let args: CodeValue[] = [];
-                let namedArgs: Map<AtomicExpression, CodeValue> = new Map();
-                let seenNames: {[name: string]: true} = {};
-                let argCode: CodeBlock[] = [];
-                for (const argNode of e.args.elements) {
-                    //named arg
-                    if (argNode instanceof BinaryExpression && argNode.operator.type == TokenType.EQUALS) {
-                        let name = argNode.left;
-                        if (!(name instanceof AtomicExpression && (name.token.type == TokenType.IDENTIFIER || name.token.type == TokenType.STRING_LITERAL))) {
-                            this.reportError(
-                                name,
-                                `Argument name must be an identifier or string literal`
-                            );
-                            continue;
-                        }
-                        if (name.token.value in seenNames) {
-                            this.reportError(
-                                argNode,
-                                `Argument '${name.token.value}' provided in multiple places`
-                            );
-                            continue;
-                        }
-
-                        seenNames[name.token.value] = true;
-
-                        let [value, code] = this.compileExpression(argNode.right);
-                        namedArgs.set(name, value);
-                        argCode.push(...code);
-                    } 
-                    //normal arg
-                    else {
-                        let [value, code] = this.compileExpression(argNode);
-                        args.push(value)
-                        argCode.push(...code);
-                    }
-                   
-                }
-                // TODO: args
-                // TODO: handle return types
-                let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(), e);
-                value.astNode = e;
-                return [value, [...preCode, ...argCode, ...code]];
+                let [value, code] = this.compileCallExpression(e, definition);
+                return [value, [...preCode, ...code]];
             }
             else {
                 return [new MissingValue(e), [...preCode]];
@@ -662,6 +668,77 @@ export class CodeCompiler {
                     new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.REPEAT}),
                 ]
             }
+        }
+        else if (s instanceof ForStatement) {
+            let code: CodeBlock[] = []
+            let innerStatements = s.chunk?.statements.map(this.compileStatement).flat();
+
+            let varValues: VariableValue[] = [];
+
+            // validate variables
+            if (s.variableList.elements.length == 0) {
+                this.reportError(
+                    s.keyword,
+                    'For loops must specify at least one variable'
+                );
+            } else {
+                for (const expr of s.variableList.elements) {
+                    let [val, valCode] = this.compileExpression(expr);
+                    code.push(...valCode);
+                    if (val instanceof VariableValue && !val.isTempVar) {
+                        varValues.push(val);
+                    } else {
+                        this.reportError(
+                            expr,
+                            `Values on the left side of a for loop must be variables`
+                        );
+                    }
+                }
+            }
+
+            if (s.iteratorExpression == null) return [];
+
+            let expectedVars: number = 1;
+            let iteratorExpr = s.iteratorExpression.getRealExpression();
+            // built-in actions
+            if (
+                iteratorExpr instanceof CallExpression 
+                && iteratorExpr.callee instanceof AtomicExpression
+                && iteratorExpr.callee.token.type == TokenType.IDENTIFIER
+                && iteratorExpr.callee.token.value in REPEAT_ACTIONS
+            ) {
+                let definition = REPEAT_ACTIONS[iteratorExpr.callee.token.value];
+                let [_, headerCode] = this.compileCallExpression(iteratorExpr, definition);
+                // TODO: error for incorrect # of vars
+                (headerCode[headerCode.length-1] as ActionBlock).args.unshift(...varValues) // add vars
+                code.push(...headerCode)
+            }
+            // TODO: iterate over lists, dicts
+            else {
+                let [iteratorValue, iteratorValueCode] = this.compileExpression(iteratorExpr);
+                if (!(iteratorValue instanceof MissingValue)) {
+                    this.reportError(
+                        iteratorExpr,
+                        `Cannot iterate over type '${iteratorValue.getType(this.env.types).name}'`
+                    );
+                }
+                return [];
+            }
+
+            if (s.variableList.elements.length != 0 && s.variableList.elements.length != expectedVars) {
+                this.reportError(
+                    s.keyword,
+                    `Expected ${expectedVars} variable${ps(expectedVars)}, got ${s.variableList.elements.length}`
+                )
+            }
+
+            if (innerStatements == undefined) return [];
+            code.push(
+                new BracketBlock({type: BracketType.REPEAT, direction: BracketDirection.OPEN}),
+                    ...innerStatements,
+                new BracketBlock({type: BracketType.REPEAT, direction: BracketDirection.CLOSE}),
+            );
+            return code;
         }
         return [];
     }

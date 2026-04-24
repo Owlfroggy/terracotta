@@ -65,7 +65,10 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
     
             for (const values of groups) {
                 //if being assigned to a variable, exclude first var param from signature
-                if (values[0].type == DFValueType.VARIABLE && values[0].description == "Variable to set") {
+                if (
+                    values[0].type == DFValueType.VARIABLE 
+                    && (values[0].description == "Variable to set" || values[0].description.substring(0, 16) == "Gets the current")
+                ) {
                     values.shift()
                     if (values.length == 0) {
                         continue
@@ -424,3 +427,11 @@ export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
     loc: new Namespace('loc', typeActionMembers('loc'), LOC_CONSTRUCTOR),
     list: new Namespace('list', typeActionMembers('list')),
 };
+
+export const REPEAT_ACTIONS: {[tcName: string]: FunctionDefinition} = {
+    range: generateActionHook('range', DFCodeblockName.REPEAT, " Range "),
+    grid: generateActionHook('grid', DFCodeblockName.REPEAT, "Grid"),
+    adjacent: generateActionHook('grid', DFCodeblockName.REPEAT, "Adjacent"),
+    path: generateActionHook('path', DFCodeblockName.REPEAT, "Path"),
+    sphere: generateActionHook('sphere', DFCodeblockName.REPEAT, "Sphere"),
+}
