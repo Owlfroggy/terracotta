@@ -558,6 +558,14 @@ export const OVERRIDES: {
 
                 return Type.list(flatTypes[0]) ?? Type.list(Type.any);
             },
+            "GetSoundPitch": (args: Expression[], types: TypeProcessor) => {
+                let [_, tags] = getTagsAndArgTypes(args, types);
+                if (tags.returnValue == "Note (text)") {
+                    return Type.str;
+                } else {
+                    return Type.num;
+                }
+            },
 
             "String": Type.str,
             "TranslateColors": Type.str,

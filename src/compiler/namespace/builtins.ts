@@ -6,7 +6,7 @@ import { Type } from "../../typeProcessor/type.ts";
 import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
-import { LOC_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
+import { LOC_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
 import { expressionizeIfBlock, validateArguments } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
 import { slog } from "../../languageServer/languageServer.ts";
@@ -451,6 +451,7 @@ export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
     txt: new Namespace('txt', typeActionMembers('txt')),
     vec: new Namespace('vec', typeActionMembers('vec'), VEC_CONSTRUCTOR),
     loc: new Namespace('loc', typeActionMembers('loc'), LOC_CONSTRUCTOR),
+    snd: new Namespace('snd', typeActionMembers('snd'), SND_CONSTRUCTOR),
     list: new Namespace('list', typeActionMembers('list')),
 };
 

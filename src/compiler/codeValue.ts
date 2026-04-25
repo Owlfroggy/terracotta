@@ -251,6 +251,34 @@ export class LocationValue extends TangibleValue {
     }
 }
 
+export class SoundValue extends TangibleValue {
+    constructor(
+        public sound: string,
+        public pitch: number, 
+        public volume: number,
+        public isCustom: boolean,
+        public variant?: string,
+        astNode?: ASTNode,
+    ) { super(astNode) }
+
+    getType(typeProcessor: TypeProcessor): Type {
+        return Type.snd;
+    }
+
+    templateForm() {
+        return {
+            "id": "snd",
+            "data": {
+                "pitch": this.pitch,
+                "vol": this.volume,
+                "sound": this.isCustom ? undefined : this.sound,
+                "variant": this.variant,
+                "key": this.isCustom ? this.sound : undefined,
+            }
+        }
+    }
+}
+
 export class VariableValue extends TangibleValue {
     public isTempVar: boolean = false;
 
