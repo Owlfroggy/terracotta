@@ -570,7 +570,6 @@ export const OVERRIDES: {
             "SegmentString": Type.list(Type.str),
             "SplitString": Type.list(Type.str),
             "StringToBytes": Type.list(Type.num),
-            
 
             "StyledText": Type.txt,
 
