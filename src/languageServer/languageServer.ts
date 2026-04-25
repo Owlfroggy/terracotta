@@ -202,7 +202,7 @@ function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFram
     
     let calleeType = typeProcessor.evaluateExpression(callNode.callee, envFrame);
     let definition: FunctionDefinition | null = null;
-    
+
     // special for loop actions
     if (
         closestForLoop 
@@ -474,7 +474,7 @@ export class LanguageServer {
             }
             else if (data.type == CompletionItemType.TAG_NAME) {
                 let options = Object.entries(data.tag.options).map(([name, data]) => `\`${name}\`${data.description.length > 0 ? " - "+data.description : ""}`).join("\n\n")
-                documentation = `**${data.tag.name}**\n\nOptions: \n\n${options}`;
+                documentation = `${data.tag.name}\n\n**Options:** \n\n${options}\n\n**Default option:** \`${data.tag.defaultOption}\``;
             }
 
             item.documentation = {
