@@ -243,6 +243,7 @@ export function generateConditionHook(functionName: string, codeblock: DFCodeblo
         let [item, code] = def.compileIf(args, namedArgs, ctx, callNode);
         return expressionizeIfBlock(code, ctx);
     }
+    def.defaultReturnType = Type.num;
     return def
 }
 
