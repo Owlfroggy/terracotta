@@ -476,7 +476,9 @@ export class LanguageServer {
                 let options = Object.entries(data.tag.options).map(([name, data]) => `\`${name}\`${data.description.length > 0 ? " - "+data.description : ""}`).join("\n\n")
                 documentation = `${data.tag.name}\n\n**Options:** \n\n${options}\n\n**Default option:** \`${data.tag.defaultOption}\``;
             }
-
+            else if (data.type == CompletionItemType.TAG_OPTION) {
+                documentation = data.tag.options?.[data.option].description
+            }
             item.documentation = {
                 kind: "markdown",
                 value: documentation
