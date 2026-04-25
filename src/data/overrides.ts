@@ -528,6 +528,10 @@ export const OVERRIDES: {
                 else
                     return Type.num;
             },
+            "RandomizeList": (args: Expression[], types: TypeProcessor) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types);
+                return argTypes[0] ?? Type.list(Type.any);
+            },
 
             "String": Type.str,
             "TranslateColors": Type.str,
