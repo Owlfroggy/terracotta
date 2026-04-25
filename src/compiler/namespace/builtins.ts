@@ -52,6 +52,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
     else {
         // create a unique signature for every possible combination of arguments
         let uniqueSignatures: ParameterSignatureEntry[][] = [[]]
+        let varRemoved = false;
         for (const parameter of actionDef.parameters) {
             let groupIndex = -1
             let initialSignatureAmount = uniqueSignatures.length
@@ -74,22 +75,31 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                 return group;
             }).filter(group => group.length > 0);
     
+            let optionalModified = false;
             for (const values of groups) {
                 //if being assigned to a variable, exclude first var param from signature
                 if (
                     values[0].type == DFValueType.VARIABLE 
                     && (values[0].description == "Variable to set" || values[0].description.substring(0, 16) == "Gets the current")
                 ) {
-                    values.shift()
+                    varRemoved = true;
+                    values.shift();
                     if (values.length == 0) {
-                        continue
+                        continue;
                     }
+                }
+                // if the next parameter was marked as optional expecting the now removed
+                // variable to fill in for it, change it to be required
+                let forceRequired = false;
+                if (varRemoved && !optionalModified && values[0].optional && values[0].description.indexOf(" to ") != -1) {
+                    optionalModified = true;
+                    forceRequired = true;
                 }
     
                 let tcValues: ParameterSignatureEntry[] = values.map(v => ({
                     name: v.description,
                     type: dfTypeToTC.get(v.type) ?? Type.unknown,
-                    optional: forceOptional || v.optional,
+                    optional: forceRequired ? false : forceOptional || v.optional,
                     plural: v.plural,
                     description: ((v.notes.length > 0 ? v.notes.join("\n") : '') + noneDescriptionAddition).trim()
                 }));
