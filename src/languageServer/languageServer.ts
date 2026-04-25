@@ -202,7 +202,7 @@ function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFram
     
     let calleeType = typeProcessor.evaluateExpression(callNode.callee, envFrame);
     let definition: FunctionDefinition | null = null;
-    slog("calleeType");
+    
     // special for loop actions
     if (
         closestForLoop 
