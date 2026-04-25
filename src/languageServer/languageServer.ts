@@ -307,12 +307,13 @@ export class LanguageServer {
             if (index == undefined) return;
             let node = doc.getAstNodeAtIndex(index);
             if (node == null) return; // todo: this is bad
-            let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
+            let envFrameNode = node;
 
             // TODO: abstract documentation generation into its own function
             // and just hook into that
 
             // show variable type on hover
+            let kablongus = false;
             if (node instanceof Token && node.type == TokenType.IDENTIFIER) {
                 let queryVarId: string | VariableId = node.value;
                 let queryPosition = node.endPos;
@@ -329,15 +330,19 @@ export class LanguageServer {
                     }
                     // repeat (var to ...)
                     else if (closestGroup && closestGroup.keyInParent == "countExpression" && closestGroup.parent instanceof RepeatStatement) {
+                        envFrameNode = closestGroup.parent.chunk
                         queryPosition = closestGroup.parent.chunk.startPos+1;
                     }
                     // for (var of ...)
                     else if (closestList && closestList.keyInParent == "variableList" && closestList.parent instanceof ForStatement && closestList.parent.chunk) {
+                        envFrameNode = closestList.parent.chunk;
                         queryPosition = closestList.parent.chunk.startPos+1;
                     }
                 }
 
+                let envFrame = doc.workspace.typeProcessor.getNodeFrame(envFrameNode);
                 let varEntry = envFrame.getVariableEntry(queryVarId, queryPosition);
+                
                 if (!varEntry) return;
 
                 let name = node.value;
