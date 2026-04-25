@@ -509,18 +509,24 @@ export const OVERRIDES: {
         "SET VARIABLE": {
             " GetSignText ": (args: Expression[], types: TypeProcessor) => {
                 let [_, tags] = getTagsAndArgTypes(args, types);
-                if (tags?.signLine == "All lines")
+                if (tags.signLine == "All lines")
                     return Type.list(Type.txt);
                 else
                     return Type.txt;
             },
-
             "GetBlockType": (args: Expression[], types: TypeProcessor) => {
                 let [_, tags] = getTagsAndArgTypes(args, types);
-                if (tags?.returnValue == "Item")
+                if (tags.returnValue == "Item")
                     return Type.item;
                 else
                     return Type.str;
+            },
+            "CellularNoise": (args: Expression[], types: TypeProcessor) => {
+                let [_, tags] = getTagsAndArgTypes(args, types);
+                if (tags.returnType == "Origin")
+                    return Type.vec;
+                else
+                    return Type.num;
             },
 
             "String": Type.str,
