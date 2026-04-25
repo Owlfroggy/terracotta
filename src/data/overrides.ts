@@ -1,12 +1,14 @@
 import { Expression } from "../ast/expression.ts";
 import { ParameterSignature } from "../compiler/namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
+import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
+import { getTagsAndArgTypes } from "../util/utils.ts";
 
 export const OVERRIDES: {
     actionNames: {[codeblock: string]: {[dfName: string]: string}},
     tagNames: {[dfName: string]: string},
     gameValueNames: {[dfName: string]: string},
-    returnTypes: {[codeblock: string]: {[actionDFName: string]: Type | ((args: Expression[]) => Type | null) }}
+    returnTypes: {[codeblock: string]: {[actionDFName: string]: Type | ((args: Expression[], types: TypeProcessor) => Type | null) }}
     actionSignatures: {[codeblock: string]: {[actionDFName: string]: ParameterSignature[]}}
 } = {
     actionNames: {
@@ -505,6 +507,16 @@ export const OVERRIDES: {
     },
     returnTypes: {
         "SET VARIABLE": {
+            " GetSignText ": (args: Expression[], types: TypeProcessor) => {
+                let [_, tags] = getTagsAndArgTypes(args, types);
+                if (tags?.signLine == "All lines")
+                    return Type.list(Type.txt);
+                else
+                    return Type.txt;
+            },
+
+            
+
             "String": Type.str,
             "TranslateColors": Type.str,
 

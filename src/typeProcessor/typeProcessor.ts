@@ -531,7 +531,7 @@ export class TypeProcessor {
             } else {
                 return Type.unknown;
             }
-            return def.getReturnType(expression.args.elements) ?? Type.unknown;
+            return def.getReturnType(expression.args.elements, this) ?? Type.unknown;
         }
         else if (expression instanceof BinaryExpression) {
             return Operations.evaluateBinaryType(

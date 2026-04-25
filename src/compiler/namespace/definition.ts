@@ -1,6 +1,7 @@
 import { AtomicExpression, CallExpression, Expression } from "../../ast/expression.ts";
 import { Action, GameValue, Tag } from "../../df/actiondump.ts";
 import { Type } from "../../typeProcessor/type.ts";
+import { TypeProcessor } from "../../typeProcessor/typeProcessor.ts";
 import { CodeBlock } from "../codeBlock.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
 import { CodeValue } from "../codeValue.ts";
@@ -30,7 +31,7 @@ export interface FunctionDefinition {
     name: string,
     signatures: ParameterSignature[],
     defaultReturnType: Type | null,
-    getReturnType: (args: Expression[]) => Type | null,
+    getReturnType: (args: Expression[], types: TypeProcessor) => Type | null,
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,
     // todo: signature
@@ -70,6 +71,6 @@ export function isValueDefinition(obj): obj is ValueDefinition {
     );
 }
 
-export function USE_DEFAULT_RETURN_TYPE(this: FunctionDefinition, args: Expression[]) {
+export function USE_DEFAULT_RETURN_TYPE(this: FunctionDefinition, args: Expression[], types: TypeProcessor) {
     return this.defaultReturnType
 }

@@ -115,7 +115,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         defaultReturnType: tcReturnType,
         action: actionDef,
         getReturnType,
-        compile: (args, namedArgs, ctx, callNode): [CodeValue, CodeBlock[]] => {
+        compile(this: FunctionDefinition, args, namedArgs, ctx, callNode): [CodeValue, CodeBlock[]] {
             let tags: ActionTagValue[] = [];
             // todo: default tag values
 
@@ -170,7 +170,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             let returnValue: CodeValue;
 
             if (tcReturnType) {
-                returnValue = ctx.tvp.newTempVar(tcReturnType);
+                returnValue = ctx.tvp.newTempVar(this.getReturnType(callNode.args.elements, ctx.types) ?? Type.any);
                 code.args.unshift(returnValue as VariableValue);
             } else {
                 returnValue = new EmptyValue()
