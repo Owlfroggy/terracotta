@@ -47,6 +47,20 @@ export function isVariableEntry(obj): obj is VariableEntry {
     )
 }
 
+export function inferListTypeFromElements(elementTypes: Type[]): [genericType: Type, indexTypes: Type[] | undefined] {
+    let singleTypeList: boolean = true;
+    for (let i = 1; i < elementTypes.length; i++) {
+        if (!elementTypes[i].strictlyMatches(elementTypes[i-1])) {
+            singleTypeList = false;
+            break;
+        }
+    }
+    if (singleTypeList) {
+        return [elementTypes[0] ?? Type.any, undefined];
+    } else {
+        return [Type.any, elementTypes];
+    }
+}
 export class EnvironmentFrame {
     /** An empty environment frame with no variables for evaluating expressions in a vacuum */
     static readonly DUMMY = new EnvironmentFrame(null, null)
@@ -481,18 +495,7 @@ export class TypeProcessor {
         }
         else if (expression instanceof ListExpression) {
             let elementTypes = expression.elements.map(elm => this.evaluateExpression(elm, frame));
-            let singleTypeList: boolean = true;
-            for (let i = 1; i < elementTypes.length; i++) {
-                if (!elementTypes[i].strictlyMatches(elementTypes[i-1])) {
-                    singleTypeList = false;
-                    break;
-                }
-            }
-            if (singleTypeList) {
-                return Type.list(elementTypes[0] ?? Type.any);
-            } else {
-                return Type.list(Type.any, elementTypes);
-            }
+            return Type.list(...inferListTypeFromElements(elementTypes));
         }
         else if (expression instanceof VariableExpression) {
             return frame.getVariableType(VariableId.fromExpression(expression), expression.startPos);

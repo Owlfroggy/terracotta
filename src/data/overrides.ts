@@ -1,6 +1,6 @@
 import { Expression } from "../ast/expression.ts";
 import { ParameterSignature } from "../compiler/namespace/definition.ts";
-import { Type } from "../typeProcessor/type.ts";
+import { ListTypeData, Type } from "../typeProcessor/type.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { getTagsAndArgTypes } from "../util/utils.ts";
 
@@ -531,6 +531,32 @@ export const OVERRIDES: {
             "RandomizeList": (args: Expression[], types: TypeProcessor) => {
                 let [argTypes, _] = getTagsAndArgTypes(args, types);
                 return argTypes[0] ?? Type.list(Type.any);
+            },
+            // TODO: when index types are more fleshed out, represent them better here
+            "FlattenList": (args: Expression[], types: TypeProcessor) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types);
+                let flatTypes: Type[] = [];
+
+                if (argTypes.length == 0 || !argTypes[0].matches(Type.list)) 
+                    return Type.list(Type.any);
+
+                function recurse(type: Type) {
+                    let data = type.data as ListTypeData;
+                    if (data.genericType.matches(Type.list)) {
+                        recurse(data.genericType);
+                    } else {
+                        flatTypes.push(data.genericType);
+                    }
+                }
+                recurse(argTypes[0]);
+
+                for (let i = 1; i < flatTypes.length; i++) {
+                    if (!flatTypes[i-1].strictlyMatches(flatTypes[i])) {
+                        return Type.list(Type.any);
+                    }
+                }
+
+                return Type.list(flatTypes[0]) ?? Type.list(Type.any);
             },
 
             "String": Type.str,
