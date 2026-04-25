@@ -561,6 +561,16 @@ export const OVERRIDES: {
 
             "String": Type.str,
             "TranslateColors": Type.str,
+            "Base64Encode": Type.list(Type.num),
+            "Base64Decode": Type.list(Type.num),
+            "AllRegexGroups": Type.list(Type.str),
+            "NamedRegexGrps": Type.dict, // TODO: fill out subtype
+            "GzipCompress": Type.list(Type.num),
+            "GzipDecompress": Type.list(Type.num),
+            "SegmentString": Type.list(Type.str),
+            "SplitString": Type.list(Type.str),
+            "StringToBytes": Type.list(Type.num),
+            
 
             "StyledText": Type.txt,
 

@@ -447,6 +447,7 @@ function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition
 export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
     var: new Namespace('var', typeActionMembers('var')),
     num: new Namespace('num', {...typeActionMembers('num'), ...NUM_NAMESPACE_INJECTIONS}),
+    str: new Namespace('str', typeActionMembers('str')),
     vec: new Namespace('vec', typeActionMembers('vec'), VEC_CONSTRUCTOR),
     loc: new Namespace('loc', typeActionMembers('loc'), LOC_CONSTRUCTOR),
     list: new Namespace('list', typeActionMembers('list')),
