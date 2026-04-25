@@ -29,8 +29,12 @@ export class WorkspaceManager {
         let typeProcessor = new TypeProcessor();
         this.typeProcessor = typeProcessor;
         typeProcessor.errors.length = 0;
-        typeProcessor.collectionStage(ast);
-        typeProcessor.evaluationStage();
+        try {
+            typeProcessor.collectionStage(ast);
+            typeProcessor.evaluationStage();
+        } catch (e) {
+            snotif(`Internal type system error: ${inspect(e)}`)
+        }
 
         let compiler = new CodeCompiler(ast, {types: typeProcessor, optimizationsEnabled: false});
         this.compiler = compiler;

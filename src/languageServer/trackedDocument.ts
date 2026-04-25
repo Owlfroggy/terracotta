@@ -4,6 +4,8 @@ import { Lexer } from "../parser/lexer.ts";
 import { Parser } from "../parser/parser.ts";
 import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
+import { inspect } from "node:util";
+import { snotif } from "./languageServer.ts";
 
 export class TrackedDocument {
     contents: string;
@@ -80,8 +82,12 @@ export class TrackedDocument {
     }
 
     reparse() {
-        this.lexer.tokenize(this.contents, this.uri);
-        this.ast = this.parser.parse();
+        try {
+            this.lexer.tokenize(this.contents, this.uri);
+            this.ast = this.parser.parse();
+        } catch (e) {
+            snotif(`Internal parser error on doc ${this.uri}: ${inspect(e)}`)
+        }
         this.ast.scriptContents = "";
         this.ast.filePath = this.uri;
 
