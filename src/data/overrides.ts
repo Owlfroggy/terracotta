@@ -515,7 +515,13 @@ export const OVERRIDES: {
                     return Type.txt;
             },
 
-            
+            "GetBlockType": (args: Expression[], types: TypeProcessor) => {
+                let [_, tags] = getTagsAndArgTypes(args, types);
+                if (tags?.returnValue == "Item")
+                    return Type.item;
+                else
+                    return Type.str;
+            },
 
             "String": Type.str,
             "TranslateColors": Type.str,
