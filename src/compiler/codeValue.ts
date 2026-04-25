@@ -155,6 +155,10 @@ export class StringValue extends TangibleValue {
         };
     }
 
+    isCompileTimeConstant(): this is {value: string} {
+        return typeof this.value == "string";
+    }
+
     toString(): string {
         return `str('${this.value}')`;
     }
