@@ -31,6 +31,17 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
     let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
     let tcReturnType = dfReturnType ? dfTypeToTC.get(dfReturnType)! : null;
 
+    let getReturnType = USE_DEFAULT_RETURN_TYPE;
+    let returnTypeOverride = OVERRIDES.returnTypes[codeblock]?.[actionDFName]
+    if (returnTypeOverride) {
+        if (returnTypeOverride instanceof Type) {
+            tcReturnType = returnTypeOverride
+        } else {
+            tcReturnType = tcReturnType ?? Type.any;
+            getReturnType = returnTypeOverride;
+        }
+    }
+    
     //=- signature generation -=\\
     let signatures: ParameterSignature[];
     // if this signature has been manually specified, use that
@@ -103,7 +114,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         signatures,
         defaultReturnType: tcReturnType,
         action: actionDef,
-        getReturnType: USE_DEFAULT_RETURN_TYPE,
+        getReturnType,
         compile: (args, namedArgs, ctx, callNode): [CodeValue, CodeBlock[]] => {
             let tags: ActionTagValue[] = [];
             // todo: default tag values
