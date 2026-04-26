@@ -17,9 +17,11 @@ import { matchArgsToParams, valueToTCString } from "../util/utils.ts";
 import { DFCodeblockName, DFRank } from "../df/constants.ts";
 import { OVERRIDES } from "../data/overrides.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
-import { isForLoopActionCall } from "../util/astUtils.ts";
+import { posIndexIsInListElement, isForLoopActionCall } from "../util/astUtils.ts";
 import { brotliDecompress } from "node:zlib";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
+import { SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
+import { StringValue } from "../compiler/codeValue.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -54,6 +56,32 @@ type CompletionItemData = {
 //function that other things can call to log to the language server output when debugging
 export let slog = (...data: any[]) => {}
 export let snotif = (message: string, type: MessageType = MessageType.Info) => {}
+
+/**
+ * NOTE: The item passed into this should have the string's raw contents as its label.
+ * This function takes care of the stringification of said contents.
+ */
+function stringizeCompletionItem(item: CompletionItem, existingNode: ASTNode, doc: TrackedDocument) {
+    let extraStringData: StringExtraData | null = (existingNode instanceof Token && existingNode.type == TokenType.STRING_LITERAL) ? existingNode.getStringExtraData() : null;
+    let stringified = valueToTCString(item.label, extraStringData?.quoteChar ?? '"');
+    if (existingNode instanceof Token && existingNode.parent instanceof AtomicExpression && extraStringData?.isClosed) {
+        item.textEdit = {
+            range: {
+                start: doc.indexToLinePosition(existingNode.startPos), 
+                end: doc.indexToLinePosition(existingNode.endPos),
+                // start: param.position,
+                // end: param.position,
+            },
+            newText: stringified,
+        };
+        if (existingNode.type == TokenType.STRING_LITERAL) {
+            item.filterText = stringified//extraData.quoteChar + stringified + extraData.quoteChar;
+        }
+    } else {
+        item.insertText = valueToTCString(item.label);
+    }
+    return item;
+}
 
 function generateDefinitionCompletion(name: string, def: Definition): CompletionItem {
     if (def.definitionType == DefinitionType.FUNCTION) {
@@ -560,9 +588,9 @@ export class LanguageServer {
                 items.push(...typeNameCompletions);
             }
 
-            // action tags
-            if (includeGenerics && callNode && definition) {
-                if (definition.action && node.getClosestAncestor(ListExpression) == callNode.args) {
+            if (includeGenerics && callNode && definition && node.getClosestAncestor(ListExpression) == callNode.args) {
+                // action tags
+                if (definition.action) {
                     let closestBinary = node.getClosestAncestor(BinaryExpression);
                     // tag value
                     if (
@@ -575,10 +603,8 @@ export class LanguageServer {
                     ) {
                         let tagName = closestBinary.left.token.value;
                         let tag = definition.action.tcTagMap[tagName];
-                        let extraStringData: StringExtraData | null = (node instanceof Token && node.type == TokenType.STRING_LITERAL) ? node.getStringExtraData() : null;
                         if (tag) {
                             for (const [optName, optData] of Object.entries(tag.options)) {
-                                let stringified = valueToTCString(optName, extraStringData?.quoteChar ?? '"');
                                 let item: CompletionItem = {
                                     label: optName,
                                     kind: CompletionItemKind.EnumMember,
@@ -589,22 +615,7 @@ export class LanguageServer {
                                         option: optName,
                                     } as CompletionItemData
                                 };
-                                if (node instanceof Token && node.parent instanceof AtomicExpression && extraStringData?.isClosed) {
-                                    item.textEdit = {
-                                        range: {
-                                            start: doc.indexToLinePosition(node.startPos), 
-                                            end: doc.indexToLinePosition(node.endPos),
-                                            // start: param.position,
-                                            // end: param.position,
-                                        },
-                                        newText: stringified,
-                                    };
-                                    if (node.type == TokenType.STRING_LITERAL) {
-                                        item.filterText = stringified//extraData.quoteChar + stringified + extraData.quoteChar;
-                                    }
-                                } else {
-                                    item.insertText = valueToTCString(optName);
-                                }
+                                stringizeCompletionItem(item, node, doc);
                                 items.push(item);
                             }
                             includeGenerics = false;
@@ -643,6 +654,35 @@ export class LanguageServer {
                                 } as CompletionItemData,
                                 sortText: "\u0000"+tcName
                             });
+                        }
+                    }
+                }
+                // sound stuff
+                else if (definition == SND_CONSTRUCTOR) {
+                    // names
+                    if (posIndexIsInListElement(callNode.args, index, 0)) {
+                        items.push(...Object.keys(AD.sounds).map(name => 
+                            stringizeCompletionItem({
+                                label: name,
+                                kind: CompletionItemKind.Text,
+                                sortText: "\u0000"+name,
+                            }, node, doc)
+                        ));
+                    }
+                    else if (posIndexIsInListElement(callNode.args, index, 3)) {
+                        let [nameValue, _] = doc.workspace.compiler.compileExpression(callNode.args.elements[0]);
+                        if (nameValue instanceof StringValue && nameValue.isCompileTimeConstant()) {
+                            let soundName = nameValue.value;
+                            let soundDef = AD.sounds[nameValue.value];
+                            if (soundDef) {
+                                items.push(...soundDef.variants.map(name => 
+                                    stringizeCompletionItem({
+                                        label: name,
+                                        kind: CompletionItemKind.Text,
+                                        sortText: "\u0000"+name,
+                                    }, node, doc)
+                                ));
+                            }
                         }
                     }
                 }
