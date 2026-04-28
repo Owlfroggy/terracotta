@@ -5,6 +5,7 @@ import { dfTypeToTC, getCodeblockIdentifier, TargetType } from "../df/constants.
 import { PCode } from "../pcode/pcode.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
+import { parseTcNumber } from "../util/utils.ts";
 import { EvaluationContext } from "./codeCompiler.ts";
 import { FunctionDefinition } from "./namespace/definition.ts";
 import { Namespace } from "./namespace/namespace.ts";
@@ -116,6 +117,17 @@ export class NumberValue extends TangibleValue {
 
     getType(typeProcessor: TypeProcessor): Type {
         return Type.num;
+    }
+
+    /**
+     * Will throw an error if used on a non-constant number
+     */
+    toNumber(): number {
+        if (typeof this.value == "string") {
+            return parseTcNumber(this.value);
+        } else {
+            throw new Error(`Cannot get numeric value of '${this.value}'`)
+        }
     }
 
     templateForm() {
@@ -274,6 +286,55 @@ export class SoundValue extends TangibleValue {
                 "sound": this.isCustom ? undefined : this.sound,
                 "variant": this.variant,
                 "key": this.isCustom ? this.sound : undefined,
+            }
+        }
+    }
+}
+
+export interface ParticleExtraData {
+    rgb?: number,
+    colorVariation?: number,
+    rgb_fade?: number,
+
+    size?: number,
+    sizeVariation?: number,
+
+    x?: number,
+    y?: number,
+    z?: number,
+    motionVariation?: number,
+
+    material?: string,
+    roll?: number,
+    opacity?: number,
+    power?: number,
+    time?: number,
+}
+export class ParticleValue extends TangibleValue {
+    constructor(
+        public particle: string,
+        public amount: number,
+        public spreadHorizontal: number,
+        public spreadVertical: number,
+        public data: ParticleExtraData,
+        astNode?: ASTNode,
+    ) { super(astNode); }
+
+    getType(typeProcessor: TypeProcessor): Type {
+        return Type.par;
+    }
+
+    templateForm() {
+        return {
+            "id": "part",
+            "data": {
+                "particle": this.particle,
+                "cluster": {
+                    "amount": this.amount,
+                    "horizontal": this.spreadHorizontal,
+                    "vertical": this.spreadVertical
+                },
+                "data": this.data
             }
         }
     }

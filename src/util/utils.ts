@@ -318,3 +318,27 @@ export function getTagsAndArgTypes(args: Expression[], types: TypeProcessor): [a
 
     return [argTypes, tagConstants];
 }
+
+/** Will return a string (error message) if the color is invalid */
+export function integerizeHexColor(color: string): number | string {
+    if (!color.startsWith("#")) {
+        return `Hex color must start with a hashtag.`;
+    }
+    let string = color.substring(1, color.length)
+    if (string.length != 6) {
+        return `Invalid hex color: '${color}'`;
+    }
+
+    let int = Number("0x" + string)
+    if (Number.isNaN(int) || int < 0 || int > 16777215) {
+        return `Invalid hex color: '${color}'`;
+    }
+    
+    return int
+}
+
+
+export function parseTcNumber(tcNum: string): number {
+    // todo: make this actually good
+    return parseFloat(tcNum);
+}

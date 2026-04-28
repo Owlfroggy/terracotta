@@ -1,11 +1,14 @@
-import { DFCodeblockName } from "../../df/constants.ts";
+import { DFCodeblockName} from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
-import { allAreCompTimeConstant, validateArguments } from "../../util/utils.ts";
+import { allAreCompTimeConstant, integerizeHexColor, parseTcNumber, validateArguments } from "../../util/utils.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
-import { CodeValue, LocationValue, MissingValue, NumberValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
+import { CodeValue, LocationValue, MissingValue, NumberValue, ParticleValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
 import { DefinitionType, FunctionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 import * as AD from "../../df/actiondump.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
+import { AtomicExpression } from "../../ast/expression.ts";
+import { TokenType } from "../../ast/token.ts";
+import { BLOCK_OR_ITEM_IDS, DF_PAR_FIELD_TO_TC, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, VALID_BLOCK_IDS, VALID_ITEM_IDS } from "../../data/constants.ts";
 
 function evaluateConstOrBlockTemplates(
     ctx: EvaluationContext, 
@@ -192,5 +195,348 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
                 [StringValue, "variant", "SetSoundVariant"],
             ]
         );
+    },
+}
+
+// TODO: when named args become more properly supported, update 
+// this to use that system instead of the weird hack its doing rn
+export const PAR_CONSTRUCTOR: FunctionDefinition = {
+    definitionType: DefinitionType.FUNCTION,
+    name: "par",
+    defaultReturnType: Type.par,
+    signatures: [
+        {
+            params: [
+                {name: "particle", type: Type.str, optional: false, plural: false},
+            ]
+        }
+    ],
+    getReturnType: USE_DEFAULT_RETURN_TYPE,
+    // this function is awful because particles are awful
+    compile(args, namedArgs, ctx, callNode) {
+        // if this is set, that means theres a constant string as the particle name arg
+        let parDef: AD.Particle | undefined;
+
+        let code: CodeBlock[] = [];
+        let tempVar = ctx.tvp.newTempVar(Type.par);
+        let starterValue = new ParticleValue("Rain", 1, 0, 0, {});
+        let latestValue: ParticleValue | VariableValue = starterValue;
+
+        function validateType(arg: CodeValue, type: Type): arg is TangibleValue {
+            if (arg == undefined) return false;
+            let argType = arg.getType(ctx.types);
+            if (!argType.matches(type)) {
+                ctx.reportError(
+                    arg.astNode ?? callNode.callee,
+                    `Expected type '${type.name}', got '${argType.name}'`
+                );
+                return false;
+            } else if (!(arg instanceof TangibleValue)) {
+                ctx.reportError(
+                    arg.astNode ?? callNode.callee,
+                    `${arg.constructor.name} is not allowed here`
+                )
+                return false;
+            }
+            return true;
+        }
+
+        if (args.length > 1) {
+            ctx.reportError(callNode.callee,`Too many arguments. Expected 1 argument but got ${args.length}`);
+        }
+        
+        //=- particle name -=\\
+        if (args.length == 0) {
+            ctx.reportError(
+                callNode.callee, 
+                "Particle constructor must provide a particle name"
+            );
+        }
+        // constant value
+        else if (args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
+            parDef = AD.particles[args[0].value];
+            if (!parDef) {
+                ctx.reportError(
+                    args[0].astNode ?? callNode.callee,
+                    `Invalid particle name '${args[0].value}'`
+                );
+            }
+            starterValue.particle = args[0].value;
+        } 
+        // variable value
+        else if (validateType(args[0], Type.str)) {
+            code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                action: "SetParticleType",
+                args: [tempVar, latestValue, args[0]]
+            }))
+            latestValue = tempVar;
+        }
+        
+
+        // todo: make this real
+        const allowedFields = ['amount', 'spreadHoriz', 'spreadVert']; 
+        if (parDef) {
+            for (const dfField of parDef.fields) {
+                let tcField = DF_PAR_FIELD_TO_TC[dfField];
+                if (tcField) {
+                    allowedFields.push(tcField);
+                }
+            }
+        } 
+        // allow all fields for unspecified particle
+        else {
+            allowedFields.push(...Object.values(DF_PAR_FIELD_TO_TC));
+        }
+
+        // turn namedArgs map into something actually usable
+        let fieldArgs: {[name: string]: CodeValue} = {};
+        for (const [nameExpr, argValue] of namedArgs.entries()) {
+            if (!(nameExpr instanceof AtomicExpression && (nameExpr.token.type == TokenType.IDENTIFIER || nameExpr.token.type == TokenType.STRING_LITERAL))) {
+                ctx.reportError(nameExpr, `Argument name must be an identifier or string literal`);
+                continue;
+            }
+            let name = nameExpr.token.value;
+            if (!allowedFields.includes(name)) {
+                if (parDef && name in PARTICLE_FIELD_DEFAULTS) {
+                    ctx.reportError(nameExpr.parent ?? nameExpr, `Particle '${parDef.name}' does not support field '${name}'`)
+                } else {
+                    ctx.reportError(nameExpr.parent ?? nameExpr, `Invalid particle field '${name}'`);
+                }
+                continue;
+            }
+            fieldArgs[name] = argValue;
+        }
+        // assign default values to any fields not specified
+        for (const field of allowedFields) {
+            if (!(field in fieldArgs)) {
+                fieldArgs[field] = PARTICLE_FIELD_DEFAULTS[field];
+            }
+        }
+        
+        //=- amount -=\\
+        let amount = fieldArgs.amount;
+        if (validateType(amount, Type.num)) {
+            if (amount instanceof NumberValue && amount.isCompileTimeConstant()) {
+                starterValue.amount = amount.toNumber();
+            } else {
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetParticleAmount",
+                    args: [tempVar, latestValue, amount]
+                }))
+                latestValue = tempVar;
+            }
+        }
+        
+        //=- spread -=\\
+        let spreadHoriz = fieldArgs.spreadHoriz;
+        let spreadVert = fieldArgs.spreadVert;
+        if (validateType(spreadHoriz, Type.num) && validateType(spreadVert, Type.num)) {
+            if (spreadHoriz instanceof NumberValue && spreadHoriz.isCompileTimeConstant() && spreadVert instanceof NumberValue && spreadVert.isCompileTimeConstant()) {
+                starterValue.spreadHorizontal = spreadHoriz.toNumber();
+                starterValue.spreadVertical = spreadVert.toNumber();
+            } else {
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetParticleSprd",
+                    args: [tempVar, latestValue, spreadHoriz, spreadVert]
+                }))
+                latestValue = tempVar;
+            }
+        }
+
+        //=- color -=\\
+        let color = fieldArgs.color;
+        let colorVariation = fieldArgs.colorVariation;
+        // hex code validation is done seperately so that it still runs no matter whats happening with colorVariation
+        let colInt: number | string = (
+            (color instanceof StringValue && color.isCompileTimeConstant())
+            ? integerizeHexColor(color.value)
+            : ""
+        );
+        if (typeof colInt == "string" && colInt != "") {
+            ctx.reportError(
+                color.astNode ?? callNode.callee,
+                colInt
+            );
+        }
+
+        if (validateType(color, Type.str) && validateType(colorVariation, Type.num)) {
+            if (color instanceof StringValue && color.isCompileTimeConstant() && colorVariation instanceof NumberValue && colorVariation.isCompileTimeConstant()) {
+                let colInt = integerizeHexColor(color.value);
+                if (typeof colInt == "number") {
+                    starterValue.data.rgb = colInt;
+                }
+                starterValue.data.colorVariation = colorVariation.toNumber();
+            }
+            else {
+                starterValue.data.rgb = 0xFF0000;
+                starterValue.data.colorVariation = 0;
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetParticleColor",
+                    args: [tempVar, latestValue, color, colorVariation]
+                }))
+                latestValue = tempVar;
+            }
+        }
+
+        //=- fade color -=\\
+        let fadeColor = fieldArgs.fadeColor;
+        if (validateType(fadeColor, Type.str)) {
+            if (fadeColor instanceof StringValue && fadeColor.isCompileTimeConstant()) {
+                let colInt = integerizeHexColor(fadeColor.value);
+                if (typeof colInt == "number") {
+                    starterValue.data.rgb_fade = colInt;
+                } else {
+                    ctx.reportError(
+                        fadeColor.astNode ?? callNode.callee,
+                        colInt
+                    )
+                }
+            }
+            else {
+                starterValue.data.rgb_fade = 0;
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetParticleFade",
+                    args: [tempVar, latestValue, fadeColor]
+                }))
+                latestValue = tempVar;
+            }
+        }
+        
+        //=- motion -=\\
+        let motion = fieldArgs.motion;
+        let motionVariation = fieldArgs.motionVariation;
+        let includeMotionVariation = allowedFields.includes("motionVariation");
+        if (validateType(motion, Type.vec) && (!includeMotionVariation || validateType(motionVariation, Type.num))) {
+            if (motion instanceof VectorValue && motion.isCompileTimeConstant() && (!includeMotionVariation || (motionVariation instanceof NumberValue && motionVariation.isCompileTimeConstant()))) {
+                starterValue.data.x = parseTcNumber(motion.x);
+                starterValue.data.y = parseTcNumber(motion.y);
+                starterValue.data.z = parseTcNumber(motion.z);
+                if (includeMotionVariation) starterValue.data.motionVariation = (motionVariation as NumberValue).toNumber();
+            }
+            else {
+                starterValue.data.x = 0;
+                starterValue.data.y = 0;
+                starterValue.data.z = 0;
+                if (includeMotionVariation) starterValue.data.motionVariation = 0;
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetParticleMotion",
+                    args: includeMotionVariation ? [tempVar, latestValue, motion, motionVariation as TangibleValue] : [tempVar, latestValue, motion],
+                }));
+                latestValue = tempVar;
+            }
+        }
+        
+        //=- size -=\\
+        let size = fieldArgs.size;
+        let sizeVariation = fieldArgs.sizeVariation;
+        if (validateType(size, Type.num) && validateType(sizeVariation, Type.num)) {
+            if (size instanceof NumberValue && size.isCompileTimeConstant() && sizeVariation instanceof NumberValue && sizeVariation.isCompileTimeConstant()) {
+                starterValue.data.size = size.toNumber();
+                starterValue.data.sizeVariation = sizeVariation.toNumber();
+            }
+            else {
+                starterValue.data.size = 0;
+                starterValue.data.sizeVariation = 0;
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetParticleSize",
+                    args: [tempVar, latestValue, size, sizeVariation]
+                }));
+                latestValue = tempVar;
+            }
+        }
+
+        //=- material -=\\
+        let material = fieldArgs.material;
+        if (validateType(material, Type.str)) {
+            if (material instanceof StringValue && material.isCompileTimeConstant()) {
+                let validIds = PAR_MATERIAL_FIELD_TYPES[parDef?.name ?? ''] ?? BLOCK_OR_ITEM_IDS; // least sinful use of ?? operator
+                if (!validIds.has(material.value)) {
+                    let addendum = "";
+                    if (validIds == VALID_ITEM_IDS && VALID_BLOCK_IDS.has(material.value)) {
+                        addendum = ", this particle only supports item ids";
+                    } else if (validIds == VALID_BLOCK_IDS && VALID_ITEM_IDS.has(material.value)) {
+                        addendum = ", this particle only supports block ids";
+                    }
+                    ctx.reportError(
+                        material.astNode ?? callNode.callee,
+                        `Invalid material id '${material.value}'${addendum}`
+                    );
+                }
+                starterValue.data.material = material.value;
+            }
+            else {
+                starterValue.data.material = "oak_log";
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetParticleMat",
+                    args: [tempVar, latestValue, material]
+                }));
+                latestValue = tempVar;
+            }
+        }
+        
+        //=- roll -=\\
+        let roll = fieldArgs.roll;
+        if (validateType(roll, Type.num)) {
+            if (roll instanceof NumberValue && roll.isCompileTimeConstant()) {
+                starterValue.data.roll = roll.toNumber();
+            }
+            else {
+                starterValue.data.roll = 0;
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetParticleRoll",
+                    args: [tempVar, latestValue, roll]
+                }));
+                latestValue = tempVar;
+            }
+        }
+        
+        //=- opacity -=\\
+        let opacity = fieldArgs.opacity;
+        if (validateType(opacity, Type.num)) {
+            if (opacity instanceof NumberValue && opacity.isCompileTimeConstant()) {
+                starterValue.data.opacity = opacity.toNumber();
+            }
+            else {
+                starterValue.data.opacity = 0;
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetParticleOpac",
+                    args: [tempVar, latestValue, opacity]
+                }));
+                latestValue = tempVar;
+            }
+        }
+        
+        //=- power -=\\
+        let power = fieldArgs.power;
+        if (validateType(power, Type.num)) {
+            if (power instanceof NumberValue && power.isCompileTimeConstant()) {
+                starterValue.data.power = power.toNumber();
+            }
+            else {
+                starterValue.data.power = 0;
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetParticlePower",
+                    args: [tempVar, latestValue, power]
+                }));
+                latestValue = tempVar;
+            }
+        }
+
+        //=- duration -=\\
+        let duration = fieldArgs.duration;
+        if (validateType(duration, Type.num)) {
+            if (duration instanceof NumberValue && duration.isCompileTimeConstant()) {
+                starterValue.data.time = duration.toNumber();
+            } else {
+                starterValue.data.time = 20;
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetParticleDur",
+                    args: [tempVar, latestValue, duration]
+                }));
+                latestValue = tempVar;
+            }
+        }
+
+        return [latestValue, code];
     },
 }

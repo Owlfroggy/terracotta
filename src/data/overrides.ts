@@ -634,6 +634,9 @@ export const OVERRIDES: {
             "SetParticleMotion": Type.par,
             "SetParticleRoll": Type.par,
             "SetParticleOpac": Type.par,
+            "SetParticleDur": Type.par,
+            "SetParticleFade": Type.par,
+            "SetParticlePower": Type.par,
 
             "VectorBetween": Type.vec,
             "SetVectorComp": Type.vec,
@@ -696,6 +699,18 @@ export const OVERRIDES: {
                 {name: "List to change", type: Type.list(Type.any), optional: false, plural: false} ,
                 {name: "Value(s) to remove", type: Type.any, optional: false, plural: true}
             ]}, ],
+
+            // par
+            "SetParticleMat": [
+                {params: [ 
+                    {name: "Effect to change", type: Type.par, optional: false, plural: false},
+                    {name: "Particle material", type: Type.item, optional: false, plural: false}
+                ]},
+                {params: [ 
+                    {name: "Effect to change", type: Type.par, optional: false, plural: false},
+                    {name: "Particle material id", type: Type.str, optional: false, plural: false}
+                ]},
+            ]
         }
     }
 }

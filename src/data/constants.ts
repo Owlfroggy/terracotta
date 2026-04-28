@@ -1,3 +1,16 @@
+
+import { NumberValue, StringValue, VectorValue } from "../compiler/codeValue.ts";
+import * as fs from "node:fs/promises"
+import { pathToFileURL } from "node:url";
+import { DATA_PATH } from "../util/fileUtils.ts";
+
+const ITEM_IDS_JSON   = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"item_ids.json") )).toString())
+export const VALID_ITEM_IDS: Set<string> = new Set(ITEM_IDS_JSON);
+const BLOCK_IDS_JSON   = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"block_ids.json") )).toString())
+export const VALID_BLOCK_IDS: Set<string> = new Set(BLOCK_IDS_JSON);
+/** contains block and item ids in the same set for when particles don't know what to allow */
+export const BLOCK_OR_ITEM_IDS: Set<string> = new Set([...ITEM_IDS_JSON,...BLOCK_IDS_JSON]);
+
 //controls which set var actions go into which domains
 //! IF A SET_VAR ACTION ISN'T PRESENT IN THIS TABLE IT WON'T BE ACCESSIBLE AT ALL !
 export const TYPE_DOMAIN_ACTIONS = {
@@ -49,4 +62,52 @@ export const TYPE_DOMAIN_CONDITIONS = {
     vec: [],
     pot: [],
     snd: [],
+}
+
+/** 
+ * also serves as a registry of valid particle field names.
+ * for that reason, all particle fields must be present here
+ *  */
+export const PARTICLE_FIELD_DEFAULTS = {
+    amount: new NumberValue("1"),
+    spreadHoriz: new NumberValue("0"),
+    spreadVert: new NumberValue("0"),
+    motion: new VectorValue("1", "0", "0"),
+    motionVariation: new NumberValue("100"),
+    color: new StringValue("#FF0000"),
+    colorVariation: new NumberValue("0"),
+    fadeColor: new StringValue("#000000"),
+    material: new StringValue("oak_log"),
+    size: new NumberValue("1"),
+    sizeVariation: new NumberValue("0"),
+    roll: new NumberValue("0"),
+    opacity: new NumberValue("100"),
+    power: new NumberValue("1"),
+    duration: new NumberValue("20"),
+}
+
+/** only includes stuff that goes on the second-level data object */
+export const DF_PAR_FIELD_TO_TC: {[dfName: string]: string} = {
+    "Motion": "motion",
+    "Motion Variation": "motionVariation",
+    "Color": "color",
+    "Fade Color": "fadeColor",
+    "Color Variation": "colorVariation",
+    "Material": "material",
+    "Size": "size",
+    "Size Variation": "sizeVariation",
+    "Roll": "roll",
+    "Opacity": "opacity",
+    "Power": "power",
+    "Duration": "duration",
+}
+
+/** whether or not a particle's material field uses block ids or item ids */
+export const PAR_MATERIAL_FIELD_TYPES = {
+    "Item": VALID_ITEM_IDS,
+    "Dust Pillar": VALID_BLOCK_IDS,
+    "Falling Dust": VALID_BLOCK_IDS,
+    "Block Marker": VALID_BLOCK_IDS,
+    "Block": VALID_BLOCK_IDS,
+    "Block Crumble": VALID_BLOCK_IDS,
 }
