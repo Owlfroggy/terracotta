@@ -109,7 +109,10 @@ export class Operations {
             return [new MissingValue(op.parent ?? op), []];
         }
 
-        return def.handler(left as TangibleValue, right as TangibleValue, ctx);
+        let [outVal, code] = def.handler(left as TangibleValue, right as TangibleValue, ctx);
+        if (op.parent) outVal.astNode = op.parent;
+
+        return [outVal, code];
     }
 
     /** returns Type.unknown if this is not a valid operaton */
@@ -177,7 +180,10 @@ export class Operations {
             return [new MissingValue(op.parent ?? op), []];
         }
 
-        return def.handler(val, ctx);
+        let [outVal, code] = def.handler(val, ctx);
+        if (op.parent) outVal.astNode = op.parent;
+
+        return [outVal, code];
     }
 
     /** returns Type.unknown if this is not a valid operaton */
