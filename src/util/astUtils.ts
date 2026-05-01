@@ -1,7 +1,6 @@
 import { AtomicExpression, BinaryExpression, CallExpression, Expression, ListExpression } from "../ast/expression.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
-import { slog } from "../languageServer/languageServer.ts";
 
 /**
  * Returns true if the expression is a special for loop action call

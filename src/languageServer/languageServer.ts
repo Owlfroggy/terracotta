@@ -13,7 +13,7 @@ import { EventStatement, ForStatement, RepeatStatement } from "../ast/statement.
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { StringExtraData, Token, TokenType } from "../ast/token.ts";
 import { getActionDocumentation, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
-import { getAllowedParticleFields, matchArgsToParams, valueToTCString } from "../util/utils.ts";
+import { getAllowedParticleFields, valueToTCString } from "../util/utils.ts";
 import { DFCodeblockName, DFRank } from "../df/constants.ts";
 import { OVERRIDES } from "../data/overrides.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
@@ -24,6 +24,7 @@ import { PAR_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/construc
 import { StringValue } from "../compiler/codeValue.ts";
 import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS } from "../data/constants.ts";
 import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
+import { matchArgsToParams } from "../util/argValidation.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,

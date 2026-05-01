@@ -1,6 +1,6 @@
 import { DFCodeblockName} from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
-import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, parseTcNumber, validateArguments } from "../../util/utils.ts";
+import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, parseTcNumber } from "../../util/utils.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
 import { CodeValue, LocationValue, MissingValue, NumberValue, ParticleValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
 import { DefinitionType, FunctionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
@@ -9,6 +9,7 @@ import { EvaluationContext } from "../codeCompiler.ts";
 import { AtomicExpression } from "../../ast/expression.ts";
 import { TokenType } from "../../ast/token.ts";
 import { BLOCK_OR_ITEM_IDS, DF_PAR_FIELD_TO_TC, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, VALID_BLOCK_IDS, VALID_ITEM_IDS } from "../../data/constants.ts";
+import { validateArguments } from "../../util/argValidation.ts";
 
 function evaluateConstOrBlockTemplates(
     ctx: EvaluationContext, 

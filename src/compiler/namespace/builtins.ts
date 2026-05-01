@@ -7,8 +7,9 @@ import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDe
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
-import { expressionizeIfBlock, validateArguments } from "../../util/utils.ts";
+import { expressionizeIfBlock } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
+import { validateArguments } from "../../util/argValidation.ts";
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
     let valueDef = AD.gameValues[dfName];
