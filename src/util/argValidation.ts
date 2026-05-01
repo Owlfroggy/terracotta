@@ -124,7 +124,18 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression, s
             else if (!(args[argValueIndex] instanceof TangibleValue)) {
                 errors.push([argExpressions[argIndex],`${args[argValueIndex].constructor.name} cannot be passed to functions`]);
             }
-            else if (!param.type.matches(Type.any) && !param.type.matches(argTypes[argIndex]) && !(args[argValueIndex] instanceof MissingValue)) {
+            else if (
+                // never throw invalid type error if the param accepts everything
+                !param.type.matches(Type.any) 
+                && !(
+                    // accept the actual stated type
+                    param.type.matches(argTypes[argIndex]) 
+                    // accept lists of the param type if this param is plural
+                    || param.plural && argTypes[argIndex].strictlyMatches(Type.list(param.type))
+                )
+                // dont throw another error if this value has itself already thrown an error
+                && !(args[argValueIndex] instanceof MissingValue)) 
+            {
                 errors.push([argExpressions[argIndex], `Expected ${param.type.name} for parameter '${param.name}', got ${argTypes[argIndex].name}`]);
             }
             unfilledRequiredParams.delete(param);
