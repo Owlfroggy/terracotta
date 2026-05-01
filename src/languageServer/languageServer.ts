@@ -13,15 +13,16 @@ import { EventStatement, ForStatement, RepeatStatement } from "../ast/statement.
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { StringExtraData, Token, TokenType } from "../ast/token.ts";
 import { getActionDocumentation, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
-import { matchArgsToParams, valueToTCString } from "../util/utils.ts";
+import { getAllowedParticleFields, matchArgsToParams, valueToTCString } from "../util/utils.ts";
 import { DFCodeblockName, DFRank } from "../df/constants.ts";
 import { OVERRIDES } from "../data/overrides.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
-import { posIndexIsInListElement, isForLoopActionCall } from "../util/astUtils.ts";
+import { posIndexIsInListElement, isForLoopActionCall, binaryIsNamedArgument, getExistingNamedArgs } from "../util/astUtils.ts";
 import { brotliDecompress } from "node:zlib";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
-import { SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
+import { PAR_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
 import { StringValue } from "../compiler/codeValue.ts";
+import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS } from "../data/constants.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -206,6 +207,16 @@ const keywordCompletions: CompletionItem[] = [
     label: kw,
     kind: CompletionItemKind.Keyword
 }));
+
+const particleFieldCompletions: {[field: string]: CompletionItem} = Object.fromEntries(
+    Object.keys(PARTICLE_FIELD_DEFAULTS).map(
+        (field): [string, CompletionItem] => [field, {
+            label: field,
+            kind: CompletionItemKind.Enum,
+            sortText: "\u0000"+field,
+        }]
+    )
+);
 
 const globalScopeInjectionCompletions: CompletionItem[] = Object.entries(GLOBAL_SCOPE_INJECTIONS).map(
     ([name, def]) => generateDefinitionCompletion(name, def)
@@ -526,7 +537,7 @@ export class LanguageServer {
             let index = doc?.linePositionToIndex(param.position);
             if (index == undefined) return
 
-            let items: (CompletionItem | CompletionItem[])[] = [];
+            let items: CompletionItem[] = [];
 
             let node = doc.getAstNodeAtIndex(index);
             if (node == null) return; // todo: this is bad
@@ -589,17 +600,13 @@ export class LanguageServer {
             }
 
             if (includeGenerics && callNode && definition && node.getClosestAncestor(ListExpression) == callNode.args) {
+                let closestBinary = node.getClosestAncestor(BinaryExpression);
                 // action tags
                 if (definition.action) {
-                    let closestBinary = node.getClosestAncestor(BinaryExpression);
                     // tag value
                     if (
-                        closestBinary 
-                        && closestBinary.isChildOf(callNode.args) 
+                        binaryIsNamedArgument(closestBinary, callNode)
                         && (node.isChildOf(closestBinary.right) || node == closestBinary.operator)
-                        && closestBinary.operator.type == TokenType.EQUALS 
-                        && closestBinary.left instanceof AtomicExpression
-                        && (closestBinary.left.token.type == TokenType.STRING_LITERAL || closestBinary.left.token.type == TokenType.IDENTIFIER)
                     ) {
                         let tagName = closestBinary.left.token.value;
                         let tag = definition.action.tcTagMap[tagName];
@@ -626,18 +633,7 @@ export class LanguageServer {
                     }
                     // tag name
                     else if (includeGenerics && !(node instanceof Token && node.parent instanceof AtomicExpression && node.type != TokenType.IDENTIFIER)) {
-                        let existingTags: string[] = [];
-                        // figure out what tags already exist
-                        for (const arg of callNode.args.elements) {
-                            if (
-                                arg instanceof BinaryExpression 
-                                && arg.operator.type == TokenType.EQUALS 
-                                && arg.left instanceof AtomicExpression
-                                && (arg.left.token.type == TokenType.STRING_LITERAL || arg.left.token.type == TokenType.IDENTIFIER)
-                            ) {
-                                existingTags.push(arg.left.token.value);
-                            }
-                        }
+                        const existingTags = getExistingNamedArgs(callNode.args);
 
                         for (const tag of Object.values(definition.action.tags)) {
                             let tcName = AD.getTCTagName(tag.name);
@@ -682,6 +678,56 @@ export class LanguageServer {
                                         sortText: "\u0000"+name,
                                     }, node, doc)
                                 ));
+                            }
+                        }
+                    }
+                }
+                // particle stuff
+                else if (definition == PAR_CONSTRUCTOR) {
+                    let parNameArg = callNode.args.elements[0]?.getRealExpression();
+                    
+                    // TODO: actually compile this expression
+                    let parName: string | undefined;
+                    if (parNameArg && parNameArg instanceof AtomicExpression && parNameArg.token.type == TokenType.STRING_LITERAL) {
+                        parName = parNameArg.token.value;
+                    }
+
+                    // particle name
+                    if (posIndexIsInListElement(callNode.args, index, 0)) {
+                        items.push(...Object.values(AD.particles).map(par => 
+                            stringizeCompletionItem({
+                                label: par.name,
+                                kind: CompletionItemKind.Text,
+                                sortText: "\u0000"+par.name,
+                            }, node, doc)
+                        ));
+                    }
+                    // field values 
+                    else if (
+                        binaryIsNamedArgument(closestBinary, callNode)
+                        && (node.isChildOf(closestBinary.right) || node == closestBinary.operator)
+                    ) {
+                        let fieldName = closestBinary.left.token.value;
+                        if (fieldName == "material") {
+                            let validIds: Set<string> = PAR_MATERIAL_FIELD_TYPES[parName ?? ''] ?? BLOCK_OR_ITEM_IDS; // least sinful use of ?? operator
+                            items.push(...validIds.values().map(
+                                (id) => stringizeCompletionItem({
+                                    label: id,
+                                    kind: CompletionItemKind.Text,
+                                    sortText: "\u0000"+id,
+                                }, node, doc)
+                            ))
+                        }
+                    } 
+                    // field names
+                    else if ( 
+                        !(node instanceof Token && node.parent instanceof AtomicExpression && node.type != TokenType.IDENTIFIER)
+                    ) {
+                        let allowedFields = getAllowedParticleFields(AD.particles[parName ?? ""]);
+                        let existingArgs = getExistingNamedArgs(callNode.args);
+                        for (const field of allowedFields) {
+                            if (!existingArgs.includes(field)) {
+                                items.push(particleFieldCompletions[field])
                             }
                         }
                     }

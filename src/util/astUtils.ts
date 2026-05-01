@@ -1,4 +1,4 @@
-import { AtomicExpression, CallExpression, Expression, ListExpression } from "../ast/expression.ts";
+import { AtomicExpression, BinaryExpression, CallExpression, Expression, ListExpression } from "../ast/expression.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { slog } from "../languageServer/languageServer.ts";
@@ -32,4 +32,40 @@ export function posIndexIsInListElement(list: ListExpression, index: number, ele
     else {
         return list.elementStartPositions[element] <= index && index <= list.endPos;
     }
+}
+
+export function binaryIsNamedArgument(binary: BinaryExpression | null, callNode: CallExpression): 
+    binary is BinaryExpression&{
+        operator: Token&{
+            type: TokenType.EQUALS,
+        },
+        left: AtomicExpression&{
+            token: Token&{
+                type: TokenType.STRING_LITERAL | TokenType.IDENTIFIER
+            }
+        }
+    }
+{
+    return (
+        binary != null
+        && binary.isChildOf(callNode.args) 
+        && binary.operator.type == TokenType.EQUALS 
+        && binary.left instanceof AtomicExpression
+        && (binary.left.token.type == TokenType.STRING_LITERAL || binary.left.token.type == TokenType.IDENTIFIER)
+    )
+}
+
+export function getExistingNamedArgs(list: ListExpression) {
+    let existingArgs: string[] = [];
+    for (const arg of list.elements) {
+        if (
+            arg instanceof BinaryExpression 
+            && arg.operator.type == TokenType.EQUALS 
+            && arg.left instanceof AtomicExpression
+            && (arg.left.token.type == TokenType.STRING_LITERAL || arg.left.token.type == TokenType.IDENTIFIER)
+        ) {
+            existingArgs.push(arg.left.token.value);
+        }
+    }
+    return existingArgs;
 }

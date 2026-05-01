@@ -13,6 +13,8 @@ import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } f
 import { DFCodeblockName } from "../df/constants.ts";
 import { PCode, SegmentPCode } from "../pcode/pcode.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
+import * as AD from "../df/actiondump.ts";
+import { DF_PAR_FIELD_TO_TC } from "../data/constants.ts";
 
 export function getOrCreateMapLayer<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {
@@ -341,4 +343,26 @@ export function integerizeHexColor(color: string): number | string {
 export function parseTcNumber(tcNum: string): number {
     // todo: make this actually good
     return parseFloat(tcNum);
+}
+
+/** 
+ * Returns the allowed TC particle field names for this particle
+ * 
+ * Returns all fields if parDef is undefined 
+ * */
+export function getAllowedParticleFields(parDef: AD.Particle | undefined): string[] {
+    const allowedFields = ['amount', 'spreadHoriz', 'spreadVert']; 
+    if (parDef) {
+        for (const dfField of parDef.fields) {
+            let tcField = DF_PAR_FIELD_TO_TC[dfField];
+            if (tcField) {
+                allowedFields.push(tcField);
+            }
+        }
+    } 
+    // allow all fields for unspecified particle
+    else {
+        allowedFields.push(...Object.values(DF_PAR_FIELD_TO_TC));
+    }
+    return allowedFields;
 }

@@ -1,6 +1,6 @@
 import { DFCodeblockName} from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
-import { allAreCompTimeConstant, integerizeHexColor, parseTcNumber, validateArguments } from "../../util/utils.ts";
+import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, parseTcNumber, validateArguments } from "../../util/utils.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
 import { CodeValue, LocationValue, MissingValue, NumberValue, ParticleValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
 import { DefinitionType, FunctionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
@@ -273,20 +273,8 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         }
         
 
-        // todo: make this real
-        const allowedFields = ['amount', 'spreadHoriz', 'spreadVert']; 
-        if (parDef) {
-            for (const dfField of parDef.fields) {
-                let tcField = DF_PAR_FIELD_TO_TC[dfField];
-                if (tcField) {
-                    allowedFields.push(tcField);
-                }
-            }
-        } 
-        // allow all fields for unspecified particle
-        else {
-            allowedFields.push(...Object.values(DF_PAR_FIELD_TO_TC));
-        }
+        const allowedFields = getAllowedParticleFields(parDef);
+        
 
         // turn namedArgs map into something actually usable
         let fieldArgs: {[name: string]: CodeValue} = {};
