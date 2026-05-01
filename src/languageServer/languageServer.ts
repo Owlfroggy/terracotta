@@ -23,6 +23,7 @@ import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInject
 import { PAR_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
 import { StringValue } from "../compiler/codeValue.ts";
 import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS } from "../data/constants.ts";
+import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -53,10 +54,6 @@ type CompletionItemData = {
     tag: AD.Tag,
     option: string,
 }
-
-//function that other things can call to log to the language server output when debugging
-export let slog = (...data: any[]) => {}
-export let snotif = (message: string, type: MessageType = MessageType.Info) => {}
 
 /**
  * NOTE: The item passed into this should have the string's raw contents as its label.
@@ -280,8 +277,8 @@ export class LanguageServer {
             rankBehavior: "crossOutInaccessible"
         }
         
-        slog = this.log
-        snotif = this.showText
+        setSlogCallback(this.log);
+        setSnotifCallback(this.showText);
         
         //==========[ request handling ]=========\\
 

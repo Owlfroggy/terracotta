@@ -1,13 +1,14 @@
 import { Diagnostic, URI } from "vscode-languageserver";
 import { TrackedDocument } from "./trackedDocument.ts";
 import * as fs from "node:fs/promises"
-import { LanguageServer, snotif} from "./languageServer.ts";
+import { LanguageServer } from "./languageServer.ts";
 import * as path from "node:path";
 import { pathToUri } from "../util/utils.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { CodeCompiler } from "../compiler/codeCompiler.ts";
 import { Statement } from "../ast/statement.ts";
 import { inspect } from "node:util";
+import { snotif } from "./logging.ts";
 
 export class WorkspaceManager {
     documents: Map<URI, TrackedDocument> = new Map();

@@ -5,7 +5,7 @@ import { Parser } from "../parser/parser.ts";
 import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { inspect } from "node:util";
-import { snotif } from "./languageServer.ts";
+import { snotif } from "./logging.ts";
 
 export class TrackedDocument {
     contents: string;
