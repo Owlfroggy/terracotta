@@ -11,7 +11,6 @@ import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
 import { Definition, FunctionDefinition, isFunctionDefinition } from "../compiler/namespace/definition.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
-import { slog } from "../languageServer/languageServer.ts";
 
 export enum VariableScope {
     SAVED,

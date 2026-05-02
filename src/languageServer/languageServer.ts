@@ -664,7 +664,7 @@ export class LanguageServer {
                         ));
                     }
                     else if (posIndexIsInListElement(callNode.args, index, 3)) {
-                        let [nameValue, _] = doc.workspace.compiler.compileExpression(callNode.args.elements[0]);
+                        let [nameValue, _] = doc.compiler.compileExpression(callNode.args.elements[0]);
                         if (nameValue instanceof StringValue && nameValue.isCompileTimeConstant()) {
                             let soundName = nameValue.value;
                             let soundDef = AD.sounds[nameValue.value];
@@ -801,13 +801,11 @@ export class LanguageServer {
         conn.onNotification("textDocument/didOpen",(param: DidOpenTextDocumentParams) => {
             let doc = this.getDocFromUri(param.textDocument.uri)!;
             doc.update([{text: param.textDocument.text}], param.textDocument.version);
-            doc.workspace.reanalyze();
         })
 
         conn.onNotification("textDocument/didChange", (param: DidChangeTextDocumentParams) => {
             let doc = this.getDocFromUri(param.textDocument.uri)!;
             doc.update(param.contentChanges, param.textDocument.version);
-            doc.workspace.reanalyze();
         })
 
         conn.onNotification("textDocument/didClose", (param: DidCloseTextDocumentParams) => {

@@ -15,7 +15,6 @@ export class WorkspaceManager {
 
     combinedAST: {[uri: string]: Statement[]} = {};
     typeProcessor: TypeProcessor = new TypeProcessor();
-    compiler: CodeCompiler = new CodeCompiler([], {types: this.typeProcessor, optimizationsEnabled: true});
 
     constructor(
         public uri: URI,
@@ -24,9 +23,8 @@ export class WorkspaceManager {
         this.initialize();
     }
 
-    reanalyze() {
+    reanalyzeTypes() {
         let ast = Object.values(this.combinedAST).flat();
-
         let typeProcessor = new TypeProcessor();
         this.typeProcessor = typeProcessor;
         typeProcessor.errors.length = 0;
@@ -36,19 +34,12 @@ export class WorkspaceManager {
         } catch (e) {
             snotif(`Internal type system error: ${inspect(e)}`)
         }
+    }
 
-        let compiler = new CodeCompiler(ast, {types: typeProcessor, optimizationsEnabled: false});
-        this.compiler = compiler;
-        compiler.ast = ast;
-        try {
-            compiler.compile({outputFormat: 'GZIP'});
-        } catch (e) {
-            snotif(`Internal compiler error: ${inspect(e)}`)
-        }
-
+    pushDiagnostics() {
         let diagnosticsByUri: {[uri: string]: Diagnostic[]} = {};
 
-        for (const e of [...compiler.errors, ...typeProcessor.errors]) {
+        for (const e of [...this.typeProcessor.errors]) {
             let doc = this.documents.get(e.getFilePath());
             if (!doc) continue;
             if (!(doc.uri in diagnosticsByUri)) 
@@ -67,7 +58,7 @@ export class WorkspaceManager {
         for (const [uri, diagnostics] of Object.entries(diagnosticsByUri)) {
             this.server.connection.sendNotification('textDocument/publishDiagnostics', {
                 uri: uri,
-                diagnostics: [...diagnostics, ...(this.documents.get(uri)?.parserDiagnostics ?? [])],
+                diagnostics: [...diagnostics, ...(this.documents.get(uri)?.diagnostics ?? [])],
             });
         }
 
@@ -76,7 +67,7 @@ export class WorkspaceManager {
             if (!(uri in diagnosticsByUri)) {
                 this.server.connection.sendNotification('textDocument/publishDiagnostics', {
                     uri: uri,
-                    diagnostics: doc.parserDiagnostics ?? [],
+                    diagnostics: doc.diagnostics ?? [],
                 }); 
             }
         }
@@ -92,6 +83,6 @@ export class WorkspaceManager {
             this.combinedAST[uri] = [];
             this.documents.set(uri, new TrackedDocument(uri, this))
         }
-        this.reanalyze();
+        this.reanalyzeTypes();
     }
 }
