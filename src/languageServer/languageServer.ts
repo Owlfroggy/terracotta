@@ -541,8 +541,8 @@ export class LanguageServer {
             if (node == null) return; // todo: this is bad
             let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
 
-            slog("\nNode trace:");
-            slog(visualizeNodeAncestors(node));
+            // slog("\nNode trace:");
+            // slog(visualizeNodeAncestors(node));
 
             let includeGenerics = true;
 

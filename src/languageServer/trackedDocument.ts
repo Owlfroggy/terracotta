@@ -117,7 +117,7 @@ export class TrackedDocument {
             })
         }
 
-        this.workspace.pushDiagnostics();
+        this.workspace.pushDiagnostics([this.uri]);
         
         // slog(`-------------->>>>> ${this.diagnostics.length} ${this.lexer.errors.length} ${JSON.stringify(this.lineStartIndexes)} ${this.parser.errors.length}\n${visualizeStatements(this.ast.statements)}\n\n${this.contents}\n\n--------------------------`);
     }

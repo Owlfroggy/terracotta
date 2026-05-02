@@ -8,7 +8,7 @@ import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { CodeCompiler } from "../compiler/codeCompiler.ts";
 import { Statement } from "../ast/statement.ts";
 import { inspect } from "node:util";
-import { snotif } from "./logging.ts";
+import { slog, snotif } from "./logging.ts";
 
 export class WorkspaceManager {
     documents: Map<URI, TrackedDocument> = new Map();
@@ -36,7 +36,7 @@ export class WorkspaceManager {
         }
     }
 
-    pushDiagnostics() {
+    pushDiagnostics(documentUris?: URI[]) {
         let diagnosticsByUri: {[uri: string]: Diagnostic[]} = {};
 
         for (const e of [...this.typeProcessor.errors]) {
@@ -55,15 +55,17 @@ export class WorkspaceManager {
         }
 
         // push diagnostics for all new errors
-        for (const [uri, diagnostics] of Object.entries(diagnosticsByUri)) {
+        for (const uri of documentUris ?? this.documents.keys()) {
+            let typeDiagnostics = diagnosticsByUri[uri];
             this.server.connection.sendNotification('textDocument/publishDiagnostics', {
                 uri: uri,
-                diagnostics: [...diagnostics, ...(this.documents.get(uri)?.diagnostics ?? [])],
+                diagnostics: [...typeDiagnostics ?? [], ...(this.documents.get(uri)?.diagnostics ?? [])],
             });
         }
 
         // clear diagnostics for docs that had errors last time but don't anymore
         for (const [uri, doc] of this.documents.entries()) {
+            if (documentUris && !(uri in documentUris)) continue;
             if (!(uri in diagnosticsByUri)) {
                 this.server.connection.sendNotification('textDocument/publishDiagnostics', {
                     uri: uri,
