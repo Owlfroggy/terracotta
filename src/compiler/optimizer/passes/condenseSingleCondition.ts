@@ -43,6 +43,6 @@ export function OPT_condenseSingleCondition(line: CodeBlock[], optimizer: CodeOp
 
     optimizer.matcher.bracket(BracketType.IF, BracketDirection.OPEN);
 
-    line.splice(spliceStartIndex, spliceEndIndex-spliceStartIndex+1, userIfBlock);
+    optimizer.spliceBlocks(line, spliceStartIndex, spliceEndIndex-spliceStartIndex+1, userIfBlock);
     return true;
 }

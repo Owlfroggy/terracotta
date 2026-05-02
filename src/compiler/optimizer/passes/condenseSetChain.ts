@@ -55,10 +55,11 @@ export function OPT_condenseSetChain(line: CodeBlock[], optimizer: CodeOptimizer
     let replacementVar = unneededSetBlock.args[0];
 
     for (const u of usages) {
-        (line[u.blockIndex] as ActionBlock).args[u.argIndex] = replacementVar;
+        optimizer.replaceArg(line, u.blockIndex, u.argIndex, replacementVar);
     }
 
-    line.splice(unneededSetBlockIndex,1);
+
+    optimizer.spliceBlocks(line, unneededSetBlockIndex, 1);
 
     return true;
 }

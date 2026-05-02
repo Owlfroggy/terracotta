@@ -71,16 +71,11 @@ export function OPT_operationToPCode(line: CodeBlock[], optimizer: CodeOptimizer
 
     let usage = usages[0];
     if (usage.pcodePath) {
-        let argToModify = (line[usage.blockIndex] as ActionBlock).args[usage.argIndex] as NumberValue;
-        let pcodeToModify = argToModify.value as PCode[];
-        for (let i = 0; i < usage.pcodePath.length-1; i++) {
-            pcodeToModify = pcodeToModify[usage.pcodePath[i]];
-        }
-        pcodeToModify[usage.pcodePath[usage.pcodePath.length-1]] = replacement;
+        optimizer.replacePCode(line[usage.blockIndex] as ActionBlock, usage.blockIndex, usage.argIndex, usage.pcodePath, replacement)
     } else {
-        (line[usage.blockIndex] as ActionBlock).args[usage.argIndex] = new NumberValue([replacement]);
+        optimizer.replaceArg(line, usage.blockIndex, usage.argIndex, new NumberValue([replacement]))
     }
-    line.splice(setBlockIndex,1);
+    optimizer.spliceBlocks(line, setBlockIndex, 1);
 
     return true;
 }
