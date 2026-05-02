@@ -783,8 +783,8 @@ export class Parser {
                         }
                     }
                 }
-                n.children.sort((a, b) => a.startPos - b.startPos);
             }
+            n.children.sort((a, b) => a.startPos - b.startPos);
         }
 
         let statements = [];
