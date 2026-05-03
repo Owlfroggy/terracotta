@@ -29,7 +29,7 @@ const ACTION_DUMP_JSON      = JSON.parse((await fs.readFile( pathToFileURL(DATA_
 */
    
 
-export class ParameterValue {
+export class ParameterGroupValue {
     constructor(
         /**type string used by the df action dump */
         public type: DFValueType,
@@ -40,7 +40,7 @@ export class ParameterValue {
     ) {}
 }
 
-export type ParameterGroup = ParameterValue[];
+export type ParameterGroup = ParameterGroupValue[];
 
 export class Parameter {
     constructor(
@@ -191,7 +191,7 @@ export function getTCGameValueName(dfValueName: string) {
 function parseArgumentValueThingies(args: any[]): Parameter[] {
     let result: Parameter[] = [];
 
-    let heldValues: ParameterValue[] = [];
+    let heldValues: ParameterGroupValue[] = [];
     let currentGroupList: ParameterGroup[] = [];
 
     //shut up about the name! it makes sense ok!!!!!!!
@@ -202,7 +202,7 @@ function parseArgumentValueThingies(args: any[]): Parameter[] {
         i++;
         if (arg.type) {
             heldValues.push(
-                new ParameterValue(
+                new ParameterGroupValue(
                     arg.type,
                     arg.description ? arg.description.map(line => deColorizeString(line)).join(" ") : "",
                     arg.optional,

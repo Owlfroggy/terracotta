@@ -68,7 +68,7 @@ export function getValueDocumentation(val: AD.GameValue) {
     }
 
     //creating a parameter object so that it can work with the existing string gen is kinda a hack but whatever
-    let returnV = new AD.ParameterValue(
+    let returnV = new AD.ParameterGroupValue(
         val.type,
         val.returnDescription,
     )
