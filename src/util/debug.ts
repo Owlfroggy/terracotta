@@ -1,7 +1,7 @@
 import * as util from "node:util";
 import { Token, TokenType } from "../ast/token.ts";
 import { VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, ProcessStatement, RepeatStatement, ReturnStatement, SelectionStatement, SingleKeywordStatement, Statement, WhileStatement } from "../ast/statement.ts";
+import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, SelectionStatement, SingleKeywordStatement, Statement, WhileStatement } from "../ast/statement.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { ASTNode } from "../ast/astNode.ts";
 
@@ -174,9 +174,7 @@ function recurse(e: ASTNode | null): string {
         let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`
     } else if (e instanceof FunctionStatement) {
-        return `function ${recurse(e.name)}${recurse(e.args)}${recurse(e.returnType)} ${recurse(e.chunk)}`
-    } else if (e instanceof ProcessStatement) {
-        return `process ${recurse(e.name)}${recurse(e.args)} ${recurse(e.chunk)}`
+        return `${TokenType[e.keyword.type].toLowerCase()} ${recurse(e.name)}${recurse(e.args)}${recurse(e.returnType)} ${recurse(e.chunk)}`
     } else if (e instanceof ForStatement) {
         return `for (${e.variableList.elements.map(v=>recurse(v)).join(", ")} ${recurse(e.variableList.closer)} ${recurse(e.iteratorExpression)}${recurse(e.closer)} ${recurse(e.chunk)}`;
     } else if (e instanceof RepeatStatement) {

@@ -1,6 +1,6 @@
 import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, ProcessStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { dirWithoutRelations } from "../util/debug.ts";
@@ -112,7 +112,7 @@ export class Parser {
             [TokenType.ENTITY_EVENT,        this.parseEventStatement],
             [TokenType.GAME_EVENT,          this.parseEventStatement],
             [TokenType.FUNCTION,            this.parseFunctionStatement],
-            [TokenType.PROCESS,             this.parseProcessStatement],
+            [TokenType.PROCESS,             this.parseFunctionStatement],
 
             [TokenType.FOR,                 this.parseForStatement],
             [TokenType.REPEAT,              this.parseRepeatStatement],
@@ -592,7 +592,6 @@ export class Parser {
         let [eventName, eventNameFound] = this.expectOrMissing(TokenType.IDENTIFIER)
 
         let [_, openCurlyFound] = this.expect(TokenType.OPEN_CURLY, false);
-        
         let chunk = openCurlyFound ? this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY)! : new MissingExpression(this.currentToken().startPos);
 
         return new EventStatement(modifiers, mainKeyword, eventName, chunk);
@@ -607,23 +606,10 @@ export class Parser {
 
         let returnType = this.parseMultiTypeAssignmentExpression(true);
 
-        let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
-        if (!chunk) return null;
+        let [_, openCurlyFound] = this.expect(TokenType.OPEN_CURLY, false);
+        let chunk = openCurlyFound ? this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY)! : new MissingExpression(this.currentToken().startPos);
 
         return new FunctionStatement(keyword, name, params, returnType, chunk);
-    }
-
-    parseProcessStatement = (): ProcessStatement | null => {
-        let keyword = this.consume();
-        
-        let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
-
-        let params = this.parseTypedListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA, this.parseParameterExpression, true);
-
-        let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
-        if (!chunk) return null;
-
-        return new ProcessStatement(keyword, name, params, chunk);
     }
 
     parseForStatement = (): ForStatement | null => {

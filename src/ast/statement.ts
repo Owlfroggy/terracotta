@@ -39,28 +39,17 @@ export class EventStatement extends Statement {
     }
 }
 
+/** Also used for processes */
 export class FunctionStatement extends Statement {
     constructor(
         public keyword: Token,
         public name: Token,
         public args: ListExpression<ParameterExpression> | null,
         public returnType: MultiTypeAssignmentExpression | null,
-        public chunk: ChunkExpression,
+        public chunk: ChunkExpression | MissingExpression,
     ) {
         super(keyword.startPos, chunk.endPos);
-        this.headerType = DFCodeblockName.FUNCTION;
-    }
-}
-
-export class ProcessStatement extends Statement {
-    constructor(
-        public keyword: Token,
-        public name: Token,
-        public args: ListExpression<ParameterExpression> | null,
-        public chunk: ChunkExpression,
-    ) {
-        super(keyword.startPos, chunk.endPos);
-        this.headerType = DFCodeblockName.PROCESS;
+        this.headerType = keyword.type == TokenType.FUNCTION ? DFCodeblockName.FUNCTION : DFCodeblockName.PROCESS;
     }
 }
 

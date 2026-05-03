@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { DoStatement, EventStatement, ExpressionStatement, ForStatement, IfStatement, RepeatStatement, Statement } from "../ast/statement.ts";
+import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, ps, upperFirst } from "../util/utils.ts";
