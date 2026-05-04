@@ -174,7 +174,7 @@ function recurse(e: ASTNode | null): string {
         let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
         return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`
     } else if (e instanceof FunctionStatement) {
-        return `${TokenType[e.keyword.type].toLowerCase()} ${recurse(e.name)}${recurse(e.args)}${recurse(e.returnType)} ${recurse(e.chunk)}`
+        return `${TokenType[e.keyword.type].toLowerCase()} ${recurse(e.name)}${recurse(e.params)}${recurse(e.returnType)} ${recurse(e.chunk)}`
     } else if (e instanceof ForStatement) {
         return `for (${e.variableList.elements.map(v=>recurse(v)).join(", ")} ${recurse(e.variableList.closer)} ${recurse(e.iteratorExpression)}${recurse(e.closer)} ${recurse(e.chunk)}`;
     } else if (e instanceof RepeatStatement) {

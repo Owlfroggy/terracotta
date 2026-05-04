@@ -44,7 +44,7 @@ export class FunctionStatement extends Statement {
     constructor(
         public keyword: Token,
         public name: Token,
-        public args: ListExpression<ParameterExpression> | null,
+        public params: ListExpression<ParameterExpression> | null,
         public returnType: MultiTypeAssignmentExpression | null,
         public chunk: ChunkExpression | MissingExpression,
     ) {
