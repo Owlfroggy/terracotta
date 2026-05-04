@@ -1,6 +1,6 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { ExpressionStatement, ForStatement, RepeatStatement, Statement } from "../ast/statement.ts";
+import { ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
@@ -327,8 +327,27 @@ export class TypeProcessor {
     }
 
     applyStatementVariables(statement: Statement, frame: EnvironmentFrame) { 
+        // function/process parameters
+        if (statement instanceof FunctionStatement && statement.params) {
+            let seenNames: Set<string> = new Set();
+            for (const param of statement.params.elements) {
+                if (seenNames.has(param.name.value)) continue;
+                seenNames.add(param.name.value);
+
+                let type: Type;
+                if (param.assignedType) {
+                    type = this.evaluateExplicitType(param.assignedType.type, true);
+                    if (param.assignedType.type.ellipses) {
+                        type = Type.list(type);
+                    }
+                } else {
+                    type = Type.any;
+                }
+                frame.registerVariable(VariableId.get(VariableScope.LINE,param.name.value), type, statement.chunk.startPos);
+            }
+        }
         // repeat counter var
-        if (statement instanceof RepeatStatement && statement.countExpression) {
+        else if (statement instanceof RepeatStatement && statement.countExpression) {
             let countExpression = statement.countExpression.getRealExpression();
             if (
                 countExpression instanceof BinaryExpression 
