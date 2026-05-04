@@ -161,3 +161,19 @@ export const dfTypeToString: Map<DFValueType, string> = new Map([
     [DFValueType.BYTE,          "Byte"],
     [DFValueType.NONE,          "None"]
 ]);
+
+export const tcTypeToDFParamType: {[tcTypeName: string]: string} = {
+    "num": "num",
+    "loc": "loc",
+    "vec": "vec",
+    "item": "item",
+    "list": "TODO",
+    "pot": "pot",
+    "par": "part",
+    "snd": "snd",
+    "txt": "comp",
+    "str": "txt",
+    "dict": "TODO",
+    "var": "var",
+    "any": "any",
+}

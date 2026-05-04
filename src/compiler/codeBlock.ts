@@ -55,10 +55,18 @@ export class ActionBlock extends CodeBlock {
 
     templateForm() {
         let actionField = "action";
+        let useDynamicAction = false;
+        if (
+            this.block == DFCodeblockName.FUNCTION 
+            || this.block == DFCodeblockName.PROCESS
+        ) {
+            actionField = "data";
+            useDynamicAction = true;
+        }
 
         // fill in missing tags
         let tags = [...this.tags];
-        let actionEntry = AD.actions.get(this.block)?.[this.action];
+        let actionEntry = AD.actions.get(this.block)?.[useDynamicAction ? "dynamic" : this.action];
         if (actionEntry) {
             let seenTags: AD.Tag[] = this.tags.map(v => v.definition);
             for (let tagDef of Object.values(actionEntry.tags)) {

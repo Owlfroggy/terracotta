@@ -8,13 +8,13 @@ import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, Expression, GroupExpression, ListExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
+import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, ParameterValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
 import { DefinitionType, FunctionDefinition, isFunctionDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
-import { DFCodeblockName } from "../df/constants.ts";
+import { DFCodeblockName, dfTypeToTC, DFValueType, tcTypeToDFParamType } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
 import { count } from "node:console";
 import { REPEAT_ACTIONS } from "./namespace/builtins.ts";
@@ -161,6 +161,96 @@ export class CodeCompiler {
                 statementMap.getOrInsert(s.headerType,new Map()).getOrInsert(tcEvent,[]).push(s);
                 lineEntry.headerBlock = new EventBlock(headerType, {action: dfEvent, lsCancel: lsCancel, astNode: s});
             }
+            else if (s instanceof FunctionStatement) {
+                let headerType: HeaderType = DFCodeblockName[TokenType[s.keyword.type]];
+                // TODO: warning for trying to include pcodes in name
+                // TODO: error for too many params
+
+                let parameters: ParameterValue[] = [];
+                if (s.params) {
+                    let seenNames: Set<string> = new Set();
+                    for (const param of s.params.elements) {
+                        if (seenNames.has(param.name.value)) {
+                            this.reportError(
+                                param,
+                                `Duplicate parameter '${param.name.value}'`
+                            );
+                            continue;
+                        }
+                        seenNames.add(param.name.value);
+
+                        let dfType: string = "any";
+                        let tcType: Type | null = null;
+                        let plural = false;
+                        if (param.assignedType) {
+                            tcType = this.env.types.evaluateExplicitType(param.assignedType.type, true);
+                            if (tcType.name in tcTypeToDFParamType) {
+                                dfType = tcTypeToDFParamType[tcType.name];
+                            } else {
+                                this.reportError(
+                                    param.assignedType.type,
+                                    `Type '${tcType.name}' cannot be passed to functions`
+                                );
+                            }
+
+                            if (param.assignedType.type.ellipses) {
+                                plural = true;
+                            }
+                        }
+
+                        let optional = false;
+                        let defaultValue: TangibleValue | null = null;
+
+                        if (param.defaultValue) {
+                            // TODO: maybe allow default values which produce codeblocks by initializing them in the func body
+                            // this is tricky since you need a default which represents "undefined" and you can't just use 0
+                            // since what if the user passes that in
+                            let [item, code] = this.compileExpression(param.defaultValue);
+                            if (item instanceof TangibleValue) {
+                                optional = true;
+                                defaultValue = item;
+                            }
+                            
+                            if (plural) {
+                                this.reportError(param.defaultValue, `Plural parameters cannot specify default values`);
+                            }
+                            if (!optional) {
+                                this.reportError(param.defaultValue, `Default value can only be specified for optional parameters`);
+                            }
+                            if (tcType && (tcType.matches(Type.list) || tcType.matches(Type.dict) || tcType.matches(Type.var))) {
+                                this.reportError(param.defaultValue, `Parameters of type '${tcType?.name}' cannot be assigned default values`);
+                            } else if (tcType && !tcType.matches(Type.any) && !(item.getType(this.env.types).strictlyMatches(tcType))) {
+                                this.reportError(param.defaultValue, `Default value type does not match stated parameter type`)
+                            } else if (code.length != 0) {
+                                this.reportError(param.defaultValue, `Parameter default value cannot produce codeblocks`);
+                            }
+                        }
+
+                        if (tcType && tcType.matches(Type.var)) {
+                            if (optional) this.reportError(param, `Variable parameters cannot be optional`);
+                            if (plural) this.reportError(param, `Variable parameters cannot be plural`);
+                        }
+
+                        // TODO: return values
+                        parameters.push(new ParameterValue(
+                            param.name.value,
+                            dfType,
+                            plural,
+                            optional,
+                            defaultValue,
+                            param
+                        ))
+                    }
+                }
+
+                
+                lineEntry = this.getLineEntry(headerType, s.name.value);
+                statementMap.getOrInsert(s.headerType, new Map()).getOrInsert(s.name.value,[]).push(s);
+                lineEntry.headerBlock = new ActionBlock(s.headerType, {
+                    action: s.name.value,
+                    args: parameters
+                })
+            }
             else {
                 //TODO: this is very temporary
                 throw new Error(`no idea how to compile this: ${s.constructor.name}`);
@@ -175,7 +265,9 @@ export class CodeCompiler {
                 if (statements.length <= 1) continue;
                 for (const statement of statements) {
                     this.reportError(
-                        statement instanceof EventStatement ? statement.eventName : statement,
+                        statement instanceof EventStatement ? statement.eventName 
+                        : statement instanceof FunctionStatement ? statement.name
+                        : statement,
                         `${upperFirst(headerType.toLowerCase())} '${name}' declared in multiple places`
                     );
                 }
@@ -758,7 +850,7 @@ export class CodeCompiler {
         let declarationsToCompile = this.processLineDeclarations(this.ast);
 
         for (const [lineEntry, declaration] of declarationsToCompile) {
-            if (declaration instanceof EventStatement) {
+            if (declaration instanceof EventStatement || declaration instanceof FunctionStatement) {
                 if (!(declaration.chunk instanceof ChunkExpression)) continue;
                 lineEntry.code.push(...declaration.chunk.statements.map(this.compileStatement));
             }

@@ -1,7 +1,7 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { Tag } from "../df/actiondump.ts";
 import * as AD from "../df/actiondump.ts";
-import { dfTypeToTC, getCodeblockIdentifier, TargetType } from "../df/constants.ts";
+import { dfTypeToTC, DFValueType, getCodeblockIdentifier, TargetType } from "../df/constants.ts";
 import { PCode } from "../pcode/pcode.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
@@ -412,6 +412,34 @@ export class GameValueValue extends TangibleValue {
     }
 
     isCompileTimeConstant() { return false; }
+}
+
+export class ParameterValue extends TangibleValue {
+    constructor(
+        public name: string,
+        public type: string,
+        public plural: boolean,
+        public optional: boolean,
+        public defaultValue: TangibleValue | null,
+        astNode?: ASTNode,
+    ) { super(astNode); }
+
+    getType(typeProcessor: TypeProcessor): Type {
+        throw new Error("Attempted to get type of a parameter value");
+    }
+
+    templateForm() {
+        return {
+            "id": "pn_el",
+            "data": {
+                "name": this.name,
+                "type": this.type,
+                "default_value": this.defaultValue != null ? this.defaultValue.templateForm() : undefined,
+                "plural": this.plural,
+                "optional": this.optional
+            }
+        }
+    }
 }
 
 export class ActionTagValue extends TangibleValue {
