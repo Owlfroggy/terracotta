@@ -841,6 +841,9 @@ export class CodeCompiler {
             );
             return code;
         }
+        else if (s instanceof EventStatement || s instanceof FunctionStatement) {
+            this.reportError(s,`${upperFirst((s.headerType ?? 'this').toLowerCase())} declarations can only appear at the top level of a file`);
+        }
         return [];
     }
 
