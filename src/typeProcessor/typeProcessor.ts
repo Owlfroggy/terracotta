@@ -9,8 +9,10 @@ import { Namespace } from "../compiler/namespace/namespace.ts";
 import { ps } from "../util/utils.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
-import { Definition, FunctionDefinition, isFunctionDefinition } from "../compiler/namespace/definition.ts";
+import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, ParameterSignature, ParameterSignatureEntry, USE_DEFAULT_RETURN_TYPE } from "../compiler/namespace/definition.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
+import { COMPILE_START_PROCESS, COMPILE_CALL_FUNCTION } from "../compiler/namespace/compileCallFunction.ts";
+import { DFCodeblockName } from "../df/constants.ts";
 
 export enum VariableScope {
     SAVED,
@@ -67,6 +69,12 @@ export class EnvironmentFrame {
     // public knownTypes: Map<VariableId, Type[]> = new Map();
     // public unsolvedTypes: Map<VariableId, {requirements: Requirement[], expression: Expression}> = new Map();
     variables: Map<string, Map<VariableScope, VariableEntry[]>> = new Map();
+
+    /** Currently, only the global frame will have this filled out */
+    functions: Map<string, FunctionDefinition[]> = new Map();
+    /** Currently, only the global frame will have this filled out */
+    processes: Map<string, FunctionDefinition[]> = new Map();
+
     children: Map<ChunkExpression, EnvironmentFrame> = new Map();
     
     constructor(
@@ -268,6 +276,8 @@ export class TypeProcessor {
 
         if (value in GLOBAL_SCOPE_INJECTIONS) return GLOBAL_SCOPE_INJECTIONS[value];
 
+        if (this.globalFrame.functions.has(value)) return this.globalFrame.functions.get(value)![0];
+
         let varEntry = frame.getVariableEntry(value, identifier.startPos);
         if (varEntry != undefined) return varEntry;
 
@@ -328,22 +338,48 @@ export class TypeProcessor {
 
     applyStatementVariables(statement: Statement, frame: EnvironmentFrame) { 
         // function/process parameters
-        if (statement instanceof FunctionStatement && statement.params) {
-            let seenNames: Set<string> = new Set();
-            for (const param of statement.params.elements) {
-                if (seenNames.has(param.name.value)) continue;
-                seenNames.add(param.name.value);
+        if (statement instanceof FunctionStatement) {
+            let signatureParams: ParameterSignatureEntry[] = [];
 
-                let type: Type;
-                if (param.assignedType) {
-                    type = this.evaluateExplicitType(param.assignedType.type, true);
-                    if (param.assignedType.type.ellipses) {
-                        type = Type.list(type);
+            if (statement.params) {
+                let seenNames: Set<string> = new Set();
+                for (const param of statement.params.elements) {
+                    if (seenNames.has(param.name.value)) continue;
+                    seenNames.add(param.name.value);
+    
+                    let type: Type;
+                    if (param.assignedType) {
+                        type = this.evaluateExplicitType(param.assignedType.type, true);
+                        if (param.assignedType.type.ellipses) {
+                            type = Type.list(type);
+                        }
+                    } else {
+                        type = Type.any;
                     }
-                } else {
-                    type = Type.any;
+                    frame.registerVariable(VariableId.get(VariableScope.LINE,param.name.value), type, statement.chunk.startPos);
+                    // TODO: optional
+                    signatureParams.push({
+                        name: param.name.value, 
+                        type: type,
+                        optional: false, 
+                        plural: param.assignedType?.type.ellipses != undefined,
+                        description: param.attachedComments.length > 0 ? param.attachedComments.map(t => t.value).join("\n") : undefined
+                    })
                 }
-                frame.registerVariable(VariableId.get(VariableScope.LINE,param.name.value), type, statement.chunk.startPos);
+            }
+
+            // frame here will be the function's chunk's frame so the parent needs to be accessed 
+            if (frame.parent == this.globalFrame) {
+                let isProcess = statement.headerType == DFCodeblockName.PROCESS;
+                let map = frame.parent[isProcess ? "processes" : "functions"];
+                map.getOrInsert(statement.name.value, []).push({
+                    definitionType: DefinitionType.FUNCTION,
+                    name: statement.name.value,
+                    signatures: [{params: signatureParams}],
+                    defaultReturnType: null,
+                    getReturnType: USE_DEFAULT_RETURN_TYPE,
+                    compile: isProcess ? COMPILE_START_PROCESS : COMPILE_CALL_FUNCTION,
+                })
             }
         }
         // repeat counter var

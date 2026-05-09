@@ -752,9 +752,13 @@ export class LanguageServer {
                 items.push(...keywordCompletions);
 
                 items.push(...globalScopeInjectionCompletions);
-
-                // variables
+                
+                // variables and functions
                 items.push(...generateVariableCompletions(envFrame));
+                items.push(...doc.workspace.typeProcessor.globalFrame.functions.values().flatMap(
+                    funcs => funcs.map(f => generateDefinitionCompletion(f.name, f))
+                ));
+
                 // for loop actions
                 let closestForLoop = node.getClosestAncestor(ForStatement);
                 if (

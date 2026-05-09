@@ -59,6 +59,8 @@ export class ActionBlock extends CodeBlock {
         if (
             this.block == DFCodeblockName.FUNCTION 
             || this.block == DFCodeblockName.PROCESS
+            || this.block == DFCodeblockName.CALL_FUNCTION
+            || this.block == DFCodeblockName.START_PROCESS
         ) {
             actionField = "data";
             useDynamicAction = true;
