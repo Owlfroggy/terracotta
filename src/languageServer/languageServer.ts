@@ -4,7 +4,7 @@ import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocu
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, GroupExpression, ListExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, CallOrStartExpression, GroupExpression, ListExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
 import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { Definition, DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
@@ -25,6 +25,7 @@ import { StringValue } from "../compiler/codeValue.ts";
 import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS } from "../data/constants.ts";
 import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
 import { matchArgsToParams } from "../util/argValidation.ts";
+import { COMPILE_START_PROCESS } from "../compiler/namespace/compileCallFunction.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -220,7 +221,7 @@ const globalScopeInjectionCompletions: CompletionItem[] = Object.entries(GLOBAL_
     ([name, def]) => generateDefinitionCompletion(name, def)
 );
 
-function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFrame: EnvironmentFrame, index: number): [callNode: CallExpression, definition: FunctionDefinition] | [null, null] {
+function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFrame: EnvironmentFrame, index: number): [callNode: CallExpression | CallOrStartExpression, definition: FunctionDefinition] | [null, null] {
     // find the function call this node is a part of, if there is one
     let callNode: ASTNode = node;
     let listFound = false;
@@ -228,35 +229,46 @@ function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFram
         if (callNode instanceof ListExpression) listFound = true;
         // checking index < n.endPos is required otherwise placing the caret after
         // the argument list's closer would be counted as inside the list
-        if (listFound && callNode instanceof CallExpression && index < callNode.endPos) {
+        if (
+            listFound 
+            && (callNode instanceof CallExpression || callNode instanceof CallOrStartExpression) 
+            && index < callNode.endPos
+        ) {
             break;
         }
         callNode = callNode.parent;
     }
-    if (!(callNode instanceof CallExpression)) return [null, null];
     
-    let closestForLoop = callNode.getClosestAncestor(ForStatement);
     
-    let calleeType = typeProcessor.evaluateExpression(callNode.callee, envFrame);
-    let definition: FunctionDefinition | null = null;
+    if (callNode instanceof CallOrStartExpression) {
+        let isProcess = callNode.keyword.type == TokenType.START;
+        let definition = typeProcessor.globalFrame[isProcess ? "processes" : "functions"].get(callNode.callee.value)?.[0];
+        return definition ? [callNode, definition] : [null, null];
+    } else if (callNode instanceof CallExpression) {
+        let closestForLoop = callNode.getClosestAncestor(ForStatement);
+        let calleeType = typeProcessor.evaluateExpression(callNode.callee, envFrame);
+        let definition: FunctionDefinition | null = null;
 
-    // special for loop actions
-    if (
-        closestForLoop 
-        && closestForLoop?.iteratorExpression 
-        && (callNode == closestForLoop.iteratorExpression || callNode.isChildOf(closestForLoop.iteratorExpression))
-        && isForLoopActionCall(callNode)
-    ) {
-        definition = REPEAT_ACTIONS[callNode.callee.token.value]!.def;
-    } 
-    // normal functions
-    else if (calleeType.name == "func") {
-        definition = (calleeType.data as FuncTypeData).definition
-    } else if (calleeType.name == "namespace") {
-        definition = (calleeType.data as NamespaceTypeData).namespace.nameFunction ?? null;
+        // special for loop actions
+        if (
+            closestForLoop 
+            && closestForLoop?.iteratorExpression 
+            && (callNode == closestForLoop.iteratorExpression || callNode.isChildOf(closestForLoop.iteratorExpression))
+            && isForLoopActionCall(callNode)
+        ) {
+            definition = REPEAT_ACTIONS[callNode.callee.token.value]!.def;
+        } 
+        // normal functions
+        else if (calleeType.name == "func") {
+            definition = (calleeType.data as FuncTypeData).definition
+        } else if (calleeType.name == "namespace") {
+            definition = (calleeType.data as NamespaceTypeData).namespace.nameFunction ?? null;
+        }
+        if (!definition) return [null, null];
+        return [callNode, definition];
+    } else {
+        return [null, null]
     }
-    if (!definition) return [null, null];
-    return [callNode, definition];
 }
 
 export class LanguageServer {
@@ -600,14 +612,15 @@ export class LanguageServer {
             if (includeGenerics && callNode && definition && node.getClosestAncestor(ListExpression) == callNode.args) {
                 let closestBinary = node.getClosestAncestor(BinaryExpression);
                 // action tags
-                if (definition.action) {
+                if (definition.action ?? definition.compile == COMPILE_START_PROCESS) {
+                    let action = definition.action ?? AD.actions.get(DFCodeblockName.START_PROCESS)!.dynamic!;
                     // tag value
                     if (
                         binaryIsNamedArgument(closestBinary, callNode)
                         && (node.isChildOf(closestBinary.right) || node == closestBinary.operator)
                     ) {
                         let tagName = closestBinary.left.token.value;
-                        let tag = definition.action.tcTagMap[tagName];
+                        let tag = action.tcTagMap[tagName];
                         if (tag) {
                             for (const [optName, optData] of Object.entries(tag.options)) {
                                 let item: CompletionItem = {
@@ -633,7 +646,7 @@ export class LanguageServer {
                     else if (includeGenerics && !(node instanceof Token && node.parent instanceof AtomicExpression && node.type != TokenType.IDENTIFIER)) {
                         const existingTags = getExistingNamedArgs(callNode.args);
 
-                        for (const tag of Object.values(definition.action.tags)) {
+                        for (const tag of Object.values(action.tags)) {
                             let tcName = AD.getTCTagName(tag.name);
                             if (existingTags.includes(tcName)) continue;
 

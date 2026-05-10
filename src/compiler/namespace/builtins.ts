@@ -10,6 +10,48 @@ import { LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } fr
 import { expressionizeIfBlock } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
 import { validateArguments } from "../../util/argValidation.ts";
+import { AtomicExpression } from "../../ast/expression.ts";
+import { EvaluationContext } from "../codeCompiler.ts";
+
+export function compileTags(actionDef: AD.Action, namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext): ActionTagValue[] {
+    let tags: ActionTagValue[] = [];
+    // tag parsing
+    for (const [nameExpr, arg] of namedArgs.entries()) {
+        let tagDef = actionDef.tcTagMap[nameExpr.token.value];
+        if (!tagDef) {
+            ctx.reportError(
+                nameExpr,
+                `Invalid tag name '${nameExpr.token.value}'`
+            );
+            continue;
+        }
+
+        let valType = arg.getType(ctx.types);
+        if (!(valType == Type.str || valType == Type.any)) {
+            ctx.reportError(
+                arg.astNode ?? nameExpr,
+                `Expected string (str) for tag value, got '${valType.name}'`
+            );
+            continue;
+        }
+
+        if (arg instanceof StringValue) {
+            if (!(arg.value in tagDef.options)) {
+                ctx.reportError(
+                    arg.astNode ?? nameExpr,
+                    `'${arg.value}' is not a valid option for this tag`
+                );
+                continue;
+            }
+
+            tags.push(new ActionTagValue(tagDef, arg.value));
+        } else if (arg instanceof VariableValue) {
+            // todo: specifiable default vaulues)
+            tags.push(new ActionTagValue(tagDef, tagDef.defaultOption, arg))
+        }
+    }
+    return tags;
+}
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
     let valueDef = AD.gameValues[dfName];
@@ -126,47 +168,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         action: actionDef,
         getReturnType,
         compile(this: FunctionDefinition, args, namedArgs, ctx, callNode): [CodeValue, CodeBlock[]] {
-            let tags: ActionTagValue[] = [];
-            // todo: default tag values
-
-            // tag parsing
-            if (actionDef) {
-                for (const [nameExpr, arg] of namedArgs.entries()) {
-                    let tagDef = actionDef.tcTagMap[nameExpr.token.value];
-                    if (!tagDef) {
-                        ctx.reportError(
-                            nameExpr,
-                            `Invalid tag name '${nameExpr.token.value}'`
-                        );
-                        continue;
-                    }
-
-                    let valType = arg.getType(ctx.types);
-                    if (!(valType == Type.str || valType == Type.any)) {
-                        ctx.reportError(
-                            arg.astNode ?? nameExpr,
-                            `Expected string (str) for tag value, got '${valType.name}'`
-                        );
-                        continue;
-                    }
-
-                    if (arg instanceof StringValue) {
-                        if (!(arg.value in tagDef.options)) {
-                            ctx.reportError(
-                                arg.astNode ?? nameExpr,
-                                `'${arg.value}' is not a valid option for this tag`
-                            );
-                            continue;
-                        }
-
-                        tags.push(new ActionTagValue(tagDef, arg.value));
-                    } else if (arg instanceof VariableValue) {
-                        // todo: specifiable default vaulues)
-                        tags.push(new ActionTagValue(tagDef, tagDef.defaultOption, arg))
-                    }
-                }
-            }
-
+            let tags = actionDef ? compileTags(actionDef, namedArgs, ctx) : [];
             // arg validation
             validateArguments(args, callNode, signatures, ctx, true);
 

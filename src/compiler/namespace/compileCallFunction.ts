@@ -1,13 +1,15 @@
 import { AtomicExpression, CallExpression } from "../../ast/expression.ts";
+import { actions } from "../../df/actiondump.ts";
 import { DFCodeblockName } from "../../df/constants.ts";
 import { validateArguments } from "../../util/argValidation.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
 import { CodeValue, EmptyValue, TangibleValue } from "../codeValue.ts";
+import { compileTags } from "./builtins.ts";
 import { FunctionDefinition } from "./definition.ts";
 
 export function COMPILE_CALL_FUNCTION(this: FunctionDefinition, args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression): [CodeValue, CodeBlock[]] {
-    validateArguments(args, callNode, this.signatures, ctx, true);
+    validateArguments(args, callNode, this.signatures, ctx, false);
     // TODO: return values (idk if they should even go here but keep them in mind)
     return [new EmptyValue(), [new ActionBlock(DFCodeblockName.CALL_FUNCTION,{
         action: this.name,
@@ -21,5 +23,6 @@ export function COMPILE_START_PROCESS(this: FunctionDefinition, args: CodeValue[
     return [new EmptyValue(), [new ActionBlock(DFCodeblockName.START_PROCESS,{
         action: this.name,
         args: args.filter(arg => arg instanceof TangibleValue),
+        tags: compileTags(actions.get(DFCodeblockName.START_PROCESS)!.dynamic, namedArgs, ctx),
     })]]
 }
