@@ -60,11 +60,24 @@ type CompletionItemData = {
 /**
  * NOTE: The item passed into this should have the string's raw contents as its label.
  * This function takes care of the stringification of said contents.
+ * 
+ * @param leaveIdentifiersAlone If existingNode is an identifier and the completion item's label can stay as an identifier, make no changes to this tiem
  */
-function stringizeCompletionItem(item: CompletionItem, existingNode: ASTNode, doc: TrackedDocument) {
+function stringizeCompletionItem(item: CompletionItem, existingNode: ASTNode, doc: TrackedDocument, leaveIdentifiersAlone: boolean = false) {
+    if (
+        leaveIdentifiersAlone 
+        && existingNode instanceof Token 
+        && existingNode.type == TokenType.IDENTIFIER 
+        && /^[A-Za-z0-9_]+$/.test(item.label)
+    ) return item;
+
     let extraStringData: StringExtraData | null = (existingNode instanceof Token && existingNode.type == TokenType.STRING_LITERAL) ? existingNode.getStringExtraData() : null;
     let stringified = valueToTCString(item.label, extraStringData?.quoteChar ?? '"');
-    if (existingNode instanceof Token && existingNode.parent instanceof AtomicExpression && extraStringData?.isClosed) {
+    if (
+        existingNode instanceof Token 
+        && (existingNode.parent instanceof AtomicExpression || existingNode.parent instanceof CallOrStartExpression) 
+        && extraStringData?.isClosed
+    ) {
         item.textEdit = {
             range: {
                 start: doc.indexToLinePosition(existingNode.startPos), 
@@ -553,8 +566,8 @@ export class LanguageServer {
             if (node == null) return; // todo: this is bad
             let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
 
-            // slog("\nNode trace:");
-            // slog(visualizeNodeAncestors(node));
+            slog("\nNode trace:");
+            slog(visualizeNodeAncestors(node));
 
             let includeGenerics = true;
 
@@ -607,6 +620,19 @@ export class LanguageServer {
             else if (node instanceof TypeAssignmentExpression || node.getClosestAncestor(TypeExpression) != null) {
                 includeGenerics = false;
                 items.push(...typeNameCompletions);
+            }
+            // function names in a call/start expression
+            else if (node instanceof CallOrStartExpression || (node instanceof Token && node.parent instanceof CallOrStartExpression && node.keyInParent == "callee")) {
+                includeGenerics = false;
+                let callExpression = (node instanceof CallOrStartExpression ? node : node.parent) as CallOrStartExpression;
+                let isProcess = callExpression.keyword.type == TokenType.START;
+                items.push(...doc.workspace.typeProcessor.globalFrame[isProcess ? "processes" : "functions"].values().map(
+                    v => {
+                        let item = generateDefinitionCompletion(v[0].name, v[0]);
+                        item = stringizeCompletionItem(item, node, doc, true);
+                        return item;
+                    }
+                ))
             }
 
             if (includeGenerics && callNode && definition && node.getClosestAncestor(ListExpression) == callNode.args) {
