@@ -661,7 +661,10 @@ export const OVERRIDES: {
         "PLAYER ACTION": {
             "SendMessage": [
                 {params: [ {name: "Message to send", type: Type.any, optional: true, plural: true} ]}
-            ]
+            ],
+            "ActionBar": [
+                {params: [ {name: "Message to send", type: Type.any, optional: true, plural: true} ]}
+            ],
         },
         "SET VARIABLE": {
             // num
