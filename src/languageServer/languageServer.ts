@@ -476,7 +476,7 @@ export class LanguageServer {
                     info.activeParameter = info.parameters!.length-1;
                 }
                 // always highlight the last parameter if it's something plural (e.g. the texts in SendMessage)
-                else if (info.activeParameter >= signature.params.length && signature.params[signature.params.length-1].plural) {
+                else if (signature.params.length > 0 && info.activeParameter >= signature.params.length && signature.params[signature.params.length-1].plural) {
                     info.activeParameter = signature.params.length-1;
                 }
                 // if the argument is beyond the parameter list, by default it will land at the extra param for tags
