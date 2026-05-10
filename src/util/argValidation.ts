@@ -92,7 +92,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
             callNode.args.elements
             .filter(v => {
                 if (v instanceof BinaryExpression && binaryIsNamedArgument(v, callNode)) {
-                    if (!allowNamedArgs) errors.push([argExpressions[argIndex], `Named arguments are not allowed here`]);
+                    if (!allowNamedArgs) errors.push([v, `Named arguments are not allowed here`]);
                     return false;
                 } else {
                     return true;
