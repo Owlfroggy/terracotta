@@ -3,6 +3,7 @@ import { ASTNode } from "./astNode.ts";
 export enum TokenType {
     EOF,
     MISSING,
+    EMPTY,
     SEMICOLON,
     WHITESPACE,
 
@@ -164,5 +165,9 @@ export class Token extends ASTNode {
     
     static missing(pos: number): Token {
         return new Token(pos, pos, TokenType.MISSING, "⊘");
+    }
+
+    static empty(pos: number): Token {
+        return new Token(pos, pos, TokenType.EMPTY, "");
     }
 }

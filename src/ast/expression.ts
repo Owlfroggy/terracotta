@@ -116,11 +116,15 @@ export class CallExpression extends Expression {
 }
 
 export class CallOrStartExpression extends Expression {
+    public args: ListExpression;
     constructor (
         public keyword: Token,
-        public name: Token,
-        public args: ListExpression | null,
-    ) {super(keyword.startPos, args != null ? args.endPos : name.endPos);}
+        public callee: Token,
+        args: ListExpression | null,
+    ) {
+        super(keyword.startPos, args != null ? args.endPos : callee.endPos);
+        this.args = args ?? new ListExpression(null, [], Token.empty(callee.endPos), []);
+    }
 }
 
 export class AccessExpression extends Expression {

@@ -179,7 +179,7 @@ function recurse(e: ASTNode | null): string {
             return `${recurse(e.callee)}${recurse(e.args)}`;
         }
     } else if (e instanceof CallOrStartExpression) {
-        return `${C.RED}${C.B}${e.keyword.value} ${C.AQU}${recurse(e.name)}${C.CLR}${e.args ? recurse(e.args) : ""}`
+        return `${C.RED}${C.B}${e.keyword.value} ${C.AQU}${recurse(e.callee)}${C.CLR}${e.args ? recurse(e.args) : ""}`
     } else if (e instanceof AccessExpression) {
         return `${recurse(e.accessee)}${e.accessorToken.value}${e.propertyName.value}`;
     } else if (e instanceof BracketedAccessExpression) {

@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, BinaryExpression, CallExpression, Expression } from "../ast/expression.ts";
+import { AccessExpression, BinaryExpression, CallExpression, CallOrStartExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
 import { EvaluationContext } from "../compiler/codeCompiler.ts";
 import { CodeValue, MissingValue, TangibleValue } from "../compiler/codeValue.ts";
@@ -77,7 +77,7 @@ export function matchArgsToParams(args: Expression[], argTypes: Type[], signatur
 }
 
 /** does NOT do anything with tags */
-export function validateArguments(args: CodeValue[], callNode: CallExpression, signatures: ParameterSignature[], ctx: EvaluationContext, allowNamedArgs: boolean = false): ParameterSignature | null {
+export function validateArguments(args: CodeValue[], callNode: CallExpression | CallOrStartExpression, signatures: ParameterSignature[], ctx: EvaluationContext, allowNamedArgs: boolean = false): ParameterSignature | null {
     if (signatures.length == 0) signatures = [{params: []}];
     let argTypes = args.map(v => v.getType(ctx.types));
 

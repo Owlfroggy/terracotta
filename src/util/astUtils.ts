@@ -1,4 +1,4 @@
-import { AtomicExpression, BinaryExpression, CallExpression, Expression, ListExpression } from "../ast/expression.ts";
+import { AtomicExpression, BinaryExpression, CallExpression, CallOrStartExpression, Expression, ListExpression } from "../ast/expression.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 
@@ -33,7 +33,7 @@ export function posIndexIsInListElement(list: ListExpression, index: number, ele
     }
 }
 
-export function binaryIsNamedArgument(binary: BinaryExpression | null, callNode: CallExpression): 
+export function binaryIsNamedArgument(binary: BinaryExpression | null, callNode: CallExpression | CallOrStartExpression): 
     binary is BinaryExpression&{
         operator: Token&{
             type: TokenType.EQUALS,

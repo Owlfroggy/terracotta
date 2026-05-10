@@ -7,7 +7,7 @@ import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, El
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, Expression, GroupExpression, ListExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, Expression, GroupExpression, ListExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, ParameterValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
@@ -19,6 +19,8 @@ import { CodeOptimizer } from "./optimizer/optimizer.ts";
 import { count } from "node:console";
 import { REPEAT_ACTIONS } from "./namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
+import { PCodeParser } from "../pcode/pcodeParser.ts";
+import { SegmentPCode } from "../pcode/pcode.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -81,6 +83,7 @@ export class CodeCompiler {
     errors: TCError[] = [];
 
     readonly tempVarProvider = new TempVarProvider();
+    private pcodeParser = new PCodeParser();
 
     constructor(
         public ast: Statement[],
@@ -277,13 +280,12 @@ export class CodeCompiler {
         return declarationsToCompile;
     }
 
-    compileCallExpression(e: CallExpression, definition: FunctionDefinition): [CodeValue, CodeBlock[]] {
-        // parse args
+    compileArgsList(argsList: ListExpression): [args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, argCode: CodeBlock[]] {
         let args: CodeValue[] = [];
         let namedArgs: Map<AtomicExpression, CodeValue> = new Map();
-        let seenNames: {[name: string]: true} = {};
         let argCode: CodeBlock[] = [];
-        for (const argNode of e.args.elements) {
+        let seenNames: {[name: string]: true} = {};
+        for (const argNode of argsList.elements) {
             //named arg
             if (argNode instanceof BinaryExpression && argNode.operator.type == TokenType.EQUALS) {
                 let name = argNode.left;
@@ -316,7 +318,11 @@ export class CodeCompiler {
             }
             
         }
-        // TODO: args
+        return [args, namedArgs, argCode];
+    }
+
+    compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition): [CodeValue, CodeBlock[]] {
+        let [args, namedArgs, argCode] = this.compileArgsList(e.args);
         // TODO: handle return types
         let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(), e);
         value.astNode = e;
@@ -366,6 +372,32 @@ export class CodeCompiler {
             }
             else {
                 return [new MissingValue(e), [...preCode]];
+            }
+        }
+        else if (e instanceof CallOrStartExpression) {
+            let [pcErrors, pcode] = this.pcodeParser.parse(e.callee.value);
+            let isProcess = e.keyword.type == TokenType.START;
+
+            // TODO: if all functions matching the provided pcode have the same signature, use that
+            
+            let definition = this.env.types.globalFrame![isProcess ? "processes" : "functions"].get(e.callee.value)?.[0];
+            let isConstant = pcode.length == 1 && pcode[0] instanceof SegmentPCode;
+            if (definition) {
+                return this.compileCallExpression(e, definition);
+            } else {
+                if (isConstant) {
+                    this.reportError(
+                        e.callee,
+                        `Invalid ${isProcess ? "process" : "function"} name '${e.callee.value}'`
+                    );
+                    return [new MissingValue(e), []];
+                } else {
+                    let [args, namedArgs, argCode] = this.compileArgsList(e.args);
+                    let blockType = isProcess ? DFCodeblockName.START_PROCESS : DFCodeblockName.CALL_FUNCTION;
+                    return [new EmptyValue(e), [...argCode, new ActionBlock(blockType, {
+                        action: e.callee.value,
+                    })]]
+                }
             }
         }
         else if (e instanceof AccessExpression || e instanceof BracketedAccessExpression) {
