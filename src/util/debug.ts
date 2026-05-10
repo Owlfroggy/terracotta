@@ -101,6 +101,20 @@ export function stringDirWithoutRelations(ast) {
 //=------------------------------------------=\\
 
 // ast visualizer
+/** Ansi codes that discord code blocks support */
+const C = {
+    BLK: "\x1b[0;30m",
+    RED: "\x1b[0;31m",
+    GRN: "\x1b[0;32m",
+    YEL: "\x1b[0;33m",
+    AQU: "\x1b[0;34m",
+    PNK: "\x1b[0;35m",
+    BLU: "\x1b[0;36m",
+    GRY: "\x1b[0;37m",
+    B: "\x1b[1m",
+    U: "\x1b[4m",
+    CLR: "\x1b[0m",
+}
 function recurse(e: ASTNode | null): string {
     const placeholder = "\x1b[0;38;5;196;49m⊘\x1b[0m";
     if (e == null) {
@@ -108,9 +122,9 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof Token) {
         if (e.type == TokenType.STRING_LITERAL || e.type == TokenType.STYLED_LITERAL) {
             let stringData = e.getStringExtraData();
-            return `\x1b[0;32m${e.type == TokenType.STYLED_LITERAL ? "s" : ""}${stringData.quoteChar}\x1b[0;38;5;112;49m${e.value.replaceAll("\n","\x1b[0;34m\\n\x1b[0;38;5;112;49m")}\x1b[0;32m${stringData.quoteChar}\x1b[0m`;
+            return `${C.GRN}${e.type == TokenType.STYLED_LITERAL ? "s" : ""}${stringData.quoteChar}${e.value.replaceAll("\n",`${C.BLU}\\n${C.GRN}`)}${stringData.quoteChar}${C.CLR}`;
         } else if (e.type == TokenType.NUMERIC_LITERAL) {
-            return `\x1b[0;38;5;220;49m${e.value}\x1b[0m`;
+            return `${C.YEL}${e.value}${C.CLR}`;
         } else if (e.type == TokenType.MISSING) {
             return placeholder;
         } else {
@@ -119,10 +133,10 @@ function recurse(e: ASTNode | null): string {
     } else if (e instanceof AtomicExpression) {
         return recurse(e.token);
     } else if (e instanceof VariableExpression) {
-        return `${e.scope.value}${e.name.type == TokenType.IDENTIFIER ? " "+e.name.value : recurse(e.name)}${e.assignedType ? recurse(e.assignedType) : ""}`;
+        return `${C.PNK}${e.scope.value}${C.CLR}${e.name.type == TokenType.IDENTIFIER ? " "+e.name.value : recurse(e.name)}${e.assignedType ? recurse(e.assignedType) : ""}`;
     } else if (e instanceof TypeExpression) {
         if (e.type instanceof Token) {
-            return `\x1b[0;38;5;39;49m${e.type.value}\x1b[0m${e.subType ? `[${e.subType.elements.map(e=>recurse(e)).join(", ")}]` : ""}${e.ellipses ? "..." : ""}`
+            return `${C.BLU}${e.type.value}${C.CLR}${e.subType ? `[${e.subType.elements.map(e=>recurse(e)).join(", ")}]` : ""}${e.ellipses ? "..." : ""}`
         } else {
             return `${e.type ? `[${e.type.elements.map(e=>recurse(e)).join(", ")}]` : ""}${e.ellipses ? "..." : ""}`;
         }
@@ -151,15 +165,21 @@ function recurse(e: ASTNode | null): string {
             return `{${e.entries.map(v => recurse(v)).join(", ")}}`
         }
     } else if (e instanceof BinaryExpression) {
-        return `(${recurse(e.left)} ${e.operator.value} ${recurse(e.right)})`
+        return `(${recurse(e.left)} ${C.GRY}${e.operator.value}${C.CLR} ${recurse(e.right)})`
     } else if (e instanceof TypecastExpression) {
         return `(${recurse(e.left)} as ${recurse(e.type)})`
     } else if (e instanceof UnaryPrefixExpression) {
         return `(${e.operator.value}${recurse(e.right)})`
     } else if (e instanceof CallExpression) {
-        return `${recurse(e.callee)}${recurse(e.args)}`;
+        if (e.callee instanceof AtomicExpression) {
+            return `${C.AQU}${e.callee.token.value}${C.CLR}${recurse(e.args)}`
+        } else if (e.callee instanceof AccessExpression) {
+            return `${recurse(e.callee.accessee)}.${C.AQU}${e.callee.propertyName.value}${C.CLR}${recurse(e.args)}`
+        } else {
+            return `${recurse(e.callee)}${recurse(e.args)}`;
+        }
     } else if (e instanceof CallOrStartExpression) {
-        return `${e.keyword.value} ${recurse(e.name)}${e.args ? recurse(e.args) : ""}`
+        return `${C.RED}${C.B}${e.keyword.value} ${C.AQU}${recurse(e.name)}${C.CLR}${e.args ? recurse(e.args) : ""}`
     } else if (e instanceof AccessExpression) {
         return `${recurse(e.accessee)}${e.accessorToken.value}${e.propertyName.value}`;
     } else if (e instanceof BracketedAccessExpression) {
@@ -172,25 +192,25 @@ function recurse(e: ASTNode | null): string {
         return `${recurse(e.expression)}`
     } else if (e instanceof EventStatement) {
         let modifiers = e.modifiers.length > 0 ? (e.modifiers.map(m => m.value).join(" ") + " ") : "";
-        return `${modifiers}${e.type.value} ${e.eventName.value} ${recurse(e.chunk)}`
+        return `${C.PNK}${C.B}${modifiers}${e.type.value}${C.AQU} ${e.eventName.value}${C.CLR} ${recurse(e.chunk)}`
     } else if (e instanceof FunctionStatement) {
-        return `${TokenType[e.keyword.type].toLowerCase()} ${recurse(e.name)}${recurse(e.params)}${recurse(e.returnType)} ${recurse(e.chunk)}`
+        return `${C.PNK}${C.B}${TokenType[e.keyword.type].toLowerCase()} ${C.AQU}${recurse(e.name)}${C.CLR}${recurse(e.params)}${recurse(e.returnType)} ${recurse(e.chunk)}`
     } else if (e instanceof ForStatement) {
-        return `for (${e.variableList.elements.map(v=>recurse(v)).join(", ")} ${recurse(e.variableList.closer)} ${recurse(e.iteratorExpression)}${recurse(e.closer)} ${recurse(e.chunk)}`;
+        return `${C.RED}${C.B}for${C.CLR} (${e.variableList.elements.map(v=>recurse(v)).join(", ")} ${recurse(e.variableList.closer)} ${recurse(e.iteratorExpression)}${recurse(e.closer)} ${recurse(e.chunk)}`;
     } else if (e instanceof RepeatStatement) {
-        return `repeat${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
+        return `${C.RED}${C.B}repeat${C.CLR}${e.countExpression == null ? "" : ` ${recurse(e.countExpression)}`} ${recurse(e.chunk)}`;
     } else if (e instanceof IfStatement) {
-        return `if ${recurse(e.condition)} ${recurse(e.chunk)} ${e.elseContents ? `else ${recurse(e.elseContents)}` : ''}`;
+        return `${C.RED}${C.B}if${C.CLR} ${recurse(e.condition)} ${recurse(e.chunk)} ${e.elseContents ? `else ${recurse(e.elseContents)}` : ''}`;
     } else if (e instanceof WhileStatement) {
-        return `while ${recurse(e.condition)} ${recurse(e.chunk)}`;
+        return `${C.RED}${C.B}while${C.CLR} ${recurse(e.condition)} ${recurse(e.chunk)}`;
     } else if (e instanceof DoStatement) {
-        return `do ${recurse(e.chunk)} ${e.whileKeyword ? `while ${recurse(e.whileCondition)}` : ''} `;
+        return `${C.RED}${C.B}do${C.CLR} ${recurse(e.chunk)} ${e.whileKeyword ? `while ${recurse(e.whileCondition)}` : ''} `;
     } else if (e instanceof SelectionStatement) {
-        return `${e.keyword.value} ${recurse(e.name)}${recurse(e.args)};`;
+        return `${C.RED}${C.B}${e.keyword.value}${C.CLR} ${recurse(e.name)}${recurse(e.args)};`;
     } else if (e instanceof SingleKeywordStatement) {
-        return `${e.keyword.value}${e.args ? recurse(e.args) : ""};`
+        return `${C.RED}${C.B}${e.keyword.value}${C.CLR}${e.args ? recurse(e.args) : ""};`
     } else if (e instanceof ReturnStatement) {
-        return `${e.keyword.value}${e.values.length > 0 ? " "+e.values.map(v => recurse(v)).join(", ") : ""};`
+        return `${C.RED}${C.B}${e.keyword.value}${C.CLR}${e.values.length > 0 ? " "+e.values.map(v => recurse(v)).join(", ") : ""};`
     }
     return "";
 }
