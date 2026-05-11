@@ -348,15 +348,19 @@ export class TypeProcessor {
                     seenNames.add(param.name.value);
     
                     let type: Type;
+                    let varType: Type;
                     if (param.assignedType) {
                         type = this.evaluateExplicitType(param.assignedType.type, true);
                         if (param.assignedType.type.ellipses) {
-                            type = Type.list(type);
+                            varType = Type.list(type);
+                        } else {
+                            varType = type;
                         }
                     } else {
                         type = Type.any;
+                        varType = Type.any;
                     }
-                    frame.registerVariable(VariableId.get(VariableScope.LINE,param.name.value), type, statement.chunk.startPos);
+                    frame.registerVariable(VariableId.get(VariableScope.LINE,param.name.value), varType, statement.chunk.startPos);
                     // TODO: optional
                     signatureParams.push({
                         name: param.name.value, 
