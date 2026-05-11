@@ -96,11 +96,11 @@ function stringizeCompletionItem(item: CompletionItem, existingNode: ASTNode, do
     return item;
 }
 
-function generateDefinitionCompletion(name: string, def: Definition): CompletionItem {
+function generateDefinitionCompletion(name: string, def: Definition, allowCallOrStartInersion: boolean = true): CompletionItem {
     if (def.definitionType == DefinitionType.FUNCTION) {
         // let isUnusable = !AD.RankCheck(tcConfig.dfRank,action?.RequiresRank!)
         // if (isUnusable && tcConfig.rankBehavior == "hideInaccessible") { return }
-        return {
+        let item: CompletionItem = {
             label: name,
             kind: (def as any).compileIf ? CompletionItemKind.Property : CompletionItemKind.Method,
             commitCharacters: ["("],
@@ -109,6 +109,10 @@ function generateDefinitionCompletion(name: string, def: Definition): Completion
                 definition: def,
             } as CompletionItemData,
         }
+        if (allowCallOrStartInersion && !/^[A-Za-z0-9_]+$/.test(name)) {
+            item.insertText = `call ${valueToTCString(name)}`;
+        }
+        return item;
     }
     else {
         return {
