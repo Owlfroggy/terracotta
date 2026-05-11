@@ -3,7 +3,7 @@ import { Action } from "../df/actiondump.ts";
 import * as AD from "../df/actiondump.ts";
 import { dfTypeToString } from "../df/constants.ts";
 
-function getDFParamString(parameters: AD.Parameter[], header: string, noParamsFallback: string) {
+export function getDFParamString(parameters: AD.Parameter[], header: string, noParamsFallback: string) {
     if (parameters.length == 0) { return noParamsFallback }
 
     let paramStrings: string[] = []

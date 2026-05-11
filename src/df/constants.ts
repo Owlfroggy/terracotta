@@ -162,6 +162,22 @@ export const dfTypeToString: Map<DFValueType, string> = new Map([
     [DFValueType.NONE,          "None"]
 ]);
 
+export const tcTypeToDF: {[tcTypeName: string]: DFValueType} = {
+    "num": DFValueType.NUMBER,
+    "loc": DFValueType.LOCATION,
+    "vec": DFValueType.VECTOR,
+    "item": DFValueType.ITEM,
+    "list": DFValueType.LIST,
+    "pot": DFValueType.POTION,
+    "par": DFValueType.PARTICLE,
+    "snd": DFValueType.SOUND,
+    "txt": DFValueType.COMPONENT,
+    "str": DFValueType.TEXT,
+    "dict": DFValueType.DICT,
+    "var": DFValueType.VARIABLE,
+    "any": DFValueType.ANY_TYPE,
+}
+
 export const tcTypeToDFParamType: {[tcTypeName: string]: string} = {
     "num": "num",
     "loc": "loc",

@@ -12,9 +12,9 @@ import { EnvironmentFrame, TypeProcessor, VariableId, VariableScope } from "../t
 import { EventStatement, ForStatement, RepeatStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { StringExtraData, Token, TokenType } from "../ast/token.ts";
-import { getActionDocumentation, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
+import { getActionDocumentation, getDFParamString, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
 import { getAllowedParticleFields, valueToTCString } from "../util/utils.ts";
-import { DFCodeblockName, DFRank } from "../df/constants.ts";
+import { DFCodeblockName, DFRank, tcTypeToDF } from "../df/constants.ts";
 import { OVERRIDES } from "../data/overrides.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { posIndexIsInListElement, isForLoopActionCall, binaryIsNamedArgument, getExistingNamedArgs } from "../util/astUtils.ts";
@@ -533,6 +533,38 @@ export class LanguageServer {
             if (data.type == CompletionItemType.FUNCTION) {
                 if (data.definition.action) {
                     documentation = getActionDocumentation(data.definition.action);
+                } else {
+                    //creating a parameter object so that it can work with the existing string gen is kinda a hack but whatever
+                    let returnTypeString: string = ""
+                    if (data.definition.defaultReturnType != null) {
+                        let returnP = new AD.Parameter([
+                            [new AD.ParameterGroupValue(
+                                tcTypeToDF[data.definition.defaultReturnType.name],
+                                // TODO: description for return types
+                            )]
+                        ])
+
+                        returnTypeString = getDFParamString([returnP],"\n\n**Returns Value:**\n\n","")
+                    }
+
+                    let paramString: string;
+                    let convertedParams: AD.Parameter[] = [];
+                    // TODO: handle multiple signatures maybe?
+                    for (const param of data.definition.signatures[0].params) {
+                        convertedParams.push(new AD.Parameter([
+                            [new AD.ParameterGroupValue(
+                                tcTypeToDF[param.type.name],
+                                param.name,
+                                param.optional,
+                                param.plural,
+                                param.description != undefined ? param.description.split("\n") : undefined
+                            )]
+                        ]))
+                    }
+                    paramString = getDFParamString(convertedParams, "\n\n**Parameters:**\n\n", "\n\n**No Parameters**");
+                    
+                    
+                    documentation = `${paramString}${returnTypeString}`
                 }
             }
             else if (data.type == CompletionItemType.EVENT) {
