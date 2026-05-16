@@ -653,7 +653,11 @@ export class LanguageServer {
                 }));
             }
             // types if ur inside a type expression
-            else if (node instanceof TypeAssignmentExpression || node.getClosestAncestor(TypeExpression) != null) {
+            else if (
+                node instanceof TypeAssignmentExpression 
+                || (node instanceof Token && node.type == TokenType.COLON && node.keyInParent == "colon")
+                || node.getClosestAncestor(TypeExpression) != null
+            ) {
                 includeGenerics = false;
                 items.push(...typeNameCompletions);
             }
