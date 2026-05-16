@@ -350,8 +350,8 @@ export class TypeProcessor {
                     let type: Type;
                     let varType: Type;
                     if (param.assignedType) {
-                        type = this.evaluateExplicitType(param.assignedType.type, true);
-                        if (param.assignedType.type.ellipses) {
+                        type = this.evaluateExplicitType(param.assignedType.type);
+                        if (param.ellipses) {
                             varType = Type.list(type);
                         } else {
                             varType = type;
@@ -361,12 +361,11 @@ export class TypeProcessor {
                         varType = Type.any;
                     }
                     frame.registerVariable(VariableId.get(VariableScope.LINE,param.name.value), varType, statement.chunk.startPos);
-                    // TODO: optional
                     signatureParams.push({
                         name: param.name.value, 
                         type: type,
-                        optional: false, 
-                        plural: param.assignedType?.type.ellipses != undefined,
+                        optional: param.star != null, 
+                        plural: param.ellipses != null,
                         description: param.attachedComments.length > 0 ? param.attachedComments.map(t => t.value).join("\n") : undefined
                     })
                 }

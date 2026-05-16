@@ -184,9 +184,8 @@ export class CodeCompiler {
 
                         let dfType: string = "any";
                         let tcType: Type | null = null;
-                        let plural = false;
                         if (param.assignedType) {
-                            tcType = this.env.types.evaluateExplicitType(param.assignedType.type, true);
+                            tcType = this.env.types.evaluateExplicitType(param.assignedType.type);
                             if (tcType.name in tcTypeToDFParamType) {
                                 dfType = tcTypeToDFParamType[tcType.name];
                             } else {
@@ -195,13 +194,10 @@ export class CodeCompiler {
                                     `Type '${tcType.name}' cannot be passed to functions`
                                 );
                             }
-
-                            if (param.assignedType.type.ellipses) {
-                                plural = true;
-                            }
                         }
 
-                        let optional = false;
+                        let plural = param.ellipses != null;
+                        let optional = param.star != null;
                         let defaultValue: TangibleValue | null = null;
 
                         if (param.defaultValue) {
@@ -210,7 +206,6 @@ export class CodeCompiler {
                             // since what if the user passes that in
                             let [item, code] = this.compileExpression(param.defaultValue);
                             if (item instanceof TangibleValue) {
-                                optional = true;
                                 defaultValue = item;
                             }
                             
@@ -218,7 +213,7 @@ export class CodeCompiler {
                                 this.reportError(param.defaultValue, `Plural parameters cannot specify default values`);
                             }
                             if (!optional) {
-                                this.reportError(param.defaultValue, `Default value can only be specified for optional parameters`);
+                                this.reportError(param.defaultValue, `Default value can only be specified for optional parameters. Try adding a star '*' after this parameter's name.`);
                             }
                             if (tcType && (tcType.matches(Type.list) || tcType.matches(Type.dict) || tcType.matches(Type.var))) {
                                 this.reportError(param.defaultValue, `Parameters of type '${tcType?.name}' cannot be assigned default values`);
