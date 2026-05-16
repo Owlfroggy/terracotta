@@ -146,7 +146,9 @@ export class Type {
                 }
                 return false;
             }
-            return new Type('dict', {getMemberType, strictMatchCallback, stringify, data: {genericType, keyTypes}})
+            let members = Object.keys(keyTypes);
+            let getMembers = () => members;
+            return new Type('dict', {getMemberType, getMembers, strictMatchCallback, stringify, data: {genericType, keyTypes}})
         }
     );
 
@@ -172,24 +174,30 @@ export class Type {
                 }
                 return Type.any;
             }
-            return new Type('namespace',{getMemberType, data: {namespace}})
+            let members = Object.keys(namespace.members);
+            let getMembers = () => members;
+            return new Type('namespace',{getMemberType, getMembers, data: {namespace}})
         }
     );
 
     public readonly assignable: boolean;
     public readonly getMemberType = (m?: string | number) => Type.unknown;
+    /** Returns a `string[]` containing all member names, or `null` if this type does not allow property access */
+    public readonly getMembers: () => (string[] | null) = () => null;
     public readonly data: ExtraData
 
     constructor(
         public readonly name: string,
-        {getMemberType, strictMatchCallback, stringify, data = null}: {
+        {getMemberType, getMembers, strictMatchCallback, stringify, data = null}: {
             getMemberType?: (member?: string | number) => Type,
+            getMembers?: () => (string[] | null),
             strictMatchCallback?: (other: Type) => boolean,
             stringify?: () => string,
             data?: ExtraData
         } = {}
     ) {
         if (getMemberType) this.getMemberType = getMemberType;
+        if (getMembers) this.getMembers = getMembers;
         if (strictMatchCallback) this.strictlyMatches = strictMatchCallback;
         if (stringify) {
             this.toString = stringify;

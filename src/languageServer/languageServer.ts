@@ -127,8 +127,26 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
     }
 }
 
-function generateNamespaceMemberCompletions(namespace: Namespace): CompletionItem[] {    
-    return Object.entries(namespace.members).map(([name, def]) => generateDefinitionCompletion(name, def));
+function generateTypeMemberCompletions(type: Type): CompletionItem[] {    
+    let members = type.getMembers();
+    if (members == null) return [];
+
+    if (type.matches(Type.namespace)) {
+        let namespace = (type.data as NamespaceTypeData).namespace;
+        return Object.entries(namespace.members).map(([name, def]) => generateDefinitionCompletion(name, def))
+    } else {
+        let items: CompletionItem[] = [];
+        for (const m of members) {
+            let mType = type.getMemberType(m);
+            if (mType.matches(Type.func)) {
+                items.push(generateDefinitionCompletion(m, (mType.data as FuncTypeData).definition));
+            } else {
+                // TODO: make these items prettier
+                items.push({label: m, documentation: mType.toString()});
+            }
+        }
+        return items;
+    }
 }
 
 function generateVariableCompletions(envFrame: EnvironmentFrame, options: {explicitScope?: VariableScope, replaceString?: Token, doc?: TrackedDocument, excludeName?: string} = {}): CompletionItem[] {
@@ -614,11 +632,8 @@ export class LanguageServer {
             let [callNode, definition] = getNearestCallNode(node, doc.workspace.typeProcessor, envFrame, index);
             if (node.parent instanceof AccessExpression && (node.keyInParent == "accessorToken" || node.keyInParent == "propertyName")) {
                 let accesseeType = doc.workspace.typeProcessor.evaluateExpression(node.parent.accessee, envFrame);
-                if (accesseeType.name == "namespace") {
-                    let namespace = (accesseeType.data as NamespaceTypeData).namespace;
-                    items = generateNamespaceMemberCompletions(namespace);
-                    includeGenerics = false;
-                }
+                items = generateTypeMemberCompletions(accesseeType);
+                includeGenerics = false;
             }
             // event names
             else if (
