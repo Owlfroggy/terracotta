@@ -439,8 +439,18 @@ export class Parser {
     }
 
     parseParameterExpression = (): ParameterExpression | null => {
+        let ellipses: Token | null = null;
+        if (this.currentToken().type == TokenType.ELLIPSES) {
+            ellipses = this.consume();
+        }
+
         let [name, nameFound] = this.expect([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
         if (!nameFound) return null;
+
+        let star: Token | null = null;
+        if (this.currentToken().type == TokenType.STAR) {
+            star = this.consume();
+        }
 
         let type = this.parseTypeAssignmentExpression(true);
         let equals: Token | null = null;
@@ -451,7 +461,7 @@ export class Parser {
                 defaultValue = this.parseExpression(BindingPower.DEFAULT);
             }
         }
-        return new ParameterExpression(name, type, equals, defaultValue);
+        return new ParameterExpression(name, ellipses, star, type, equals, defaultValue);
     }
 
 
