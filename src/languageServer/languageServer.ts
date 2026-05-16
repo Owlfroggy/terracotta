@@ -4,12 +4,12 @@ import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocu
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, CallOrStartExpression, GroupExpression, ListExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, CallOrStartExpression, GroupExpression, ListExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
 import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { Definition, DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
 import { EnvironmentFrame, TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { EventStatement, ForStatement, RepeatStatement } from "../ast/statement.ts";
+import { EventStatement, ForStatement, FunctionStatement, RepeatStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { StringExtraData, Token, TokenType } from "../ast/token.ts";
 import { getActionDocumentation, getDFParamString, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
@@ -673,6 +673,14 @@ export class LanguageServer {
                         return item;
                     }
                 ))
+            }
+            // hide generics when typing parameters in a function definition
+            else if (
+                (node instanceof ListExpression && node.parent instanceof FunctionStatement && node.keyInParent == "params")
+                || (node instanceof Token && node.parent instanceof ParameterExpression && node.keyInParent == "name")
+                || (node instanceof Token && node.parent instanceof ListExpression && node.parent.parent instanceof FunctionStatement)
+            ) {
+                includeGenerics = false;
             }
 
             if (includeGenerics && callNode && definition && node.getClosestAncestor(ListExpression) == callNode.args) {
