@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
@@ -324,6 +324,9 @@ export class TypeProcessor {
                 return this.getRequirements(expression.token, frame);
             }
         }
+        else if (expression instanceof DictionaryEntryExpression) {
+            return this.getRequirements(expression.value, frame);
+        }
         else if (expression instanceof Token && expression.type == TokenType.IDENTIFIER) {
             return [{item: expression.value, atPos: expression.startPos}];
         }
@@ -553,6 +556,15 @@ export class TypeProcessor {
         else if (expression instanceof ListExpression) {
             let elementTypes = expression.elements.map(elm => this.evaluateExpression(elm, frame));
             return Type.list(...inferListTypeFromElements(elementTypes));
+        }
+        else if (expression instanceof DictionaryExpression) {
+            let keyTypes: {[key: string]: Type} = {};
+            for (const entry of expression.entries) {
+                if (!(entry.key instanceof Token)) continue;
+                keyTypes[entry.key.value] = this.evaluateExpression(entry.value);
+            }
+            // TODO: match generic type behavior to that of lists
+            return Type.dict(Type.any, keyTypes);
         }
         else if (expression instanceof VariableExpression) {
             return frame.getVariableType(VariableId.fromExpression(expression), expression.startPos);

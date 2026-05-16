@@ -18,7 +18,12 @@ export type ListTypeData = {
     indexTypes: Type[],
 }
 
-type ExtraData = FuncTypeData | NamespaceTypeData | ListTypeData | null;
+export type DictTypeData = {
+    genericType: Type,
+    keyTypes: {[key: string]: Type},
+}
+
+type ExtraData = FuncTypeData | NamespaceTypeData | ListTypeData | DictTypeData | null;
 
 export type TypeConstructor<F extends ((...args: any[]) => Type)> = F & {
     constructsType: string
@@ -101,7 +106,49 @@ export class Type {
         }
     );
 
-    public static dict = new Type('dict');
+    public static dict = this.makeTypeConstructor(
+        'dict', 1,
+        (genericType: Type, keyTypes: {[key: string]: Type} = {}) => {
+            let getMemberType = (m?: string | number) => {
+                if (typeof m == 'string' && m in keyTypes) {
+                    return keyTypes[m];
+                }
+                return genericType;
+            }
+            let stringify = () => {
+                let keyTypeEntries = Object.entries(keyTypes);
+                if (keyTypeEntries.length > 0) {
+                    let genericAddon = "";
+                    if (!genericType.matches(Type.any)) {
+                        genericAddon = `, ${genericType}...`;
+                    }
+                    let entryStrings = keyTypeEntries.map(
+                        ([key, type]) => `${key}: ${type}`
+                    );
+                    return `{${entryStrings.join(", ")}${genericAddon}}`
+                } else {
+                    return `dict[${genericType}]`;
+                }
+            }
+            let strictMatchCallback = (other: Type) => {
+                if (other.matches(Type.dict)) {
+                    let otherData = other.data as DictTypeData;
+
+                    // make sure all keys exist in both dicts and have the same type
+                    for (const key of [...Object.keys(keyTypes), ...Object.keys(otherData.keyTypes)]) {
+                        if (!(key in keyTypes)) return false;
+                        if (!(key in otherData.keyTypes)) return false;
+                        if (!keyTypes[key].strictlyMatches(otherData.keyTypes[key])) return false;
+                    }
+
+                    // make sure generic type matches
+                    return genericType.strictlyMatches(otherData.genericType);
+                }
+                return false;
+            }
+            return new Type('dict', {getMemberType, strictMatchCallback, stringify, data: {genericType, keyTypes}})
+        }
+    );
 
     public static func = this.makeTypeConstructor(
         'func', 0,
