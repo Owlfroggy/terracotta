@@ -702,6 +702,11 @@ export const OVERRIDES: {
                 {name: "List to change", type: Type.list(Type.any), optional: false, plural: false} ,
                 {name: "Value(s) to remove", type: Type.any, optional: false, plural: true}
             ]}, ],
+            "InsertListValue": [ {params: [ 
+                {name: "List to change", type: Type.list(Type.any), optional: false, plural: false} ,
+                {name: "Index", type: Type.num, optional: false, plural: false},
+                {name: "Value to insert", type: Type.any, optional: false, plural: false}
+            ]}, ],
 
             // par
             "SetParticleMat": [
