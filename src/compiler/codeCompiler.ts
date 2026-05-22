@@ -7,7 +7,7 @@ import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, El
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, Expression, GroupExpression, ListExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, ParameterValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
@@ -316,6 +316,31 @@ export class CodeCompiler {
         return [args, namedArgs, argCode];
     }
 
+    compileListContents(tempVar: VariableValue, contents: TangibleValue[]): CodeBlock[] {
+        let code: CodeBlock[] = [];
+        let currentChest: TangibleValue[] = [tempVar];
+        let createBlockAdded = false;
+
+        function pushCurrentChest() {
+            if (currentChest.length <= 1) return;
+            code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                action: !createBlockAdded ? "CreateList" : "AppendValue",
+                args: [...currentChest]
+            }));
+            if (!createBlockAdded) createBlockAdded = true;
+            currentChest = [tempVar]; 
+        }
+
+        for (const element of contents) {
+            currentChest.push(element);
+            if (currentChest.length >= 27) {
+                pushCurrentChest();
+            }
+        }
+        pushCurrentChest();
+        return code;
+    }
+
     compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition): [CodeValue, CodeBlock[]] {
         let [args, namedArgs, argCode] = this.compileArgsList(e.args);
         // TODO: handle return types
@@ -528,35 +553,68 @@ export class CodeCompiler {
         else if (e instanceof ListExpression) {
             let code: CodeBlock[] = [];
             let tempVar = this.tempVarProvider.newTempVar(Type.list(Type.any));
-            let currentChest: TangibleValue[] = [tempVar];
-            let createBlockAdded = false;
-
-            function pushCurrentChest() {
-                if (currentChest.length <= 1) return;
-                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                    action: !createBlockAdded ? "CreateList" : "AppendValue",
-                    args: [...currentChest]
-                }));
-                if (!createBlockAdded) createBlockAdded = true;
-                currentChest = [tempVar]; 
-            }
-
+            
+            let contents: TangibleValue[] = [];
             for (const element of e.elements) {
                 let [value, valueCode] = this.compileExpression(element);
+                code.push(...valueCode);
                 if (!(value instanceof TangibleValue)) {
                     if (!(value instanceof MissingValue)) {
                         this.reportError(element, `${value.constructor.name} cannot be stored in lists`);
                     }
                     continue;
                 }
-                code.push(...valueCode)
-                currentChest.push(value);
-                if (currentChest.length == 27) {
-                    pushCurrentChest();
-                }
+                contents.push(value);
             }
-            pushCurrentChest();
-            return [tempVar, code];
+
+            return [tempVar, [...code, ...this.compileListContents(tempVar, contents)]];
+        }
+        else if (e instanceof DictionaryExpression) {
+            let code: CodeBlock[] = []
+            let tempVar = this.tempVarProvider.newTempVar(Type.list(Type.any));
+            let keysTempVar = this.tempVarProvider.newTempVar(Type.list(Type.str));
+            let valuesTempVar = this.tempVarProvider.newTempVar(Type.list(Type.any));
+            let keysContents: TangibleValue[] = [];
+            let valuesContents: TangibleValue[] = [];
+
+            let contents: TangibleValue[] = [];
+            for (const entry of e.entries) {
+                // variable key
+                if (entry.key instanceof GroupExpression) {
+                    let [key, keyCode] = this.compileExpression(entry.key);
+                    let keyType = key.getType(this.env.types);
+                    if (keyType.matches(Type.str) && key instanceof TangibleValue) {
+                        code.push(...keyCode);
+                        keysContents.push(key);
+                    } else {
+                        this.reportError(entry.key,`Expected type 'str' for dictionary key (got '${keyType.name}')`);
+                        continue;
+                    }
+                } 
+                // constant key
+                else {
+                    keysContents.push(new StringValue(entry.key.value, entry.key));
+                }
+
+                // value
+                let [value, valueCode] = this.compileExpression(entry.value);
+                if (!(value instanceof TangibleValue)) {
+                    if (!(value instanceof MissingValue)) {
+                        this.reportError(entry, `${value.constructor.name} cannot be stored in lists`);
+                    }
+                    continue;
+                }
+                code.push(...valueCode);
+                valuesContents.push(value);
+            }
+
+            let keysCode = this.compileListContents(keysTempVar, keysContents);
+            let valuesCode = this.compileListContents(valuesTempVar, valuesContents);
+
+            return [tempVar, [...code, ...keysCode, ...valuesCode, new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                action: "CreateDict",
+                args: [tempVar, keysTempVar, valuesTempVar]
+            })]];
         }
         else if (e instanceof AtomicExpression) {
             return this.compileExpression(e.token);
