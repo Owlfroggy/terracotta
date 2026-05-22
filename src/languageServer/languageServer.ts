@@ -631,8 +631,21 @@ export class LanguageServer {
 
             let [callNode, definition] = getNearestCallNode(node, doc.workspace.typeProcessor, envFrame, index);
             if (node.parent instanceof AccessExpression && (node.keyInParent == "accessorToken" || node.keyInParent == "propertyName")) {
-                let accesseeType = doc.workspace.typeProcessor.evaluateExpression(node.parent.accessee, envFrame);
-                items = generateTypeMemberCompletions(accesseeType);
+                let accessExpression = node.parent as AccessExpression;
+                let accesseeType = doc.workspace.typeProcessor.evaluateExpression(accessExpression.accessee, envFrame);
+                items = generateTypeMemberCompletions(accesseeType).map(item => {
+                    if (!isIdentifier(item.label)) {
+                        item.textEdit = {
+                            range: {
+                                start: doc.indexToLinePosition(accessExpression.accessorToken.startPos),
+                                end: doc.indexToLinePosition(node.endPos),
+                            },
+                            newText: `[${valueToTCString(item.label)}]`
+                        }
+                        item.filterText = "." + item.label;
+                    }
+                    return item;
+                });
                 includeGenerics = false;
             }
             else if (node.parent instanceof BracketedAccessExpression || (node.parent instanceof AtomicExpression && node.parent.parent instanceof BracketedAccessExpression)) {
