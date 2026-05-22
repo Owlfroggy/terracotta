@@ -566,6 +566,24 @@ export const OVERRIDES: {
                     return Type.num;
                 }
             },
+            "CreateDict": (args: Expression[], types: TypeProcessor) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types);
+                if (argTypes.length >= 2 && argTypes[1].matches(Type.list)) {
+                    return Type.dict(argTypes[1].getMemberType());
+                }
+                return Type.dict(Type.any);
+            },
+            "GetDictValues": (args: Expression[], types: TypeProcessor) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types);
+                if (argTypes.length >= 1 && argTypes[0].matches(Type.dict)) {
+                    return Type.list(argTypes[0].getMemberType());
+                }
+                return Type.dict(Type.any);
+            },
+            "SortDict": (args: Expression[], types: TypeProcessor) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types);
+                return argTypes[0] ?? Type.dict(Type.any);
+            },
 
             "String": Type.str,
             "TranslateColors": Type.str,
@@ -623,7 +641,7 @@ export const OVERRIDES: {
             "RemoveDictEntry": Type.dict(Type.any),
             "ClearDict": Type.dict(Type.any),
             "AppendDict": Type.dict(Type.any),
-            "SortDict": Type.dict(Type.any),
+            "GetDictKeys": Type.list(Type.str),
 
             "SetParticleType": Type.par,
             "SetParticleAmount": Type.par,
@@ -706,6 +724,25 @@ export const OVERRIDES: {
                 {name: "List to change", type: Type.list(Type.any), optional: false, plural: false} ,
                 {name: "Index", type: Type.num, optional: false, plural: false},
                 {name: "Value to insert", type: Type.any, optional: false, plural: false}
+            ]}, ],
+
+            // dict
+            "AppendDict": [ {params: [ 
+                {name: "Dictionary to add to", type: Type.dict(Type.any), optional: false, plural: false} ,
+                {name: "Dictionary to append", type: Type.dict(Type.any), optional: false, plural: false} ,
+            ]}, ],
+            "ClearDict": [ {params: [ 
+                {name: "Dictionary to clear", type: Type.dict(Type.any), optional: false, plural: false} ,
+            ]}, ],
+            "RemoveDictEntry": [ {params: [ 
+                {name: "Dictionary to change", type: Type.dict(Type.any), optional: false, plural: false} ,
+                {name: "Key to remove", type: Type.str, optional: false, plural: false} ,
+                {name: "Expected value(s)", type: Type.any, optional: true, plural: true} ,
+            ]}, ],
+            "SetDictValue": [ {params: [ 
+                {name: "Dictionary to change", type: Type.dict(Type.any), optional: false, plural: false} ,
+                {name: "Key", type: Type.str, optional: false, plural: false} ,
+                {name: "Value", type: Type.any, optional: false, plural: false} ,
             ]}, ],
 
             // par

@@ -456,6 +456,7 @@ export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
     snd: new Namespace('snd', typeActionMembers('snd'), SND_CONSTRUCTOR),
     par: new Namespace('par', typeActionMembers('par'), PAR_CONSTRUCTOR),
     list: new Namespace('list', typeActionMembers('list')),
+    dict: new Namespace('dict', typeActionMembers('dict')),
 };
 
 export const REPEAT_ACTIONS: {[tcName: string]: {def: FunctionDefinition, returnType: Type}} = {
