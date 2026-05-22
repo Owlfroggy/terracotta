@@ -519,7 +519,25 @@ export class CodeCompiler {
                 })
 
                 return [tempVar, [...preCode, codeBlock]];
-            } 
+            }
+            // dict accessing
+            else if (accesseeType.matches(Type.dict)) {
+                if (!accessorType.matches(Type.str)) {
+                    this.reportError(
+                        e.propertyName,
+                        `Type '${accessorType.name}' cannot be used to index into dictionaries, only strings are allowed as keys`
+                    );
+                    return [new MissingValue(e), preCode];
+                }
+                let tempVar = this.tempVarProvider.newTempVar(accesseeType.getMemberType(accessorValue));
+
+                let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "GetDictValue",
+                    args: [tempVar, accessee as TangibleValue, accessor]
+                })
+
+                return [tempVar, [...preCode, codeBlock]];
+            }
             // error
             else {
                 if (!(accessee instanceof MissingValue)) {
