@@ -13,7 +13,7 @@ import { EventStatement, ForStatement, FunctionStatement, RepeatStatement } from
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { StringExtraData, Token, TokenType } from "../ast/token.ts";
 import { getActionDocumentation, getDFParamString, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
-import { getAllowedParticleFields, valueToTCString } from "../util/utils.ts";
+import { getAllowedParticleFields, isIdentifier, valueToTCString } from "../util/utils.ts";
 import { DFCodeblockName, DFRank, tcTypeToDF } from "../df/constants.ts";
 import { OVERRIDES } from "../data/overrides.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
@@ -68,7 +68,7 @@ function stringizeCompletionItem(item: CompletionItem, existingNode: ASTNode, do
         leaveIdentifiersAlone 
         && existingNode instanceof Token 
         && existingNode.type == TokenType.IDENTIFIER 
-        && /^[A-Za-z0-9_]+$/.test(item.label)
+        && isIdentifier(item.label)
     ) return item;
 
     let extraStringData: StringExtraData | null = (existingNode instanceof Token && existingNode.type == TokenType.STRING_LITERAL) ? existingNode.getStringExtraData() : null;
@@ -109,7 +109,7 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
                 definition: def,
             } as CompletionItemData,
         }
-        if (allowCallOrStartInersion && !/^[A-Za-z0-9_]+$/.test(name)) {
+        if (allowCallOrStartInersion && !isIdentifier(name)) {
             item.insertText = `call ${valueToTCString(name)}`;
         }
         return item;
@@ -176,7 +176,7 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, options: {expli
         for (const [scope, type] of scopeLayer.entries()) {
             let scopeStr = VariableScope[scope].toLowerCase();
             let stringifiedName = name;
-            if (!/^[A-Za-z0-9_]+$/.test(stringifiedName) || options.replaceString) {
+            if (!isIdentifier(stringifiedName) || options.replaceString) {
                 stringifiedName = valueToTCString(name, options.replaceString?.getStringExtraData().quoteChar ?? '"');
             }
             let multipleVars = (scopeLayer.size > 1 && scope != Math.max(...scopeLayer.keys()));
@@ -432,7 +432,7 @@ export class LanguageServer {
                 let name = node.value;
                 let scopeStr = VariableScope[varEntry.id.scope].toLowerCase();
                 let stringifiedName = name;
-                if (!/^[A-Za-z0-9_]+$/.test(stringifiedName)) {
+                if (!isIdentifier(stringifiedName)) {
                     stringifiedName = valueToTCString(name, '"');
                 }
                 let documentation: MarkupContent = {

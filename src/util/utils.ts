@@ -194,3 +194,7 @@ export function getAllowedParticleFields(parDef: AD.Particle | undefined): strin
     }
     return allowedFields;
 }
+
+export function isIdentifier(str: string) {
+    return /^[A-Za-z0-9_]+$/.test(str);
+}
