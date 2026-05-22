@@ -590,7 +590,7 @@ export const OVERRIDES: {
             "Base64Encode": Type.list(Type.num),
             "Base64Decode": Type.list(Type.num),
             "AllRegexGroups": Type.list(Type.str),
-            "NamedRegexGrps": Type.dict, // TODO: fill out subtype
+            "NamedRegexGrps": Type.dict(Type.str),
             "GzipCompress": Type.list(Type.num),
             "GzipDecompress": Type.list(Type.num),
             "SegmentString": Type.list(Type.str),
