@@ -4,7 +4,7 @@ import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocu
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, CallOrStartExpression, GroupExpression, ListExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, GroupExpression, ListExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
 import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { Definition, DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
@@ -635,6 +635,17 @@ export class LanguageServer {
                 items = generateTypeMemberCompletions(accesseeType);
                 includeGenerics = false;
             }
+            else if (node.parent instanceof BracketedAccessExpression || (node.parent instanceof AtomicExpression && node.parent.parent instanceof BracketedAccessExpression)) {
+                let accessExpression = (node.parent instanceof BracketedAccessExpression ? node.parent : node.parent.parent) as BracketedAccessExpression;
+                let accesseeType = doc.workspace.typeProcessor.evaluateExpression(accessExpression.accessee, envFrame);
+                items = generateTypeMemberCompletions(accesseeType).map(
+                    item => {
+                        item = stringizeCompletionItem(item, node, doc)
+                        item.sortText = "\u0000"+item.label;
+                        return item;
+                    }
+                );
+            }
             // event names
             else if (
                 (node instanceof EventStatement && index > node.type.endPos && index < node.chunk.startPos)
@@ -697,8 +708,7 @@ export class LanguageServer {
             ) {
                 includeGenerics = false;
             }
-
-            if (includeGenerics && callNode && definition && node.getClosestAncestor(ListExpression) == callNode.args) {
+            else if (includeGenerics && callNode && definition && node.getClosestAncestor(ListExpression) == callNode.args) {
                 let closestBinary = node.getClosestAncestor(BinaryExpression);
                 // action tags
                 if (definition.action ?? definition.compile == COMPILE_START_PROCESS) {
