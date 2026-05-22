@@ -910,10 +910,18 @@ export class CodeCompiler {
                 let [iteratorValue, iteratorValueCode] = this.compileExpression(iteratorExpr);
                 code.push(...iteratorValueCode);
                 
-                // iterate over lists & dicts
+                // iterate over lists
                 if (iteratorValue.getType(this.env.types).matches(Type.list) && iteratorValue instanceof TangibleValue) { 
                     code.push(new ActionBlock(DFCodeblockName.REPEAT, {
                         action: "ForEach",
+                        args: [...varValues, iteratorValue]
+                    }));
+                }
+                // iterate over dicts
+                else if (iteratorValue.getType(this.env.types).matches(Type.dict) && iteratorValue instanceof TangibleValue) {
+                    expectedVars = 2;
+                    code.push(new ActionBlock(DFCodeblockName.REPEAT, {
+                        action: "ForEachEntry",
                         args: [...varValues, iteratorValue]
                     }));
                 }

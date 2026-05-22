@@ -510,6 +510,11 @@ export class TypeProcessor {
                     if (entry.forLoopVarPos != undefined) {
                         if (exprType.matches(Type.list) && entry.forLoopVarPos == 0) {
                             entry.type = exprType.getMemberType();
+                        } else if (exprType.matches(Type.dict)) {
+                            entry.type = (
+                                entry.forLoopVarPos == 0 ? Type.str
+                                : exprType.getMemberType()
+                            );
                         } else {
                             entry.type = Type.unknown;
                         }
