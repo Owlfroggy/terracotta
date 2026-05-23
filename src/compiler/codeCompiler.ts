@@ -21,6 +21,7 @@ import { REPEAT_ACTIONS } from "./namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
 import { PCodeParser } from "../pcode/pcodeParser.ts";
 import { SegmentPCode } from "../pcode/pcode.ts";
+import { BooleanOperation } from "./booleanOperation.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -349,9 +350,125 @@ export class CodeCompiler {
         return [value, [...argCode, ...code]];
     }
 
+    /** 
+     * ASSUMES A SIMPLIFIED `BooleanOperation` IS BEING PASSED IN!!
+     *  
+     * PASSING IN A BOOLEAN OPERATION TREE WITH STACKED NEGATIONS WILL BREAK THINGS!
+     * */
+    // TODO: implement these operations in the type processor
+    compileBooleanOperation(e: BooleanOperation | Expression, body: CodeBlock[]): CodeBlock[] {
+        // if expr is VAR(x):
+        //     emit("if (" + x + ") {")
+        //     emit(body)
+        //     emit("}")
+
+        // if expr is AND(a, b):
+        //     emit("if (" + a + ") {")
+        //     compile(b, body)
+        //     emit("}")
+
+        // if expr is OR(a, b):
+        //     emit("if (" + a + ") {")
+        //     emit(body)
+        //     emit("} else {")
+        //     compile(b, body)
+        //     emit("}")
+
+        let negate = false;
+        if (e instanceof BooleanOperation) {
+            switch (e.operation) {
+                case TokenType.BOOL_AND: {
+                    return this.compileBooleanOperation(e.a, this.compileBooleanOperation(e.b!, body));
+                }
+                // TODO: optimize cases where you don't need an actual structural or (like val == 1 || val == 2)
+                case TokenType.BOOL_OR: {
+                    // TODO: handle not
+                    // BOOLEAN EXPRESSION CASE:
+                    // if a IS a boolean expression, we can't rely on built-in if-else since
+                    // a cannot be put into that if.
+                    // therefore we need to keep track of whether or not a is true after it's
+                    // evaluated so we can simulate an else block
+                    if (e.a instanceof BooleanOperation) {
+                        /* 
+                        (default.isSneaking() && default.isSprinting())
+                            || default.heldSlot == 5
+                            || default.heldSlot == 4
+                        */
+                        // TODO: investigate whether or not run markers can be shared in cases like the above example
+                        let runMarker = this.tempVarProvider.newTempVar(Type.num);
+                        let runMarkerInitBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                            action: "=",
+                            args: [runMarker, new NumberValue("0")]
+                        });
+                        let runMarkerSetterBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                            action: "=",
+                            args: [runMarker, new NumberValue("1")]
+                        });
+                        return [
+                            runMarkerInitBlock,
+                            ...this.compileBooleanOperation(e.a, [runMarkerSetterBlock, ...body]),
+                            new IfBlock(DFCodeblockName.IF_VARIABLE, {
+                                action: "=",
+                                args: [runMarker, new NumberValue("0")]
+                            }),
+                            new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.IF}),
+                                ...this.compileBooleanOperation(e.b!, [...body]),
+                            new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.IF}),
+                        ];
+                    }
+                    // BOOLEAN ATOM CASE: 
+                    // if a isn't itself a boolean expression, we can use an if-else structure
+                    // since a can be placed directly in the condition of that if.
+                    // this avoids setting the temp var thats required in the run marker case
+                    else {
+                        return [
+                            ...this.compileBooleanOperation(e.a, [...body]),
+                            new ElseBlock({}),
+                            new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.IF}),
+                                ...this.compileBooleanOperation(e.b!, [...body]),
+                            new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.IF}),
+                        ];
+                    }
+                }
+                case TokenType.BANG: {
+                    return;
+                }
+            }
+        }
+
+        let [val, valCode] = this.compileExpression(e);
+
+        // TODO: handle non-tangible values more properly
+        if (!(val instanceof TangibleValue)) return [];
+
+        return [
+            ...valCode,
+            new IfBlock(DFCodeblockName.IF_VARIABLE, {
+                action: "!=",
+                args: [val, new NumberValue("0")]
+            }),
+            new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.IF}),
+                ...body,
+            new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.IF}),
+        ]
+    }
+
     compileExpression(e: Expression | Token): [CodeValue, CodeBlock[]] {
         // TODO: structure this and the compileStatement thing more like how the parser does stuff
-        if (e instanceof BinaryExpression) {
+        if (e instanceof Expression && BooleanOperation.exprIsBooleanExpression(e)) {
+            // convert expression into BooleanOperation classes to make it easier to work with
+            let operationTree = BooleanOperation.generateFromExpression(e);
+            let simplified = BooleanOperation.simplify(operationTree);
+            let output = this.tempVarProvider.newTempVar(Type.num);
+            let code = this.compileBooleanOperation(simplified, [
+                new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "=",
+                    args: [output, new NumberValue("1")]
+                })
+            ]);
+            return [output, code];
+        }
+        else if (e instanceof BinaryExpression) {
             let [left, lCode] = this.compileExpression(e.left);
             let [right, rCode] = this.compileExpression(e.right);
             let [result, oprCode] = Operations.evaluateBinaryValue(
@@ -360,7 +477,7 @@ export class CodeCompiler {
             )
             return [result, [...lCode, ...rCode, ...oprCode]];
         }
-        if (e instanceof UnaryPrefixExpression) {
+        else if (e instanceof UnaryPrefixExpression) {
             let [right, rCode] = this.compileExpression(e.right);
             let [result, oprCode] = Operations.evaluateUnaryValue(
                 e.operator, right, 
