@@ -1,5 +1,5 @@
 import { ASTNode, RootNode } from "../ast/astNode.ts";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression } from "../ast/expression.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression, DictionaryTypeExpression, DictionaryTypeEntryExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
@@ -182,6 +182,10 @@ export class Parser {
     currentToken = (): Token => {
         return this.tokens[this.position];
     }
+    /** returns the token at index `position + tokenCount` */
+    lookAhead = (tokenCount: number = 1): Token => {
+        return this.tokens[this.position + tokenCount]
+    }
 
     /** returns the processing properties of the token at index `position` */
     currrentTokenNUDProps = (): NUDProcessingProperties | null => {
@@ -247,11 +251,11 @@ export class Parser {
     }
 
     parseTypeExpression = (): TypeExpression | null  => {
-        let [typeToken, typeTokenFound] = this.expect([TokenType.IDENTIFIER, TokenType.OPEN_BRACKET], false);
+        let [typeToken, typeTokenFound] = this.expect([TokenType.IDENTIFIER, TokenType.OPEN_BRACKET, TokenType.OPEN_CURLY], false);
         if (!typeTokenFound) return null;
 
 
-        let type: Token | ListExpression<TypeExpression>;
+        let type: Token | ListExpression<TypeExpression> | DictionaryTypeExpression;
         let subType: ListExpression<TypeExpression> | null = null;
         let ellipses: Token | null = null;
         // normal type
@@ -264,8 +268,12 @@ export class Parser {
             }
         } 
         // list literal type
-        else {
+        else if (typeToken.type == TokenType.OPEN_BRACKET) {
             type = this.parseTypedListExpression(TokenType.OPEN_BRACKET, TokenType.CLOSE_BRACKET, TokenType.COMMA, this.parseTypeExpression)!;
+        }
+        // dict literal type
+        else {
+            type = this.parseDictionaryTypeExpression();
         }
 
         if (this.currentToken().type == TokenType.ELLIPSES) {
@@ -494,6 +502,50 @@ export class Parser {
         }
         let [closer, closerFound] = this.expectOrMissing(TokenType.CLOSE_CURLY);
         return new DictionaryExpression(opener, entries, closer);
+    }
+    
+    parseDictionaryTypeExpression = (): DictionaryTypeExpression => {
+        let [opener, openerFound] = this.expect(TokenType.OPEN_CURLY);
+        let entries: DictionaryTypeEntryExpression[] = [];
+        let overflowTypes: TypeExpression[] = [];
+        while (
+            this.currentToken().type != TokenType.CLOSE_CURLY
+            && !this.isLineDelimiter(this.currentToken())
+        ) {
+            // TODO: maybe do something with comments
+            let comments = this.consumeComments();
+
+            // normal types
+            if (this.lookAhead(1).type == TokenType.COLON) {
+                let [key, keyFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);            
+                let [colon, colonFound] = this.expectOrMissing(TokenType.COLON);
+                let type = this.parseTypeExpression();
+                if (type != null) {
+                    entries.push(new DictionaryTypeEntryExpression(key, colon, type));
+                } else {
+                    this.consume();
+                }
+            } 
+            else if (this.currentToken().type == TokenType.COLON) {
+                this.consume();
+                continue;
+            }
+            // overflow type
+            else {
+                let typeExpression = this.parseTypeExpression()
+                if (typeExpression != null) {
+                    overflowTypes.push(typeExpression);
+                } else {
+                    this.consume();
+                }
+            }
+
+            if (this.currentToken().type != TokenType.CLOSE_CURLY) {
+                this.expect(TokenType.COMMA);
+            }
+        }
+        let [closer, closerFound] = this.expectOrMissing(TokenType.CLOSE_CURLY);
+        return new DictionaryTypeExpression(opener, entries, overflowTypes, closer);
     }
 
     parseChunkExpression = (openerType: TokenType, closerType: TokenType): ChunkExpression | null => {

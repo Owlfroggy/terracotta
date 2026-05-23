@@ -45,7 +45,7 @@ export class VariableExpression extends Expression {
 
 export class TypeExpression extends Expression {
     constructor(
-        public type: Token | ListExpression<TypeExpression>,
+        public type: Token | ListExpression<TypeExpression> | DictionaryTypeExpression,
         /** will only be set if `type` is a Token */
         public subType: ListExpression<TypeExpression> | null,
         public ellipses: Token | null = null,
@@ -179,11 +179,28 @@ export class DictionaryEntryExpression extends Expression {
         public value: Expression
     ) {super(key.startPos, value.endPos);}
 }
-
 export class DictionaryExpression extends Expression {
     constructor(
         public opener: Token,
         public entries: DictionaryEntryExpression[],
+        public closer: Token,
+    ) {super(opener.startPos, closer.endPos);}
+}
+
+
+export class DictionaryTypeEntryExpression extends Expression {
+    constructor(
+        public key: Token,
+        public colon: Token,
+        public value: TypeExpression
+    ) {super(key.startPos, value.endPos);}
+}
+export class DictionaryTypeExpression<T extends Expression = Expression> extends Expression {
+    constructor(
+        public opener: Token,
+        public entries: DictionaryTypeEntryExpression[],
+        /** Will appear in the order that they are specified in the file */
+        public overflowTypes: TypeExpression[],
         public closer: Token,
     ) {super(opener.startPos, closer.endPos);}
 }

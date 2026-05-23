@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, DictionaryTypeExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
@@ -663,6 +663,33 @@ export class TypeProcessor {
             }
 
             return Type.list(genericType ?? Type.any,elementTypes);
+        }
+        else if (expression.type instanceof DictionaryTypeExpression) {
+            let elementTypes: {[key: string]: Type} = {};
+            let genericType: Type | undefined;
+
+            // overflow type
+            for (let i = expression.type.overflowTypes.length-1; i >= 0; i--) {
+                let type = expression.type.overflowTypes[i];
+                if (!type.ellipses) {
+                    this.reportError(type, "Expected key name before this type or ellipses after this type");
+                    continue;
+                }
+
+                if (genericType == undefined) {
+                    genericType = this.evaluateExplicitType(type, true);
+                } else {
+                    this.reportError(type, "Dictionaries may only specify one overflow type");
+                }
+            }
+
+            // key types
+            for (let entry of expression.type.entries) {
+               elementTypes[entry.key.value] = this.evaluateExplicitType(entry.value);
+            }
+
+
+            return Type.dict(genericType ?? Type.any,elementTypes);
         }
 
         let name = expression.type.value;
