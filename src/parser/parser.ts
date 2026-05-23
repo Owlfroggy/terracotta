@@ -73,6 +73,9 @@ export class Parser {
             [TokenType.SLASH,           {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
             [TokenType.PERCENT,         {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
             [TokenType.POW,             {bp: BindingPower.EXPO,     processor: this.parseBinaryExpression}],
+            
+            [TokenType.BOOL_AND,        {bp: BindingPower.BOOL_AND, processor: this.parseBinaryExpression}],
+            [TokenType.BOOL_OR,         {bp: BindingPower.BOOL_OR,  processor: this.parseBinaryExpression}],
 
             [TokenType.AS,              {bp: BindingPower.TYPECAST, processor: this.parseTypecastExpression}],
 

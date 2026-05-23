@@ -79,6 +79,8 @@ export enum TokenType {
     POW_EQUALS,
 
     BANG,
+    BOOL_AND,
+    BOOL_OR,
 
     PLUS,
     MINUS,
@@ -122,6 +124,8 @@ export enum BindingPower {
     DEFAULT,
     LOOP_KW,
     ASSIGN,
+    BOOL_OR,
+    BOOL_AND,
     BW_OR,
     BW_XOR,
     BW_AND,
