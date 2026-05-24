@@ -2,7 +2,7 @@ import { Token, TokenType } from "../ast/token.ts";
 import { actions } from "../df/actiondump.ts";
 import { DFCodeblockName } from "../df/constants.ts";
 import { Type } from "../typeProcessor/type.ts";
-import { ActionBlock, CodeBlock, IfBlock } from "./codeBlock.ts";
+import { ActionBlock, CodeBlock } from "./codeBlock.ts";
 import { EvaluationContext } from "./codeCompiler.ts";
 import { ActionTagValue, CodeValue, MissingValue, NumberValue, TangibleValue } from "./codeValue.ts";
 import { expressionizeIfBlock } from "../util/utils.ts";
@@ -219,7 +219,7 @@ function singleActionHandler(resultType: Type, action: string, tags: ActionTagVa
 
 function singleConditionHandler(action: string, tags: ActionTagValue[] = [], codeblock: DFCodeblockName = DFCodeblockName.IF_VARIABLE): BinaryOperationHandler {
     return (left, right, ctx) => {
-        let block = new IfBlock(codeblock,{
+        let block = new ActionBlock(codeblock,{
             action: action,
             args: [left, right],
             tags: tags,

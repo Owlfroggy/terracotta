@@ -35,14 +35,16 @@ export class ActionBlock extends CodeBlock {
     public args: TangibleValue[];
     public tags: ActionTagValue[];
     public target: TargetType;
+    public not: boolean;
 
     constructor(
         block: DFCodeblockName, 
-        {action, args = [], tags = [], target = TargetType.UNSET, astNode = null} : {
+        {action, args = [], tags = [], target = TargetType.UNSET, not = false, astNode = null} : {
             action: string,
             args?: TangibleValue[],
             tags?: ActionTagValue[],
             target?: TargetType
+            not?: boolean,
             astNode?: ASTNode | null,
         }
     ) {
@@ -51,6 +53,7 @@ export class ActionBlock extends CodeBlock {
         this.args = args;
         this.tags = tags;
         this.target = target;
+        this.not = not;
     }
 
     templateForm() {
@@ -89,7 +92,8 @@ export class ActionBlock extends CodeBlock {
                     ...tags.map(v => v.templateForm())
                 ]
             },
-            target: this.target == TargetType.UNSET ? undefined : this.target
+            target: this.target == TargetType.UNSET ? undefined : this.target,
+            attribute: this.not ? "NOT" : undefined
         }
     }
 }
@@ -119,43 +123,24 @@ export class EventBlock extends ActionBlock {
     }
 }
 
-export class IfBlock extends ActionBlock {
-    public inverted: boolean;
-
-    constructor(
-        block: DFCodeblockName, 
-        {action, args = [], tags = [], target = TargetType.UNSET, inverted = false, astNode = null} : {
-            action: string,
-            args?: TangibleValue[],
-            tags?: ActionTagValue[],
-            target?: TargetType
-            inverted?: boolean,
-            astNode?: ASTNode | null,
-        }
-    ) {
-        super(block, {action, args, tags, target, astNode});
-        this.inverted = inverted;
-    }
-}
-
 export class SubActionBlock extends ActionBlock {
-    public inverted: boolean;
+    public not: boolean;
     public subAction: string | null;
 
     constructor(
         block: DFCodeblockName, 
-        {action, subAction = null, args = [], tags = [], target = TargetType.UNSET, inverted = false, astNode = null} : {
+        {action, subAction = null, args = [], tags = [], target = TargetType.UNSET, not = false, astNode = null} : {
             action: string,
             subAction?: string | null
             args?: TangibleValue[],
             tags?: [],
             target?: TargetType
-            inverted?: boolean,
+            not?: boolean,
             astNode?: ASTNode | null,
         }
     ) {
         super(block, {action, args, tags, target, astNode});
-        this.inverted = inverted;
+        this.not = not;
         this.subAction = subAction;
     }
 }

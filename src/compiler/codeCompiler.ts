@@ -3,7 +3,7 @@ import { DoStatement, EventStatement, ExpressionStatement, ForStatement, Functio
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, ps, upperFirst } from "../util/utils.ts";
-import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, IfBlock, SubActionBlock } from "./codeBlock.ts";
+import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, SubActionBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
@@ -357,24 +357,7 @@ export class CodeCompiler {
      * */
     // TODO: implement these operations in the type processor
     compileBooleanOperation(e: BooleanOperation | Expression, body: CodeBlock[]): CodeBlock[] {
-        // if expr is VAR(x):
-        //     emit("if (" + x + ") {")
-        //     emit(body)
-        //     emit("}")
-
-        // if expr is AND(a, b):
-        //     emit("if (" + a + ") {")
-        //     compile(b, body)
-        //     emit("}")
-
-        // if expr is OR(a, b):
-        //     emit("if (" + a + ") {")
-        //     emit(body)
-        //     emit("} else {")
-        //     compile(b, body)
-        //     emit("}")
-
-        let negate = false;
+        let invert = false;
         if (e instanceof BooleanOperation) {
             switch (e.operation) {
                 case TokenType.BOOL_AND: {
@@ -407,7 +390,7 @@ export class CodeCompiler {
                         return [
                             runMarkerInitBlock,
                             ...this.compileBooleanOperation(e.a, [runMarkerSetterBlock, ...body]),
-                            new IfBlock(DFCodeblockName.IF_VARIABLE, {
+                            new ActionBlock(DFCodeblockName.IF_VARIABLE, {
                                 action: "=",
                                 args: [runMarker, new NumberValue("0")]
                             }),
@@ -431,7 +414,11 @@ export class CodeCompiler {
                     }
                 }
                 case TokenType.BANG: {
-                    return;
+                    if (e.a instanceof BooleanOperation)
+                        throw new Error(`Non-atomic NOT operation supplied to compileBooleanOperation (${e})`);
+                    invert = true;
+                    e = e.a;
+                    break;
                 }
             }
         }
@@ -443,9 +430,10 @@ export class CodeCompiler {
 
         return [
             ...valCode,
-            new IfBlock(DFCodeblockName.IF_VARIABLE, {
+            new ActionBlock(DFCodeblockName.IF_VARIABLE, {
                 action: "!=",
-                args: [val, new NumberValue("0")]
+                args: [val, new NumberValue("0")],
+                not: invert,
             }),
             new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.IF}),
                 ...body,
@@ -877,7 +865,7 @@ export class CodeCompiler {
             
             let code = [
                 ...valueCode,
-                new IfBlock(DFCodeblockName.IF_VARIABLE,{
+                new ActionBlock(DFCodeblockName.IF_VARIABLE,{
                     action: "!=",
                     args: [value, new NumberValue("0")],
                 }),

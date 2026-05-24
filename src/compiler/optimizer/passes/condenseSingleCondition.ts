@@ -1,5 +1,5 @@
 import { DFCodeblockName } from "../../../df/constants.ts";
-import { ActionBlock, BracketDirection, BracketType, CodeBlock, IfBlock } from "../../codeBlock.ts";
+import { ActionBlock, BracketDirection, BracketType, CodeBlock } from "../../codeBlock.ts";
 import { VariableValue } from "../../codeValue.ts";
 import { ALL_IF_BLOCK_TYPES, CodeBlockMatcher, ValueFilterType } from "../matcher.ts";
 import { CodeOptimizer } from "../optimizer.ts";
@@ -15,7 +15,7 @@ export function OPT_condenseSingleCondition(line: CodeBlock[], optimizer: CodeOp
     });
     const conditionTempVar = (tempVarInitializer.args[0] as VariableValue);
 
-    let [userIfBlockIndex, userIfBlock] = optimizer.matcher.codeblock<IfBlock>({
+    let [userIfBlockIndex, userIfBlock] = optimizer.matcher.codeblock<ActionBlock>({
         block: ALL_IF_BLOCK_TYPES,
     }); 
 
@@ -32,7 +32,7 @@ export function OPT_condenseSingleCondition(line: CodeBlock[], optimizer: CodeOp
 
     optimizer.matcher.bracket(BracketType.IF, BracketDirection.CLOSE);
 
-    let [spliceEndIndex, internalIfBlock] = optimizer.matcher.codeblock({
+    let [spliceEndIndex, internalIfBlock] = optimizer.matcher.codeblock<ActionBlock>({
         block: DFCodeblockName.IF_VARIABLE,
         action: "!=",
         args: [
@@ -40,6 +40,11 @@ export function OPT_condenseSingleCondition(line: CodeBlock[], optimizer: CodeOp
             {accepts: ValueFilterType.NUM, value: "0"}
         ]
     })
+
+    // if this condition was NOTted, carry that over
+    if (internalIfBlock.not) {
+        userIfBlock.not = !userIfBlock.not;
+    }
 
     optimizer.matcher.bracket(BracketType.IF, BracketDirection.OPEN);
 
