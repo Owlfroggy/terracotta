@@ -190,6 +190,7 @@ export class Operations {
     static evaluateUnaryType(op: TokenType, right: Type): Type {
         return (
             this.unaryOperations.get(op)?.get(right)?.resultType
+            ?? this.unaryOperations.get(op)?.get(Type.any)?.resultType
             ?? Type.unknown
         );
     }
@@ -228,6 +229,13 @@ function singleConditionHandler(action: string, tags: ActionTagValue[] = [], cod
     }
 }
 
+function binaryPlaceholderHandler(left, right, ctx): [TangibleValue, CodeBlock[]] {
+    throw new Error("Tried to execute placeholder operation handler");
+}
+function unaryPlaceholderHandler(val, ctx): [TangibleValue, CodeBlock[]] {
+    throw new Error("Tried to execute placeholder operation handler");
+}
+
 //=-------------------------=\\
 //=- operation definitions -=\\
 //=-------------------------=\\
@@ -252,6 +260,11 @@ Operations.registerUnary(TokenType.MINUS, Type.num, Type.num, (val, ctx) => {
         return [v, [block]];
     }
 })
+
+//=- boolean operations -=\\
+Operations.registerBinary(Type.any, TokenType.BOOL_AND, Type.any, Type.num, false, binaryPlaceholderHandler);
+Operations.registerBinary(Type.any, TokenType.BOOL_OR, Type.any, Type.num, false, binaryPlaceholderHandler);
+Operations.registerUnary(TokenType.BANG, Type.any, Type.num, unaryPlaceholderHandler);
 
 //=- comparison operations -=\\
 Operations.registerBinary(Type.any, TokenType.DOUBLE_EQUALS, Type.any, Type.num, false, 

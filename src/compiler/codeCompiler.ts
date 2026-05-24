@@ -355,7 +355,6 @@ export class CodeCompiler {
      *  
      * PASSING IN A BOOLEAN OPERATION TREE WITH STACKED NEGATIONS WILL BREAK THINGS!
      * */
-    // TODO: implement these operations in the type processor
     compileBooleanOperation(e: BooleanOperation | Expression, body: CodeBlock[]): CodeBlock[] {
         let invert = false;
         if (e instanceof BooleanOperation) {
