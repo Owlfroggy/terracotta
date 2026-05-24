@@ -194,7 +194,8 @@ export class Lexer {
             this.makeRegexPattern(TokenType.COMMENT,            /\/\/.*?(?=\n|$)/y),
             this.multiLineCommentPattern,
             this.makeRegexPattern(TokenType.WHITESPACE,         /\s+/y),
-            this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)?)\.?(?:\d+(?:_?\d+)?)?/y),
+            this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)*)\.?(?:\d+(?:_?\d+)*)?/y),
+            this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /\.(?:\d+(?:_?\d+)*)/y),
 
             // keywords
             this.makeKeywordPattern(TokenType.LAGSLAYER_CANCEL, "lscancel"),
