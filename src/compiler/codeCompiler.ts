@@ -449,12 +449,18 @@ export class CodeCompiler {
             let operationTree = BooleanOperation.generateFromExpression(e);
             let simplified = BooleanOperation.simplify(operationTree);
             let output = this.tempVarProvider.newTempVar(Type.num);
-            let code = this.compileBooleanOperation(simplified, [
-                new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+            let code = [
+                new ActionBlock(DFCodeblockName.SET_VARIABLE, {
                     action: "=",
-                    args: [output, new NumberValue("1")]
-                })
-            ]);
+                    args: [output, new NumberValue("0")]
+                }),
+                ...this.compileBooleanOperation(simplified, [
+                    new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                        action: "=",
+                        args: [output, new NumberValue("1")]
+                    })
+                ])
+            ];
             return [output, code];
         }
         else if (e instanceof BinaryExpression) {
