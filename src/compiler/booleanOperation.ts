@@ -39,7 +39,6 @@ export class BooleanOperation {
 
     /** Distributes negations as far as they will go */
     static simplify(op: BooleanOperation): BooleanOperation | Expression {
-        // TODO: Make this handle multiple layers of ! correctly
         if (op.operation == TokenType.BANG) {
             let shouldNegate = true;
             let thingBeingNegated = op.a;

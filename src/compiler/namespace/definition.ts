@@ -34,7 +34,6 @@ export interface FunctionDefinition {
     getReturnType: (args: Expression[], types: TypeProcessor) => Type | null,
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,
-    // todo: signature
     compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression): [CodeValue, CodeBlock[]];
 }
 

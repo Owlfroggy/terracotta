@@ -30,7 +30,6 @@ const OPTIMIZATION_PASSES = [
 export class CodeOptimizer {
     public matcher: CodeBlockMatcher = new CodeBlockMatcher();
 
-    // todo: see if this can be further optimized by using a data structure other than an array
     public variableUsages: Map<VariableId, VariableUsage[]> = new Map();
 
     constructor(
