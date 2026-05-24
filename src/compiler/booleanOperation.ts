@@ -19,6 +19,24 @@ export class BooleanOperation {
     }
     toPrimitive = this.toString;
 
+    /** 
+     * Returns true if this boolean operation tree would only output its body once
+     * 
+     * ASSUMES THAT THE OP TREE IS SIMPLIFIED!!!
+     *  */
+    static isSinglePath(simplifiedOp: BooleanOperation): boolean {
+        if (simplifiedOp.operation == TokenType.BOOL_OR) return false;
+
+        if (simplifiedOp.a instanceof BooleanOperation) {
+            if (!this.isSinglePath(simplifiedOp.a)) return false;
+        }
+        if (simplifiedOp.b && simplifiedOp.b instanceof BooleanOperation) {
+            if (!this.isSinglePath(simplifiedOp.b)) return false;
+        }
+        
+        return true;
+    }
+
     /** Distributes negations as far as they will go */
     static simplify(op: BooleanOperation): BooleanOperation | Expression {
         // TODO: Make this handle multiple layers of ! correctly

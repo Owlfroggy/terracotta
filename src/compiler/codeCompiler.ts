@@ -861,25 +861,48 @@ export class CodeCompiler {
             }
         }
         else if (s instanceof IfStatement) {
-            let [value, valueCode] = this.compileExpression(s.condition);
-            if (value instanceof MissingValue) return [] // error handled by parser
-            if (!(value instanceof TangibleValue)) {
-                this.reportError(s.condition.getRealExpression(), `Cannot check truthiness of '${value.constructor.name}'`);
-                return [];
+            let code: CodeBlock[];
+
+            let directInsertBoolOpMode = false;
+            let simplifiedBooleanOp: BooleanOperation;
+            let realCondition = s.condition.getRealExpression();
+            if (BooleanOperation.exprIsBooleanExpression(realCondition)) {
+                let operationTree = BooleanOperation.generateFromExpression(realCondition);
+                let simplified = BooleanOperation.simplify(operationTree);
+                if (simplified instanceof BooleanOperation && BooleanOperation.isSinglePath(simplified)) {
+                    directInsertBoolOpMode = true;
+                    simplifiedBooleanOp = simplified;
+                }
             }
 
-            if (!s.chunk) return [];
-            
-            let code = [
-                ...valueCode,
-                new ActionBlock(DFCodeblockName.IF_VARIABLE,{
-                    action: "!=",
-                    args: [value, new NumberValue("0")],
-                }),
-                new BracketBlock({type: BracketType.IF, direction: BracketDirection.OPEN}),
-                    ...s.chunk.statements.map(this.compileStatement).flat(),
-                new BracketBlock({type: BracketType.IF, direction: BracketDirection.CLOSE}),
-            ];
+            if (directInsertBoolOpMode) {
+                let output = this.tempVarProvider.newTempVar(Type.num);
+                if (!s.chunk) return [];
+                code = this.compileBooleanOperation(simplifiedBooleanOp!, 
+                    s.chunk.statements.map(this.compileStatement).flat()
+                );
+            } else {
+                let [value, valueCode] = this.compileExpression(s.condition);
+                if (value instanceof MissingValue) return [] // error handled by parser
+                if (!(value instanceof TangibleValue)) {
+                    this.reportError(s.condition.getRealExpression(), `Cannot check truthiness of '${value.constructor.name}'`);
+                    return [];
+                }
+    
+                if (!s.chunk) return [];
+                
+                code = [
+                    ...valueCode,
+                    new ActionBlock(DFCodeblockName.IF_VARIABLE,{
+                        action: "!=",
+                        args: [value, new NumberValue("0")],
+                    }),
+                    new BracketBlock({type: BracketType.IF, direction: BracketDirection.OPEN}),
+                        ...s.chunk.statements.map(this.compileStatement).flat(),
+                    new BracketBlock({type: BracketType.IF, direction: BracketDirection.CLOSE}),
+                ];
+            }
+
 
             if (s.elseContents) {
                 let elseContentsCode: CodeBlock[] = [];
