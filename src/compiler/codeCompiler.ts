@@ -425,8 +425,10 @@ export class CodeCompiler {
 
         let [val, valCode] = this.compileExpression(e);
 
-        // TODO: handle non-tangible values more properly
-        if (!(val instanceof TangibleValue)) return [];
+        if (!(val instanceof TangibleValue)) {
+            this.reportError(e, `Cannot check truthiness of '${val.constructor.name}'`);
+            return [];
+        }
 
         return [
             ...valCode,
