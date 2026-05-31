@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, Statement } from "../ast/statement.ts";
+import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, ps, upperFirst } from "../util/utils.ts";
@@ -33,6 +33,11 @@ export type EvaluationContext = {
     tvp: TempVarProvider,
     types: TypeProcessor,
     reportError: (node: ASTNode, message: string) => void,
+}
+
+type StatementContext = {
+    lineStatement: FunctionStatement | EventStatement;
+    lineEntry: CodeLineEntry;
 }
 
 function jsonize(line: CodeBlock[]): string {
@@ -76,6 +81,8 @@ for (const eventType of [DFCodeblockName.PLAYER_EVENT, DFCodeblockName.ENTITY_EV
 
 export type CodeLineEntry = {
     headerBlock: CodeBlock | null,
+    /** Will be `null` for codelines that don't support return types (anything other than FUNCTION) */
+    returnTypes: Type[] | null,
     code: CodeBlock[][]
 }
 
@@ -115,6 +122,7 @@ export class CodeCompiler {
         let entries = getOrCreateMapLayer(this.codeLines, headerType, {});
         return getOrCreateDictLayer<CodeLineEntry>(entries, name, {
             headerBlock: null,
+            returnTypes: null,
             code: []
         })
     }
@@ -242,11 +250,13 @@ export class CodeCompiler {
                     }
                 }
 
+                let tcReturnTypes: Type[] = [];
                 if (s.returnType) {
                     if (s.keyword.type == TokenType.FUNCTION) {
                         for (let i = 0; i < s.returnType.types.length; i++) {
                             let typeExpr = s.returnType.types[i];
                             let type = this.env.types.evaluateExplicitType(typeExpr);
+                            tcReturnTypes.push(type);
                             if (type.name in tcTypeToDFParamType) {
                                 parameters.splice(i, 0, new ParameterValue(
                                     `@__TC_RET_${i}`, 
@@ -268,6 +278,7 @@ export class CodeCompiler {
                 }
                 
                 lineEntry = this.getLineEntry(headerType, s.name.value);
+                if (headerType == DFCodeblockName.FUNCTION) lineEntry.returnTypes = tcReturnTypes;
                 statementMap.getOrInsert(s.headerType, new Map()).getOrInsert(s.name.value,[]).push(s);
                 lineEntry.headerBlock = new ActionBlock(s.headerType, {
                     action: s.name.value,
@@ -821,7 +832,7 @@ export class CodeCompiler {
         throw new Error(`no idea how to compile this: ${e.constructor.name}`);
     }
 
-    compileStatement = (s: Statement): CodeBlock[] => {
+    compileStatement = (s: Statement, context: StatementContext): CodeBlock[] => {
         if (s instanceof ExpressionStatement) {
             let e = s.expression;
             // variable assignment
@@ -884,6 +895,51 @@ export class CodeCompiler {
                 return code;
             }
         }
+        else if (s instanceof ReturnStatement) {
+            let code: CodeBlock[] = [];
+            if (s.values.length > 0) {
+                let expectedValueAmount = context.lineEntry.returnTypes?.length ?? 0
+                let actualValueAmount = s.values.length;
+                if (context.lineEntry.returnTypes == null) {
+                    // TODO: better error message probably
+                    this.reportError(s.values[0], `Values cannot be returned from here`);
+                    return [];
+                }
+                else if (actualValueAmount != expectedValueAmount) {
+                    this.reportError(s.keyword, `Expected ${expectedValueAmount} return value${ps(expectedValueAmount)}, got ${actualValueAmount}`);
+                }
+
+                let values: TangibleValue[] = [];
+                for (let i = 0; i < s.values.length && i < context.lineEntry.returnTypes.length; i++) {
+                    let valueExpr = s.values[i];
+                    let [value, valueCode] = this.compileExpression(valueExpr);
+                    if (!(value instanceof TangibleValue)) {
+                        this.reportError(valueExpr, `${value.constructor.name} cannot be returned from functions`);
+                        continue;
+                    }
+                    let valType = value.getType(this.env.types);
+                    let expectedType = context.lineEntry.returnTypes[i];
+                    if (!valType.strictlyMatches(expectedType)) {
+                        this.reportError(valueExpr, `Expected type ${expectedType} for this return value, got ${valType}`);
+                    }
+                    values.push(value);
+                    code.push(
+                        ...valueCode,
+                        new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                            action: "=",
+                            args: [
+                                new VariableValue(`@__TC_RET_${i}`, VariableScope.LINE),
+                                value
+                            ]
+                        })
+                    );
+                }
+            }
+            code.push(new ActionBlock(DFCodeblockName.CONTROL,{
+                action: "Return"
+            }));
+            return code;
+        }
         else if (s instanceof IfStatement) {
             let code: CodeBlock[];
 
@@ -903,7 +959,7 @@ export class CodeCompiler {
                 let output = this.tempVarProvider.newTempVar(Type.num);
                 if (!s.chunk) return [];
                 code = this.compileBooleanOperation(simplifiedBooleanOp!, 
-                    s.chunk.statements.map(this.compileStatement).flat()
+                    s.chunk.statements.map(child => this.compileStatement(child,context)).flat()
                 );
             } else {
                 let [value, valueCode] = this.compileExpression(s.condition);
@@ -922,7 +978,7 @@ export class CodeCompiler {
                         args: [value, new NumberValue("0")],
                     }),
                     new BracketBlock({type: BracketType.IF, direction: BracketDirection.OPEN}),
-                        ...s.chunk.statements.map(this.compileStatement).flat(),
+                        ...s.chunk.statements.map(child => this.compileStatement(child,context)).flat(),
                     new BracketBlock({type: BracketType.IF, direction: BracketDirection.CLOSE}),
                 ];
             }
@@ -932,9 +988,9 @@ export class CodeCompiler {
                 let elseContentsCode: CodeBlock[] = [];
 
                 if (s.elseContents instanceof IfStatement) {
-                    elseContentsCode = this.compileStatement(s.elseContents);
+                    elseContentsCode = this.compileStatement(s.elseContents, context);
                 } else {
-                    elseContentsCode = s.elseContents.statements.map(this.compileStatement).flat();
+                    elseContentsCode = s.elseContents.statements.map(child => this.compileStatement(child,context)).flat();
                 }
                 
                 code.push(
@@ -951,11 +1007,11 @@ export class CodeCompiler {
             if (s.whileKeyword && s.whileCondition) {
                 // TODO: while stuff
             } else {
-                return s.chunk.statements.map(this.compileStatement).flat();
+                return s.chunk.statements.map(child => this.compileStatement(child,context)).flat();
             }
         }
         else if (s instanceof RepeatStatement) {
-            let innerStatements = s.chunk.statements.map(this.compileStatement).flat();
+            let innerStatements = s.chunk.statements.map(child => this.compileStatement(child,context)).flat();
 
             let countExpression = s.countExpression?.getRealExpression();
             // TODO: repeat (line i to x)
@@ -1028,7 +1084,7 @@ export class CodeCompiler {
         }
         else if (s instanceof ForStatement) {
             let code: CodeBlock[] = []
-            let innerStatements = s.chunk?.statements.map(this.compileStatement).flat();
+            let innerStatements = s.chunk?.statements.map(child => this.compileStatement(child,context)).flat();
 
             let varValues: VariableValue[] = [];
 
@@ -1125,7 +1181,12 @@ export class CodeCompiler {
         for (const [lineEntry, declaration] of declarationsToCompile) {
             if (declaration instanceof EventStatement || declaration instanceof FunctionStatement) {
                 if (!(declaration.chunk instanceof ChunkExpression)) continue;
-                lineEntry.code.push(...declaration.chunk.statements.map(this.compileStatement));
+                lineEntry.code.push(...declaration.chunk.statements.map(
+                    s => this.compileStatement(s, {
+                        lineStatement: declaration,
+                        lineEntry: lineEntry,
+                    })
+                ));
             }
         }
 
