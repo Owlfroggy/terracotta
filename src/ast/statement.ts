@@ -20,10 +20,43 @@ export class Statement extends ASTNode implements CommentHolder {
 
 export class ExpressionStatement extends Statement {
     constructor(
-        startPos, endPos,
         public expression: Expression
     ) {
-        super(startPos, endPos);
+        super(expression.startPos,expression.endPos);
+    }
+}
+
+export class AssignmentStatement extends Statement {
+    constructor(
+        public leftValues: Expression[],
+        public leftValueCommas: Token[],
+        public operator?: Token,
+        public rightValue?: Expression,
+    ) {
+        super(
+            leftValues[0]?.startPos ??
+            leftValueCommas[0].startPos ??
+            operator!.startPos
+            ,
+            rightValue?.endPos ??
+            operator?.endPos ??
+            leftValues[leftValues.length-1]?.endPos ??
+            leftValueCommas[leftValueCommas.length-1]?.endPos
+        )
+    }
+
+    isErrorFree(): 
+        this is AssignmentStatement&{
+            leftValues: [Expression, ...Expression[]],
+            operator: Token,
+            rightValue: Expression,
+        }
+    {
+        return (
+            this.leftValues.length > 0
+            && this.operator != undefined
+            && this.rightValue != undefined
+        )
     }
 }
 

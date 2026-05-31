@@ -1,6 +1,6 @@
 import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression, DictionaryTypeExpression, DictionaryTypeEntryExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement, AssignmentStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { dirWithoutRelations } from "../util/debug.ts";
@@ -640,9 +640,34 @@ export class Parser {
         return left;
     }
 
-    parseExpressionStatement = (): ExpressionStatement => {
-        let expr = this.parseExpression(BindingPower.DEFAULT);
-        return new ExpressionStatement(expr.startPos,expr.endPos,expr);
+    parseExpressionStatement = (): ExpressionStatement | AssignmentStatement => {
+        let allExpressions: Expression[] = [];
+        let separators: Token[] = [];
+
+        while (true) {
+            let expression = this.parseExpression(BindingPower.DEFAULT);
+            // handle assignment operator
+            if (expression instanceof BinaryExpression && ASSIGNMENT_OPERATORS.includes(expression.operator.type)) {
+                allExpressions.push(expression.left);
+                return new AssignmentStatement(allExpressions, separators, expression.operator, expression.right);
+            }
+            allExpressions.push(expression);
+
+            if (this.currentToken().type !== TokenType.COMMA) {
+                break;
+            }
+
+            separators.push(this.consume());
+        }
+
+        if (separators.length > 0) {
+            this.reportError(this.currentToken(), "Expected assignment operator");
+            return new AssignmentStatement(
+                allExpressions, separators
+            );
+        }
+
+        return new ExpressionStatement(allExpressions[0] ?? new MissingExpression(this.currentToken().startPos));
     }
 
     parseEventStatement = (): EventStatement | null => {
