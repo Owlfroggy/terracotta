@@ -23,7 +23,11 @@ export type DictTypeData = {
     keyTypes: {[key: string]: Type},
 }
 
-type ExtraData = FuncTypeData | NamespaceTypeData | ListTypeData | DictTypeData | null;
+export type MultiValueTypeData = {
+    types: Type[],
+}
+
+type ExtraData = FuncTypeData | NamespaceTypeData | ListTypeData | DictTypeData | MultiValueTypeData | null;
 
 export type TypeConstructor<F extends ((...args: any[]) => Type)> = F & {
     constructsType: string
@@ -177,6 +181,19 @@ export class Type {
             let members = Object.keys(namespace.members);
             let getMembers = () => members;
             return new Type('namespace',{getMemberType, getMembers, data: {namespace}})
+        }
+    );
+
+    public static multivalue = this.makeTypeConstructor(
+        'multivalue', 0,
+        (types: Type[] = []) => {
+            let stringify = () => {
+                return types.join(", ");
+            }
+            let strictMatchCallback = (other: Type) => {
+                return false;
+            }
+            return new Type('multivalue', {strictMatchCallback, stringify, data: {types}});
         }
     );
 
