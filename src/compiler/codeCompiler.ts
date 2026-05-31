@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, Statement } from "../ast/statement.ts";
+import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, ps, upperFirst } from "../util/utils.ts";
@@ -8,7 +8,7 @@ import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { CodeValue, EmptyValue, FunctionValue, MissingValue, NamespaceValue, NumberValue, ParameterValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
+import { CodeValue, EmptyValue, FunctionValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
@@ -835,57 +835,8 @@ export class CodeCompiler {
     compileStatement = (s: Statement, context: StatementContext): CodeBlock[] => {
         if (s instanceof ExpressionStatement) {
             let e = s.expression;
-            // variable assignment
-            if (e instanceof BinaryExpression && Operations.isAssignmentOperator(e.operator.type)) {
-                let [variable, _] = this.compileExpression(e.left);
-                let [value, valueCode] = this.compileExpression(e.right);
-                
-                // incrementor operators
-                if (e.operator.type != TokenType.EQUALS) {
-                    let [newValue, newCode] = Operations.evaluateBinaryValue(variable, e.operator, value, this.getEvaluationContext())
-                    value = newValue;
-                    valueCode = [...valueCode, ...newCode];
-                }
-
-                if (!(
-                    (e.left.getRealExpression() instanceof VariableExpression)
-                    || (e.left.getRealExpression() instanceof AtomicExpression && variable instanceof VariableValue)
-                )) {
-                    this.reportError(
-                        e.left,
-                        `Left-hand side of an assignment statement must be a variable`
-                    )
-                    return [];
-                }
-
-                let valueType = value.getType(this.env.types);
-                if (!Type.assignableTypes.has(valueType.name)){
-                    this.reportError(
-                        e.right,
-                        `Type '${valueType.name}' cannot be stored in variables`
-                    );
-                    return [];
-                }
-
-                if (!(value instanceof TangibleValue)) {
-                    if (!(value instanceof MissingValue)) {
-                        this.reportError(
-                            value.astNode ?? e,
-                            `${value.constructor.name} cannot be stored in variables`
-                        );
-                    }
-                    
-                    return [];
-                }
-
-
-                return [...valueCode, new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                    action: "=",
-                    args: [variable as VariableValue,value]
-                })]
-            }
             // wait 1 tick syntactic sugar
-            else if (e instanceof AtomicExpression && e.token.type == TokenType.IDENTIFIER && e.token.value == "wait") {
+            if (e instanceof AtomicExpression && e.token.type == TokenType.IDENTIFIER && e.token.value == "wait") {
                 return [new ActionBlock(DFCodeblockName.CONTROL,{
                     action: "Wait"
                 })];
@@ -894,6 +845,76 @@ export class CodeCompiler {
                 let [_, code] = this.compileExpression(e);
                 return code;
             }
+        }
+        else if (s instanceof AssignmentStatement && s.isErrorFree()) {
+            let values: CodeValue[];
+
+            let [rawValue, valueCode] = this.compileExpression(s.rightValue);
+            if (rawValue instanceof MultiValue) {
+                values = rawValue.values;
+            } else {                
+                values = [rawValue];
+            }
+            for (let v of values) {
+                let vType = v.getType(this.env.types);
+                if (!Type.assignableTypes.has(vType.name)){
+                    this.reportError(
+                        s.rightValue,
+                        `Type '${vType.name}' cannot be stored in variables`
+                    );
+                    return [];
+                }
+    
+                if (!(v instanceof TangibleValue)) {
+                    if (!(v instanceof MissingValue)) {
+                        this.reportError(
+                            v.astNode ?? s.rightValue,
+                            `${v.constructor.name} cannot be stored in variables`
+                        );
+                    }
+                    
+                    return [];
+                }
+            }
+
+
+            let code: CodeBlock[] = [...valueCode];
+
+            // TODO: support property access
+            for (let i = 0; i < s.leftValues.length; i++) {
+                let assigneeExpr = s.leftValues[i];
+                if (i >= values.length) {
+                    this.reportError(assigneeExpr, `Tried to set ${i+1} or more variables, but only ${values.length} value(s) were provided.`);
+                    return [];
+                }
+                assigneeExpr = assigneeExpr.getRealExpression();
+                let [variable, _] = this.compileExpression(assigneeExpr)
+                
+                // incrementor operators
+                if (s.operator.type != TokenType.EQUALS) {
+                    let [newValue, newCode] = Operations.evaluateBinaryValue(variable, s.operator, values[i], this.getEvaluationContext())
+                    values[i] = newValue;
+                    valueCode = [...valueCode, ...newCode];
+                }
+    
+                if (!(
+                    (assigneeExpr instanceof VariableExpression)
+                    || (assigneeExpr instanceof AtomicExpression && variable instanceof VariableValue)
+                )) {
+                    this.reportError(
+                        assigneeExpr,
+                        `Left-hand side of an assignment statement must be a variable`
+                    )
+                    return [];
+                }
+    
+    
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "=",
+                    args: [variable as VariableValue,values[i] as TangibleValue]
+                }));
+            }
+            return code;
         }
         else if (s instanceof ReturnStatement) {
             let code: CodeBlock[] = [];

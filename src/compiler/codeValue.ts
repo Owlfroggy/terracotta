@@ -86,6 +86,13 @@ export class FunctionValue extends InternalValue {
     ) { super(astNode); }
 }
 
+export class MultiValue extends InternalValue {
+    constructor(
+        public values: CodeValue[],
+        astNode?: ASTNode,
+    ) { super(astNode); }
+}
+
 
 /**
  * used to represent void return values of functions
