@@ -186,7 +186,7 @@ export class Type {
 
     public static multivalue = this.makeTypeConstructor(
         'multivalue', 0,
-        (types: Type[] = []) => {
+        (types: Type[]) => {
             let stringify = () => {
                 return types.join(", ");
             }

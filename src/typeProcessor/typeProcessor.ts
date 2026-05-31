@@ -377,6 +377,15 @@ export class TypeProcessor {
                 }
             }
 
+            let returnType: Type | null = null;
+            if (statement.returnType != null) {
+                if (statement.returnType.types.length == 1) {
+                    returnType = this.evaluateExplicitType(statement.returnType.types[0]);
+                } else {
+                    returnType = Type.multivalue(statement.returnType.types.map(t => this.evaluateExplicitType(t)));
+                }
+            }
+
             // frame here will be the function's chunk's frame so the parent needs to be accessed 
             if (frame.parent == this.globalFrame) {
                 let isProcess = statement.headerType == DFCodeblockName.PROCESS;
@@ -385,7 +394,7 @@ export class TypeProcessor {
                     definitionType: DefinitionType.FUNCTION,
                     name: statement.name.value,
                     signatures: [{params: signatureParams}],
-                    defaultReturnType: null,
+                    defaultReturnType: returnType,
                     getReturnType: USE_DEFAULT_RETURN_TYPE,
                     compile: isProcess ? COMPILE_START_PROCESS : COMPILE_CALL_FUNCTION,
                 })
