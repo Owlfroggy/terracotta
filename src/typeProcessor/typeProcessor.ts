@@ -1,10 +1,10 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, DictionaryTypeExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, Statement } from "../ast/statement.ts";
+import { AssignmentStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
-import { FuncTypeData, NamespaceTypeData, Type, TypeConstructor } from "./type.ts";
+import { FuncTypeData, MultiValueTypeData, NamespaceTypeData, Type, TypeConstructor } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { ps } from "../util/utils.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
@@ -31,7 +31,8 @@ export interface VariableEntry {
     type: Type | null,
     requirements: Requirement[], 
     valueExpression: Expression | null,
-    forLoopVarPos?: number,
+    forLoopVarPos?: number, 
+    assignmentVarPos?: number,
     effectiveBeyondPosition: number
 }
 
@@ -89,6 +90,7 @@ export class EnvironmentFrame {
         requirements: Requirement[] = [], 
         valueExpression: Expression | null = null,
         forLoopVarPos?: number,
+        assignmentVarPos?: number,
     ) {
         let entry: VariableEntry = {
             id: id,
@@ -97,6 +99,7 @@ export class EnvironmentFrame {
             requirements: requirements,
             valueExpression: valueExpression,
             forLoopVarPos: forLoopVarPos,
+            assignmentVarPos: assignmentVarPos,
             effectiveBeyondPosition: effectiveBeyondPosition,
         }
         // TODO: update all these to use the new util function (im too lazy rn)
@@ -442,19 +445,20 @@ export class TypeProcessor {
     collectionStage(statements: Statement[], frame: EnvironmentFrame = this.globalFrame) {
         for (const statement of statements) {
             // variable assignments
-            if (statement instanceof ExpressionStatement 
-                && statement.expression instanceof BinaryExpression 
-                && statement.expression.left instanceof VariableExpression
-                && statement.expression.operator.type == TokenType.EQUALS
+            if (statement instanceof AssignmentStatement
+                && statement.isErrorFree()
+                && statement.operator.type == TokenType.EQUALS
             ) {
-                // TODO: handle functions with multiple return values
-                let variableExpr = statement.expression.left
-                let varId = VariableId.fromExpression(variableExpr);
-                if (variableExpr.assignedType) {
-                    frame.registerVariable(varId, this.evaluateExplicitType(variableExpr.assignedType.type), statement.endPos);
-                } else {
-                    let value = statement.expression.right;
-                    frame.registerVariable(varId, null, statement.endPos, this.getRequirements(value, frame), value);
+                for (let i = 0; i < statement.leftValues.length; i++) {
+                    let variableExpr = statement.leftValues[i];
+                    if (!(variableExpr instanceof VariableExpression)) continue;
+                    let varId = VariableId.fromExpression(variableExpr);
+                    if (variableExpr.assignedType) {
+                        frame.registerVariable(varId, this.evaluateExplicitType(variableExpr.assignedType.type), statement.endPos);
+                    } else {
+                        let value = statement.rightValue;
+                        frame.registerVariable(varId, null, statement.endPos, this.getRequirements(value, frame), value, undefined, i);
+                    }
                 }
             }
             else if (statement instanceof ExpressionStatement
@@ -515,6 +519,20 @@ export class TypeProcessor {
                                 entry.forLoopVarPos == 0 ? Type.str
                                 : exprType.getMemberType()
                             );
+                        } else {
+                            entry.type = Type.unknown;
+                        }
+                    } else if (entry.assignmentVarPos != undefined) {
+                        if (exprType.matches(Type.multivalue)) {
+                            let valueTypes = (exprType.data as MultiValueTypeData).types;
+                            if (entry.assignmentVarPos < valueTypes.length) {
+                                entry.type = valueTypes[entry.assignmentVarPos];
+                            } else {
+                                entry.type = Type.unknown;
+                            }
+                        }
+                        else if (entry.assignmentVarPos == 0) {
+                            entry.type = exprType;
                         } else {
                             entry.type = Type.unknown;
                         }
