@@ -242,6 +242,30 @@ export class CodeCompiler {
                     }
                 }
 
+                if (s.returnType) {
+                    if (s.keyword.type == TokenType.FUNCTION) {
+                        for (let i = 0; i < s.returnType.types.length; i++) {
+                            let typeExpr = s.returnType.types[i];
+                            let type = this.env.types.evaluateExplicitType(typeExpr);
+                            if (type.name in tcTypeToDFParamType) {
+                                parameters.splice(i, 0, new ParameterValue(
+                                    `@__TC_RET_${i}`, 
+                                    "var", 
+                                    false, false, 
+                                    null, 
+                                    typeExpr
+                                ));
+                            } else {
+                                this.reportError(
+                                    typeExpr,
+                                    `Type '${type.name}' cannot be returned from functions`
+                                );
+                            }
+                        }
+                    } else {
+                        this.reportError(s.returnType, "Processes cannot return values");
+                    }
+                }
                 
                 lineEntry = this.getLineEntry(headerType, s.name.value);
                 statementMap.getOrInsert(s.headerType, new Map()).getOrInsert(s.name.value,[]).push(s);
