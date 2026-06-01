@@ -894,7 +894,7 @@ export class CodeCompiler {
                 if (s.operator.type != TokenType.EQUALS) {
                     let [newValue, newCode] = Operations.evaluateBinaryValue(variable, s.operator, values[i], this.getEvaluationContext())
                     values[i] = newValue;
-                    valueCode = [...valueCode, ...newCode];
+                    code.push(...newCode);
                 }
     
                 if (!(
@@ -907,8 +907,7 @@ export class CodeCompiler {
                     )
                     return [];
                 }
-    
-    
+                
                 code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
                     action: "=",
                     args: [variable as VariableValue,values[i] as TangibleValue]
