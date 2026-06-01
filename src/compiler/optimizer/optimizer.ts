@@ -9,6 +9,7 @@ import { DFValueType } from "../../df/constants.ts";
 import { OPT_operationToPCode } from "./passes/operationToPCode.ts";
 import { PCode, VarPCode } from "../../pcode/pcode.ts";
 import { profile, profileEnd } from "node:console";
+import { Type } from "../../typeProcessor/type.ts";
 
 /**
  * @returns true if the line was changed
@@ -233,6 +234,7 @@ export class CodeOptimizer {
         if (value instanceof VariableValue) {
             if (value.scope != VariableScope.LINE) return false;
             if (typeof value.name != "string") return false;
+            if (value.getType(this.typeProcessor).matches(Type.vec)) return false;
             return true;
         }
         else if (value instanceof NumberValue) {
