@@ -106,7 +106,9 @@ export class CodeCompiler {
         }
     }
 
-    reportError = (node: ASTNode, message: string) => {
+    /** @param gateValue If gateValue is a MissingValue, this error will not be reported */
+    reportError = (node: ASTNode, message: string, gateValue?: CodeValue) => {
+        if (gateValue && gateValue instanceof MissingValue) return;
         this.errors.push(new TCNodeError(
             node,
             ErrorType.COMPILER,
@@ -687,12 +689,11 @@ export class CodeCompiler {
             }
             // error
             else {
-                if (!(accessee instanceof MissingValue)) {
-                    this.reportError(
-                        e.propertyName,
-                        `Property access not allowed on type '${accessee.getType(this.env.types).name}'` // TODO: better error message
-                    );
-                }
+                this.reportError(
+                    e.propertyName,
+                    `Property access not allowed on type '${accessee.getType(this.env.types).name}'`, // TODO: better error message
+                    accessee
+                );
                 return [new MissingValue(e), preCode];
             }
         }
@@ -724,9 +725,7 @@ export class CodeCompiler {
                 let [value, valueCode] = this.compileExpression(element);
                 code.push(...valueCode);
                 if (!(value instanceof TangibleValue)) {
-                    if (!(value instanceof MissingValue)) {
-                        this.reportError(element, `${value.constructor.name} cannot be stored in lists`);
-                    }
+                    this.reportError(element, `${value.constructor.name} cannot be stored in lists`, value);
                     continue;
                 }
                 contents.push(value);
@@ -764,9 +763,7 @@ export class CodeCompiler {
                 // value
                 let [value, valueCode] = this.compileExpression(entry.value);
                 if (!(value instanceof TangibleValue)) {
-                    if (!(value instanceof MissingValue)) {
-                        this.reportError(entry, `${value.constructor.name} cannot be stored in lists`);
-                    }
+                    this.reportError(entry, `${value.constructor.name} cannot be stored in lists`, value);
                     continue;
                 }
                 code.push(...valueCode);
@@ -866,12 +863,11 @@ export class CodeCompiler {
                 }
     
                 if (!(v instanceof TangibleValue)) {
-                    if (!(v instanceof MissingValue)) {
-                        this.reportError(
-                            v.astNode ?? s.rightValue,
-                            `${v.constructor.name} cannot be stored in variables`
-                        );
-                    }
+                    this.reportError(
+                        v.astNode ?? s.rightValue,
+                        `${v.constructor.name} cannot be stored in variables`,
+                        v
+                    );
                     
                     return [];
                 }
@@ -1063,12 +1059,11 @@ export class CodeCompiler {
 
                 let failed = false;
                 if (!(amount instanceof TangibleValue)) {
-                    if (!(amount instanceof MissingValue)) {
-                        this.reportError(
-                            amountExpr,
-                            `${amount.constructor.name} is not allowed here`
-                        );
-                    }
+                    this.reportError(
+                        amountExpr,
+                        `${amount.constructor.name} is not allowed here`,
+                        amount
+                    );
                     return [];
                 }
                 let amountType = amount.getType(this.env.types);
@@ -1162,12 +1157,11 @@ export class CodeCompiler {
                 }
                 // error for uniterable type     (is uniterable a word?? probably moreso than initerable)
                 else {
-                    if (!(iteratorValue instanceof MissingValue)) {
-                        this.reportError(
-                            iteratorExpr,
-                            `Cannot iterate over type '${iteratorValue.getType(this.env.types).name}'`
-                        );
-                    }
+                    this.reportError(
+                        iteratorExpr,
+                        `Cannot iterate over type '${iteratorValue.getType(this.env.types).name}'`,
+                        iteratorValue
+                    );
                     return [];
                 }
             }
