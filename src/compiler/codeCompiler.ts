@@ -703,7 +703,7 @@ export class CodeCompiler {
                 e.assignedType &&
                 !(
                     // in here go cases where type annotation **is** allowed
-                    (e.parent && e.parent instanceof BinaryExpression && Operations.isAssignmentOperator(e.parent.operator.type) && e.parent.parent instanceof ExpressionStatement)
+                    (e.parent && e.parent instanceof AssignmentStatement && e.keyInParent == 'leftValues')
                     || (e.parent && e.parent instanceof ExpressionStatement)
                 )
             ) {
