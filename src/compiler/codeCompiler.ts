@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, Statement } from "../ast/statement.ts";
+import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, ps, upperFirst } from "../util/utils.ts";
@@ -910,6 +910,16 @@ export class CodeCompiler {
                 }));
             }
             return code;
+        }
+        else if (s instanceof SingleKeywordStatement) {
+            let action: string | null = null;
+            switch (s.keyword.type) {
+                case TokenType.BREAK: {action = "StopRepeat"; break;}
+                case TokenType.CONTINUE: {action = "Skip"; break;}
+            }
+            if (action) {
+                return [new ActionBlock(DFCodeblockName.CONTROL,{action})];
+            }
         }
         else if (s instanceof ReturnStatement) {
             let code: CodeBlock[] = [];
