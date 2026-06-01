@@ -885,7 +885,7 @@ export class CodeCompiler {
                 let assigneeExpr = s.leftValues[i];
                 if (i >= values.length) {
                     this.reportError(assigneeExpr, `Tried to set ${i+1} or more variables, but only ${values.length} value(s) were provided.`);
-                    return [];
+                    continue;
                 }
                 assigneeExpr = assigneeExpr.getRealExpression();
                 let [variable, _] = this.compileExpression(assigneeExpr)
@@ -905,9 +905,9 @@ export class CodeCompiler {
                         assigneeExpr,
                         `Left-hand side of an assignment statement must be a variable`
                     )
-                    return [];
+                    continue;
                 }
-                
+
                 code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
                     action: "=",
                     args: [variable as VariableValue,values[i] as TangibleValue]
