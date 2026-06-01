@@ -9,7 +9,7 @@ import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts"
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { Definition, DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
 import { EnvironmentFrame, TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { EventStatement, ForStatement, FunctionStatement, RepeatStatement } from "../ast/statement.ts";
+import { AssignmentStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { StringExtraData, Token, TokenType } from "../ast/token.ts";
 import { getActionDocumentation, getDFParamString, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
@@ -397,7 +397,6 @@ export class LanguageServer {
             // and just hook into that
 
             // show variable type on hover
-            let kablongus = false;
             if (node instanceof Token && node.type == TokenType.IDENTIFIER) {
                 let queryVarId: string | VariableId = node.value;
                 let queryPosition = node.endPos;
@@ -408,8 +407,8 @@ export class LanguageServer {
                     let closestGroup = node.getClosestAncestor(GroupExpression);
                     let closestList = node.getClosestAncestor(ListExpression);
 
-                    // if this variable is being assigned to something, query after the assignment has been completed
-                    if (node.parent.parent instanceof BinaryExpression && node.parent.parent.operator.type == TokenType.EQUALS ){ 
+                    // if this variable is being assigned to something (type or value), query after the assignment has been completed
+                    if (node.parent.parent instanceof AssignmentStatement || node.parent.parent instanceof ExpressionStatement){ 
                         queryPosition = node.parent.parent.endPos+1;
                     }
                     // repeat (var to ...)
@@ -437,7 +436,7 @@ export class LanguageServer {
                 }
                 let documentation: MarkupContent = {
                     kind: 'markdown', 
-                    value: `\`\`\`tc\n${scopeStr} ${stringifiedName}: ${varEntry.type}\n\`\`\``
+                    value: `\`\`\`tc\n${scopeStr} ${stringifiedName}: ${varEntry.type ?? "any"}\n\`\`\``
                 };
                 return {contents: documentation, range: {
                     start: doc.indexToLinePosition(node.startPos),
