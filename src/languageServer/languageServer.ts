@@ -715,10 +715,14 @@ export class LanguageServer {
                 ))
             }
             // hide generics when typing parameters in a function definition
+            // or when typing a function's name
             else if (
+                // parameters
                 (node instanceof ListExpression && node.parent instanceof FunctionStatement && node.keyInParent == "params")
                 || (node instanceof Token && node.parent instanceof ParameterExpression && node.keyInParent == "name")
                 || (node instanceof Token && node.parent instanceof ListExpression && node.parent.parent instanceof FunctionStatement)
+                // function name
+                || (node instanceof Token && node.parent instanceof FunctionStatement && node.keyInParent == "name")
             ) {
                 includeGenerics = false;
             }
