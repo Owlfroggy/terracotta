@@ -883,8 +883,25 @@ export class CodeCompiler {
                     this.reportError(assigneeExpr, `Tried to set ${i+1} or more variables, but only ${values.length} value(s) were provided.`);
                     continue;
                 }
+
+                // compile variable
                 assigneeExpr = assigneeExpr.getRealExpression();
                 let [variable, _] = this.compileExpression(assigneeExpr)
+
+                // type validation
+                let expectedType: Type = Type.any;
+                if (assigneeExpr instanceof VariableExpression) {
+                    if (assigneeExpr.assignedType) {
+                        expectedType = this.env.types.evaluateExplicitType(assigneeExpr.assignedType.type)
+                    }
+                } else {
+                    expectedType = variable.getType(this.env.types);
+                }
+
+                let valueType = values[i].getType(this.env.types);
+                if (!valueType.isAssignableTo(expectedType)) {
+                    this.reportError(values[i].astNode ?? assigneeExpr, `Type '${valueType}' is not assignable to variable of type '${expectedType}'`);
+                }
                 
                 // incrementor operators
                 if (s.operator.type != TokenType.EQUALS) {

@@ -238,4 +238,10 @@ export class Type {
     strictlyMatches = (other: Type) => {
         return this.matches(other)
     }
+
+    // this method is overridden by types that have special assignability behavior
+    isAssignableTo = (to: Type) => {
+        if (to.matches(Type.any)) return true;
+        return this.strictlyMatches(to);
+    }
 }
