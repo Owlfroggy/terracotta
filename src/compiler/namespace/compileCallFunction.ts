@@ -30,7 +30,6 @@ export function COMPILE_CALL_FUNCTION(this: FunctionDefinition, args: CodeValue[
         returnValue = tempVar;
         returnVars.push(tempVar);
     }
-    // TODO: return values (idk if they should even go here but keep them in mind)
     return [returnValue, [new ActionBlock(DFCodeblockName.CALL_FUNCTION,{
         action: this.name,
         args: [...returnVars, ...args.filter(arg => arg instanceof TangibleValue)],
