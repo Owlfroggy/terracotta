@@ -4,7 +4,7 @@ import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocu
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, GroupExpression, ListExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
 import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { Definition, DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
@@ -693,8 +693,10 @@ export class LanguageServer {
             // types if ur inside a type expression
             else if (
                 node instanceof TypeAssignmentExpression 
+                || node instanceof MultiTypeAssignmentExpression
                 || (node instanceof Token && node.type == TokenType.COLON && node.keyInParent == "colon")
                 || node.getClosestAncestor(TypeExpression) != null
+                || node.getClosestAncestor(MultiTypeAssignmentExpression) != null
             ) {
                 includeGenerics = false;
                 items.push(...typeNameCompletions);
