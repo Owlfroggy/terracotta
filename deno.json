@@ -2,6 +2,9 @@
   "lint": {
     "exclude": ["src/"]
   },
+  "tasks": {
+    "release": "deno run -A scripts/release.ts"
+  },
   "compilerOptions": {
     "noImplicitAny": false,
     "strictPropertyInitialization": false,
