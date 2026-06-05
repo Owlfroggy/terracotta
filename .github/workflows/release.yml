@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -85,7 +87,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*.gz
-          prerelease: true
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'latest' }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || 'Latest Build' }}
+          prerelease: ${{ github.ref_type != 'tag' }}
           generate_release_notes: true
+          make_latest: ${{ github.ref_type == 'tag' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

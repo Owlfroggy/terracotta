@@ -8,7 +8,8 @@ import { parseArgs } from "@std/cli/parse-args";
 async function main() {
   const args = parseArgs(Deno.args, {
     string: ["version"],
-    alias: { v: "version" },
+    boolean: ["yes"],
+    alias: { v: "version", y: "yes" },
   });
 
   // 1. Read current version from package.json
@@ -79,7 +80,7 @@ async function main() {
     Deno.exit(1);
   }
 
-  const push = confirm(`Do you want to push 'main' and tag '${tag}' to origin?`);
+  const push = args.yes || confirm(`Do you want to push 'main' and tag '${tag}' to origin?`);
   if (push) {
     console.log("Pushing...");
     const pushCmd = new Deno.Command("git", { args: ["push", "origin", "main", "--tags"] });
