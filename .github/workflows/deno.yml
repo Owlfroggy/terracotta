@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            suffix: ""
+            platform: linux-x64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            suffix: ""
+            platform: linux-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            suffix: ".exe"
+            platform: win32-x64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            suffix: ""
+            platform: darwin-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            suffix: ""
+            platform: darwin-arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Build
+        run: |
+          deno compile --allow-read --allow-env --target ${{ matrix.target }} --output terracotta-${{ matrix.platform }}${{ matrix.suffix }} src/main.ts
+
+      - name: Gzip (Unix)
+        if: runner.os != 'Windows'
+        run: gzip -c terracotta-${{ matrix.platform }}${{ matrix.suffix }} > terracotta-${{ matrix.platform }}.gz
+
+      - name: Gzip (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $input_file = "terracotta-${{ matrix.platform }}${{ matrix.suffix }}"
+          $output_file = "terracotta-${{ matrix.platform }}.gz"
+          $stream = [System.IO.File]::OpenWrite($output_file)
+          $gzipStream = New-Object System.IO.Compression.GZipStream($stream, [System.IO.Compression.CompressionMode]::Compress)
+          $bytes = [System.IO.File]::ReadAllBytes($input_file)
+          $gzipStream.Write($bytes, 0, $bytes.Length)
+          $gzipStream.Close()
+          $stream.Close()
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terracotta-${{ matrix.platform }}
+          path: terracotta-${{ matrix.platform }}.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
