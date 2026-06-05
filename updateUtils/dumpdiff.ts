@@ -18,7 +18,7 @@ const oldDump = JSON.parse((await readFile(positionals[2]!)).toString())
 const newDump = JSON.parse((await readFile(positionals[3]!)).toString())
 
 // actions \\
-let seen: Dict<Dict<boolean>> = {}
+const seen: Dict<Dict<boolean>> = {}
 
 oldDump.actions.forEach(action => {
     if (!seen[action.codeblockName]) { seen[action.codeblockName] = {}; }
