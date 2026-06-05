@@ -358,18 +358,20 @@ export class ActionToken extends Token {
     Type: "comparison" | "action" = "action"
 }
 export class CallToken extends Token {
-    constructor(meta,type: "function" | "process", name: string, args: ListToken | null, tags: Dict<ActionTag> | null) {
+    constructor(meta,type: "function" | "process" | "method", name: string, args: ListToken | null, tags: Dict<ActionTag> | null, object: ExpressionToken | null = null) {
         super(meta)
         this.Type = type
         this.Name = name
         this.Arguments = args
         this.Tags = tags
+        this.Object = object
     }
 
-    Type: "function" | "process"
+    Type: "function" | "process" | "method"
     Name: string
     Arguments: ListToken | null
     Tags: Dict<ActionTag> | null
+    Object: ExpressionToken | null
 }
 
 //possible segments: "valueName"
@@ -425,14 +427,32 @@ export class ReturnsHeaderToken extends HeaderToken {
     Type: string
 }
 export class EventHeaderToken extends HeaderToken {
-    constructor(meta,codeblock: string, event: string) {
+    constructor(meta,codeblock: string, event: string, className: string | null = null) {
         super(meta,)
         this.Codeblock = codeblock
         this.Event = event
+        this.ClassName = className
     }
 
     Codeblock: string
     Event: string
+    ClassName: string | null
+}
+export class ClassHeaderToken extends HeaderToken {
+    constructor(meta, name: string) {
+        super(meta)
+        this.Name = name
+    }
+    Name: string
+}
+export class FieldHeaderToken extends HeaderToken {
+    constructor(meta, name: string, defaultValue: ExpressionToken | null = null) {
+        super(meta)
+        this.Name = name
+        this.DefaultValue = defaultValue
+    }
+    Name: string
+    DefaultValue: ExpressionToken | null
 }
 export class ParamHeaderToken extends HeaderToken {
     constructor(meta,name: string, type: string, plural: boolean, optional: boolean, defaultValue: ExpressionToken | null) {
@@ -471,6 +491,26 @@ export class SelectActionToken extends Token {
     ConditionNot: boolean
     Arguments: ListToken | null
     Tags: Dict<ActionTag> | null
+}
+export class NewToken extends Token {
+    constructor(meta, className: string, args: ListToken | null) {
+        super(meta)
+        this.ClassName = className
+        this.Arguments = args
+    }
+    ClassName: string
+    Arguments: ListToken | null
+
+    itemtype = "new"
+}
+export class PropertyToken extends Token {
+    constructor(meta, object: ExpressionToken, property: string) {
+        super(meta)
+        this.Object = object
+        this.Property = property
+    }
+    Object: ExpressionToken
+    Property: string
 }
 export class DebugPrintVarTypeToken extends Token {
     constructor(meta,variable: VariableToken) {
@@ -793,13 +833,7 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             OfferContext(typeResults[0]+1,false)
             DiscardContextBranch(typeContext)
 
-            //error for invalid type
-            if (!ValueType[typeResults[1]]) {
-                DiscardContextBranch(context)
-                throw new TCError(`Invalid type '${typeResults[1]}'`,0,index,typeResults[0])
-            }
-
-            index = typeResults[0]
+            if (!ValueType[typeResults[1]]) { DiscardContextBranch(context); throw new TCError(`Invalid type '${typeResults[1]}', 0, index, typeResults[0]); } index = typeResults[0]
             type = typeResults[1]
         }
 
@@ -1891,18 +1925,36 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
     //ERR8 = invalid tag value
     //ERR9 = missing ? after tag value variable
 
-    function ParseAction(index: number, allowComparisons: boolean = false, genericTargetComparisons: boolean = false): [number, ActionToken] | null {
+    function ParseAction(index: number, allowComparisons: boolean = false, genericTargetComparisons: boolean = false, expressionSymbols: any[] = []): [number, ActionToken | CallToken] | null {
         index += cu.GetWhitespaceAmount(index) + 1
         let initIndex = index
 
-        //= parse domain =\\
         let domainResults = cu.GetIdentifier(index)
         if (domainResults == null) { return null }
 
         let validDomains = genericTargetComparisons ? GenericDomains : PublicDomains
-
         let domain = validDomains[domainResults[1]]
-        if (!domain) { return null }
+
+        // if it's not a known domain, it might be a method call on a variable/expression
+        if (!domain) {
+            if (expressionSymbols.length > 0 && cu.GetNextCharacters(domainResults[0], 1) == ":") {
+                let object = expressionSymbols.pop()
+                index = domainResults[0] + 1 + cu.GetWhitespaceAmount(domainResults[0])
+                let methodResults = cu.GetIdentifier(index)
+                if (methodResults[1] == "") {
+                    throw new TCError("Expected method name following ':'", 0, index, index)
+                }
+                index = methodResults[0]
+                let argResults = ParseList(index, "(", ")", ",")
+                let args: ListToken | null = null
+                if (argResults) {
+                    index = argResults[0]
+                    args = argResults[1]
+                }
+                return [index, new CallToken([object.CharStart, index], "method", methodResults[1], args, null, object)]
+            }
+            return null
+        }
 
         //move to end of domain
         index = domainResults[0]
@@ -2117,12 +2169,9 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         
         //parse type
         let typeResults = cu.GetIdentifier(index)
-        OfferContext(index[0])
+        OfferContext(typeResults[0])
         DiscardContextBranch(context)
         if (typeResults[1] == "") {throw new TCError("Expected type following ':'",0,initIndex,initIndex)}
-
-        //error for invalid type
-        if (!ValueType[typeResults[1]]) { throw new TCError(`Invalid type '${typeResults[1]}'`,0,index,typeResults[0])}
 
         return [typeResults[0],new TypeOverrideToken([initIndex,typeResults[0]],typeResults[1])]
     }
@@ -2193,8 +2242,11 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
                 //(if last token is an operator, the square brackets should be parsed as a list later down)
                 if (results == null && expressionSymbols[expressionSymbols.length - 1] && !(expressionSymbols[expressionSymbols.length - 1] instanceof OperatorToken)) { results = ParseIndexer(index) }
 
-                //try action
-                if (results == null) { results = ParseAction(index, true, features.includes("genericTargetComparisons")) }
+                //try action OR method call
+                if (results == null) { results = ParseAction(index, true, features.includes("genericTargetComparisons"), expressionSymbols) }
+
+                //try new expression
+                if (results == null) { results = ParseNewExpression(index) }
 
                 //try select action
                 if (results == null && (features.includes("selectionActions") || mode.mode == "getContext")) { results = ParseSelectAction(index) }
@@ -2237,6 +2289,17 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
 
                 //try potion
                 if (results == null) { results = ParsePotion(index) }
+
+                //try property access
+                if (results == null) { results = ParsePropertyAccess(index, expressionSymbols) }
+
+                //try 'this'
+                if (results == null) {
+                    let thisResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
+                    if (thisResults && thisResults[1] == "this") {
+                        results = [thisResults[0], new VariableToken([index + cu.GetWhitespaceAmount(index) + 1, thisResults[0]], "local", "this", null)]
+                    }
+                }
 
                 //try variable
                 if (results == null) { results = ParseVariable(index) }
@@ -2370,9 +2433,6 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
         let typeResults = cu.GetIdentifier(index)
         if (typeResults[1].length == 0) { throw new TCError("Expected type following 'RETURNS'",0,initIndex,identifierResults[0]) }
 
-        // error for invalid type
-        if (!ValueType[typeResults[1]]) { throw new TCError(`Invalid type '${typeResults[1]}'`,0,index,typeResults[0])}
-
         return [typeResults[0], new ReturnsHeaderToken([initIndex,typeResults[0]],typeResults[1])]
     }
 
@@ -2392,14 +2452,84 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             : identifierResults[1] == "ENTITY_EVENT" ? "entity"
             : identifierResults[1] == "GAME_EVENT" ? "game"
             : identifierResults[1] == "FUNCTION" ? "function"
+            : identifierResults[1] == "METHOD" ? "function"
+            : identifierResults[1] == "CONSTRUCTOR" ? "function"
             : "process"
         )
         BottomLevelContext = BottomLevelContext.setChild(context)
         OfferContext(identifierResults[0]+1,"whitespaceAndIdentifier")
         DiscardContextBranch(context)
         
-        let nameResults = GetComplexName(index)
+        let nameResults: [number, string] = [index, ""]
+        if (identifierResults[1] == "CONSTRUCTOR") {
+            // constructor has no name
+        } else {
+            nameResults = GetComplexName(index)
+        }
         return [nameResults[0], new EventHeaderToken([initIndex,nameResults[0]],identifierResults[1],nameResults[1])]
+    }
+
+
+    function ParseNewExpression(index: number): [number, NewToken] | null {
+        index += cu.GetWhitespaceAmount(index) + 1
+        let initIndex = index
+        let keywordResults = cu.GetIdentifier(index)
+        if (keywordResults == null || keywordResults[1] != "new") { return null }
+        index = keywordResults[0]
+        let classResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
+        if (classResults[1] == "") {
+            throw new TCError("Expected class name following 'new'", 0, index, index)
+        }
+        index = classResults[0]
+        let argResults = ParseList(index, "(", ")", ",")
+        let args: ListToken | null = null
+        if (argResults) {
+            index = argResults[0]
+            args = argResults[1]
+        }
+        return [index, new NewToken([initIndex, index], classResults[1], args)]
+    }
+
+    function ParsePropertyAccess(index: number, expressionSymbols: any[]): [number, PropertyToken] | null {
+        if (cu.GetNextCharacters(index, 1) != ".") { return null }
+        if (expressionSymbols.length == 0) { return null }
+        let object = expressionSymbols.pop()
+        index += cu.GetWhitespaceAmount(index) + 1
+        let propResults = cu.GetIdentifier(index + cu.GetWhitespaceAmount(index) + 1)
+        if (propResults[1] == "") {
+            throw new TCError("Expected property name following '.'", 0, index, index)
+        }
+        return [propResults[0], new PropertyToken([object.CharStart, propResults[0]], object, propResults[1])]
+    }
+
+    function ParseClassHeader(index: number): [number, ClassHeaderToken] | null {
+        index += cu.GetWhitespaceAmount(index) + 1
+        let initIndex = index
+        let identifierResults = cu.GetIdentifier(index)
+        if (identifierResults == null || identifierResults[1] != "CLASS") { return null }
+        index = identifierResults[0]
+        let nameResults = GetComplexName(index)
+        return [nameResults[0], new ClassHeaderToken([initIndex, nameResults[0]], nameResults[1])]
+    }
+
+    function ParseFieldHeader(index: number): [number, FieldHeaderToken] | null {
+        index += cu.GetWhitespaceAmount(index) + 1
+        let initIndex = index
+        let identifierResults = cu.GetIdentifier(index)
+        if (identifierResults == null || identifierResults[1] != "FIELD") { return null }
+        index = identifierResults[0]
+        let nameResults = GetComplexName(index)
+        index = nameResults[0]
+        let defaultValue: ExpressionToken | null = null
+        if (cu.GetNextCharacters(index, 1) == "=") {
+            index += cu.GetWhitespaceAmount(index) + 1
+            let expressionResults = ParseExpression(index, [";"], false)
+            if (expressionResults) {
+                index = expressionResults[0]
+                defaultValue = expressionResults[1]
+            }
+        }
+        return [index, new FieldHeaderToken([initIndex, index], nameResults[1], defaultValue)]
     }
 
    
@@ -2732,6 +2862,10 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             //top event header e.g. 'PLAYER_EVENT LeftClick'
             if (results == null) { results = ParseEventHeader(CharIndex) }
 
+            if (results == null) { results = ParseClassHeader(CharIndex) }
+
+            if (results == null) { results = ParseFieldHeader(CharIndex) }
+
             //params
             if (results == null) { results = ParseParamHeader(CharIndex) }
 
@@ -2784,8 +2918,8 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             }
         }
 
-        //parse opening bracket for if and repeat
-        if (CurrentLine[0] instanceof IfToken || CurrentLine[0] instanceof RepeatToken) {
+        //parse opening bracket for if, repeat, class, and method
+        if (CurrentLine[0] instanceof IfToken || CurrentLine[0] instanceof RepeatToken || CurrentLine[0] instanceof ClassHeaderToken || (CurrentLine[0] instanceof EventHeaderToken && ["METHOD", "CONSTRUCTOR"].includes((CurrentLine[0] as EventHeaderToken).Codeblock))) {
             //parse opening bracket
             if (cu.GetNextCharacters(CharIndex,1) == "{") {
                 //push current line since brackets are always treated as their own line
@@ -2802,20 +2936,28 @@ export function Tokenize(script: string, mode: TokenizeMode): TokenizerResults |
             return;
         }
 
-        //if current line starts with a variable
-        if (CurrentLine[0] instanceof VariableToken) {
-            //accumulate indexers
-            let indexerResults: [number, IndexerToken] | null = null
-            do {
-                indexerResults = ParseIndexer(CharIndex)
+        //if current line starts with a variable or property access
+        if (CurrentLine[0] instanceof VariableToken || CurrentLine[0] instanceof PropertyToken) {
+            //accumulate indexers and properties
+            while (true) {
+                let indexerResults = ParseIndexer(CharIndex)
                 if (indexerResults) {
                     ApplyResults(indexerResults)
+                    continue
+                }
+                let propertyResults = ParsePropertyAccess(CharIndex, [CurrentLine[CurrentLine.length - 1]])
+                if (propertyResults) {
+                    CurrentLine.pop()
+                    ApplyResults(propertyResults)
+                    continue
                 }
                 let typeOverrideResults = ParseTypeOverride(CharIndex)
                 if (typeOverrideResults) {
                     ApplyResults(typeOverrideResults)
+                    continue
                 }
-            } while (indexerResults != null)
+                break
+            }
 
             //check for an operator
             let operatorResults = ParseOperator(CharIndex, "assignment")
