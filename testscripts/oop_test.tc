@@ -1,0 +1,26 @@
+CLASS Point {
+    FIELD x = 0;
+    FIELD y = 0;
+
+    CONSTRUCTOR(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    METHOD move(dx, dy) {
+        this.x += dx;
+        this.y += dy;
+    }
+
+    METHOD getDistance() RETURNS num {
+        return (this.x ** 2 + this.y ** 2) ** 0.5;
+    }
+}
+
+PLAYER_EVENT Join {
+    line p = new Point(3, 4);
+    default:SendMessage("Initial distance: ", p:getDistance());
+    p:move(1, 1);
+    default:SendMessage("New x: ", p.x);
+    default:SendMessage("New distance: ", p:getDistance());
+}

@@ -8,7 +8,6 @@ import * as NBT from "nbtify"
 import { COLOR } from "../util/characterUtils.ts"
 import { URL } from "node:url"
 import { Dict } from "../util/dict.ts"
-import { walk } from "@std/fs"
 import { getAllFilesInFolder } from "../util/utils.ts";
 import { DFRank } from "../util/actionDump.ts";
 
@@ -74,6 +73,7 @@ export interface CompilationEnvironment {
         processes: Dict<CodeInjections>,
     }
     funcReturnTypes: Dict<string>
+    classes: Dict<LineCompiler.ClassDefinition>
     skipConstructorValidation?: boolean
 }
 
@@ -183,7 +183,8 @@ export async function CompileProject(path: string, data: ProjectCompileData): Pr
             functions: {},
             processes: {},
         },
-        funcReturnTypes: {}
+        funcReturnTypes: {},
+        classes: {}
     }
 
     const files = await getAllFilesInFolder(folderUrl)

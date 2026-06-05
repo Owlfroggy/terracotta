@@ -77,7 +77,7 @@ export const VAR_SCOPE_TC_NAMES: Dict<"global" | "saved" | "local" | "line"> = {
 export const VALID_HEADER_KEYWORDS = ["LAGSLAYER_CANCEL"]
 
 //keywords that are valid line starter blocks
-export const VALID_LINE_STARTERS = ["PLAYER_EVENT","ENTITY_EVENT","GAME_EVENT","PROCESS","FUNCTION"]
+export const VALID_LINE_STARTERS = ["CLASS","METHOD","CONSTRUCTOR","PLAYER_EVENT","ENTITY_EVENT","GAME_EVENT","PROCESS","FUNCTION"]
 
 //operators that can be used to assign a value to a variable
 export const VALID_ASSIGNMENT_OPERATORS = ["=", "+=", "-=", "*=", "/=", "^=", "%="]
@@ -105,7 +105,7 @@ export const INDEXABLE_TYPES = ["list","dict"]
 //==========[ language server stuff ]=========\\
 
 //keywords that aren't relevant to expressions
-export const STATEMENT_KEYWORDS = [
+export const STATEMENT_KEYWORDS = ["CLASS","FIELD","METHOD","CONSTRUCTOR","new",
     "if","else","repeat","while","for","do",
     ...VALID_CONTROL_KEYWORDS,
     "select","filter",

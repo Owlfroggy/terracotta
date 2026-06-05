@@ -1,4 +1,4 @@
-import { ActionTag, ActionToken, BracketToken, CallToken, ControlBlockToken, DebugPrintVarTypeToken, DescriptionHeaderToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, RepeatDoToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, ReturnsHeaderToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
+import { ActionTag, ActionToken, BracketToken, CallToken, ClassHeaderToken, ControlBlockToken, DebugPrintVarTypeToken, DescriptionHeaderToken, DictionaryToken, ElseToken, EventHeaderToken, ExpressionToken, FieldHeaderToken, GameValueToken, HeaderToken, IfToken, IndexerToken, ItemToken, KeywordHeaderToken, ListToken, LocationToken, NewToken, NumberToken, OperatorToken, ParamHeaderToken, ParticleToken, PotionToken, PropertyToken, RepeatDoToken, RepeatForActionToken, RepeatForInToken, RepeatForeverToken, RepeatMultipleToken, RepeatToken, RepeatWhileToken, ReturnsHeaderToken, SelectActionToken, SoundToken, StringToken, TextToken, Token, TypeOverrideToken, VariableToken, VectorToken } from "../tokenizer/tokenizer.ts"
 import { NumberType, VALID_VAR_SCOPES, VALID_LINE_STARTERS, VALID_COMPARISON_OPERATORS, DF_TYPE_MAP, TC_HEADER, ITEM_DF_NBT, INDEXABLE_TYPES, EVENT_NAME_MAP } from "../util/constants.ts"
 import { DEBUG_MODE, print } from "../main.ts"
 import { Domain, DomainList, GenericTargetDomains, TargetDomain, TargetDomains } from "../util/domains.ts"
@@ -8,7 +8,13 @@ import { TCError } from "../util/errorHandler.ts"
 import * as AD from "../util/actionDump.ts"
 import * as TextCode from "../util/textCodeParser.ts"
 import * as NBT from "nbtify"
-import { CompilationEnvironment, CompileProject, ItemLibrary } from "./projectCompiler.ts"
+import { CompilationEnvironment, ItemLibrary } from "./projectCompiler.ts"
+
+export interface ClassDefinition {
+    name: string,
+    fields: Dict<{name: string, defaultValue: ExpressionToken | null}>,
+    methods: Dict<{name: string, returnType: string | null}>
+}
 import { CodeLensRefreshRequest, DiagnosticRefreshRequest } from "vscode-languageserver";
 import { MAX_LINE_VARS } from "./codeblockNinja.ts";
 
@@ -402,9 +408,58 @@ export function PreProcess(lines: Token[][], environment: CompilationEnvironment
     let lineName: string
 
     let seenReturnType = false
+    let currentClass: ClassDefinition | null = null
 
-    for (let line of lines) { 
+    for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+        let line = lines[lineNum]
         if (line.length == 0) { continue }
+
+        let header = line[0]
+
+        if (header instanceof ClassHeaderToken) {
+            currentClass = {
+                name: header.Name,
+                fields: {},
+                methods: {}
+            }
+            environment.classes[header.Name] = currentClass
+
+            // find closing bracket of class
+            let depth = 0
+            for (let i = lineNum; i < lines.length; i++) {
+                if (lines[i][0] instanceof BracketToken) {
+                    if ((lines[i][0] as BracketToken).Type == "open") depth++
+                    else {
+                        depth--
+                        if (depth == 0) break
+                    }
+                }
+
+                if (depth == 1) {
+                    let subHeader = lines[i][0]
+                    if (subHeader instanceof FieldHeaderToken) {
+                        currentClass.fields[subHeader.Name] = {name: subHeader.Name, defaultValue: subHeader.DefaultValue}
+                    } else if (subHeader instanceof EventHeaderToken) {
+                        if (subHeader.Codeblock == "METHOD") {
+                            let returnType: string | null = null
+                            // check for RETURNS header on next line
+                            if (lines[i+1] && lines[i+1][0] instanceof ReturnsHeaderToken) {
+                                returnType = (lines[i+1][0] as ReturnsHeaderToken).Type
+                            }
+                            currentClass.methods[subHeader.Event] = {name: subHeader.Event, returnType: returnType}
+                            environment.funcReturnTypes[`@__TC_METHOD_${currentClass.name}_${subHeader.Event}`] = returnType || "any"
+                            subHeader.ClassName = currentClass.name
+                        } else if (subHeader.Codeblock == "CONSTRUCTOR") {
+                            currentClass.methods["CONSTRUCTOR"] = {name: "CONSTRUCTOR", returnType: "dict"}
+                            environment.funcReturnTypes[`@__TC_METHOD_${currentClass.name}_CONSTRUCTOR`] = "dict"
+                            subHeader.ClassName = currentClass.name
+                        }
+                    }
+                }
+            }
+            continue
+        }
+
         // stop after getting past headers
         if (line[0] && !(line[0] instanceof HeaderToken)) {
             break
@@ -431,8 +486,8 @@ export function PreProcess(lines: Token[][], environment: CompilationEnvironment
             if (type == "var") {
                 throw new TCError("Functions cannot return type 'var'.",0,line[0].CharStart,line[0].CharEnd)
             }
-            if (lineStarter != "FUNCTION") {
-                throw new TCError("Only functions can return values.",0,line[0].CharStart,line[0].CharEnd)
+            if (lineStarter != "FUNCTION" && lineStarter != "METHOD" && lineStarter != "CONSTRUCTOR") {
+                throw new TCError("Only functions and methods can return values.",0,line[0].CharStart,line[0].CharEnd)
             }
             environment.funcReturnTypes[lineName!] = type
         }
@@ -2003,20 +2058,74 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 let tempVar = NewTempVar("num")//num is just a placeholder type and is reassigned after return type is gotten
                 
                 let args: (CodeItem | null)[] = [tempVar] 
+                if (token.Type == "method") {
+                    let objResults = SolveExpression(token.Object!)
+                    code.push(...objResults[0])
+                    args.push(objResults[1])
+                }
+
                 if (token.Arguments) {
                     let argResults = SolveArgs(token.Arguments)
                     code.push(...argResults[0])
                     args.push(...argResults[1])
                 }
 
-                let actionBlock = new ActionBlock("call_func",token.Name,args)
-                let returnType = environment.funcReturnTypes[token.Name]
+                let funcName = token.Name
+                if (token.Type == "method") {
+                    let objType = GetType(args[1])
+                    if (environment.classes[objType]) {
+                        funcName = `@__TC_METHOD_${objType}_${token.Name}`
+                    } else {
+                        throw new TCError(`Could not determine class of object (type '${objType}') for method '${token.Name}' call. Try explicitly typing the variable.`,0,token.CharStart,token.CharEnd)
+                    }
+                }
+
+                let actionBlock = new ActionBlock("call_func",funcName,args)
+                let returnType = environment.funcReturnTypes[funcName]
                 if (!returnType) {
                     throw new TCError(`Only functions which return values can be used in expressions.`,0,token.CharStart,token.CharEnd)
                 }
 
                 SetVarType(tempVar,returnType)
                 code.push(actionBlock)
+                expression.push(tempVar)
+            } else if (token instanceof NewToken) {
+                let classDef = environment.classes[token.ClassName]
+                if (!classDef) {
+                    throw new TCError(`Class '${token.ClassName}' not found`,0,token.CharStart,token.CharEnd)
+                }
+
+                let objVar = NewTempVar(token.ClassName)
+                code.push(new ActionBlock("set_var","CreateDict",[objVar,new VariableItem([],"unsaved","@__TC_EMPTY_LIST"),new VariableItem([],"unsaved","@__TC_EMPTY_LIST")]))
+
+                // set default field values
+                for (let field of Object.values(classDef.fields)) {
+                    if (field.defaultValue) {
+                        let valResults = SolveExpression(field.defaultValue)
+                        code.push(...valResults[0])
+                        code.push(new ActionBlock("set_var","SetDictValue",[objVar,new StringItem([],field.name),valResults[1]]))
+                    }
+                }
+
+                // call constructor
+                let constructorName = `@__TC_METHOD_${token.ClassName}_CONSTRUCTOR`
+                if (classDef.methods["CONSTRUCTOR"]) {
+                    let args: (CodeItem | null)[] = [objVar, objVar]
+                    if (token.Arguments) {
+                        let argResults = SolveArgs(token.Arguments)
+                        code.push(...argResults[0])
+                        args.push(...argResults[1])
+                    }
+                    code.push(new ActionBlock("call_func",constructorName,args))
+                }
+
+                expression.push(objVar)
+            } else if (token instanceof PropertyToken) {
+                let objResults = SolveExpression(token.Object)
+                code.push(...objResults[0])
+                let obj = objResults[1]
+                let tempVar = NewTempVar("any")
+                code.push(new ActionBlock("set_var","GetDictValue",[tempVar,obj,new StringItem([],token.Property)]))
                 expression.push(tempVar)
             } else {
                 let toItemResults = ToItem(token)
@@ -2175,6 +2284,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
     }
     let existingParams: string[] = []
 
+    let currentClassName: string | null = null
     let i = -1
     while (i < lines.length) {
         i++
@@ -2186,6 +2296,12 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         //headers
         if (headerMode) {
             let header = line[0]
+            if (header instanceof ClassHeaderToken) {
+                currentClassName = header.Name
+                // classes themselves don't produce a block yet, but their members do
+                headerMode = false
+                continue
+            }
             if (header instanceof EventHeaderToken) {
                 //if an event has already been declared
                 if (headerData.codeblock) {
@@ -2193,6 +2309,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 }
                 
                 headerData.codeblock = header
+                if (header.ClassName) currentClassName = header.ClassName
             }
             else if (header instanceof KeywordHeaderToken) {
                 switch (header.Keyword) {
@@ -2259,10 +2376,23 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                         throw new TCError("Lagslayer cancel can only be applied to events",0,headerData.lsCancel.CharStart,headerData.lsCancel.CharEnd)
                     }
                     
-                    if (codeblockName == "FUNCTION") {
+                    if (codeblockName == "FUNCTION" || codeblockName == "METHOD" || codeblockName == "CONSTRUCTOR") {
+                        let fullName = headerData.codeblock.Event
+                        if (codeblockName == "METHOD") {
+                            fullName = `@__TC_METHOD_${currentClassName}_${headerData.codeblock.Event}`
+                        } else if (codeblockName == "CONSTRUCTOR") {
+                            fullName = `@__TC_METHOD_${currentClassName}_CONSTRUCTOR`
+                        }
+
+                        // methods have 'this' as first param
+                        let methodParams = [...headerData.params]
+                        if (codeblockName == "METHOD" || codeblockName == "CONSTRUCTOR") {
+                            methodParams.unshift(new ParamItem([], "this", "dict", false, false))
+                        }
+
                         // error for too many params
-                        if (headerData.params.length + headerData.returnParams.length > 26) {
-                            let problematicParam = headerData.params[26];
+                        if (methodParams.length + headerData.returnParams.length > 26) {
+                            let problematicParam = methodParams[26];
                             if (headerData.returnParams.length > 0) {
                                 throw new TCError(`The combined total number of parameters and return values that a function has cannot exceed 26.`,0,problematicParam.CharStart,problematicParam.CharEnd)
                             } else {
@@ -2270,7 +2400,7 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                             }
                         }
 
-                        block = new FunctionBlock(headerData.codeblock.Event, [...headerData.returnParams,...headerData.params])
+                        block = new FunctionBlock(fullName, [...headerData.returnParams,...methodParams])
                     }
                     else if (codeblockName == "PROCESS") {
                         block = new ProcessBlock(headerData.codeblock.Event, [...headerData.params])
@@ -2404,20 +2534,33 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
             //push action
             CodeLine.push(actionBlock)
         }
-        //call function
+        //call function or method
         else if (line[0] instanceof CallToken) {
             let action = line[0]
 
             //args
-            let args
+            let args: (CodeItem | null)[] = []
+
+            let objType: string | null = null
+            if (action.Type == "method") {
+                let objResults = SolveExpression(action.Object!)
+                CodeLine.push(...objResults[0])
+                args.push(objResults[1])
+                objType = GetType(objResults[1])
+            }
+
             if (action.Arguments) {
                 let argResults = SolveArgs(action.Arguments)
                 CodeLine.push(...argResults[0])
-                args = argResults[1]
+                args.push(...argResults[1])
+            }
 
-                // insert an unused variable for return value arg if applicable because df always requires var params to be filled in
-                if (action.Type == "function" && environment.funcReturnTypes[action.Name] !== undefined) {
-                    args.unshift(new VariableItem([],"line","@__TC_BLACKHOLE"))
+            let funcName = action.Name
+            if (action.Type == "method") {
+                if (objType && environment.classes[objType]) {
+                    funcName = `@__TC_METHOD_${objType}_${action.Name}`
+                } else {
+                    throw new TCError(`Could not determine class of object (type '${objType}') for method '${action.Name}' call.`, 0, action.CharStart, action.CharEnd)
                 }
             }
 
@@ -2430,7 +2573,12 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 tags = FillMissingTags("start_process","dynamic",tagResults[1])
             }
 
-            let actionBlock = new ActionBlock(action.Type == "function" ? "call_func" : "start_process",action.Name,args,tags)
+            // insert an unused variable for return value arg if applicable because df always requires var params to be filled in
+            if (environment.funcReturnTypes[funcName] !== undefined) {
+                args.unshift(new VariableItem([],"line","@__TC_BLACKHOLE"))
+            }
+
+            let actionBlock = new ActionBlock(action.Type == "process" ? "start_process" : "call_func",funcName,args,tags)
             actionBlock.ActionNameField = "data" //WARNING! EVEN THOUGH THIS SEEMS REDUNDANT, EVERYTHING BREAKS IF YOU REMOVE IT!!
 
             CodeLine.push(actionBlock)
@@ -2715,8 +2863,8 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 )
             }
         }
-        //variable thingies
-        else if (line[0] instanceof VariableToken) {
+        //variable thingies or property access
+        else if (line[0] instanceof VariableToken || line[0] instanceof PropertyToken) {
             if (line[0].Type) { SetVarType(line[0],line[0].Type) }
             //variable all on its own
             if (line.length == 1) {
@@ -2730,7 +2878,15 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 // convert left and right to code items
                 let assignmentOpr = line[1] as OperatorToken
 
-                let left = ToItem(line[0])[1]
+                let left: CodeItem
+                if (line[0] instanceof PropertyToken) {
+                    let objResults = SolveExpression(line[0].Object)
+                    CodeLine.push(...objResults[0])
+                    left = line[0] as any // special handling below
+                } else {
+                    left = ToItem(line[0])[1]
+                }
+
                 let rightResults = SolveExpression(line[2] as ExpressionToken)
                 //if code is required to generate right, push it
                 if (rightResults[0].length > 0) {
@@ -2742,15 +2898,21 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
                 let typeright = GetType(right)
 
                 if (assignmentOpr.Operator == "=") { 
-                    if (line[0].Type) {
-                        if (typeleft != typeright && !(typeleft == "any") && !(typeright == "any" || typeright == undefined)) {
-                            throw new TCError(`Attempted to set variable explicitly typed as ${typeleft} to ${typeright}`,0,line[0].CharStart,line[2].CharEnd)
-                        }
+                    if (line[0] instanceof PropertyToken) {
+                        let objResults = SolveExpression(line[0].Object)
+                        // CodeLine.push(...objResults[0]) // already pushed
+                        CodeLine.push(new ActionBlock("set_var","SetDictValue",[objResults[1],new StringItem([],line[0].Property),right]))
                     } else {
-                        //automatically set type to whatevers on the right if no type is provided
-                        SetVarType(line[0],GetType(right))
+                        if (line[0].Type) {
+                            if (typeleft != typeright && !(typeleft == "any") && !(typeright == "any" || typeright == undefined)) {
+                                throw new TCError(`Attempted to set variable explicitly typed as ${typeleft} to ${typeright}`,0,line[0].CharStart,line[2].CharEnd)
+                            }
+                        } else {
+                            //automatically set type to whatevers on the right if no type is provided
+                            SetVarType(line[0],GetType(right))
+                        }
+                        CodeLine.push(new ActionBlock("set_var","=",[left,right]))
                     }
-                    CodeLine.push(new ActionBlock("set_var","=",[left,right]))
                 } else {
                     //incremental things idk what to call them
 
@@ -2913,6 +3075,9 @@ export function CompileLines(lines: Array<Array<Token>>, environment: Compilatio
         //debug print variable
         else if (line[0] instanceof DebugPrintVarTypeToken) {
             throw new TCError(`${line[0].Variable.Scope} variable '${line[0].Variable.Name}' has type ${CombinedVarContext.VariableTypes[VALID_VAR_SCOPES[line[0].Variable.Scope]!][line[0].Variable.Name]}\n`,0,line[0].CharStart,line[0].CharEnd)
+        }
+        else if (line[0] instanceof FieldHeaderToken) {
+            // handled in headers
         }
     }
 
