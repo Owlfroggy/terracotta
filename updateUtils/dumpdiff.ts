@@ -4,7 +4,7 @@ import process from "node:process"
 import { readFile } from "node:fs/promises";
 import { Dict } from "../src/util/dict.ts";
 
-const { values, positionals } = parseArgs({args: process.argv, allowPositionals: true})
+const { values: _values, positionals } = parseArgs({args: process.argv, allowPositionals: true})
 
 if (positionals.length < 1) {
     console.log("Missing path to old action dump")
@@ -18,7 +18,7 @@ const oldDump = JSON.parse((await readFile(positionals[2]!)).toString())
 const newDump = JSON.parse((await readFile(positionals[3]!)).toString())
 
 // actions \\
-let seen: Dict<any> = {}
+let seen: Dict<Dict<boolean>> = {}
 
 oldDump.actions.forEach(action => {
     if (!seen[action.codeblockName]) { seen[action.codeblockName] = {}; }
@@ -34,15 +34,15 @@ newDump.actions.forEach(action => {
 })
 
 // values \\
-seen = {}
+const seenValues: Dict<boolean> = {}
 
 oldDump.gameValues.forEach(value => {
-    seen[value.icon.name] = true
+    seenValues[value.icon.name] = true
 });
 
 console.log("== NEW GAME VALUES ==")
 newDump.gameValues.forEach(value => {
-    if (!seen[value.icon.name]) {
+    if (!seenValues[value.icon.name]) {
         console.log(`${value.icon.name}`)
     }
 })

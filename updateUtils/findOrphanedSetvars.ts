@@ -8,11 +8,11 @@ import { TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../src/util/constan
 import process from "node:process";
 
 const options = {l: {type: "boolean"}} as const
-const { values, positionals } = parseArgs({args: process.argv, options: options, allowPositionals: true})
+const { values, positionals: _positionals } = parseArgs({args: process.argv, options: options, allowPositionals: true})
 
 let found = 0;
 
-for (let pass of ["set_var","if_var"]) {
+for (const pass of ["set_var","if_var"]) {
     const existingActions = new Set([...Object.values(pass == "set_var" ? TYPE_DOMAIN_ACTIONS : TYPE_DOMAIN_CONDITIONS)].flat())
     for (const action of Object.values(DFActionMap[pass]!)) {
         if (!action) {continue}
