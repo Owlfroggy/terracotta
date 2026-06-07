@@ -718,7 +718,7 @@ export class CodeCompiler {
         }
         else if (e instanceof ListExpression) {
             let code: CodeBlock[] = [];
-            let tempVar = this.tempVarProvider.newTempVar(Type.list(Type.any));
+            let tempVar = this.tempVarProvider.newTempVar(this.env.types.evaluateExpression(e));
             
             let contents: TangibleValue[] = [];
             for (const element of e.elements) {
@@ -735,7 +735,7 @@ export class CodeCompiler {
         }
         else if (e instanceof DictionaryExpression) {
             let code: CodeBlock[] = []
-            let tempVar = this.tempVarProvider.newTempVar(Type.dict(Type.any));
+            let tempVar = this.tempVarProvider.newTempVar(this.env.types.evaluateExpression(e));
             let keysTempVar = this.tempVarProvider.newTempVar(Type.list(Type.str));
             let valuesTempVar = this.tempVarProvider.newTempVar(Type.list(Type.any));
             let keysContents: TangibleValue[] = [];
