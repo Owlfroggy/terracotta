@@ -129,14 +129,14 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
                 !param.type.matches(Type.any) 
                 && !(
                     // accept the actual stated type
-                    param.type.matches(argTypes[argIndex]) 
+                    argTypes[argIndex].isAssignableTo(param.type)
                     // accept lists of the param type if this param is plural
-                    || param.plural && argTypes[argIndex].strictlyMatches(Type.list(param.type))
+                    || param.plural && argTypes[argIndex].isAssignableTo(Type.list(param.type))
                 )
                 // dont throw another error if this value has itself already thrown an error
                 && !(args[argValueIndex] instanceof MissingValue)) 
             {
-                errors.push([argExpressions[argIndex], `Expected ${param.type.name} for parameter '${param.name}', got ${argTypes[argIndex].name}`]);
+                errors.push([argExpressions[argIndex], `Expected ${param.type} for parameter '${param.name}', got ${argTypes[argIndex]}`]);
             }
             unfilledRequiredParams.delete(param);
             argValueIndex++;
