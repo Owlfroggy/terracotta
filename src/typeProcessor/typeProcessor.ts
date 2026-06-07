@@ -586,8 +586,8 @@ export class TypeProcessor {
             }
         }
         else if (expression instanceof ListExpression) {
-            let elementTypes = expression.elements.map(elm => this.evaluateExpression(elm, frame));
-            return Type.list(...inferListTypeFromElements(elementTypes));
+            let indexTypes = expression.elements.map(elm => this.evaluateExpression(elm, frame));
+            return Type.list(Type.void, indexTypes);
         }
         else if (expression instanceof DictionaryExpression) {
             let keyTypes: {[key: string]: Type} = {};
@@ -595,7 +595,6 @@ export class TypeProcessor {
                 if (!(entry.key instanceof Token)) continue;
                 keyTypes[entry.key.value] = this.evaluateExpression(entry.value);
             }
-            // TODO: match generic type behavior to that of lists
             return Type.dict(Type.void, keyTypes);
         }
         else if (expression instanceof VariableExpression) {
