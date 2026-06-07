@@ -58,9 +58,9 @@ export function inferListTypeFromElements(elementTypes: Type[]): [genericType: T
         }
     }
     if (singleTypeList) {
-        return [elementTypes[0] ?? Type.any, undefined];
+        return [elementTypes[0] ?? Type.void, undefined];
     } else {
-        return [Type.any, elementTypes];
+        return [Type.void, elementTypes];
     }
 }
 export class EnvironmentFrame {
@@ -596,7 +596,7 @@ export class TypeProcessor {
                 keyTypes[entry.key.value] = this.evaluateExpression(entry.value);
             }
             // TODO: match generic type behavior to that of lists
-            return Type.dict(Type.any, keyTypes);
+            return Type.dict(Type.void, keyTypes);
         }
         else if (expression instanceof VariableExpression) {
             return frame.getVariableType(VariableId.fromExpression(expression), expression.startPos);
@@ -689,7 +689,7 @@ export class TypeProcessor {
                 }
             }
 
-            return Type.list(genericType ?? Type.any,elementTypes);
+            return Type.list(genericType ?? Type.void,elementTypes);
         }
         else if (expression.type instanceof DictionaryTypeExpression) {
             let elementTypes: {[key: string]: Type} = {};
@@ -716,7 +716,7 @@ export class TypeProcessor {
             }
 
 
-            return Type.dict(genericType ?? Type.any,elementTypes);
+            return Type.dict(genericType ?? Type.void,elementTypes);
         }
 
         let name = expression.type.value;

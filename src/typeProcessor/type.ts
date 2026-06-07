@@ -84,7 +84,7 @@ export class Type {
             let stringify = () => {
                 if (indexTypes.length > 0) {
                     let genericAddon = "";
-                    if (!genericType.matches(Type.any)) {
+                    if (!genericType.matches(Type.void)) {
                         genericAddon = `, ${genericType}...`;
                     }
                     return `[${indexTypes.join(", ")}${genericAddon}]`
@@ -125,7 +125,7 @@ export class Type {
                 let keyTypeEntries = Object.entries(keyTypes);
                 if (keyTypeEntries.length > 0) {
                     let genericAddon = "";
-                    if (!genericType.matches(Type.any)) {
+                    if (!genericType.matches(Type.void)) {
                         genericAddon = `, ${genericType}...`;
                     }
                     let entryStrings = keyTypeEntries.map(
