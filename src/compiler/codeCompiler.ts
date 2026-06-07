@@ -255,9 +255,21 @@ export class CodeCompiler {
                 let tcReturnTypes: Type[] = [];
                 if (s.returnType) {
                     if (s.keyword.type == TokenType.FUNCTION) {
+                        // handle all other return types
                         for (let i = 0; i < s.returnType.types.length; i++) {
                             let typeExpr = s.returnType.types[i];
                             let type = this.env.types.evaluateExplicitType(typeExpr);
+
+                            if (type.matches(Type.void)) {
+                                if (s.returnType.types.length > 1) {
+                                    this.reportError(
+                                        typeExpr,
+                                        `Functions returning multiple values cannot return 'void'`
+                                    );
+                                }
+                                continue;
+                            }
+
                             tcReturnTypes.push(type);
                             if (type.name in tcTypeToDFParamType) {
                                 parameters.splice(i, 0, new ParameterValue(

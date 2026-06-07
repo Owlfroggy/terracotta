@@ -1,7 +1,7 @@
 import { DFCodeblockName } from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { VariableScope } from "../../typeProcessor/typeProcessor.ts";
-import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, IfBlock } from "../codeBlock.ts";
+import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../codeBlock.ts";
 import { CodeValue, NumberValue, VariableValue } from "../codeValue.ts";
 
 export const MATCH_FAILED = Symbol("Codeblock match failed");

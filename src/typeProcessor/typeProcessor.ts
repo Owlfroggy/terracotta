@@ -377,7 +377,7 @@ export class TypeProcessor {
                 }
             }
 
-            let returnType: Type | null = null;
+            let returnType: Type = Type.void;
             if (statement.returnType != null) {
                 if (statement.returnType.types.length == 1) {
                     returnType = this.evaluateExplicitType(statement.returnType.types[0]);

@@ -14,7 +14,7 @@ export function COMPILE_CALL_FUNCTION(this: FunctionDefinition, args: CodeValue[
     let returnValue: CodeValue;
     let returnType = this.getReturnType(callNode.args.elements, ctx.types);
     let returnVars: VariableValue[] = [];
-    if (returnType == null) {
+    if (returnType.matches(Type.void)) {
         returnValue = new EmptyValue(callNode);
     } else if (returnType.matches(Type.multivalue)) {
         let returnTypeData = returnType.data as MultiValueTypeData

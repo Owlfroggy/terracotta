@@ -63,6 +63,8 @@ export class Type {
     public static snd = new Type('snd');
     public static var = new Type('var');
     public static unknown = this.any; // just in case unknown type ever needs to be separated
+
+    public static void = new Type('void');
     
     public static list = this.makeTypeConstructor(
         'list', 1,

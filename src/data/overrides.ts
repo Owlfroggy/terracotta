@@ -8,7 +8,7 @@ export const OVERRIDES: {
     actionNames: {[codeblock: string]: {[dfName: string]: string}},
     tagNames: {[dfName: string]: string},
     gameValueNames: {[dfName: string]: string},
-    returnTypes: {[codeblock: string]: {[actionDFName: string]: Type | ((args: Expression[], types: TypeProcessor) => Type | null) }}
+    returnTypes: {[codeblock: string]: {[actionDFName: string]: Type | ((args: Expression[], types: TypeProcessor) => Type) }}
     actionSignatures: {[codeblock: string]: {[actionDFName: string]: ParameterSignature[]}}
 } = {
     actionNames: {

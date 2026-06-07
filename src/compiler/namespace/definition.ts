@@ -30,8 +30,8 @@ export interface FunctionDefinition {
     definitionType: DefinitionType.FUNCTION,
     name: string,
     signatures: ParameterSignature[],
-    defaultReturnType: Type | null,
-    getReturnType: (args: Expression[], types: TypeProcessor) => Type | null,
+    defaultReturnType: Type,
+    getReturnType: (args: Expression[], types: TypeProcessor) => Type,
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,
     compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression): [CodeValue, CodeBlock[]];

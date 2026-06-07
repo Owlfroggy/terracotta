@@ -71,7 +71,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
 
     // TODO: support multiple return values
     let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
-    let tcReturnType = dfReturnType ? dfTypeToTC.get(dfReturnType)! : null;
+    let tcReturnType = dfReturnType ? dfTypeToTC.get(dfReturnType)! : Type.void;
 
     let getReturnType = USE_DEFAULT_RETURN_TYPE;
     let returnTypeOverride = OVERRIDES.returnTypes[codeblock]?.[actionDFName]
@@ -197,7 +197,7 @@ export function generateTagSpecifiedActionHook(functionName: string, codeblock: 
     let actionDef = AD.actions.get(codeblock)?.[actionDFName]!;
 
     let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
-    let tcReturnType = dfReturnType ? dfTypeToTC.get(dfReturnType)! : null;
+    let tcReturnType = dfReturnType ? dfTypeToTC.get(dfReturnType)! : Type.void;
 
     return {
         definitionType: DefinitionType.FUNCTION,
