@@ -2,7 +2,8 @@ import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression, DictionaryTypeExpression, DictionaryTypeEntryExpression } from "../ast/expression.ts";
 import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement, AssignmentStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
-import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
+import { ErrorPositionMode, ErrorType, TCError, TCNodeError } from "../error/error.ts";
+import { slog } from "../languageServer/logging.ts";
 import { dirWithoutRelations } from "../util/debug.ts";
 
 export const VARIABLE_SCOPE_KEYWORDS = [TokenType.GLOBAL,TokenType.SAVED,TokenType.LOCAL,TokenType.LOCAL];
@@ -135,11 +136,12 @@ export class Parser {
     }
 
 
-    reportError(node: ASTNode, message: string) {
+    reportError(node: ASTNode, message: string, positionMode: ErrorPositionMode = ErrorPositionMode.FULL_NODE) {
         this.errors.push(new TCNodeError(
             node,
             ErrorType.PARSER,
-            message
+            message,
+            positionMode
         ));
     }
 
@@ -164,10 +166,19 @@ export class Parser {
             if (advance) this.consume();
             return [currentToken, true];
         } else {
-            this.reportError(
-                currentToken,
-                `expected ${Array.isArray(type) ? ("one of "+type.map(t => TokenType[t]).join(", ")) : TokenType[type]} got ${currentToken}`
-            );
+            // special error positioning for missing semicolon
+            if (type == TokenType.SEMICOLON) {
+                this.reportError(
+                    this.tokens[this.position-1],
+                    `Statement ended unexpectedly. Missing semicolon?`,
+                    ErrorPositionMode.AFTER_NODE
+                );
+            } else {
+                this.reportError(
+                    currentToken,
+                    `expected ${Array.isArray(type) ? ("one of "+type.map(t => TokenType[t]).join(", ")) : TokenType[type]} got ${currentToken}`,
+                );
+            }
             return [currentToken, false];
         }
     }

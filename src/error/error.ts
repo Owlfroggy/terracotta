@@ -7,6 +7,13 @@ export enum ErrorType {
     COMPILER,
 }
 
+export enum ErrorPositionMode {
+    /** Highlight the entire AST node's range */
+    FULL_NODE,
+    /** Highlight the character after the AST node */
+    AFTER_NODE,
+}
+
 export abstract class TCError {
     public shouldDisplay: boolean = true;
 
@@ -55,15 +62,20 @@ export class TCNodeError extends TCError {
         private astNode: ASTNode,
         type: ErrorType,
         message: string,
+        public positionMode: ErrorPositionMode = ErrorPositionMode.FULL_NODE,
     ) {
         super(type, message);
     }
 
     getStartPos(): number {
+        if (this.positionMode == ErrorPositionMode.AFTER_NODE) 
+            return this.astNode.endPos;
         return this.astNode.startPos;
     }
 
     getEndPos(): number {
+        if (this.positionMode == ErrorPositionMode.AFTER_NODE) 
+            return this.astNode.endPos+1;
         return this.astNode.endPos;
     }
 
