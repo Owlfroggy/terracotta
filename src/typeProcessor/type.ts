@@ -1,5 +1,6 @@
 import { DefinitionType, FunctionDefinition } from "../compiler/namespace/definition.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
+import { dfTypeToString } from "../df/constants.ts";
 
 export type FuncTypeData = {
     definition: FunctionDefinition;
@@ -64,6 +65,8 @@ export class Type {
     public static var = new Type('var');
     public static unknown = this.any; // just in case unknown type ever needs to be separated
 
+    // type is created in this way (as opposed to using makeTypeConstructor) so 
+    // that only one object representing the void type ever has to be created
     public static void = new Type('void');
     
     public static list = this.makeTypeConstructor(
@@ -108,7 +111,29 @@ export class Type {
                 }
                 return false;
             }
-            return new Type('list', {getMemberType, strictMatchCallback, stringify, data: {genericType, indexTypes}});
+            let assignabilityCallback = (to: Type) => {
+                if (to.matches(Type.any)) return true;
+                if (!to.matches(Type.list)) return false;
+                let toData = to.data as ListTypeData;
+
+                //=- compare index types -=\\
+                for (let i = 0; i < Math.max(toData.indexTypes.length, indexTypes.length); i++) {
+                    // if to requires an index type that assignee can't guarantee, fail out
+                    if (i > indexTypes.length-1) return false;
+
+                    let toSubtype = toData.indexTypes[i] ?? toData.genericType;
+                    let assigneeSubtype = indexTypes[i] ?? genericType;
+                    if (!assigneeSubtype.isAssignableTo(toSubtype)) return false;
+                }
+
+                //=- compare generic types -=\\
+                if (genericType != Type.void) {
+                    if (!genericType.isAssignableTo(toData.genericType)) return false;
+                }
+
+                return true;
+            }
+            return new Type('list', {getMemberType, strictMatchCallback, assignabilityCallback, stringify, data: {genericType, indexTypes}});
         }
     );
 
@@ -207,10 +232,11 @@ export class Type {
 
     constructor(
         public readonly name: string,
-        {getMemberType, getMembers, strictMatchCallback, stringify, data = null}: {
+        {getMemberType, getMembers, strictMatchCallback, assignabilityCallback, stringify, data = null}: {
             getMemberType?: (member?: string | number) => Type,
             getMembers?: () => (string[] | null),
             strictMatchCallback?: (other: Type) => boolean,
+            assignabilityCallback?: (to: Type) => boolean,
             stringify?: () => string,
             data?: ExtraData
         } = {}
@@ -218,6 +244,7 @@ export class Type {
         if (getMemberType) this.getMemberType = getMemberType;
         if (getMembers) this.getMembers = getMembers;
         if (strictMatchCallback) this.strictlyMatches = strictMatchCallback;
+        if (assignabilityCallback) this.isAssignableTo = assignabilityCallback;
         if (stringify) {
             this.toString = stringify;
             this[Symbol.toPrimitive] = stringify;
