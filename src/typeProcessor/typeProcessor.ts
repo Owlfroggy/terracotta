@@ -274,15 +274,15 @@ export class TypeProcessor {
         let value: string = identifier.value;
         let frame: EnvironmentFrame = this.getNodeFrame(identifier);
 
+        let varEntry = frame.getVariableEntry(value, identifier.startPos);
+        if (varEntry != undefined) return varEntry;
+
+        if (this.globalFrame.functions.has(value)) return this.globalFrame.functions.get(value)![0];
+
         let namespace = Namespace.registry[value];
         if (namespace != undefined) return namespace;
 
         if (value in GLOBAL_SCOPE_INJECTIONS) return GLOBAL_SCOPE_INJECTIONS[value];
-
-        if (this.globalFrame.functions.has(value)) return this.globalFrame.functions.get(value)![0];
-
-        let varEntry = frame.getVariableEntry(value, identifier.startPos);
-        if (varEntry != undefined) return varEntry;
 
         return null;
     }
