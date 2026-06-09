@@ -4,7 +4,7 @@ import { AssignmentStatement, ExpressionStatement, ForStatement, FunctionStateme
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
-import { FuncTypeData, MultiValueTypeData, NamespaceTypeData, Type, TypeConstructor } from "./type.ts";
+import { DictTypeData, FuncTypeData, ListTypeData, MultiValueTypeData, NamespaceTypeData, Type, TypeConstructor } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { ps } from "../util/utils.ts";
 import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
@@ -49,19 +49,20 @@ export function isVariableEntry(obj): obj is VariableEntry {
     )
 }
 
-export function inferListTypeFromElements(elementTypes: Type[]): [genericType: Type, indexTypes: Type[] | undefined] {
-    let singleTypeList: boolean = true;
+export function genericizeElementTypes(elementTypes: Type[]): Type {
+    // console.log(elementTypes.join(", "))
+    let isSingleType: boolean = true;
     for (let i = 1; i < elementTypes.length; i++) {
+        if (elementTypes[i].matches(Type.void)) continue;
         if (!elementTypes[i].strictlyMatches(elementTypes[i-1])) {
-            singleTypeList = false;
+            isSingleType = false;
             break;
         }
     }
-    if (singleTypeList) {
-        return [elementTypes[0] ?? Type.void, undefined];
-    } else {
-        return [Type.void, elementTypes];
+    if (isSingleType && !elementTypes[0].matches(Type.void)) {
+        return elementTypes[0];
     }
+    return Type.any;
 }
 export class EnvironmentFrame {
     /** An empty environment frame with no variables for evaluating expressions in a vacuum */
@@ -268,6 +269,25 @@ export class TypeProcessor {
             ErrorType.TYPE_PROCESSOR,
             error
         ));
+    }
+
+    genericizeType(type: Type): Type {
+        if (type.matches(Type.dict)) {
+            let data = type.data as DictTypeData;
+            let subType = genericizeElementTypes([
+                ...Object.values(data.keyTypes).map(t => this.genericizeType(t)), 
+                data.genericType
+            ]);
+            return Type.dict(subType);
+        } else if (type.matches(Type.list)) {
+            let data = type.data as ListTypeData;
+            let subType = genericizeElementTypes([
+                ...data.indexTypes.map(t => this.genericizeType(t)), 
+                data.genericType
+            ]);
+            return Type.list(subType);
+        }
+        return type;
     }
 
     public resolveIdentifier(identifier: Token): Namespace | VariableEntry | Definition | null {
@@ -541,7 +561,15 @@ export class TypeProcessor {
                             }
                         }
                         else if (entry.assignmentVarPos == 0) {
-                            entry.type = exprType;
+                            // genericize dict and list type inference
+                            if (
+                                entry.valueExpression instanceof DictionaryExpression
+                                || entry.valueExpression instanceof ListExpression
+                            ) {
+                                entry.type = this.genericizeType(exprType)
+                            } else {
+                                entry.type = exprType;
+                            }
                         } else {
                             entry.type = Type.unknown;
                         }
