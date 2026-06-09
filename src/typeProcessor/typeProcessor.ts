@@ -49,21 +49,6 @@ export function isVariableEntry(obj): obj is VariableEntry {
     )
 }
 
-export function genericizeElementTypes(elementTypes: Type[]): Type {
-    // console.log(elementTypes.join(", "))
-    let isSingleType: boolean = true;
-    for (let i = 1; i < elementTypes.length; i++) {
-        if (elementTypes[i].matches(Type.void)) continue;
-        if (!elementTypes[i].strictlyMatches(elementTypes[i-1])) {
-            isSingleType = false;
-            break;
-        }
-    }
-    if (isSingleType && !elementTypes[0].matches(Type.void)) {
-        return elementTypes[0];
-    }
-    return Type.any;
-}
 export class EnvironmentFrame {
     /** An empty environment frame with no variables for evaluating expressions in a vacuum */
     static readonly DUMMY = new EnvironmentFrame(null, null)
@@ -273,19 +258,9 @@ export class TypeProcessor {
 
     genericizeType(type: Type): Type {
         if (type.matches(Type.dict)) {
-            let data = type.data as DictTypeData;
-            let subType = genericizeElementTypes([
-                ...Object.values(data.keyTypes).map(t => this.genericizeType(t)), 
-                data.genericType
-            ]);
-            return Type.dict(subType);
+            return Type.dict(Type.any);
         } else if (type.matches(Type.list)) {
-            let data = type.data as ListTypeData;
-            let subType = genericizeElementTypes([
-                ...data.indexTypes.map(t => this.genericizeType(t)), 
-                data.genericType
-            ]);
-            return Type.list(subType);
+            return Type.list(Type.any);
         }
         return type;
     }
