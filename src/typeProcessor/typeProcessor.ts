@@ -493,25 +493,36 @@ export class TypeProcessor {
     // for declaring the same variable in multiple different places within a scope
     evaluationStage(frame: EnvironmentFrame = this.globalFrame) {
         let newSolves = -1;
-        // keep going until no more progress is being made
-        while (newSolves != 0) {
+        let hitWall = false;
+        // keep going until no more progress is being made, then solve everything in one final pass using available information
+        // this allows dicts/lists with unknown fields to sub in 'any' for those fields and still type everything else
+        while (!hitWall) {
+            if (newSolves == 0) {
+                hitWall = true;
+            }
             newSolves = 0;
+
+
             for (const [id, allEntries] of frame.entryLists()) {
                 for (const entry of allEntries) {
                     if (entry.solved) continue;
     
                     // check if all requirements have been solved
-                    let allRequirementsSolved = true;
-                    for (const requirement of entry.requirements) {
-                        let rEntry = frame.getVariableEntry(requirement.item, requirement.atPos);
-                        // TODO: probably the null case should be handled in a special way
-                        if (rEntry == null || rEntry.solved == false) {
-                            allRequirementsSolved = false;
-                            break;
+                    // unless we're in the final pass
+                    if (!hitWall) {
+                        let allRequirementsSolved = true;
+                        for (const requirement of entry.requirements) {
+                            let rEntry = frame.getVariableEntry(requirement.item, requirement.atPos);
+                            // TODO: probably the null case should be handled in a special way
+                            if (rEntry == null || rEntry.solved == false) {
+                                allRequirementsSolved = false;
+                                break;
+                            }
                         }
+                        if (!allRequirementsSolved) continue;
                     }
-    
-                    if (!allRequirementsSolved) continue;
+
+
                     if (!entry.valueExpression) continue;
     
                     let exprType = this.evaluateExpression(entry.valueExpression, frame);
