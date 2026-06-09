@@ -177,9 +177,31 @@ export class Type {
                 }
                 return false;
             }
+            let assignabilityCallback = (to: Type) => {
+                if (to.matches(Type.any)) return true;
+                if (!to.matches(Type.dict)) return false;
+                let toData = to.data as DictTypeData;
+
+                //=- compare key types -=\\
+                for (let key of Object.keys({...keyTypes, ...toData.keyTypes})) {
+                    // if to requires a key type that assignee can't guarantee, fail out
+                    if (!(key in keyTypes)) return false;
+
+                    let toSubtype = toData.keyTypes[key] ?? toData.genericType;
+                    let assigneeSubtype = keyTypes[key] ?? genericType;
+                    if (!assigneeSubtype.isAssignableTo(toSubtype)) return false;
+                }
+
+                //=- compare generic types -=\\
+                if (genericType != Type.void) {
+                    if (!genericType.isAssignableTo(toData.genericType)) return false;
+                }
+
+                return true;
+            }
             let members = Object.keys(keyTypes);
             let getMembers = () => members;
-            return new Type('dict', {getMemberType, getMembers, strictMatchCallback, stringify, data: {genericType, keyTypes}})
+            return new Type('dict', {getMemberType, getMembers, strictMatchCallback, assignabilityCallback, stringify, data: {genericType, keyTypes}})
         }
     );
 
