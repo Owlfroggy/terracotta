@@ -127,26 +127,36 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
     }
 }
 
-function generateTypeMemberCompletions(type: Type, mode: "members" | "properties"): CompletionItem[] {    
-    let members = mode == "members" ? type.getMembers() : type.getProperties();
+function generateTypeMemberCompletions(type: Type): CompletionItem[] {    
+    let members = type.getMembers();
     if (members == null) return [];
 
-    if (type.matches(Type.namespace)) {
-        let namespace = (type.data as NamespaceTypeData).namespace;
-        return Object.entries(namespace.members).map(([name, def]) => generateDefinitionCompletion(name, def))
-    } else {
-        let items: CompletionItem[] = [];
-        for (const m of members) {
-            let mType = type.getMemberType(m);
-            if (mType.matches(Type.func)) {
-                items.push(generateDefinitionCompletion(m, (mType.data as FuncTypeData).definition));
-            } else {
-                // TODO: make these items prettier
-                items.push({label: m, documentation: mType.toString()});
-            }
+    let items: CompletionItem[] = [];
+    for (const m of members) {
+        let mType = type.getMemberType(m);
+        if (mType.matches(Type.func)) {
+            items.push(generateDefinitionCompletion(m, (mType.data as FuncTypeData).definition));
+        } else {
+            // TODO: make these items prettier
+            items.push({label: m, documentation: mType.toString()});
         }
-        return items;
     }
+    return items;
+}
+
+function generateTypePropertyCompletions(type: Type): CompletionItem[] {
+    let properties = type.getProperties();
+    if (properties == null) return [];
+
+
+    let items: CompletionItem[] = [];
+    for (const p of properties) {
+        let def = type.getPropertyDefinition(p);
+        if (!def) continue;
+        items.push(generateDefinitionCompletion(p, def));
+    }
+
+    return items;
 }
 
 function generateVariableCompletions(envFrame: EnvironmentFrame, options: {explicitScope?: VariableScope, replaceString?: Token, doc?: TrackedDocument, excludeName?: string} = {}): CompletionItem[] {
@@ -632,7 +642,7 @@ export class LanguageServer {
             if (node.parent instanceof AccessExpression && (node.keyInParent == "accessorToken" || node.keyInParent == "propertyName")) {
                 let accessExpression = node.parent as AccessExpression;
                 let accesseeType = doc.workspace.typeProcessor.evaluateExpression(accessExpression.accessee, envFrame);
-                items = generateTypeMemberCompletions(accesseeType,"properties").map(item => {
+                items = generateTypePropertyCompletions(accesseeType).map(item => {
                     if (!isIdentifier(item.label)) {
                         item.textEdit = {
                             range: {
@@ -650,7 +660,7 @@ export class LanguageServer {
             else if (node.parent instanceof BracketedAccessExpression || (node.parent instanceof AtomicExpression && node.parent.parent instanceof BracketedAccessExpression)) {
                 let accessExpression = (node.parent instanceof BracketedAccessExpression ? node.parent : node.parent.parent) as BracketedAccessExpression;
                 let accesseeType = doc.workspace.typeProcessor.evaluateExpression(accessExpression.accessee, envFrame);
-                items = generateTypeMemberCompletions(accesseeType,"members").map(
+                items = generateTypeMemberCompletions(accesseeType).map(
                     item => {
                         item = stringizeCompletionItem(item, node, doc)
                         item.sortText = "\u0000"+item.label;
