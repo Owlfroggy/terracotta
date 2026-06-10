@@ -372,7 +372,7 @@ export class CodeCompiler {
         let createBlockAdded = false;
 
         function pushCurrentChest() {
-            if (currentChest.length <= 1) return;
+            if (currentChest.length <= 1 && code.length > 1) return;
             code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
                 action: !createBlockAdded ? "CreateList" : "AppendValue",
                 args: [...currentChest]
