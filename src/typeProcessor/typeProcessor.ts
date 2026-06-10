@@ -456,6 +456,14 @@ export class TypeProcessor {
                 for (let i = 0; i < statement.leftValues.length; i++) {
                     let variableExpr = statement.leftValues[i];
                     if (!(variableExpr instanceof VariableExpression)) continue;
+
+                    // if this variable has already been declared and there's no explicit type
+                    // being specified, don't override the var's type with the inferred value type
+                    if (!variableExpr.assignedType) {
+                        let existingEntry = frame.getVariableEntry(variableExpr.getVarId(), variableExpr.startPos);
+                        if (existingEntry) continue;
+                    }
+
                     let varId = VariableId.fromExpression(variableExpr);
                     if (variableExpr.assignedType) {
                         frame.registerVariable(varId, this.evaluateExplicitType(variableExpr.assignedType.type), statement.endPos);

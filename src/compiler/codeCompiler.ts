@@ -902,10 +902,8 @@ export class CodeCompiler {
 
                 // type validation
                 let expectedType: Type = Type.any;
-                if (assigneeExpr instanceof VariableExpression) {
-                    if (assigneeExpr.assignedType) {
-                        expectedType = this.env.types.evaluateExplicitType(assigneeExpr.assignedType.type)
-                    }
+                if (assigneeExpr instanceof VariableExpression && assigneeExpr.assignedType) {
+                    expectedType = this.env.types.evaluateExplicitType(assigneeExpr.assignedType.type)
                 } else {
                     expectedType = variable.getType(this.env.types);
                 }
