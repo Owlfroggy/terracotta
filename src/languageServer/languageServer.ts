@@ -127,8 +127,8 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
     }
 }
 
-function generateTypeMemberCompletions(type: Type): CompletionItem[] {    
-    let members = type.getMembers();
+function generateTypeMemberCompletions(type: Type, mode: "members" | "properties"): CompletionItem[] {    
+    let members = mode == "members" ? type.getMembers() : type.getProperties();
     if (members == null) return [];
 
     if (type.matches(Type.namespace)) {
@@ -632,7 +632,7 @@ export class LanguageServer {
             if (node.parent instanceof AccessExpression && (node.keyInParent == "accessorToken" || node.keyInParent == "propertyName")) {
                 let accessExpression = node.parent as AccessExpression;
                 let accesseeType = doc.workspace.typeProcessor.evaluateExpression(accessExpression.accessee, envFrame);
-                items = generateTypeMemberCompletions(accesseeType).map(item => {
+                items = generateTypeMemberCompletions(accesseeType,"properties").map(item => {
                     if (!isIdentifier(item.label)) {
                         item.textEdit = {
                             range: {
@@ -650,7 +650,7 @@ export class LanguageServer {
             else if (node.parent instanceof BracketedAccessExpression || (node.parent instanceof AtomicExpression && node.parent.parent instanceof BracketedAccessExpression)) {
                 let accessExpression = (node.parent instanceof BracketedAccessExpression ? node.parent : node.parent.parent) as BracketedAccessExpression;
                 let accesseeType = doc.workspace.typeProcessor.evaluateExpression(accessExpression.accessee, envFrame);
-                items = generateTypeMemberCompletions(accesseeType).map(
+                items = generateTypeMemberCompletions(accesseeType,"members").map(
                     item => {
                         item = stringizeCompletionItem(item, node, doc)
                         item.sortText = "\u0000"+item.label;

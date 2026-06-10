@@ -618,7 +618,7 @@ export class TypeProcessor {
             return this.evaluateExplicitType(expression.type);
         }
         else if (expression instanceof AccessExpression) {
-            return this.evaluateExpression(expression.accessee, frame).getMemberType(expression.propertyName.value);
+            return this.evaluateExpression(expression.accessee, frame).getPropertyType(expression.propertyName.value);
         }
         else if (expression instanceof BracketedAccessExpression) {
             let propNameExpr = expression.propertyName.getRealExpression();

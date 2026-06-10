@@ -215,7 +215,7 @@ export class Type {
     public static namespace = this.makeTypeConstructor(
         'namespace', 0,
         (namespace: Namespace) => {
-            let getMemberType = (m?: string | number) => {
+            let getPropertyType = (m?: string | number) => {
                 if (m && m in namespace.members) {
                     let def = namespace.members[m];
                     if (def.definitionType == DefinitionType.VALUE) {
@@ -227,9 +227,9 @@ export class Type {
                 }
                 return Type.any;
             }
-            let members = Object.keys(namespace.members);
-            let getMembers = () => members;
-            return new Type('namespace',{getMemberType, getMembers, data: {namespace}})
+            let properties = Object.keys(namespace.members);
+            let getProperties = () => properties;
+            return new Type('namespace',{getPropertyType, getProperties, data: {namespace}})
         }
     );
 
@@ -250,13 +250,17 @@ export class Type {
     public readonly getMemberType = (m?: string | number) => Type.unknown;
     /** Returns a `string[]` containing all member names, or `null` if this type does not allow property access */
     public readonly getMembers: () => (string[] | null) = () => null;
+    public readonly getPropertyType = (p?: string) => Type.unknown;
+    public readonly getProperties: () => (string[] | null) = () => null;
     public readonly data: ExtraData
 
     constructor(
         public readonly name: string,
-        {getMemberType, getMembers, strictMatchCallback, assignabilityCallback, stringify, data = null}: {
+        {getMemberType, getMembers, getPropertyType, getProperties, strictMatchCallback, assignabilityCallback, stringify, data = null}: {
             getMemberType?: (member?: string | number) => Type,
             getMembers?: () => (string[] | null),
+            getPropertyType?: (m?: string) => Type;
+            getProperties?: () => (string[] | null);
             strictMatchCallback?: (other: Type) => boolean,
             assignabilityCallback?: (to: Type) => boolean,
             stringify?: () => string,
@@ -265,6 +269,8 @@ export class Type {
     ) {
         if (getMemberType) this.getMemberType = getMemberType;
         if (getMembers) this.getMembers = getMembers;
+        if (getPropertyType) this.getPropertyType = getPropertyType;
+        if (getProperties) this.getProperties = getProperties;
         if (strictMatchCallback) this.strictlyMatches = strictMatchCallback;
         if (assignabilityCallback) this.isAssignableTo = assignabilityCallback;
         if (stringify) {

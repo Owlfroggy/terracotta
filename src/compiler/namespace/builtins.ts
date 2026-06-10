@@ -181,7 +181,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
 
             let returnValue: CodeValue;
 
-            if (tcReturnType) {
+            if (!tcReturnType.matches(Type.void)) {
                 returnValue = ctx.tvp.newTempVar(this.getReturnType(callNode.args.elements, ctx.types) ?? Type.any);
                 code.args.unshift(returnValue as VariableValue);
             } else {
@@ -226,7 +226,7 @@ export function generateTagSpecifiedActionHook(functionName: string, codeblock: 
 
             let returnValue: CodeValue;
             
-            if (tcReturnType) {
+            if (!tcReturnType.matches(Type.void)) {
                 returnValue = ctx.tvp.newTempVar(tcReturnType);
                 code.args.unshift(returnValue as VariableValue);
             } else {

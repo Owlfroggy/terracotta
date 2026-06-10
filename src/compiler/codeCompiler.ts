@@ -581,17 +581,11 @@ export class CodeCompiler {
                 }
             }
         }
-        else if (e instanceof AccessExpression || e instanceof BracketedAccessExpression) {
+        else if (e instanceof BracketedAccessExpression) {
             let [accessee, preCode] = this.compileExpression(e.accessee);
 
-            let accessor: CodeValue;
-            if (e instanceof AccessExpression) {
-                accessor = new StringValue(e.propertyName.value);
-            } else {
-                let [a, aCode] = this.compileExpression(e.propertyName);
-                accessor = a;
-                preCode.push(...aCode);
-            }
+            let [accessor, accessorCode] = this.compileExpression(e.propertyName);
+            preCode.push(...accessorCode);
 
             if (!(accessor instanceof TangibleValue)) {
                 this.reportError(
@@ -617,37 +611,8 @@ export class CodeCompiler {
                 }
             }
 
-
-            // namespace accessing
-            if (accessee instanceof NamespaceValue) {
-                if (accessorValue == undefined) {
-                    this.reportError(
-                        e.propertyName,
-                        `Namespace properties cannot be accessed dynamically`
-                    );
-                    return [new MissingValue(e), preCode];
-                }
-                let definition = accessee.namespace.members[accessorValue];
-                if (definition == undefined) {
-                    // todo: special error messages for if the namespace is a player action or game action or whatever
-                    this.reportError(
-                        e.propertyName,
-                        `'${accessorValue}' is not a property of '${accessee.namespace.identifier}'`
-                    )
-                    return [new MissingValue(e), preCode];
-                }
-                else if (definition.definitionType == DefinitionType.FUNCTION) {
-                    return [new FunctionValue(definition, e), preCode];
-                }
-                else if (definition.definitionType == DefinitionType.VALUE) {
-                    return definition.compile(this.getEvaluationContext());
-                }
-                else {
-                    return [new MissingValue(e), preCode];
-                }
-            } 
             // list accessing
-            else if (accesseeType.matches(Type.list)) {
+            if (accesseeType.matches(Type.list)) {
                 if (!accessorType.matches(Type.num)) {
                     this.reportError(
                         e.propertyName,
@@ -700,6 +665,41 @@ export class CodeCompiler {
                 return [tempVar, [...preCode, codeBlock]];
             }
             // error
+            else {
+                this.reportError(
+                    e.propertyName,
+                    `Member access not allowed on type '${accessee.getType(this.env.types).name}'`, // TODO: better error message
+                    accessee
+                );
+                return [new MissingValue(e), preCode];
+            }
+        }
+        else if (e instanceof AccessExpression) {
+            let [accessee, preCode] = this.compileExpression(e.accessee);
+
+            let propertyName = e.propertyName.value;
+
+            // namespace accessing
+            if (accessee instanceof NamespaceValue) {
+                let definition = accessee.namespace.members[propertyName];
+                if (definition == undefined) {
+                    // todo: special error messages for if the namespace is a player action or game action or whatever
+                    this.reportError(
+                        e.propertyName,
+                        `'${propertyName}' is not a property of '${accessee.namespace.identifier}'`
+                    )
+                    return [new MissingValue(e), preCode];
+                }
+                else if (definition.definitionType == DefinitionType.FUNCTION) {
+                    return [new FunctionValue(definition, e), preCode];
+                }
+                else if (definition.definitionType == DefinitionType.VALUE) {
+                    return definition.compile(this.getEvaluationContext());
+                }
+                else {
+                    return [new MissingValue(e), preCode];
+                }
+            }
             else {
                 this.reportError(
                     e.propertyName,
