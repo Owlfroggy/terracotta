@@ -87,6 +87,12 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
     let workingSignatures: ParameterSignature[] = [];
     let signatureErrors: Map<ParameterSignature, [ASTNode, string][]> = new Map();
 
+    // when calling an access chain, only highlight the last function's name in errors
+    let calleeErrorNode = callNode.callee;
+    if (calleeErrorNode instanceof AccessExpression) {
+        calleeErrorNode = calleeErrorNode.propertyName;
+    }
+
     //let positionalArgCount = argExpressions.filter(arg => !(arg instanceof BinaryExpression && arg.operator.type == TokenType.EQUALS)).length;
     for (const sig of signatures) {
         let errors: [ASTNode, string][] = [];
@@ -103,7 +109,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
             })
         );
         let argsToParams = matchArgsToParams(argExpressions, argTypes, sig);
-                
+
         let tooManyArguments = false;
         let unfilledRequiredParams: Set<ParameterSignatureEntry> = new Set();
         for (const p of sig.params) if (!p.optional) unfilledRequiredParams.add(p);
@@ -141,7 +147,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
         }
 
         if (tooManyArguments) {
-            errors.push([callNode.callee, `Too many arguments. Expected ${sig.params.length} argument${ps(args.length)} but got ${args.length}`]);
+            errors.push([calleeErrorNode, `Too many arguments. Expected ${sig.params.length} argument${ps(args.length)} but got ${args.length}`]);
             continue;
         }
         else if (unfilledRequiredParams.size > 0) {
@@ -152,7 +158,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
                 )
                 + [...unfilledRequiredParams.values().map(p => `'${p.name}' requires type '${p.type.name}'`)].join("\n    ")
             );
-            errors.push([callNode.callee, msg])
+            errors.push([calleeErrorNode, msg])
         }
 
         if (errors.length == 0) workingSignatures.push(sig);
@@ -163,7 +169,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
         // callee itself so a cleaner breakdown can be provided
         if (signatures.length > 1) {
             ctx.reportError(
-                callNode.callee,
+                calleeErrorNode,
                 `Given arguments list (${argTypes.map(t => t.name).join(", ")}) does not match any of this function's signatures, a detailed breakdown is below:\n\n`
                 + [...signatureErrors.entries().map(
                     ([sig, errors]) => {
