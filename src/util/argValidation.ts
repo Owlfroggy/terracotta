@@ -77,7 +77,10 @@ export function matchArgsToParams(args: Expression[], argTypes: Type[], signatur
 }
 
 /** does NOT do anything with tags */
-export function validateArguments(args: CodeValue[], callNode: CallExpression | CallOrStartExpression, signatures: ParameterSignature[], ctx: EvaluationContext, allowNamedArgs: boolean = false): ParameterSignature | null {
+export interface ArgValidationFlags  {
+    allowNamedArgs?: boolean,
+}
+export function validateArguments(args: CodeValue[], callNode: CallExpression | CallOrStartExpression, signatures: ParameterSignature[], ctx: EvaluationContext, flags: ArgValidationFlags = {}): ParameterSignature | null {
     if (signatures.length == 0) signatures = [{params: []}];
     let argTypes = args.map(v => v.getType(ctx.types));
 
@@ -92,7 +95,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
             callNode.args.elements
             .filter(v => {
                 if (v instanceof BinaryExpression && binaryIsNamedArgument(v, callNode)) {
-                    if (!allowNamedArgs) errors.push([v, `Named arguments are not allowed here`]);
+                    if (!flags.allowNamedArgs) errors.push([v, `Named arguments are not allowed here`]);
                     return false;
                 } else {
                     return true;
@@ -100,12 +103,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
             })
         );
         let argsToParams = matchArgsToParams(argExpressions, argTypes, sig);
-        
-        // if (args.length != sig.params.length) {
-        //     signatureErrors.get(sig)?.push([callNode.callee, `Expected ${sig.params.length} argument${sig.params.length == 1 ? "" : "s"}, got ${args.length}`]);
-        //     works = false;
-        // }
-
+                
         let tooManyArguments = false;
         let unfilledRequiredParams: Set<ParameterSignatureEntry> = new Set();
         for (const p of sig.params) if (!p.optional) unfilledRequiredParams.add(p);

@@ -21,11 +21,12 @@ import { posIndexIsInListElement, isForLoopActionCall, binaryIsNamedArgument, ge
 import { brotliDecompress } from "node:zlib";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
 import { PAR_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
-import { StringValue } from "../compiler/codeValue.ts";
+import { FunctionValue, StringValue } from "../compiler/codeValue.ts";
 import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS } from "../data/constants.ts";
 import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
 import { matchArgsToParams } from "../util/argValidation.ts";
 import { COMPILE_START_PROCESS } from "../compiler/namespace/compileCallFunction.ts";
+import { methodizeParameterSignatures } from "../compiler/namespace/utils.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -471,6 +472,8 @@ export class LanguageServer {
             let [callNode, definition] = getNearestCallNode(node, doc.workspace.typeProcessor, envFrame, index);
             if (callNode == null || definition == null) return;
 
+            let [calleeValue, calleeCode] = doc.compiler.compileExpression(callNode.callee);
+
             let args = callNode.args.elements;
             let argTypes = args.map(a => doc.workspace.typeProcessor.evaluateExpression(a, envFrame));
             if (callNode.args.hasTrailingDelimiter) argTypes.push(Type.any);
@@ -490,8 +493,14 @@ export class LanguageServer {
             let signatureInfos: SignatureInformation[] = []
             let bestFitIndex = 0;
             let bestFitStrength = 0;
-            for (let sigIndex = 0; sigIndex < definition.signatures.length; sigIndex++) {
-                const signature = definition.signatures[sigIndex];
+
+            // handle signatures that are modified by method calls
+            let signaturesToUse = definition.signatures;
+            if (calleeValue instanceof FunctionValue && calleeValue.methodCallOf != undefined) 
+                signaturesToUse = methodizeParameterSignatures(definition.signatures, calleeValue.methodCallOf.getType(doc.workspace.typeProcessor));
+
+            for (let sigIndex = 0; sigIndex < signaturesToUse.length; sigIndex++) {
+                const signature = signaturesToUse[sigIndex];
                 let info = {
                     parameters: [],
                     label: ""

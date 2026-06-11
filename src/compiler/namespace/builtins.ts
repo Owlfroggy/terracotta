@@ -2,7 +2,7 @@ import { DFCodeblockName, dfTypeToTC, DFValueType, GameValueTargetType, TargetTy
 import * as AD from "../../df/actiondump.ts";
 import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, NumberValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../codeBlock.ts";
-import { Type } from "../../typeProcessor/type.ts";
+import { Type, TYPE_NAMESPACES } from "../../typeProcessor/type.ts";
 import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
@@ -12,6 +12,7 @@ import { OVERRIDES } from "../../data/overrides.ts";
 import { validateArguments } from "../../util/argValidation.ts";
 import { AtomicExpression } from "../../ast/expression.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
+import { methodizeParameterSignatures } from "./utils.ts";
 
 export function compileTags(actionDef: AD.Action, namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext): ActionTagValue[] {
     let tags: ActionTagValue[] = [];
@@ -167,10 +168,17 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         defaultReturnType: tcReturnType,
         action: actionDef,
         getReturnType,
-        compile(this: FunctionDefinition, args, namedArgs, ctx, callNode): [CodeValue, CodeBlock[]] {
+        compile(this: FunctionDefinition, args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] {
             let tags = actionDef ? compileTags(actionDef, namedArgs, ctx) : [];
+
             // arg validation
-            validateArguments(args, callNode, signatures, ctx, true);
+            let signaturesToCheck = signatures;
+            if (extraInfo.methodCallOf) 
+                signaturesToCheck = methodizeParameterSignatures(signatures, extraInfo.methodCallOf.getType(ctx.types));
+            validateArguments(args, callNode, signaturesToCheck, ctx, {allowNamedArgs: true});
+
+            // cloning the list here is intentional so that whatever passed in args doesnt get its list mutated
+            if (extraInfo.methodCallOf) args = [extraInfo.methodCallOf, ...args];
 
             let code = new ActionBlock(codeblock,{
                 action: actionDFName, 
@@ -205,7 +213,7 @@ export function generateTagSpecifiedActionHook(functionName: string, codeblock: 
         signatures,
         defaultReturnType: tcReturnType,
         getReturnType: USE_DEFAULT_RETURN_TYPE,
-        compile: (args, namedArgs, ctx, callNode): [CodeValue, CodeBlock[]] => {
+        compile: (args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] => {
             let tags: ActionTagValue[] = [];
             // todo: default tag values
 
@@ -215,7 +223,13 @@ export function generateTagSpecifiedActionHook(functionName: string, codeblock: 
             }
 
             // arg validation
-            validateArguments(args, callNode, signatures, ctx);
+            let signaturesToCheck = signatures;
+            if (extraInfo.methodCallOf) 
+                signaturesToCheck = methodizeParameterSignatures(signatures, extraInfo.methodCallOf.getType(ctx.types));
+            validateArguments(args, callNode, signaturesToCheck, ctx, {allowNamedArgs: true});
+
+            // cloning the list here is intentional so that whatever passed in args doesnt get its list mutated
+            if (extraInfo.methodCallOf) args = [extraInfo.methodCallOf, ...args];
 
             let code = new ActionBlock(codeblock,{
                 action: actionDFName, 
@@ -241,8 +255,8 @@ export function generateTagSpecifiedActionHook(functionName: string, codeblock: 
 export function generateConditionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, target: TargetType = TargetType.UNSET): ConditionDefinition {
     let def = generateActionHook(functionName, codeblock, actionDFName, target) as ConditionDefinition;
     def.compileIf = def.compile;
-    def.compile = (args, namedArgs, ctx, callNode) => {
-        let [item, code] = def.compileIf(args, namedArgs, ctx, callNode);
+    def.compile = (args, namedArgs, ctx, callNode, extraInfo) => {
+        let [item, code] = def.compileIf(args, namedArgs, ctx, callNode, extraInfo);
         return expressionizeIfBlock(code, ctx);
     }
     def.defaultReturnType = Type.num;
@@ -446,18 +460,16 @@ function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition
     return members;
 }
 
-export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {
-    var: new Namespace('var', typeActionMembers('var')),
-    num: new Namespace('num', {...typeActionMembers('num'), ...NUM_NAMESPACE_INJECTIONS}),
-    str: new Namespace('str', typeActionMembers('str')),
-    txt: new Namespace('txt', typeActionMembers('txt')),
-    vec: new Namespace('vec', typeActionMembers('vec'), VEC_CONSTRUCTOR),
-    loc: new Namespace('loc', typeActionMembers('loc'), LOC_CONSTRUCTOR),
-    snd: new Namespace('snd', typeActionMembers('snd'), SND_CONSTRUCTOR),
-    par: new Namespace('par', typeActionMembers('par'), PAR_CONSTRUCTOR),
-    list: new Namespace('list', typeActionMembers('list')),
-    dict: new Namespace('dict', typeActionMembers('dict')),
-};
+TYPE_NAMESPACES.var = new Namespace('var', typeActionMembers('var'));
+TYPE_NAMESPACES.num = new Namespace('num', {...typeActionMembers('num'), ...NUM_NAMESPACE_INJECTIONS});
+TYPE_NAMESPACES.str = new Namespace('str', typeActionMembers('str'));
+TYPE_NAMESPACES.txt = new Namespace('txt', typeActionMembers('txt'));
+TYPE_NAMESPACES.vec = new Namespace('vec', typeActionMembers('vec'), VEC_CONSTRUCTOR);
+TYPE_NAMESPACES.loc = new Namespace('loc', typeActionMembers('loc'), LOC_CONSTRUCTOR);
+TYPE_NAMESPACES.snd = new Namespace('snd', typeActionMembers('snd'), SND_CONSTRUCTOR);
+TYPE_NAMESPACES.par = new Namespace('par', typeActionMembers('par'), PAR_CONSTRUCTOR);
+TYPE_NAMESPACES.list = new Namespace('list', typeActionMembers('list'));
+TYPE_NAMESPACES.dict = new Namespace('dict', typeActionMembers('dict'));
 
 export const REPEAT_ACTIONS: {[tcName: string]: {def: FunctionDefinition, returnType: Type}} = {
     range:      {def: generateActionHook('range', DFCodeblockName.REPEAT, " Range "),   returnType: Type.num},

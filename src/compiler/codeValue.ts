@@ -82,6 +82,7 @@ export class NamespaceValue extends InternalValue {
 export class FunctionValue extends InternalValue {
     constructor(
         public definition: FunctionDefinition,
+        public methodCallOf?: TangibleValue,
         astNode?: ASTNode
     ) { super(astNode); }
 }

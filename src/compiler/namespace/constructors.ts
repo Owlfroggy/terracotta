@@ -57,7 +57,7 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
         },
     ],
     getReturnType: USE_DEFAULT_RETURN_TYPE,
-    compile(args, namedArgs, ctx, callNode) {
+    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
         let x: CodeValue, y: CodeValue, z: CodeValue;
 
         let workingSignature = validateArguments(args, callNode, this.signatures, ctx);
@@ -109,7 +109,7 @@ export const LOC_CONSTRUCTOR: FunctionDefinition = {
         }
     ],
     getReturnType: USE_DEFAULT_RETURN_TYPE,
-    compile(args, namedArgs, ctx, callNode) {
+    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
         let tempVar = ctx.tvp.newTempVar(Type.loc);
 
         if (validateArguments(args, callNode, this.signatures, ctx) == null) 
@@ -153,7 +153,7 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
         }
     ],
     getReturnType: USE_DEFAULT_RETURN_TYPE,
-    compile(args, namedArgs, ctx, callNode) {
+    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
         // validation
         let failed = false;
         if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
@@ -214,7 +214,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
     ],
     getReturnType: USE_DEFAULT_RETURN_TYPE,
     // this function is awful because particles are awful
-    compile(args, namedArgs, ctx, callNode) {
+    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
         // if this is set, that means theres a constant string as the particle name arg
         let parDef: AD.Particle | undefined;
 

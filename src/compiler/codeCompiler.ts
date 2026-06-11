@@ -12,7 +12,7 @@ import { CodeValue, EmptyValue, FunctionValue, MissingValue, MultiValue, Namespa
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
-import { DefinitionType, FunctionDefinition, isFunctionDefinition } from "./namespace/definition.ts";
+import { DefinitionType, FunctionCallExtraInfo, FunctionDefinition, isFunctionDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName, dfTypeToTC, DFValueType, tcTypeToDFParamType } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
@@ -391,10 +391,10 @@ export class CodeCompiler {
         return code;
     }
 
-    compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition): [CodeValue, CodeBlock[]] {
+    compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition, extraInfo: FunctionCallExtraInfo = {}): [CodeValue, CodeBlock[]] {
         let [args, namedArgs, argCode] = this.compileArgsList(e.args);
         // TODO: handle return types
-        let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(), e);
+        let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(), e, extraInfo);
         value.astNode = e;
         return [value, [...argCode, ...code]];
     }
@@ -533,8 +533,10 @@ export class CodeCompiler {
             let [callee, preCode] = this.compileExpression(e.callee);
 
             let definition: FunctionDefinition | null = null;
+            let methodCallOf: TangibleValue | undefined;
             if (callee instanceof FunctionValue) {
                 definition = callee.definition;
+                methodCallOf = callee.methodCallOf;
             } else if (callee instanceof NamespaceValue) {
                 if (callee.namespace.nameFunction) {
                     definition = callee.namespace.nameFunction;
@@ -548,7 +550,7 @@ export class CodeCompiler {
             }
 
             if (definition) {
-                let [value, code] = this.compileCallExpression(e, definition);
+                let [value, code] = this.compileCallExpression(e, definition, {methodCallOf});
                 return [value, [...preCode, ...code]];
             }
             else {
@@ -676,38 +678,42 @@ export class CodeCompiler {
         }
         else if (e instanceof AccessExpression) {
             let [accessee, preCode] = this.compileExpression(e.accessee);
+            let accesseeType = accessee.getType(this.env.types);
 
             let propertyName = e.propertyName.value;
 
-            // namespace accessing
-            if (accessee instanceof NamespaceValue) {
-                let definition = accessee.namespace.members[propertyName];
-                if (definition == undefined) {
-                    // todo: special error messages for if the namespace is a player action or game action or whatever
-                    this.reportError(
-                        e.propertyName,
-                        `'${propertyName}' is not a property of '${accessee.namespace.identifier}'`
-                    )
-                    return [new MissingValue(e), preCode];
+            let definition = accesseeType.getPropertyDefinition(propertyName);
+            if (definition == undefined) {
+                // todo: special error messages for if the namespace is a player action or game action or whatever
+                let name: string
+                if (accessee instanceof NamespaceValue) {
+                    name = `'${accessee.namespace.identifier}'`;
+                } else {
+                    name = accesseeType.name
                 }
-                else if (definition.definitionType == DefinitionType.FUNCTION) {
-                    return [new FunctionValue(definition, e), preCode];
-                }
-                else if (definition.definitionType == DefinitionType.VALUE) {
-                    return definition.compile(this.getEvaluationContext());
-                }
-                else {
-                    return [new MissingValue(e), preCode];
-                }
-            }
-            else {
                 this.reportError(
                     e.propertyName,
-                    `Property access not allowed on type '${accessee.getType(this.env.types).name}'`, // TODO: better error message
-                    accessee
-                );
+                    `'${propertyName}' is not a property of ${name}`
+                )
                 return [new MissingValue(e), preCode];
             }
+            else if (definition.definitionType == DefinitionType.FUNCTION) {
+                return [new FunctionValue(definition, accessee instanceof TangibleValue ? accessee : undefined, e), preCode];
+            }
+            else if (definition.definitionType == DefinitionType.VALUE) {
+                return definition.compile(this.getEvaluationContext());
+            }
+            else {
+                return [new MissingValue(e), preCode];
+            }
+            // else {
+            //     this.reportError(
+            //         e.propertyName,
+            //         `Property access not allowed on type '${accessee.getType(this.env.types).name}'`, // TODO: better error message
+            //         accessee
+            //     );
+            //     return [new MissingValue(e), preCode];
+            // }
         }
         else if (e instanceof VariableExpression) {
             // throw error for type annotation in bad place
@@ -801,7 +807,7 @@ export class CodeCompiler {
                     if (resolved instanceof Namespace) {
                         return [new NamespaceValue(resolved, e), []];
                     } else if (isFunctionDefinition(resolved)) {
-                        return [new FunctionValue(resolved, e), []];
+                        return [new FunctionValue(resolved, undefined, e), []];
                     } else if (isVariableEntry(resolved)) {
                         return [new VariableValue(resolved.id.name, resolved.id.scope, resolved.type ?? undefined, e), []];
                     }

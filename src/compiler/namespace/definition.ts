@@ -4,7 +4,7 @@ import { Type } from "../../typeProcessor/type.ts";
 import { TypeProcessor } from "../../typeProcessor/typeProcessor.ts";
 import { CodeBlock } from "../codeBlock.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
-import { CodeValue } from "../codeValue.ts";
+import { CodeValue, TangibleValue } from "../codeValue.ts";
 
 export enum DefinitionType {
     FUNCTION,
@@ -26,6 +26,11 @@ export interface ParameterSignature {
     name?: string,
 }
 
+export interface FunctionCallExtraInfo {
+    /** If present, insert this value at the start of the arguments list */
+    methodCallOf?: TangibleValue,
+}
+
 export interface FunctionDefinition {
     definitionType: DefinitionType.FUNCTION,
     name: string,
@@ -34,7 +39,7 @@ export interface FunctionDefinition {
     getReturnType: (args: Expression[], types: TypeProcessor) => Type,
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,
-    compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression): [CodeValue, CodeBlock[]];
+    compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression, extraInfo?: FunctionCallExtraInfo): [CodeValue, CodeBlock[]];
 }
 
 /**
@@ -45,7 +50,7 @@ export interface ConditionDefinition extends FunctionDefinition {
     /** Will always be Type.num */
     defaultReturnType: Type,
     /** Should always return an EmptyValue */
-    compileIf(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression): [CodeValue, CodeBlock[]];
+    compileIf(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression, extraInfo?: FunctionCallExtraInfo): [CodeValue, CodeBlock[]];
 }
 
 export interface ValueDefinition {

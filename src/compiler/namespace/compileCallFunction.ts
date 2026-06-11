@@ -10,7 +10,9 @@ import { compileTags } from "./builtins.ts";
 import { FunctionDefinition } from "./definition.ts";
 
 export function COMPILE_CALL_FUNCTION(this: FunctionDefinition, args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression): [CodeValue, CodeBlock[]] {
-    validateArguments(args, callNode, this.signatures, ctx, false);
+    // TODO: handle user-defined methods
+    validateArguments(args, callNode, this.signatures, ctx);
+
     let returnValue: CodeValue;
     let returnType = this.getReturnType(callNode.args.elements, ctx.types);
     let returnVars: VariableValue[] = [];
@@ -38,7 +40,7 @@ export function COMPILE_CALL_FUNCTION(this: FunctionDefinition, args: CodeValue[
 
 // TODO: start process tags
 export function COMPILE_START_PROCESS(this: FunctionDefinition, args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression): [CodeValue, CodeBlock[]] {
-    validateArguments(args, callNode, this.signatures, ctx, true);
+    validateArguments(args, callNode, this.signatures, ctx, {allowNamedArgs: true});
     return [new EmptyValue(), [new ActionBlock(DFCodeblockName.START_PROCESS,{
         action: this.name,
         args: args.filter(arg => arg instanceof TangibleValue),

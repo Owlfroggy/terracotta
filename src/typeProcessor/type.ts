@@ -1,6 +1,12 @@
-import { Definition, DefinitionType, FunctionDefinition } from "../compiler/namespace/definition.ts";
+import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition } from "../compiler/namespace/definition.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
+import { canFuncBeMethod, getNamespaceMemberType } from "../compiler/namespace/utils.ts";
 import { dfTypeToString } from "../df/constants.ts";
+import { slog } from "../languageServer/logging.ts";
+
+// NOTE: this gets populated after this file is done running,
+// when creating types in this file you cannot rely on this being filled out.
+export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {};
 
 export type FuncTypeData = {
     definition: FunctionDefinition;
@@ -215,18 +221,7 @@ export class Type {
     public static namespace = this.makeTypeConstructor(
         'namespace', 0,
         (namespace: Namespace) => {
-            let getPropertyType = (m: string) => {
-                if (m && m in namespace.members) {
-                    let def = namespace.members[m];
-                    if (def.definitionType == DefinitionType.VALUE) {
-                        return def.returnType;
-                    }
-                    else if (def.definitionType == DefinitionType.FUNCTION) {
-                        return Type.func(def);
-                    }
-                }
-                return Type.any;
-            }
+            let getPropertyType = (m: string) => getNamespaceMemberType(namespace, m)
             let getPropertyDefinition = (m: string) => {
                 return namespace.members[m];
             }
@@ -253,9 +248,30 @@ export class Type {
     public readonly getMemberType = (m?: string | number) => Type.unknown;
     /** Returns a `string[]` containing all member names, or `null` if this type does not allow property access */
     public readonly getMembers: () => (string[] | null) = () => null;
-    public readonly getPropertyType = (p: string) => Type.unknown;
-    public readonly getPropertyDefinition = (p: string) => (null as Definition | null)
-    public readonly getProperties: () => (string[] | null) = () => null;
+    
+    // default behavior: grab methodable functions from this type's namespace, if applicable
+    public readonly getProperties = (): (string[] | null) => {
+        const namespace = TYPE_NAMESPACES[this.name];
+        if (!namespace) return null;
+        let props: string[] = [];
+        for (const [name, member] of Object.entries(namespace.members)) {
+            if (isFunctionDefinition(member) && canFuncBeMethod(member, this)) {
+                props.push(name);
+            }
+        }
+        return props;
+    };
+    public readonly getPropertyType = (p: string) => {
+        slog(p);
+        let namespace = TYPE_NAMESPACES[this.name];
+        if (!namespace) return Type.void;
+        if (!(p in namespace.members)) return Type.void;
+        return getNamespaceMemberType(namespace, p);
+    };
+    public readonly getPropertyDefinition = (p: string): Definition | null => {
+        return TYPE_NAMESPACES[this.name]?.members[p] ?? null
+    }
+
     public readonly data: ExtraData
 
     constructor(

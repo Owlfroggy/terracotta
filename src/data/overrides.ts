@@ -637,10 +637,6 @@ export const OVERRIDES: {
             "AddItemAttribute": Type.item,
             "SetMapTexture": Type.item,
 
-            "SetDictValue": Type.dict(Type.any),
-            "RemoveDictEntry": Type.dict(Type.any),
-            "ClearDict": Type.dict(Type.any),
-            "AppendDict": Type.dict(Type.any),
             "GetDictKeys": Type.list(Type.str),
 
             "SetParticleType": Type.par,
