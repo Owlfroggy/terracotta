@@ -34,7 +34,7 @@ export function methodizeParameterSignatures(signatures: ParameterSignature[], m
     for (let sig of signatures) {
         let newSignature: ParameterSignature = {params: [], name: sig.name};
         // TODO: handle var type
-        let firstParamIsValid = sig.params.length > 0 && sig.params[0].type.isAssignableTo(methodCallOf);
+        let firstParamIsValid = sig.params.length > 0 && methodCallOf.isAssignableTo(sig.params[0].type);
         if (!firstParamIsValid) continue;
 
         let skipFirst = !sig.params[0].plural;
