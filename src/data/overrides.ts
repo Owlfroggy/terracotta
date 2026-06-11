@@ -9,7 +9,8 @@ export const OVERRIDES: {
     tagNames: {[dfName: string]: string},
     gameValueNames: {[dfName: string]: string},
     returnTypes: {[codeblock: string]: {[actionDFName: string]: Type | ((args: Expression[], types: TypeProcessor) => Type) }}
-    actionSignatures: {[codeblock: string]: {[actionDFName: string]: ParameterSignature[]}}
+    actionSignatures: {[codeblock: string]: {[actionDFName: string]: ParameterSignature[]}},
+    autocompleteSortPrefixes: {[codeblock: string]: {[actionDFName: string]: string}}
 } = {
     actionNames: {
         "PLAYER EVENT": {
@@ -752,6 +753,25 @@ export const OVERRIDES: {
                     {name: "Particle material id", type: Type.str, optional: false, plural: false}
                 ]},
             ]
+        }
+    },
+    autocompleteSortPrefixes: {
+        "SET VARIABLE": {
+            "+": "\uFFFA",
+            "-": "\uFFFA",
+            "x": "\uFFFA",
+            "/": "\uFFFA",
+            "%": "\uFFFA",
+            "ArcTangent2": "\uFFF0",
+            "Sine": "\uFFF0",
+            "Cosine": "\uFFF0",
+            "Tangent": "\uFFF0",
+        },
+        "IF VARIABLE": {
+            ">": "\uFFFF",
+            ">=": "\uFFFF",
+            "<": "\uFFFF",
+            "<=": "\uFFFF",
         }
     }
 }

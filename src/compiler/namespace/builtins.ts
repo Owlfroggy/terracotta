@@ -197,7 +197,9 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             }
 
             return [returnValue, [code]];
-        }
+        },
+
+        autocompleteSortPrefix: OVERRIDES.autocompleteSortPrefixes[codeblock]?.[actionDFName],
     }
 }
 
@@ -248,7 +250,9 @@ export function generateTagSpecifiedActionHook(functionName: string, codeblock: 
             }
 
             return [returnValue, [code]];
-        }
+        },
+
+        autocompleteSortPrefix: OVERRIDES.autocompleteSortPrefixes[codeblock]?.[actionDFName],
     }
 }
 

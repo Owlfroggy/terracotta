@@ -110,6 +110,10 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
                 definition: def,
             } as CompletionItemData,
         }
+        slog(`${def.autocompleteSortPrefix}`);
+        if (def.autocompleteSortPrefix) {
+            item.sortText = "z" + def.autocompleteSortPrefix + item.label;
+        }
         if (allowCallOrStartInersion && !isIdentifier(name)) {
             item.insertText = `call ${valueToTCString(name)}`;
         }

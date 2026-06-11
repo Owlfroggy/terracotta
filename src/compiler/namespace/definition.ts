@@ -40,6 +40,9 @@ export interface FunctionDefinition {
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,
     compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression, extraInfo?: FunctionCallExtraInfo): [CodeValue, CodeBlock[]];
+
+    // language server specific stuff
+    autocompleteSortPrefix?: string
 }
 
 /**
