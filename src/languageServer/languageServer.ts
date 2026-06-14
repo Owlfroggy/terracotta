@@ -131,7 +131,7 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
     }
 }
 
-function generateTypeMemberCompletions(type: Type): CompletionItem[] {    
+function generateTypeMemberCompletions(type: Type, dotToReplace?: Token | null): CompletionItem[] {    
     let members = type.getMembers();
     if (members == null) return [];
 
@@ -142,7 +142,11 @@ function generateTypeMemberCompletions(type: Type): CompletionItem[] {
             items.push(generateDefinitionCompletion(m, (mType.data as FuncTypeData).definition));
         } else {
             // TODO: make these items prettier
-            items.push({label: m, documentation: mType.toString()});
+            items.push({
+                label: m, 
+                documentation: mType.toString(),
+                kind: CompletionItemKind.Field
+            });
         }
     }
     return items;
@@ -654,8 +658,11 @@ export class LanguageServer {
             if (node.parent instanceof AccessExpression && (node.keyInParent == "accessorToken" || node.keyInParent == "propertyName")) {
                 let accessExpression = node.parent as AccessExpression;
                 let accesseeType = doc.workspace.typeProcessor.evaluateExpression(accessExpression.accessee, envFrame);
-                items = generateTypePropertyCompletions(accesseeType).map(item => {
-                    if (!isIdentifier(item.label)) {
+                items = generateTypePropertyCompletions(accesseeType);
+
+                // also include field items that just turn into the proper bracketed access expressions
+                if (accesseeType.matches(Type.dict)) {
+                    items.push(...generateTypeMemberCompletions(accesseeType).map(item => {
                         item.textEdit = {
                             range: {
                                 start: doc.indexToLinePosition(accessExpression.accessorToken.startPos),
@@ -664,9 +671,10 @@ export class LanguageServer {
                             newText: `[${valueToTCString(item.label)}]`
                         }
                         item.filterText = "." + item.label;
-                    }
-                    return item;
-                });
+                        return item;
+                    }))
+                }
+
                 includeGenerics = false;
             }
             else if (node.parent instanceof BracketedAccessExpression || (node.parent instanceof AtomicExpression && node.parent.parent instanceof BracketedAccessExpression)) {
