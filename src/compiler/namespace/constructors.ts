@@ -2,7 +2,7 @@ import { DFCodeblockName} from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, parseTcNumber } from "../../util/utils.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
-import { CodeValue, LocationValue, MissingValue, NumberValue, ParticleValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
+import { CodeValue, ItemValue, LocationValue, MissingValue, NumberValue, ParticleValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
 import { DefinitionType, FunctionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 import * as AD from "../../df/actiondump.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
@@ -527,5 +527,49 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         }
 
         return [latestValue, code];
+    },
+}
+
+
+// TODO: special case for item("air")
+export const ITEM_CONSTRUCTOR: FunctionDefinition = {
+    definitionType: DefinitionType.FUNCTION,
+    name: "item",
+    defaultReturnType: Type.item,
+    signatures: [
+        {
+            params: [
+                {name: "item", type: Type.str, optional: false, plural: false},
+                {name: "count", type: Type.num, optional: true, plural: false},
+            ]
+        }
+    ],
+    getReturnType: USE_DEFAULT_RETURN_TYPE,
+    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+        // validation
+        let failed = false;
+        if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
+            if (!(VALID_ITEM_IDS.has(args[0].value))) {
+                ctx.reportError(
+                    args[0].astNode ?? callNode,
+                    `Invalid item id '${args[0].value}'`
+                );
+                failed = true;
+            }
+        }
+
+        
+        if (validateArguments(args, callNode, this.signatures, ctx) == null || failed) 
+            return [new ItemValue("stone", 1, undefined, callNode), []];
+
+
+        return evaluateConstOrBlockTemplates(
+            ctx, args,
+            new ItemValue("stone", 1, undefined, callNode),
+            [
+                [StringValue, "id", "SetItemType"],
+                [NumberValue, "count", "SetItemAmount"],
+            ]
+        );
     },
 }

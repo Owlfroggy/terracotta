@@ -348,6 +348,32 @@ export class ParticleValue extends TangibleValue {
     }
 }
 
+export class ItemValue extends TangibleValue {
+    constructor(
+        public id: string,
+        public count: number,
+        public nbt?: string | undefined,
+        astNode?: ASTNode,
+        public dfNbt: number = 4671,
+    ) {
+        super(astNode);
+        if (!id.startsWith("minecraft:")) id = "minecraft:" + id;
+    }
+
+    getType(typeProcessor: TypeProcessor): Type {
+        return Type.item;
+    }
+
+    templateForm() {
+        return {
+            "id": "item",
+            "data": {
+                "item": `{count:${this.count}b,DF_NBT:${this.dfNbt},id:"${this.id}",components:${this.nbt ?? "{}"}}`
+            }
+        }
+    }
+}
+
 export class VariableValue extends TangibleValue {
     public isTempVar: boolean = false;
 
