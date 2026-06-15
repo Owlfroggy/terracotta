@@ -6,6 +6,7 @@ import { CodeValue, NumberValue, VariableValue } from "../codeValue.ts";
 
 export const MATCH_FAILED = Symbol("Codeblock match failed");
 export const ALL_IF_BLOCK_TYPES = [DFCodeblockName.IF_ENTITY, DFCodeblockName.IF_GAME, DFCodeblockName.IF_PLAYER, DFCodeblockName.IF_VARIABLE];
+export const UNTARGETED_IF_BLOCK_TYPES = [DFCodeblockName.IF_GAME, DFCodeblockName.IF_VARIABLE];
 
 export enum ValueFilterType {
     /** Matches a temporary variable (but NOT a user variable) */
