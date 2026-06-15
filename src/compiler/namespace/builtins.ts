@@ -190,7 +190,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             let returnValue: CodeValue;
 
             if (!tcReturnType.matches(Type.void)) {
-                returnValue = ctx.tvp.newTempVar(this.getReturnType(callNode.args.elements, ctx.types) ?? Type.any);
+                returnValue = ctx.tvp.newTempVar(this.getReturnType(callNode.args.elements, ctx.types, extraInfo.methodCallOf?.getType(ctx.types)) ?? Type.any);
                 code.args.unshift(returnValue as VariableValue);
             } else {
                 returnValue = new EmptyValue()

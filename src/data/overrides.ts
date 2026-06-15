@@ -8,7 +8,7 @@ export const OVERRIDES: {
     actionNames: {[codeblock: string]: {[dfName: string]: string}},
     tagNames: {[dfName: string]: string},
     gameValueNames: {[dfName: string]: string},
-    returnTypes: {[codeblock: string]: {[actionDFName: string]: Type | ((args: Expression[], types: TypeProcessor) => Type) }}
+    returnTypes: {[codeblock: string]: {[actionDFName: string]: Type | ((args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => Type) }}
     actionSignatures: {[codeblock: string]: {[actionDFName: string]: ParameterSignature[]}},
     autocompleteSortPrefixes: {[codeblock: string]: {[actionDFName: string]: string}}
 } = {
@@ -508,34 +508,34 @@ export const OVERRIDES: {
     },
     returnTypes: {
         "SET VARIABLE": {
-            " GetSignText ": (args: Expression[], types: TypeProcessor) => {
-                let [_, tags] = getTagsAndArgTypes(args, types);
+            " GetSignText ": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+                let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
                 if (tags.signLine == "All lines")
                     return Type.list(Type.txt);
                 else
                     return Type.txt;
             },
-            "GetBlockType": (args: Expression[], types: TypeProcessor) => {
-                let [_, tags] = getTagsAndArgTypes(args, types);
+            "GetBlockType": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+                let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
                 if (tags.returnValue == "Item")
                     return Type.item;
                 else
                     return Type.str;
             },
-            "CellularNoise": (args: Expression[], types: TypeProcessor) => {
-                let [_, tags] = getTagsAndArgTypes(args, types);
+            "CellularNoise": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+                let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
                 if (tags.returnType == "Origin")
                     return Type.vec;
                 else
                     return Type.num;
             },
-            "RandomizeList": (args: Expression[], types: TypeProcessor) => {
-                let [argTypes, _] = getTagsAndArgTypes(args, types);
+            "RandomizeList": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
                 return argTypes[0] ?? Type.list(Type.any);
             },
             // TODO: when index types are more fleshed out, represent them better here
-            "FlattenList": (args: Expression[], types: TypeProcessor) => {
-                let [argTypes, _] = getTagsAndArgTypes(args, types);
+            "FlattenList": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
                 let flatTypes: Type[] = [];
 
                 if (argTypes.length == 0 || !argTypes[0].matches(Type.list)) 
@@ -559,30 +559,30 @@ export const OVERRIDES: {
 
                 return Type.list(flatTypes[0]) ?? Type.list(Type.any);
             },
-            "GetSoundPitch": (args: Expression[], types: TypeProcessor) => {
-                let [_, tags] = getTagsAndArgTypes(args, types);
+            "GetSoundPitch": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+                let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
                 if (tags.returnValue == "Note (text)") {
                     return Type.str;
                 } else {
                     return Type.num;
                 }
             },
-            "CreateDict": (args: Expression[], types: TypeProcessor) => {
-                let [argTypes, _] = getTagsAndArgTypes(args, types);
+            "CreateDict": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
                 if (argTypes.length >= 2 && argTypes[1].matches(Type.list)) {
                     return Type.dict(argTypes[1].getMemberType());
                 }
                 return Type.dict(Type.any);
             },
-            "GetDictValues": (args: Expression[], types: TypeProcessor) => {
-                let [argTypes, _] = getTagsAndArgTypes(args, types);
+            "GetDictValues": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
                 if (argTypes.length >= 1 && argTypes[0].matches(Type.dict)) {
                     return Type.list(argTypes[0].getMemberType());
                 }
                 return Type.dict(Type.any);
             },
-            "SortDict": (args: Expression[], types: TypeProcessor) => {
-                let [argTypes, _] = getTagsAndArgTypes(args, types);
+            "SortDict": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
                 return argTypes[0] ?? Type.dict(Type.any);
             },
 

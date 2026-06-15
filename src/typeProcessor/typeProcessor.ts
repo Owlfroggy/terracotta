@@ -656,7 +656,11 @@ export class TypeProcessor {
             } else {
                 return Type.unknown;
             }
-            return def.getReturnType(expression.args.elements, this) ?? Type.unknown;
+            let methodCallOf: Expression | undefined;
+            if (expression.callee instanceof AccessExpression) {
+                methodCallOf = expression.callee.accessee;
+            }
+            return def.getReturnType(expression.args.elements, this, methodCallOf) ?? Type.unknown;
         }
         else if (expression instanceof BinaryExpression) {
             return Operations.evaluateBinaryType(

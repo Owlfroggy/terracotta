@@ -36,7 +36,7 @@ export interface FunctionDefinition {
     name: string,
     signatures: ParameterSignature[],
     defaultReturnType: Type,
-    getReturnType: (args: Expression[], types: TypeProcessor) => Type,
+    getReturnType: (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => Type,
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,
     compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression, extraInfo?: FunctionCallExtraInfo): [CodeValue, CodeBlock[]];
