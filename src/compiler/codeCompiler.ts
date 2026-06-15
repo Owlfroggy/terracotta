@@ -847,31 +847,47 @@ export class CodeCompiler {
         throw new Error(`no idea how to compile this: ${e.constructor.name}`);
     }
 
-    compileIfStatement(condition: Expression, innerCode: CodeBlock[]): CodeBlock[] {
-        let directInsertBoolOpMode = false;
-        let simplifiedBooleanOp: BooleanOperation;
+    compileIfStatement(condition: Expression, innerCode: CodeBlock[], invertEntireCondition: boolean): CodeBlock[] {
+        let operationTree: BooleanOperation | undefined;
         let realCondition = condition.getRealExpression();
         if (BooleanOperation.exprIsBooleanExpression(realCondition)) {
-            let operationTree = BooleanOperation.generateFromExpression(realCondition);
-            let simplified = BooleanOperation.simplify(operationTree);
-            if (simplified instanceof BooleanOperation && BooleanOperation.isSinglePath(simplified)) {
+            operationTree = BooleanOperation.generateFromExpression(realCondition);
+        }
+        if (invertEntireCondition) {
+            operationTree = new BooleanOperation(TokenType.BANG, operationTree ?? condition);
+        }
+
+        let directInsertBoolOpMode = false;
+        let simplifiedBooleanExpression: BooleanOperation | Expression;
+        if (operationTree) {
+            simplifiedBooleanExpression = BooleanOperation.simplify(operationTree);
+            if (simplifiedBooleanExpression instanceof BooleanOperation && BooleanOperation.isSinglePath(simplifiedBooleanExpression)) {
                 directInsertBoolOpMode = true;
-                simplifiedBooleanOp = simplified;
             }
+        } else {
+            simplifiedBooleanExpression = condition;
+            directInsertBoolOpMode = true;
         }
 
         if (directInsertBoolOpMode) {
-            return this.compileBooleanOperation(simplifiedBooleanOp!, 
+            return this.compileBooleanOperation(simplifiedBooleanExpression, 
                 innerCode
             );
         } else {
-            let [value, valueCode] = this.compileExpression(condition);
-            if (value instanceof MissingValue) return [] // error handled by parser
-            if (!(value instanceof TangibleValue)) {
-                this.reportError(condition.getRealExpression(), `Cannot check truthiness of '${value.constructor.name}'`);
-                return [];
-            }
-            
+            let value = this.tempVarProvider.newTempVar(Type.num);
+            let valueCode = [
+                new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+                    action: "=",
+                    args: [value, new NumberValue("0")]
+                }),
+                ...this.compileBooleanOperation(simplifiedBooleanExpression, [
+                    new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                        action: "=",
+                        args: [value, new NumberValue("1")]
+                    })
+                ])
+            ];
+
             return [
                 ...valueCode,
                 new ActionBlock(DFCodeblockName.IF_VARIABLE,{
@@ -1044,7 +1060,7 @@ export class CodeCompiler {
             };
 
             let innerIfCode = s.chunk.statements.map(child => this.compileStatement(child,context)).flat()
-            let code: CodeBlock[] = this.compileIfStatement(s.condition, innerIfCode);
+            let code: CodeBlock[] = this.compileIfStatement(s.condition, innerIfCode, s.inverterToken != null);
 
             if (s.elseContents) {
                 let elseContentsCode: CodeBlock[] = [];

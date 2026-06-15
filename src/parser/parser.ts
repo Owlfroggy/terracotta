@@ -754,6 +754,11 @@ export class Parser {
     parseIfStatement = (): IfStatement | null => {
         let keyword = this.consume();
 
+        let inverterToken: Token | null = null;
+        if (this.currentToken().type == TokenType.BANG) {
+            inverterToken = this.consume();
+        }
+
         let condition = this.parseGroupExpression(BindingPower.DEFAULT);
 
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
@@ -770,7 +775,7 @@ export class Parser {
             }
         }
 
-        return new IfStatement(keyword, condition, chunk, elseKeyword, elseContents);
+        return new IfStatement(keyword, inverterToken, condition, chunk, elseKeyword, elseContents);
     }
 
     parseWhileStatement = (): WhileStatement | null => {

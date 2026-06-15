@@ -113,6 +113,7 @@ export class ForStatement extends Statement {
 export class IfStatement extends Statement {
     constructor(
         public keyword: Token,
+        public inverterToken: Token | null,
         public condition: GroupExpression,
         public chunk: ChunkExpression | null,
         public elseKeyword: Token | null = null,
