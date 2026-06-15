@@ -800,14 +800,19 @@ export class Parser {
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
         if (chunk == null) return null;
 
-        let statement = new DoStatement(doKeyword, chunk);
+        let whileKeyword: Token | null = null;
+        let whileInverterToken: Token | null = null;
+        let whileCondition: Expression | null = null;
 
         if (this.currentToken().type == TokenType.WHILE) {
-            statement.whileKeyword = this.consume();
-            statement.whileCondition = this.parseGroupExpression(BindingPower.DEFAULT);
+            whileKeyword = this.consume();
+            if (this.currentToken().type == TokenType.BANG) {
+                whileInverterToken = this.consume();
+            }
+            whileCondition = this.parseGroupExpression(BindingPower.DEFAULT);
         }
 
-        return statement;
+        return new DoStatement(doKeyword, chunk, whileKeyword, whileInverterToken, whileCondition);
     }
 
     parseSelectionStatement = (): SelectionStatement => {

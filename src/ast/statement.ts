@@ -135,8 +135,9 @@ export class DoStatement extends Statement {
         public doKeyword: Token,
         public chunk: ChunkExpression,
         public whileKeyword: Token | null = null,
+        public whileInverterToken: Token | null = null,
         public whileCondition: Expression | null = null,
-    ) {super(doKeyword.startPos, whileCondition ? whileCondition.endPos : chunk.endPos);}
+    ) {super(doKeyword.startPos, whileCondition?.endPos ?? whileInverterToken?.endPos ?? chunk.endPos);}
 }
 
 export class SelectionStatement extends Statement {

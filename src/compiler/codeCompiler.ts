@@ -1082,10 +1082,45 @@ export class CodeCompiler {
             return code;
         }
         else if (s instanceof DoStatement) {
+            let innerStatements = s.chunk.statements.map(child => this.compileStatement(child,context)).flat();
             if (s.whileKeyword && s.whileCondition) {
-                // TODO: while stuff
+                // TODO: compile condition in a way that takes advantage of break's control flow properties
+                let breakerCode = this.compileIfStatement(s.whileCondition, [
+                    new ActionBlock(DFCodeblockName.CONTROL,{
+                        action: "StopRepeat"
+                    })
+                ], s.whileInverterToken == null);
+                
+                let firstRunTempVar = this.tempVarProvider.newTempVar(Type.num);
+
+                return [
+                    new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+                        action: "=",
+                        args: [firstRunTempVar, new NumberValue("0")],
+                    }),
+                    new SubActionBlock(DFCodeblockName.REPEAT, {
+                        action: "Forever",
+                    }),
+                    new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.REPEAT}),
+                        // wrap breaker code in this if statement so it doesnt run on the first iteration
+                        new ActionBlock(DFCodeblockName.IF_VARIABLE, {
+                            action: "=",
+                            args: [firstRunTempVar, new NumberValue("1")],
+                        }),
+                        new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.IF}),
+                            ...breakerCode,
+                        new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.IF}),
+                        new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+                            action: "=",
+                            args: [firstRunTempVar, new NumberValue("1")]
+                        }),
+
+                        ...innerStatements,
+
+                    new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.REPEAT}),
+                ];
             } else {
-                return s.chunk.statements.map(child => this.compileStatement(child,context)).flat();
+                return innerStatements;
             }
         }
         else if (s instanceof RepeatStatement) {
