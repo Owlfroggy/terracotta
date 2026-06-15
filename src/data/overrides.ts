@@ -533,7 +533,7 @@ export const OVERRIDES: {
                 let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
                 return argTypes[0] ?? Type.list(Type.any);
             },
-            // TODO: when index types are more fleshed out, represent them better here
+            // TODO: handle index types better here
             "FlattenList": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
                 let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
                 let flatTypes: Type[] = [];
@@ -542,11 +542,12 @@ export const OVERRIDES: {
                     return Type.list(Type.any);
 
                 function recurse(type: Type) {
-                    let data = type.data as ListTypeData;
-                    if (data.genericType.matches(Type.list)) {
+                    if (type.matches(Type.list)) {
+                        let data = type.data as ListTypeData;
+                        for (let t of data.indexTypes) recurse(t);
                         recurse(data.genericType);
-                    } else {
-                        flatTypes.push(data.genericType);
+                    } else if (!type.matches(Type.void)) {
+                        flatTypes.push(type);
                     }
                 }
                 recurse(argTypes[0]);
@@ -557,7 +558,7 @@ export const OVERRIDES: {
                     }
                 }
 
-                return Type.list(flatTypes[0]) ?? Type.list(Type.any);
+                return Type.list(flatTypes[0] ?? Type.void);
             },
             "GetSoundPitch": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
                 let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
