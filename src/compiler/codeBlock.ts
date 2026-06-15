@@ -143,6 +143,13 @@ export class SubActionBlock extends ActionBlock {
         this.not = not;
         this.subAction = subAction;
     }
+
+    templateForm() {
+        return {
+            ...super.templateForm(),
+            subAction: this.subAction ?? undefined
+        };
+    }
 }
 
 export class ElseBlock extends CodeBlock {

@@ -10,6 +10,7 @@ import { OPT_operationToPCode } from "./passes/operationToPCode.ts";
 import { PCode, VarPCode } from "../../pcode/pcode.ts";
 import { profile, profileEnd } from "node:console";
 import { Type } from "../../typeProcessor/type.ts";
+import { OPT_condenseSingleWhileCondition } from "./passes/condenseSingleWhileCondition.ts";
 
 /**
  * @returns true if the line was changed
@@ -26,6 +27,7 @@ const OPTIMIZATION_PASSES = [
     OPT_operationToPCode,
     OPT_condenseSetChain,
     OPT_condenseSingleCondition,
+    OPT_condenseSingleWhileCondition,
 ]
 
 export class CodeOptimizer {

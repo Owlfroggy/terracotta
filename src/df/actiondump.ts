@@ -186,6 +186,12 @@ export function getTCGameValueName(dfValueName: string) {
     return codeifyName(dfValueName);
 }
 
+export function getDifferentiatedActionName(block: DFCodeblockName, dfActionName: string): string {
+    let action = actions.get(block)![dfActionName];
+    if (!action) return dfActionName;
+    return action.differentiatedName;
+}
+
 //==========[ private functions ]=========\\
 
 function parseArgumentValueThingies(args: any[]): Parameter[] {
