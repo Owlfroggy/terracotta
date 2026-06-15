@@ -781,12 +781,17 @@ export class Parser {
     parseWhileStatement = (): WhileStatement | null => {
         let keyword = this.consume();
 
+        let inverterToken: Token | null = null;
+        if (this.currentToken().type == TokenType.BANG) {
+            inverterToken = this.consume();
+        }
+
         let condition = this.parseGroupExpression(BindingPower.DEFAULT);
 
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
         if (chunk == null) return null;
 
-        return new WhileStatement(keyword, condition, chunk);
+        return new WhileStatement(keyword, inverterToken, condition, chunk);
     }
 
     parseDoWhileStatement = (): DoStatement | null => {

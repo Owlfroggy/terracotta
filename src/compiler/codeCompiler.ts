@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement } from "../ast/statement.ts";
+import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, WhileStatement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, ps, upperFirst } from "../util/utils.ts";
@@ -1158,6 +1158,26 @@ export class CodeCompiler {
                     new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.REPEAT}),
                 ]
             }
+        }
+        else if (s instanceof WhileStatement) {
+            let innerStatements = s.chunk?.statements.map(child => this.compileStatement(child,context)).flat();
+
+            // TODO: compile condition in a way that takes advantage of break's control flow properties
+            let breakerCode = this.compileIfStatement(s.condition, [
+                new ActionBlock(DFCodeblockName.CONTROL,{
+                    action: "StopRepeat"
+                })
+            ], s.inverterToken == null);
+
+            return [
+                new SubActionBlock(DFCodeblockName.REPEAT, {
+                    action: "Forever",
+                }),
+                new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.REPEAT}),
+                    ...breakerCode,
+                    ...innerStatements,
+                new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.REPEAT}),
+            ];
         }
         else if (s instanceof ForStatement) {
             let code: CodeBlock[] = []

@@ -124,6 +124,7 @@ export class IfStatement extends Statement {
 export class WhileStatement extends Statement {
     constructor(
         public keyword: Token,
+        public inverterToken: Token | null,
         public condition: GroupExpression,
         public chunk: ChunkExpression,
     ) {super(keyword.startPos, chunk.endPos);}
