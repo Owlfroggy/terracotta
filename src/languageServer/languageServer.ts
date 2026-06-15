@@ -131,7 +131,7 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
     }
 }
 
-function generateTypeMemberCompletions(type: Type, dotToReplace?: Token | null): CompletionItem[] {    
+function generateTypeMemberCompletions(type: Type): CompletionItem[] {    
     let members = type.getMembers();
     if (members == null) return [];
 
@@ -671,6 +671,7 @@ export class LanguageServer {
                             newText: `[${valueToTCString(item.label)}]`
                         }
                         item.filterText = "." + item.label;
+                        item.commitCharacters = [".","["," "];
                         return item;
                     }))
                 }
