@@ -847,6 +847,44 @@ export class CodeCompiler {
         throw new Error(`no idea how to compile this: ${e.constructor.name}`);
     }
 
+    compileIfStatement(condition: Expression, innerCode: CodeBlock[]): CodeBlock[] {
+        let directInsertBoolOpMode = false;
+        let simplifiedBooleanOp: BooleanOperation;
+        let realCondition = condition.getRealExpression();
+        if (BooleanOperation.exprIsBooleanExpression(realCondition)) {
+            let operationTree = BooleanOperation.generateFromExpression(realCondition);
+            let simplified = BooleanOperation.simplify(operationTree);
+            if (simplified instanceof BooleanOperation && BooleanOperation.isSinglePath(simplified)) {
+                directInsertBoolOpMode = true;
+                simplifiedBooleanOp = simplified;
+            }
+        }
+
+        if (directInsertBoolOpMode) {
+            return this.compileBooleanOperation(simplifiedBooleanOp!, 
+                innerCode
+            );
+        } else {
+            let [value, valueCode] = this.compileExpression(condition);
+            if (value instanceof MissingValue) return [] // error handled by parser
+            if (!(value instanceof TangibleValue)) {
+                this.reportError(condition.getRealExpression(), `Cannot check truthiness of '${value.constructor.name}'`);
+                return [];
+            }
+            
+            return [
+                ...valueCode,
+                new ActionBlock(DFCodeblockName.IF_VARIABLE,{
+                    action: "!=",
+                    args: [value, new NumberValue("0")],
+                }),
+                new BracketBlock({type: BracketType.IF, direction: BracketDirection.OPEN}),
+                    ...innerCode,
+                new BracketBlock({type: BracketType.IF, direction: BracketDirection.CLOSE}),
+            ];
+        }
+    }
+
     compileStatement = (s: Statement, context: StatementContext): CodeBlock[] => {
         if (s instanceof ExpressionStatement) {
             let e = s.expression;
@@ -999,48 +1037,14 @@ export class CodeCompiler {
             return code;
         }
         else if (s instanceof IfStatement) {
-            let code: CodeBlock[];
+            if (!s.chunk) {
+                // compile condition anyway so errors are still reported
+                this.compileExpression(s.condition);
+                return [];
+            };
 
-            let directInsertBoolOpMode = false;
-            let simplifiedBooleanOp: BooleanOperation;
-            let realCondition = s.condition.getRealExpression();
-            if (BooleanOperation.exprIsBooleanExpression(realCondition)) {
-                let operationTree = BooleanOperation.generateFromExpression(realCondition);
-                let simplified = BooleanOperation.simplify(operationTree);
-                if (simplified instanceof BooleanOperation && BooleanOperation.isSinglePath(simplified)) {
-                    directInsertBoolOpMode = true;
-                    simplifiedBooleanOp = simplified;
-                }
-            }
-
-            if (directInsertBoolOpMode) {
-                let output = this.tempVarProvider.newTempVar(Type.num);
-                if (!s.chunk) return [];
-                code = this.compileBooleanOperation(simplifiedBooleanOp!, 
-                    s.chunk.statements.map(child => this.compileStatement(child,context)).flat()
-                );
-            } else {
-                let [value, valueCode] = this.compileExpression(s.condition);
-                if (value instanceof MissingValue) return [] // error handled by parser
-                if (!(value instanceof TangibleValue)) {
-                    this.reportError(s.condition.getRealExpression(), `Cannot check truthiness of '${value.constructor.name}'`);
-                    return [];
-                }
-    
-                if (!s.chunk) return [];
-                
-                code = [
-                    ...valueCode,
-                    new ActionBlock(DFCodeblockName.IF_VARIABLE,{
-                        action: "!=",
-                        args: [value, new NumberValue("0")],
-                    }),
-                    new BracketBlock({type: BracketType.IF, direction: BracketDirection.OPEN}),
-                        ...s.chunk.statements.map(child => this.compileStatement(child,context)).flat(),
-                    new BracketBlock({type: BracketType.IF, direction: BracketDirection.CLOSE}),
-                ];
-            }
-
+            let innerIfCode = s.chunk.statements.map(child => this.compileStatement(child,context)).flat()
+            let code: CodeBlock[] = this.compileIfStatement(s.condition, innerIfCode);
 
             if (s.elseContents) {
                 let elseContentsCode: CodeBlock[] = [];
