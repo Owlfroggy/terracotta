@@ -126,8 +126,8 @@ export class WhileStatement extends Statement {
         public keyword: Token,
         public inverterToken: Token | null,
         public condition: GroupExpression,
-        public chunk: ChunkExpression,
-    ) {super(keyword.startPos, chunk.endPos);}
+        public chunk: ChunkExpression | null,
+    ) {super(keyword.startPos, chunk?.endPos ?? condition.endPos);}
 }
 
 export class DoStatement extends Statement {

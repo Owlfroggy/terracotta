@@ -789,7 +789,6 @@ export class Parser {
         let condition = this.parseGroupExpression(BindingPower.DEFAULT);
 
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
-        if (chunk == null) return null;
 
         return new WhileStatement(keyword, inverterToken, condition, chunk);
     }

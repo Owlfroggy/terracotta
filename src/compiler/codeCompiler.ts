@@ -1053,8 +1053,8 @@ export class CodeCompiler {
             return code;
         }
         else if (s instanceof IfStatement) {
+            // compile condition anyway so errors are still reported
             if (!s.chunk) {
-                // compile condition anyway so errors are still reported
                 this.compileExpression(s.condition);
                 return [];
             };
@@ -1195,6 +1195,12 @@ export class CodeCompiler {
             }
         }
         else if (s instanceof WhileStatement) {
+            // compile condition anyway so errors are still reported
+            if (!s.chunk) {
+                this.compileExpression(s.condition);
+                return [];
+            };
+            
             let innerStatements = s.chunk?.statements.map(child => this.compileStatement(child,context)).flat();
 
             // TODO: compile condition in a way that takes advantage of break's control flow properties
