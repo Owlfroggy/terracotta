@@ -718,6 +718,15 @@ export const OVERRIDES: {
         "Plot Player UUIDs": Type.list(Type.str),
         "Selection Target Names": Type.list(Type.str),
         "Selection Target UUIDs": Type.list(Type.str),
+
+        "Armor Items": Type.list(Type.item),
+        "Attached Leads": Type.list(Type.str),
+        "Hotbar Items": Type.list(Type.item),
+        "Inventory Items": Type.list(Type.item),
+        "Inventory Menu Items": Type.list(Type.item),
+        "Passengers ": Type.list(Type.str), // why is there a space 😭
+        "Potion Effects": Type.list(Type.pot),
+        "Pressed Movement Keys": Type.list(Type.str),
     },
     actionSignatures: {
         "PLAYER ACTION": {
