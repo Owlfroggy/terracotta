@@ -20,9 +20,9 @@ import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { posIndexIsInListElement, isForLoopActionCall, binaryIsNamedArgument, getExistingNamedArgs } from "../util/astUtils.ts";
 import { brotliDecompress } from "node:zlib";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
-import { PAR_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
+import { ITEM_CONSTRUCTOR, PAR_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
 import { FunctionValue, StringValue } from "../compiler/codeValue.ts";
-import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS } from "../data/constants.ts";
+import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, VALID_ITEM_IDS } from "../data/constants.ts";
 import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
 import { matchArgsToParams } from "../util/argValidation.ts";
 import { COMPILE_START_PROCESS } from "../compiler/namespace/compileCallFunction.ts";
@@ -889,6 +889,19 @@ export class LanguageServer {
                                 items.push(particleFieldCompletions[field])
                             }
                         }
+                    }
+                }
+                // item ids
+                else if (definition == ITEM_CONSTRUCTOR) {
+                    // names
+                    if (posIndexIsInListElement(callNode.args, index, 0)) {
+                        items.push(...VALID_ITEM_IDS.values().map(name => 
+                            stringizeCompletionItem({
+                                label: name,
+                                kind: CompletionItemKind.Text,
+                                sortText: "\u0000"+name,
+                            }, node, doc)
+                        ));
                     }
                 }
             }
