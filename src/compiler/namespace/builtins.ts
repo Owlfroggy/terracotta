@@ -56,12 +56,16 @@ export function compileTags(actionDef: AD.Action, namedArgs: Map<AtomicExpressio
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
     let valueDef = AD.gameValues[dfName];
+    let returnType = OVERRIDES.gameValueReturnTypes[dfName] ?? dfTypeToTC.get(valueDef?.type ?? DFValueType.ANY_TYPE);
+    const typeGetter = () => returnType;
     return {
         definitionType: DefinitionType.VALUE,
-        returnType: dfTypeToTC.get(valueDef?.type ?? DFValueType.ANY_TYPE)!,
+        returnType,
         gameValue: valueDef,
         compile: (ctx) => {
-            return [new GameValueValue(dfName, target), []];
+            let value = new GameValueValue(dfName, target);
+            value.getType = typeGetter;
+            return [value, []];
         }
     }
 }

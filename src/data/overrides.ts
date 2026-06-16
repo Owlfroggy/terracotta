@@ -9,6 +9,7 @@ export const OVERRIDES: {
     tagNames: {[dfName: string]: string},
     gameValueNames: {[dfName: string]: string},
     returnTypes: {[codeblock: string]: {[actionDFName: string]: Type | ((args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => Type) }}
+    gameValueReturnTypes: {[dfName: string]: Type},
     actionSignatures: {[codeblock: string]: {[actionDFName: string]: ParameterSignature[]}},
     autocompleteSortPrefixes: {[codeblock: string]: {[actionDFName: string]: string}}
 } = {
@@ -703,8 +704,20 @@ export const OVERRIDES: {
 
             "RGBColor": Type.str,
             "HSBColor": Type.str,
-            "HSLColor": Type.str
-        }
+            "HSLColor": Type.str,
+
+            "GetContainerItems": Type.list(Type.item),
+        },
+    },
+    gameValueReturnTypes: {
+        "Event Affected Blocks": Type.list(Type.loc),
+        "Event Command Arguments": Type.list(Type.str),
+        "Event Sign Text": Type.list(Type.str),
+        "Event Transform Entities": Type.list(Type.str),
+        "Plot Player Names": Type.list(Type.str),
+        "Plot Player UUIDs": Type.list(Type.str),
+        "Selection Target Names": Type.list(Type.str),
+        "Selection Target UUIDs": Type.list(Type.str),
     },
     actionSignatures: {
         "PLAYER ACTION": {
