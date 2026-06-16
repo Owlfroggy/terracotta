@@ -529,6 +529,17 @@ export const OVERRIDES: {
                 else
                     return Type.num;
             },
+            "GetConsumable": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+                let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
+                switch (tags.prop) {
+                    case "Animation": return Type.str;
+                    case "Nutrition": return Type.num;
+                    case "Saturation": return Type.num;
+                    case "Sound": return Type.snd;
+                    case "Use Duration": return Type.num;
+                    default: return Type.num
+                }
+            },
             "RandomizeList": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
                 let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
                 return argTypes[0] ?? Type.list(Type.any);
