@@ -319,7 +319,7 @@ export function registerBuiltinNamespaces() {
         ["shooterEntity",    TargetType.SHOOTER],
         ["victimEntity",     TargetType.VICTIM],
         ["projectileEntity", TargetType.PROJECTILE],
-        ["allEntities",      TargetType.ALL_PLAYERS],
+        ["allEntities",      TargetType.ALL_ENTITIES],
         ["allMobs",          TargetType.ALL_MOBS],
         ["lastEntity",       TargetType.LAST_ENTITY],
     ] as [string, TargetType][]) {
