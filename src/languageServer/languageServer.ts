@@ -430,7 +430,7 @@ export class LanguageServer {
                         queryPosition = node.parent.parent.endPos+1;
                     }
                     // repeat (var to ...)
-                    else if (closestGroup && closestGroup.keyInParent == "countExpression" && closestGroup.parent instanceof RepeatStatement) {
+                    else if (closestGroup && closestGroup.keyInParent == "countExpression" && closestGroup.parent instanceof RepeatStatement && closestGroup.parent.chunk) {
                         envFrameNode = closestGroup.parent.chunk
                         queryPosition = closestGroup.parent.chunk.startPos+1;
                     }

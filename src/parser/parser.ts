@@ -747,7 +747,7 @@ export class Parser {
         }
 
         let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
-        if (chunk == null) return null;
+        
         return new RepeatStatement(keyword, countExpression, chunk);
     }
 

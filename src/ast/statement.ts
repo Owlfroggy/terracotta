@@ -90,8 +90,8 @@ export class RepeatStatement extends Statement {
     constructor(
         public keyword: Token,
         public countExpression: GroupExpression | null,
-        public chunk: ChunkExpression,
-    ) {super(keyword.startPos, chunk.endPos);}
+        public chunk: ChunkExpression | null,
+    ) {super(keyword.startPos, chunk?.endPos ?? countExpression?.endPos ?? keyword.endPos);}
 }
 
 export class ForStatement extends Statement {

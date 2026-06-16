@@ -396,7 +396,7 @@ export class TypeProcessor {
             }
         }
         // repeat counter var
-        else if (statement instanceof RepeatStatement && statement.countExpression) {
+        else if (statement instanceof RepeatStatement && statement.countExpression && statement.chunk) {
             let countExpression = statement.countExpression.getRealExpression();
             if (
                 countExpression instanceof BinaryExpression 

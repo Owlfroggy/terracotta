@@ -1124,8 +1124,6 @@ export class CodeCompiler {
             }
         }
         else if (s instanceof RepeatStatement) {
-            let innerStatements = s.chunk.statements.map(child => this.compileStatement(child,context)).flat();
-
             let countExpression = s.countExpression?.getRealExpression();
             // TODO: repeat (line i to x)
             if (countExpression) {
@@ -1171,25 +1169,27 @@ export class CodeCompiler {
                     );
                     return [];
                 }
+                if (!s.chunk) return [];
                 code.push(
                     new SubActionBlock(DFCodeblockName.REPEAT,{
                         action: "Multiple",
                         args: counterVar ? [counterVar, amount] : [amount],
                     }),
                     new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.REPEAT}),
-                        ...innerStatements,
+                        ...s.chunk.statements.map(child => this.compileStatement(child,context)).flat(),
                     new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.REPEAT}),
                 )
                 return code;
             } 
             // repeat forever
             else {
+                if (!s.chunk) return [];
                 return [
                     new SubActionBlock(DFCodeblockName.REPEAT,{
                         action: "Forever",
                     }),
                     new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.REPEAT}),
-                        ...innerStatements,
+                        ...s.chunk.statements.map(child => this.compileStatement(child,context)).flat(),
                     new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.REPEAT}),
                 ]
             }
