@@ -96,7 +96,8 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         // create a unique signature for every possible combination of arguments
         let uniqueSignatures: ParameterSignatureEntry[][] = [[]]
         let varRemoved = false;
-        for (const parameter of actionDef.parameters) {
+        for (let parameterIndex = 0; parameterIndex < actionDef.parameters.length; parameterIndex++) {
+            const parameter = actionDef.parameters[parameterIndex]
             let groupIndex = -1
             let initialSignatureAmount = uniqueSignatures.length
     
@@ -142,7 +143,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                 let tcValues: ParameterSignatureEntry[] = values.map(v => ({
                     name: v.description,
                     type: dfTypeToTC.get(v.type) ?? Type.unknown,
-                    optional: forceRequired ? false : forceOptional || v.optional,
+                    optional: (forceRequired && parameterIndex == 1) ? false : (forceOptional || v.optional),
                     plural: v.plural,
                     description: ((v.notes.length > 0 ? v.notes.join("\n") : '') + noneDescriptionAddition).trim()
                 }));
