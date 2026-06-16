@@ -2,7 +2,7 @@ import { DFCodeblockName} from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, parseTcNumber } from "../../util/utils.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
-import { CodeValue, ItemValue, LocationValue, MissingValue, NumberValue, ParticleValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
+import { CodeValue, ItemValue, LocationValue, MissingValue, NumberValue, ParticleValue, PotionValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
 import { DefinitionType, FunctionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 import * as AD from "../../df/actiondump.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
@@ -15,10 +15,11 @@ function evaluateConstOrBlockTemplates(
     ctx: EvaluationContext, 
     args: CodeValue[], 
     starterValue: TangibleValue, 
+    outputType: Type,
     paramTemplates: [new (...args: any[]) => StringValue | NumberValue, string, string][]
 ): [TangibleValue, CodeBlock[]] {
     let code: CodeBlock[] = [];
-    let tempVar = ctx.tvp.newTempVar(Type.snd);
+    let tempVar = ctx.tvp.newTempVar(outputType);
     let latestValue: TangibleValue = starterValue;
     for (let i = 0; i < args.length; i++) {
         let arg = args[i] as TangibleValue;
@@ -188,12 +189,56 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
 
         return evaluateConstOrBlockTemplates(
             ctx, args,
-            new SoundValue("Pling",1.0,2.0,false,undefined,callNode),
+            new SoundValue("Pling",1.0,2.0,false,undefined,callNode), Type.snd,
             [
                 [StringValue, "sound", "SetSoundType"],
                 [NumberValue, "pitch", "SetSoundPitch"],
                 [NumberValue, "volume", "SetSoundVolume"],
                 [StringValue, "variant", "SetSoundVariant"],
+            ]
+        );
+    },
+}
+
+export const POT_CONSTRUCTOR: FunctionDefinition = {
+    definitionType: DefinitionType.FUNCTION,
+    name: "pot",
+    defaultReturnType: Type.pot,
+    signatures: [
+        {
+            params: [
+                {name: "effect", type: Type.str, optional: false, plural: false},
+                {name: "amplifier", type: Type.num, optional: true, plural: false},
+                {name: "duration", type: Type.num, optional: true, plural: false, description: "Unit: ticks\n20 ticks = 1 second"},
+            ]
+        }
+    ],
+    getReturnType: USE_DEFAULT_RETURN_TYPE,
+    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+        // validation
+        let failed = false;
+        if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
+            if (!(args[0].value in AD.potions)) {
+                ctx.reportError(
+                    args[0].astNode ?? callNode,
+                    `Invalid effect id '${args[0].value}'`
+                );
+                failed = true;
+            }
+        }
+
+        
+        if (validateArguments(args, callNode, this.signatures, ctx) == null || failed) 
+            return [new PotionValue("Speed", 1, 1000000, callNode), []];
+
+
+        return evaluateConstOrBlockTemplates(
+            ctx, args,
+            new PotionValue("Speed", 1, 1000000, callNode), Type.pot,
+            [
+                [StringValue, "effect", "SetPotionType"],
+                [NumberValue, "amplifier", "SetPotionAmp"],
+                [NumberValue, "duration", "SetPotionDur"],
             ]
         );
     },
@@ -565,7 +610,7 @@ export const ITEM_CONSTRUCTOR: FunctionDefinition = {
 
         return evaluateConstOrBlockTemplates(
             ctx, args,
-            new ItemValue("stone", 1, undefined, callNode),
+            new ItemValue("stone", 1, undefined, callNode), Type.item,
             [
                 [StringValue, "id", "SetItemType"],
                 [NumberValue, "count", "SetItemAmount"],

@@ -262,7 +262,6 @@ export class Type {
         return props;
     };
     public readonly getPropertyType = (p: string) => {
-        slog(p);
         let namespace = TYPE_NAMESPACES[this.name];
         if (!namespace) return Type.void;
         if (!(p in namespace.members)) return Type.void;

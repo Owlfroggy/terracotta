@@ -299,6 +299,32 @@ export class SoundValue extends TangibleValue {
     }
 }
 
+
+export class PotionValue extends TangibleValue {
+    constructor(
+        public effect: string, 
+        public amplifier: number, 
+        /** `1000000` is what df considers 'infinite' */
+        public duration: number,
+        astNode?: ASTNode,
+    ) {super(astNode);}
+
+    getType(typeProcessor: TypeProcessor): Type {
+        return Type.pot;
+    }
+
+    templateForm() {
+        return {
+            "id": "pot",
+            "data": {
+                "pot": this.effect,
+                "dur": this.duration,
+                "amp": this.amplifier
+            }
+        }
+    }
+}
+
 export interface ParticleExtraData {
     rgb?: number,
     colorVariation?: number,

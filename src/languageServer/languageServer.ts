@@ -20,7 +20,7 @@ import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { posIndexIsInListElement, isForLoopActionCall, binaryIsNamedArgument, getExistingNamedArgs } from "../util/astUtils.ts";
 import { brotliDecompress } from "node:zlib";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
-import { ITEM_CONSTRUCTOR, PAR_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
+import { ITEM_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
 import { FunctionValue, StringValue } from "../compiler/codeValue.ts";
 import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, VALID_ITEM_IDS } from "../data/constants.ts";
 import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
@@ -839,6 +839,19 @@ export class LanguageServer {
                                 ));
                             }
                         }
+                    }
+                }
+                // potion ids
+                else if (definition == POT_CONSTRUCTOR) {
+                    // names
+                    if (posIndexIsInListElement(callNode.args, index, 0)) {
+                        items.push(...Object.keys(AD.potions).map(name => 
+                            stringizeCompletionItem({
+                                label: name,
+                                kind: CompletionItemKind.Text,
+                                sortText: "\u0000"+name,
+                            }, node, doc)
+                        ));
                     }
                 }
                 // particle stuff
