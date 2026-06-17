@@ -205,6 +205,13 @@ export class DictionaryTypeExpression<T extends Expression = Expression> extends
     ) {super(opener.startPos, closer.endPos);}
 }
 
+export class PerSelectedExpression extends Expression {
+    constructor(
+        public keyword: Token,
+        public expression: GroupExpression,
+    ) {super(keyword.startPos, expression.endPos);}
+}
+
 export class ChunkExpression extends Expression {
     constructor(
         public opener: Token,

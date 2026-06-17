@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, WhileStatement } from "../ast/statement.ts";
+import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, PerSelectedStatement, SingleKeywordStatement, Statement, WhileStatement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, ps, upperFirst } from "../util/utils.ts";
@@ -7,7 +7,7 @@ import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, El
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, PerSelectedExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
@@ -38,9 +38,11 @@ export type EvaluationContext = {
 type StatementContext = {
     lineStatement: FunctionStatement | EventStatement;
     lineEntry: CodeLineEntry;
+    perSelectedMode?: boolean;
 }
 type ExpressionContext = {
-    
+    /** If present, compile temp vars with %uuid on the end */
+    perSelectedMode?: boolean
 }
 
 function jsonize(line: CodeBlock[]): string {
@@ -94,6 +96,7 @@ export class CodeCompiler {
     errors: TCError[] = [];
 
     readonly tempVarProvider = new TempVarProvider();
+    readonly perSelectedTempVarProvider = new TempVarProvider("%uuid");
     private pcodeParser = new PCodeParser();
 
     constructor(
@@ -101,9 +104,9 @@ export class CodeCompiler {
         public env: CompliationEnvironment,
     ) {}
 
-    getEvaluationContext(): EvaluationContext {
+    getEvaluationContext(perSelectedMode?: boolean): EvaluationContext {
         return {
-            tvp: this.tempVarProvider,
+            tvp: perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider,
             types: this.env.types,
             reportError: this.reportError,
         }
@@ -397,7 +400,7 @@ export class CodeCompiler {
     compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition, context: ExpressionContext, extraInfo: FunctionCallExtraInfo = {}): [CodeValue, CodeBlock[]] {
         let [args, namedArgs, argCode] = this.compileArgsList(e.args, context);
         // TODO: handle return types
-        let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(), e, extraInfo);
+        let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(context.perSelectedMode), e, extraInfo);
         value.astNode = e;
         return [value, [...argCode, ...code]];
     }
@@ -520,7 +523,7 @@ export class CodeCompiler {
             let [right, rCode] = this.compileExpression(e.right, context);
             let [result, oprCode] = Operations.evaluateBinaryValue(
                 left, e.operator, right, 
-                this.getEvaluationContext()
+                this.getEvaluationContext(context.perSelectedMode)
             )
             return [result, [...lCode, ...rCode, ...oprCode]];
         }
@@ -528,7 +531,7 @@ export class CodeCompiler {
             let [right, rCode] = this.compileExpression(e.right, context);
             let [result, oprCode] = Operations.evaluateUnaryValue(
                 e.operator, right, 
-                this.getEvaluationContext()
+                this.getEvaluationContext(context.perSelectedMode)
             )
             return [result, [...rCode, ...oprCode]];
         }
@@ -705,7 +708,7 @@ export class CodeCompiler {
                 return [new FunctionValue(definition, accessee instanceof TangibleValue ? accessee : undefined, e), preCode];
             }
             else if (definition.definitionType == DefinitionType.VALUE) {
-                return definition.compile(this.getEvaluationContext());
+                return definition.compile(this.getEvaluationContext(context.perSelectedMode));
             }
             else {
                 return [new MissingValue(e), preCode];
@@ -845,6 +848,9 @@ export class CodeCompiler {
         else if (e instanceof GroupExpression) {
             return this.compileExpression(e.expression, context);
         }
+        else if (e instanceof PerSelectedExpression) {
+            return this.compileExpression(e.expression, {...context, perSelectedMode: true});
+        }
         else if (e instanceof MissingExpression) {
             return [new MissingValue(e), []];
         }
@@ -904,7 +910,7 @@ export class CodeCompiler {
     }
 
     compileStatement = (s: Statement, context: StatementContext): CodeBlock[] => {
-        let exprContext: ExpressionContext = {};
+        let exprContext: ExpressionContext = {perSelectedMode: context.perSelectedMode};
         if (s instanceof ExpressionStatement) {
             let e = s.expression;
             // wait 1 tick syntactic sugar
@@ -1306,6 +1312,9 @@ export class CodeCompiler {
                 new BracketBlock({type: BracketType.REPEAT, direction: BracketDirection.CLOSE}),
             );
             return code;
+        }
+        else if (s instanceof PerSelectedStatement) {
+            return s.chunk.statements.map(s => this.compileStatement(s, {...context, perSelectedMode: true})).flat();
         }
         else if (s instanceof EventStatement || s instanceof FunctionStatement) {
             this.reportError(s,`${upperFirst((s.headerType ?? 'this').toLowerCase())} declarations can only appear at the top level of a file`);

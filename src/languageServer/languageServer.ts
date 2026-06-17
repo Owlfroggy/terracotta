@@ -281,6 +281,7 @@ const keywordCompletions: CompletionItem[] = [
     "return", "break", "continue", "endthread", "endallthreads",
     "global", "saved", "local", "line",
     "for", "repeat", "if", "else", "while", "do",
+    "perselected",
     "as", "to", "in", "on",
     "select", "filter",
 ].map(kw => ({

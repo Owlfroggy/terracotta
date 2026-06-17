@@ -140,6 +140,13 @@ export class DoStatement extends Statement {
     ) {super(doKeyword.startPos, whileCondition?.endPos ?? whileInverterToken?.endPos ?? chunk.endPos);}
 }
 
+export class PerSelectedStatement extends Statement {
+    constructor(
+        public keyword: Token,
+        public chunk: ChunkExpression,
+    ) {super(keyword.startPos, chunk.endPos);}
+}
+
 export class SelectionStatement extends Statement {
     constructor (
         public keyword: Token,

@@ -1,6 +1,6 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, DictionaryTypeExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { AssignmentStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, Statement } from "../ast/statement.ts";
+import { AssignmentStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, PerSelectedStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
@@ -531,10 +531,16 @@ export class TypeProcessor {
             else {
                 for (const c of statement.children){ 
                     if (c instanceof ChunkExpression) {
-                        let newFrame = frame.addChild(c);
-                        this.framesByASTNode.set(c, newFrame);
-                        this.collectionStage(c.statements, newFrame);
-                        this.applyStatementVariables(statement, newFrame);
+                        let subFrame: EnvironmentFrame;
+                        // consider contents of perselected statements to be on the same level as the statement's parent
+                        if (statement instanceof PerSelectedStatement) { 
+                            subFrame = frame;
+                        } else {
+                            subFrame = frame.addChild(c);
+                            this.framesByASTNode.set(c, subFrame);
+                        }
+                        this.collectionStage(c.statements, subFrame);
+                        this.applyStatementVariables(statement, subFrame);
                     }
                 }
             }

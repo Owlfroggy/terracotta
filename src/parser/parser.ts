@@ -1,6 +1,6 @@
 import { ASTNode, RootNode } from "../ast/astNode.ts";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression, DictionaryTypeExpression, DictionaryTypeEntryExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement, AssignmentStatement } from "../ast/statement.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression, DictionaryTypeExpression, DictionaryTypeEntryExpression, PerSelectedExpression } from "../ast/expression.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement, AssignmentStatement, PerSelectedStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorPositionMode, ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { slog } from "../languageServer/logging.ts";
@@ -45,6 +45,8 @@ export class Parser {
             [TokenType.SAVED,           {bp: BindingPower.ATOM,     processor: this.parseVariableExpression}],
             [TokenType.LOCAL,           {bp: BindingPower.ATOM,     processor: this.parseVariableExpression}],
             [TokenType.LINE,            {bp: BindingPower.ATOM,     processor: this.parseVariableExpression}],
+
+            [TokenType.PERSELECTED,     {bp: BindingPower.ATOM,     processor: this.parsePerSelectedExpression}],
             
             [TokenType.CALL,            {bp: BindingPower.ATOM,     processor: this.parseCallOrStartExpression}],
             [TokenType.START,           {bp: BindingPower.ATOM,     processor: this.parseCallOrStartExpression}],
@@ -123,6 +125,8 @@ export class Parser {
             [TokenType.IF,                  this.parseIfStatement],
             [TokenType.WHILE,               this.parseWhileStatement],
             [TokenType.DO,                  this.parseDoWhileStatement],
+
+            [TokenType.PERSELECTED,         this.parsePerSelectedStatement],
             
             [TokenType.SELECT,              this.parseSelectionStatement],
             [TokenType.FILTER,              this.parseSelectionStatement],
@@ -562,6 +566,12 @@ export class Parser {
         return new DictionaryTypeExpression(opener, entries, overflowTypes, closer);
     }
 
+    parsePerSelectedExpression = (): PerSelectedExpression => {
+        let keyword = this.consume();
+        let groupExpression = this.parseGroupExpression(BindingPower.DEFAULT);
+        return new PerSelectedExpression(keyword, groupExpression);
+    }
+
     parseChunkExpression = (openerType: TokenType, closerType: TokenType): ChunkExpression | null => {
         let opener: Token;
         let openerFound = false;
@@ -578,10 +588,12 @@ export class Parser {
             let currentTokenType = this.currentToken().type;            
 
             let useSpecialStatement = this.tokenStatementProcessors.has(currentTokenType);
-            let statement: Statement | null;
+            let statement: Statement | null = null;
             if (useSpecialStatement) {
                 statement = this.tokenStatementProcessors.get(currentTokenType)!()
-            } else {
+            }
+            // if the special processor failed out, fall back to parsing an expression
+            if (statement == null) {
                 statement = this.parseExpressionStatement();
 
                 // dont include statements which boil down to just a MissingExpression
@@ -812,6 +824,17 @@ export class Parser {
         }
 
         return new DoStatement(doKeyword, chunk, whileKeyword, whileInverterToken, whileCondition);
+    }
+
+    parsePerSelectedStatement = (): PerSelectedStatement | null => {
+        // the expression handler will consume the keyword if this doesn't
+        if (this.lookAhead(1).type != TokenType.OPEN_CURLY) return null;
+
+        let keyword = this.consume();
+        let chunk = this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY);
+        if (!chunk) return null;
+
+        return new PerSelectedStatement(keyword, chunk);
     }
 
     parseSelectionStatement = (): SelectionStatement => {

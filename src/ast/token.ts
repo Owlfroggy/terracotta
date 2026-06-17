@@ -43,6 +43,8 @@ export enum TokenType {
     WHILE,
     DO,
 
+    PERSELECTED,
+
     AS,
 
     TO,
