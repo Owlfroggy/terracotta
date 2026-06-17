@@ -39,6 +39,9 @@ type StatementContext = {
     lineStatement: FunctionStatement | EventStatement;
     lineEntry: CodeLineEntry;
 }
+type ExpressionContext = {
+    
+}
 
 function jsonize(line: CodeBlock[]): string {
     return JSON.stringify({blocks: line.map(b => b.templateForm())});
@@ -215,7 +218,7 @@ export class CodeCompiler {
                             // TODO: maybe allow default values which produce codeblocks by initializing them in the func body
                             // this is tricky since you need a default which represents "undefined" and you can't just use 0
                             // since what if the user passes that in
-                            let [item, code] = this.compileExpression(param.defaultValue);
+                            let [item, code] = this.compileExpression(param.defaultValue, {});
                             if (item instanceof TangibleValue) {
                                 defaultValue = item;
                             }
@@ -325,7 +328,7 @@ export class CodeCompiler {
         return declarationsToCompile;
     }
 
-    compileArgsList(argsList: ListExpression): [args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, argCode: CodeBlock[]] {
+    compileArgsList(argsList: ListExpression, context: ExpressionContext): [args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, argCode: CodeBlock[]] {
         let args: CodeValue[] = [];
         let namedArgs: Map<AtomicExpression, CodeValue> = new Map();
         let argCode: CodeBlock[] = [];
@@ -351,13 +354,13 @@ export class CodeCompiler {
 
                 seenNames[name.token.value] = true;
 
-                let [value, code] = this.compileExpression(argNode.right);
+                let [value, code] = this.compileExpression(argNode.right, context);
                 namedArgs.set(name, value);
                 argCode.push(...code);
             } 
             //normal arg
             else {
-                let [value, code] = this.compileExpression(argNode);
+                let [value, code] = this.compileExpression(argNode, context);
                 args.push(value)
                 argCode.push(...code);
             }
@@ -391,8 +394,8 @@ export class CodeCompiler {
         return code;
     }
 
-    compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition, extraInfo: FunctionCallExtraInfo = {}): [CodeValue, CodeBlock[]] {
-        let [args, namedArgs, argCode] = this.compileArgsList(e.args);
+    compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition, context: ExpressionContext, extraInfo: FunctionCallExtraInfo = {}): [CodeValue, CodeBlock[]] {
+        let [args, namedArgs, argCode] = this.compileArgsList(e.args, context);
         // TODO: handle return types
         let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(), e, extraInfo);
         value.astNode = e;
@@ -404,12 +407,12 @@ export class CodeCompiler {
      *  
      * PASSING IN A BOOLEAN OPERATION TREE WITH STACKED NEGATIONS WILL BREAK THINGS!
      * */
-    compileBooleanOperation(e: BooleanOperation | Expression, body: CodeBlock[]): CodeBlock[] {
+    compileBooleanOperation(e: BooleanOperation | Expression, body: CodeBlock[], context: ExpressionContext): CodeBlock[] {
         let invert = false;
         if (e instanceof BooleanOperation) {
             switch (e.operation) {
                 case TokenType.BOOL_AND: {
-                    return this.compileBooleanOperation(e.a, this.compileBooleanOperation(e.b!, body));
+                    return this.compileBooleanOperation(e.a, this.compileBooleanOperation(e.b!, body, context), context);
                 }
                 // TODO: optimize cases where you don't need an actual structural or (like val == 1 || val == 2)
                 case TokenType.BOOL_OR: {
@@ -437,13 +440,13 @@ export class CodeCompiler {
                         });
                         return [
                             runMarkerInitBlock,
-                            ...this.compileBooleanOperation(e.a, [runMarkerSetterBlock, ...body]),
+                            ...this.compileBooleanOperation(e.a, [runMarkerSetterBlock, ...body], context),
                             new ActionBlock(DFCodeblockName.IF_VARIABLE, {
                                 action: "=",
                                 args: [runMarker, new NumberValue("0")]
                             }),
                             new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.IF}),
-                                ...this.compileBooleanOperation(e.b!, [...body]),
+                                ...this.compileBooleanOperation(e.b!, [...body], context),
                             new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.IF}),
                         ];
                     }
@@ -453,10 +456,10 @@ export class CodeCompiler {
                     // this avoids setting the temp var thats required in the run marker case
                     else {
                         return [
-                            ...this.compileBooleanOperation(e.a, [...body]),
+                            ...this.compileBooleanOperation(e.a, [...body], context),
                             new ElseBlock({}),
                             new BracketBlock({direction: BracketDirection.OPEN, type: BracketType.IF}),
-                                ...this.compileBooleanOperation(e.b!, [...body]),
+                                ...this.compileBooleanOperation(e.b!, [...body], context),
                             new BracketBlock({direction: BracketDirection.CLOSE, type: BracketType.IF}),
                         ];
                     }
@@ -471,7 +474,7 @@ export class CodeCompiler {
             }
         }
 
-        let [val, valCode] = this.compileExpression(e);
+        let [val, valCode] = this.compileExpression(e, context);
 
         if (!(val instanceof TangibleValue)) {
             this.reportError(e, `Cannot check truthiness of '${val.constructor.name}'`);
@@ -491,7 +494,7 @@ export class CodeCompiler {
         ]
     }
 
-    compileExpression(e: Expression | Token): [CodeValue, CodeBlock[]] {
+    compileExpression(e: Expression | Token, context: ExpressionContext): [CodeValue, CodeBlock[]] {
         // TODO: structure this and the compileStatement thing more like how the parser does stuff
         if (e instanceof Expression && BooleanOperation.exprIsBooleanExpression(e)) {
             // convert expression into BooleanOperation classes to make it easier to work with
@@ -508,13 +511,13 @@ export class CodeCompiler {
                         action: "=",
                         args: [output, new NumberValue("1")]
                     })
-                ])
+                ], context)
             ];
             return [output, code];
         }
         else if (e instanceof BinaryExpression) {
-            let [left, lCode] = this.compileExpression(e.left);
-            let [right, rCode] = this.compileExpression(e.right);
+            let [left, lCode] = this.compileExpression(e.left, context);
+            let [right, rCode] = this.compileExpression(e.right, context);
             let [result, oprCode] = Operations.evaluateBinaryValue(
                 left, e.operator, right, 
                 this.getEvaluationContext()
@@ -522,7 +525,7 @@ export class CodeCompiler {
             return [result, [...lCode, ...rCode, ...oprCode]];
         }
         else if (e instanceof UnaryPrefixExpression) {
-            let [right, rCode] = this.compileExpression(e.right);
+            let [right, rCode] = this.compileExpression(e.right, context);
             let [result, oprCode] = Operations.evaluateUnaryValue(
                 e.operator, right, 
                 this.getEvaluationContext()
@@ -530,7 +533,7 @@ export class CodeCompiler {
             return [result, [...rCode, ...oprCode]];
         }
         else if (e instanceof CallExpression) {
-            let [callee, preCode] = this.compileExpression(e.callee);
+            let [callee, preCode] = this.compileExpression(e.callee, context);
 
             let definition: FunctionDefinition | null = null;
             let methodCallOf: TangibleValue | undefined;
@@ -550,7 +553,7 @@ export class CodeCompiler {
             }
 
             if (definition) {
-                let [value, code] = this.compileCallExpression(e, definition, {methodCallOf});
+                let [value, code] = this.compileCallExpression(e, definition, context, {methodCallOf});
                 return [value, [...preCode, ...code]];
             }
             else {
@@ -566,7 +569,7 @@ export class CodeCompiler {
             let definition = this.env.types.globalFrame![isProcess ? "processes" : "functions"].get(e.callee.value)?.[0];
             let isConstant = pcode.length == 1 && pcode[0] instanceof SegmentPCode;
             if (definition) {
-                return this.compileCallExpression(e, definition);
+                return this.compileCallExpression(e, definition, context);
             } else {
                 if (isConstant) {
                     this.reportError(
@@ -575,7 +578,7 @@ export class CodeCompiler {
                     );
                     return [new MissingValue(e), []];
                 } else {
-                    let [args, namedArgs, argCode] = this.compileArgsList(e.args);
+                    let [args, namedArgs, argCode] = this.compileArgsList(e.args, context);
                     let blockType = isProcess ? DFCodeblockName.START_PROCESS : DFCodeblockName.CALL_FUNCTION;
                     return [new EmptyValue(e), [...argCode, new ActionBlock(blockType, {
                         action: e.callee.value,
@@ -584,9 +587,9 @@ export class CodeCompiler {
             }
         }
         else if (e instanceof BracketedAccessExpression) {
-            let [accessee, preCode] = this.compileExpression(e.accessee);
+            let [accessee, preCode] = this.compileExpression(e.accessee, context);
 
-            let [accessor, accessorCode] = this.compileExpression(e.propertyName);
+            let [accessor, accessorCode] = this.compileExpression(e.propertyName, context);
             preCode.push(...accessorCode);
 
             if (!(accessor instanceof TangibleValue)) {
@@ -677,7 +680,7 @@ export class CodeCompiler {
             }
         }
         else if (e instanceof AccessExpression) {
-            let [accessee, preCode] = this.compileExpression(e.accessee);
+            let [accessee, preCode] = this.compileExpression(e.accessee, context);
             let accesseeType = accessee.getType(this.env.types);
 
             let propertyName = e.propertyName.value;
@@ -740,7 +743,7 @@ export class CodeCompiler {
             
             let contents: TangibleValue[] = [];
             for (const element of e.elements) {
-                let [value, valueCode] = this.compileExpression(element);
+                let [value, valueCode] = this.compileExpression(element, context);
                 code.push(...valueCode);
                 if (!(value instanceof TangibleValue)) {
                     this.reportError(element, `${value.constructor.name} cannot be stored in lists`, value);
@@ -763,7 +766,7 @@ export class CodeCompiler {
             for (const entry of e.entries) {
                 // variable key
                 if (entry.key instanceof GroupExpression) {
-                    let [key, keyCode] = this.compileExpression(entry.key);
+                    let [key, keyCode] = this.compileExpression(entry.key, context);
                     let keyType = key.getType(this.env.types);
                     if (keyType.matches(Type.str) && key instanceof TangibleValue) {
                         code.push(...keyCode);
@@ -779,7 +782,7 @@ export class CodeCompiler {
                 }
 
                 // value
-                let [value, valueCode] = this.compileExpression(entry.value);
+                let [value, valueCode] = this.compileExpression(entry.value, context);
                 if (!(value instanceof TangibleValue)) {
                     this.reportError(entry, `${value.constructor.name} cannot be stored in lists`, value);
                     continue;
@@ -797,7 +800,7 @@ export class CodeCompiler {
             })]];
         }
         else if (e instanceof AtomicExpression) {
-            return this.compileExpression(e.token);
+            return this.compileExpression(e.token, context);
         } 
         else if (e instanceof Token) {
             switch (e.type) {
@@ -832,14 +835,14 @@ export class CodeCompiler {
             }
         }
         else if (e instanceof TypecastExpression) {
-            let [value, valueCode] = this.compileExpression(e.left);
+            let [value, valueCode] = this.compileExpression(e.left, context);
             let type = this.env.types.evaluateExplicitType(e.type);
             // this is definitely in the runnings for "most sinful code i've ever written"
             value.getType = () => type;
             return [value, valueCode];
         }
         else if (e instanceof GroupExpression) {
-            return this.compileExpression(e.expression);
+            return this.compileExpression(e.expression, context);
         }
         else if (e instanceof MissingExpression) {
             return [new MissingValue(e), []];
@@ -847,7 +850,7 @@ export class CodeCompiler {
         throw new Error(`no idea how to compile this: ${e.constructor.name}`);
     }
 
-    compileIfStatement(condition: Expression, innerCode: CodeBlock[], invertEntireCondition: boolean): CodeBlock[] {
+    compileIfStatement(condition: Expression, innerCode: CodeBlock[], invertEntireCondition: boolean, exprContext: ExpressionContext): CodeBlock[] {
         let operationTree: BooleanOperation | undefined;
         let realCondition = condition.getRealExpression();
         if (BooleanOperation.exprIsBooleanExpression(realCondition)) {
@@ -870,9 +873,7 @@ export class CodeCompiler {
         }
 
         if (directInsertBoolOpMode) {
-            return this.compileBooleanOperation(simplifiedBooleanExpression, 
-                innerCode
-            );
+            return this.compileBooleanOperation(simplifiedBooleanExpression, innerCode, exprContext);
         } else {
             let value = this.tempVarProvider.newTempVar(Type.num);
             let valueCode = [
@@ -885,7 +886,7 @@ export class CodeCompiler {
                         action: "=",
                         args: [value, new NumberValue("1")]
                     })
-                ])
+                ], exprContext)
             ];
 
             return [
@@ -902,6 +903,7 @@ export class CodeCompiler {
     }
 
     compileStatement = (s: Statement, context: StatementContext): CodeBlock[] => {
+        let exprContext: ExpressionContext = {};
         if (s instanceof ExpressionStatement) {
             let e = s.expression;
             // wait 1 tick syntactic sugar
@@ -911,14 +913,14 @@ export class CodeCompiler {
                 })];
             } else {
                 // all other expressions
-                let [_, code] = this.compileExpression(e);
+                let [_, code] = this.compileExpression(e, exprContext);
                 return code;
             }
         }
         else if (s instanceof AssignmentStatement && s.isErrorFree()) {
             let values: CodeValue[];
 
-            let [rawValue, valueCode] = this.compileExpression(s.rightValue);
+            let [rawValue, valueCode] = this.compileExpression(s.rightValue, exprContext);
             if (rawValue instanceof MultiValue) {
                 values = rawValue.values;
             } else {                
@@ -958,7 +960,7 @@ export class CodeCompiler {
 
                 // compile variable
                 assigneeExpr = assigneeExpr.getRealExpression();
-                let [variable, _] = this.compileExpression(assigneeExpr)
+                let [variable, _] = this.compileExpression(assigneeExpr, exprContext)
 
                 // incrementor operators
                 if (s.operator.type != TokenType.EQUALS) {
@@ -1024,7 +1026,7 @@ export class CodeCompiler {
                 let values: TangibleValue[] = [];
                 for (let i = 0; i < s.values.length && i < context.lineEntry.returnTypes.length; i++) {
                     let valueExpr = s.values[i];
-                    let [value, valueCode] = this.compileExpression(valueExpr);
+                    let [value, valueCode] = this.compileExpression(valueExpr, exprContext);
                     if (!(value instanceof TangibleValue)) {
                         this.reportError(valueExpr, `${value.constructor.name} cannot be returned from functions`);
                         continue;
@@ -1055,12 +1057,12 @@ export class CodeCompiler {
         else if (s instanceof IfStatement) {
             // compile condition anyway so errors are still reported
             if (!s.chunk) {
-                this.compileExpression(s.condition);
+                this.compileExpression(s.condition, exprContext);
                 return [];
             };
 
             let innerIfCode = s.chunk.statements.map(child => this.compileStatement(child,context)).flat()
-            let code: CodeBlock[] = this.compileIfStatement(s.condition, innerIfCode, s.inverterToken != null);
+            let code: CodeBlock[] = this.compileIfStatement(s.condition, innerIfCode, s.inverterToken != null, exprContext);
 
             if (s.elseContents) {
                 let elseContentsCode: CodeBlock[] = [];
@@ -1089,7 +1091,7 @@ export class CodeCompiler {
                     new ActionBlock(DFCodeblockName.CONTROL,{
                         action: "StopRepeat"
                     })
-                ], s.whileInverterToken == null);
+                ], s.whileInverterToken == null, exprContext);
                 
                 let firstRunTempVar = this.tempVarProvider.newTempVar(Type.num);
 
@@ -1133,7 +1135,7 @@ export class CodeCompiler {
 
                 // with count
                 if (countExpression instanceof BinaryExpression && countExpression.operator.type == TokenType.TO) {
-                    let [cVar, cVarCode] = this.compileExpression(countExpression.left);
+                    let [cVar, cVarCode] = this.compileExpression(countExpression.left, exprContext);
                     code.push(...cVarCode);
                     if (cVar instanceof VariableValue && !cVar.isTempVar) {
                         counterVar = cVar;
@@ -1149,7 +1151,7 @@ export class CodeCompiler {
                     amountExpr = countExpression;
                 }
 
-                let [amount, amountCode] = this.compileExpression(amountExpr);
+                let [amount, amountCode] = this.compileExpression(amountExpr, exprContext);
                 code.push(...amountCode);
 
                 let failed = false;
@@ -1197,7 +1199,7 @@ export class CodeCompiler {
         else if (s instanceof WhileStatement) {
             // compile condition anyway so errors are still reported
             if (!s.chunk) {
-                this.compileExpression(s.condition);
+                this.compileExpression(s.condition, exprContext);
                 return [];
             };
             
@@ -1208,7 +1210,7 @@ export class CodeCompiler {
                 new ActionBlock(DFCodeblockName.CONTROL,{
                     action: "StopRepeat"
                 })
-            ], s.inverterToken == null);
+            ], s.inverterToken == null, exprContext);
 
             return [
                 new SubActionBlock(DFCodeblockName.REPEAT, {
@@ -1234,7 +1236,7 @@ export class CodeCompiler {
                 );
             } else {
                 for (const expr of s.variableList.elements) {
-                    let [val, valCode] = this.compileExpression(expr);
+                    let [val, valCode] = this.compileExpression(expr, exprContext);
                     code.push(...valCode);
                     if (val instanceof VariableValue && !val.isTempVar) {
                         varValues.push(val);
@@ -1254,13 +1256,13 @@ export class CodeCompiler {
             // built-in actions
             if (isForLoopActionCall(iteratorExpr)) {
                 let definition = REPEAT_ACTIONS[iteratorExpr.callee.token.value].def;
-                let [_, headerCode] = this.compileCallExpression(iteratorExpr, definition);
+                let [_, headerCode] = this.compileCallExpression(iteratorExpr, definition, exprContext);
                 // TODO: error for incorrect # of vars
                 (headerCode[headerCode.length-1] as ActionBlock).args.unshift(...varValues) // add vars
                 code.push(...headerCode)
             }
             else {
-                let [iteratorValue, iteratorValueCode] = this.compileExpression(iteratorExpr);
+                let [iteratorValue, iteratorValueCode] = this.compileExpression(iteratorExpr, exprContext);
                 code.push(...iteratorValueCode);
                 
                 // iterate over lists

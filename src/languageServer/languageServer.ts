@@ -541,7 +541,7 @@ export class LanguageServer {
             let [callNode, definition] = getNearestCallNode(node, doc.workspace.typeProcessor, envFrame, index);
             if (callNode == null || definition == null) return;
 
-            let [calleeValue, calleeCode] = doc.compiler.compileExpression(callNode.callee);
+            let [calleeValue, calleeCode] = doc.compiler.compileExpression(callNode.callee, {});
 
             let args = callNode.args.elements;
             let argTypes = args.map(a => doc.workspace.typeProcessor.evaluateExpression(a, envFrame));
@@ -845,7 +845,7 @@ export class LanguageServer {
                         ));
                     }
                     else if (posIndexIsInListElement(callNode.args, index, 3)) {
-                        let [nameValue, _] = doc.compiler.compileExpression(callNode.args.elements[0]);
+                        let [nameValue, _] = doc.compiler.compileExpression(callNode.args.elements[0], {});
                         if (nameValue instanceof StringValue && nameValue.isCompileTimeConstant()) {
                             let soundName = nameValue.value;
                             let soundDef = AD.sounds[nameValue.value];
