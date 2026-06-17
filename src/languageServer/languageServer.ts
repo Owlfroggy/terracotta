@@ -1,14 +1,14 @@
 import * as rpc from "vscode-jsonrpc/node.js"
 import * as AD from "../df/actiondump.ts"
-import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp, MarkupContent, HoverParams, Hover } from "vscode-languageserver";
+import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp, MarkupContent, HoverParams, Hover, Location } from "vscode-languageserver";
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
 import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
-import { Definition, DefinitionType, FunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
-import { EnvironmentFrame, TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
+import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
+import { EnvironmentFrame, isVariableEntry, TypeProcessor, VariableEntry, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { AssignmentStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
 import { StringExtraData, Token, TokenType } from "../ast/token.ts";
@@ -425,8 +425,42 @@ export class LanguageServer {
         })
 
         conn.onRequest("textDocument/definition",(param: DefinitionParams) => {
-            if (!param.textDocument.uri.endsWith(".tc")) {return}
-            
+            if (!param.textDocument.uri.endsWith(".tc")) return
+            let doc = this.getDocFromUri(param.textDocument.uri);
+            if (doc == undefined) return;
+            let index = doc?.linePositionToIndex(param.position);
+            if (index == undefined) return;
+            let node = doc.getAstNodeAtIndex(index);
+            if (node == null) return; // todo: this is bad
+
+            let result: Location | null = null;
+
+            let resolved: Namespace | VariableEntry | Definition | null = null;
+            if (node instanceof Token && node.type == TokenType.IDENTIFIER && node.parent instanceof AtomicExpression) {
+                resolved = doc.workspace.typeProcessor.resolveIdentifier(node);
+            }
+            else if (node instanceof Token && node.parent instanceof VariableExpression && node.keyInParent == 'name') {
+                resolved = doc.workspace.typeProcessor.getNodeFrame(node).getVariableEntry(node.parent.getVarId(), node.startPos);
+            }
+            else return;
+
+            if (
+                (isFunctionDefinition(resolved) || isVariableEntry(resolved)) 
+                && resolved 
+                && resolved.astNode
+            ) {
+                let declarationDoc = this.getDocFromUri(resolved.astNode.getRoot().filePath)
+                if (!declarationDoc) return null;
+                result = {
+                    uri: declarationDoc.uri,
+                    range: {
+                        start: declarationDoc.indexToLinePosition(resolved.astNode.startPos),
+                        end: declarationDoc.indexToLinePosition(resolved.astNode.endPos),
+                    }
+                }
+            }
+
+            return result;
         })
 
         conn.onRequest("textDocument/hover", (param: HoverParams) => {

@@ -34,6 +34,7 @@ export interface VariableEntry {
     forLoopVarPos?: number, 
     assignmentVarPos?: number,
     effectiveBeyondPosition: number
+    astNode?: ASTNode,
 }
 
 // this function is bad but i dont care
@@ -69,15 +70,25 @@ export class EnvironmentFrame {
         public parent: EnvironmentFrame | null,
     ) {}
 
-    registerVariable(
-        id: VariableId, 
-        type: Type | null = null, 
-        effectiveBeyondPosition: number,
-        requirements: Requirement[] = [], 
-        valueExpression: Expression | null = null,
-        forLoopVarPos?: number,
-        assignmentVarPos?: number,
-    ) {
+    registerVariable({
+        id,
+        type = null,
+        effectiveBeyondPosition,
+        requirements = [],
+        valueExpression = null,
+        forLoopVarPos,
+        assignmentVarPos,
+        astNode,
+    }: {
+        id: VariableId;
+        type?: Type | null;
+        effectiveBeyondPosition: number;
+        requirements?: Requirement[];
+        valueExpression?: Expression | null;
+        forLoopVarPos?: number;
+        assignmentVarPos?: number;
+        astNode: ASTNode;
+    }) {
         let entry: VariableEntry = {
             id: id,
             solved: type != null,
@@ -87,6 +98,7 @@ export class EnvironmentFrame {
             forLoopVarPos: forLoopVarPos,
             assignmentVarPos: assignmentVarPos,
             effectiveBeyondPosition: effectiveBeyondPosition,
+            astNode: astNode,
         }
         // TODO: update all these to use the new util function (im too lazy rn)
         if (!this.variables.has(id.name)) this.variables.set(id.name, new Map());
@@ -361,7 +373,12 @@ export class TypeProcessor {
                         type = Type.any;
                         varType = Type.any;
                     }
-                    frame.registerVariable(VariableId.get(VariableScope.LINE,param.name.value), varType, statement.chunk.startPos);
+                    frame.registerVariable({
+                        id: VariableId.get(VariableScope.LINE,param.name.value),
+                        type: varType,
+                        effectiveBeyondPosition: statement.chunk.startPos,
+                        astNode: param
+                    })
                     signatureParams.push({
                         name: param.name.value, 
                         type: type,
@@ -392,6 +409,7 @@ export class TypeProcessor {
                     defaultReturnType: returnType,
                     getReturnType: USE_DEFAULT_RETURN_TYPE,
                     compile: isProcess ? COMPILE_START_PROCESS : COMPILE_CALL_FUNCTION,
+                    astNode: statement,
                 })
             }
         }
@@ -404,7 +422,12 @@ export class TypeProcessor {
             ) {
                 let varExpr = countExpression.left;
                 if (varExpr instanceof VariableExpression) {
-                    frame.registerVariable(varExpr.getVarId(), Type.num, statement.chunk.startPos);
+                    frame.registerVariable({
+                        id: varExpr.getVarId(), 
+                        type: Type.num, 
+                        effectiveBeyondPosition: statement.chunk.startPos,
+                        astNode: countExpression,
+                    });
                 }
             }
         }
@@ -434,14 +457,15 @@ export class TypeProcessor {
                 }
                 if (!varId) continue;
 
-                frame.registerVariable(
-                    varId, 
-                    varTypes[i] ?? null, 
-                    statement.chunk.startPos, 
+                frame.registerVariable({
+                    id: varId, 
+                    type: varTypes[i] ?? null, 
+                    effectiveBeyondPosition: statement.chunk.startPos, 
                     requirements, 
-                    statement.iteratorExpression, 
-                    i
-                );
+                    valueExpression: statement.iteratorExpression, 
+                    forLoopVarPos: i,
+                    astNode: varExpr,
+                });
             }
         }
     }
@@ -466,10 +490,24 @@ export class TypeProcessor {
 
                     let varId = VariableId.fromExpression(variableExpr);
                     if (variableExpr.assignedType) {
-                        frame.registerVariable(varId, this.evaluateExplicitType(variableExpr.assignedType.type), statement.endPos);
+                        frame.registerVariable({
+                            id: varId, 
+                            type: 
+                            this.evaluateExplicitType(variableExpr.assignedType.type), 
+                            effectiveBeyondPosition: statement.endPos,
+                            astNode: statement,
+                        });
                     } else {
                         let value = statement.rightValue;
-                        frame.registerVariable(varId, null, statement.endPos, this.getRequirements(value, frame), value, undefined, i);
+                        frame.registerVariable({
+                            id: varId, 
+                            type: null, 
+                            effectiveBeyondPosition: statement.endPos, 
+                            requirements: this.getRequirements(value, frame), 
+                            valueExpression: value, 
+                            assignmentVarPos: i,
+                            astNode: statement,
+                        });
                     }
                 }
             }
@@ -477,11 +515,17 @@ export class TypeProcessor {
                 && statement.expression instanceof VariableExpression
             ) {
                 let variableExpr = statement.expression;
-                frame.registerVariable(
-                    VariableId.fromExpression(variableExpr),
-                    variableExpr.assignedType ? this.evaluateExplicitType(variableExpr.assignedType.type) : null,
-                    statement.endPos
-                );
+                let varId = VariableId.fromExpression(variableExpr);
+                let existingDeclaration = frame.getVariableEntry(varId, variableExpr.startPos);
+
+                if (existingDeclaration && !variableExpr.assignedType) continue;
+
+                frame.registerVariable({
+                    id: varId,
+                    type: variableExpr.assignedType ? this.evaluateExplicitType(variableExpr.assignedType.type) : null,
+                    effectiveBeyondPosition: statement.endPos,
+                    astNode: variableExpr
+                });
             }
             //=- stuff below here is for entering child frames -=\\
             else {

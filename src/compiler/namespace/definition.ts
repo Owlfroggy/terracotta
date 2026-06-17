@@ -1,4 +1,6 @@
+import { ASTNode } from "../../ast/astNode.ts";
 import { AtomicExpression, CallExpression, CallOrStartExpression, Expression } from "../../ast/expression.ts";
+import { FunctionStatement } from "../../ast/statement.ts";
 import { Action, GameValue, Tag } from "../../df/actiondump.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { TypeProcessor } from "../../typeProcessor/typeProcessor.ts";
@@ -42,6 +44,7 @@ export interface FunctionDefinition {
     compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression, extraInfo?: FunctionCallExtraInfo): [CodeValue, CodeBlock[]];
 
     // language server specific stuff
+    astNode?: FunctionStatement,
     autocompleteSortPrefix?: string
 }
 
