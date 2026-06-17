@@ -696,7 +696,8 @@ export class CodeCompiler {
                 }
                 this.reportError(
                     e.propertyName,
-                    `'${propertyName}' is not a property of ${name}`
+                    `'${propertyName}' is not a property of ${name}`,
+                    accessee
                 )
                 return [new MissingValue(e), preCode];
             }
