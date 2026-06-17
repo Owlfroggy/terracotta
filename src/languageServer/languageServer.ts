@@ -34,19 +34,11 @@ type ServerTCConfiguration = {
 }
 
 enum CompletionItemType {
-    FUNCTION,
-    VALUE,
     EVENT,
     TAG_NAME,
     TAG_OPTION,
 }
 type CompletionItemData = {
-    type: CompletionItemType.FUNCTION,
-    definition: FunctionDefinition,
-} | {
-    type: CompletionItemType.VALUE,
-    definition: ValueDefinition,
-} | {
     type: CompletionItemType.EVENT,
     event: AD.Action
 } | {
@@ -98,17 +90,15 @@ function stringizeCompletionItem(item: CompletionItem, existingNode: ASTNode, do
 }
 
 function generateDefinitionCompletion(name: string, def: Definition, allowCallOrStartInersion: boolean = true): CompletionItem {
+    let item: CompletionItem;
+    let documentation: string = "";
     if (def.definitionType == DefinitionType.FUNCTION) {
         // let isUnusable = !AD.RankCheck(tcConfig.dfRank,action?.RequiresRank!)
         // if (isUnusable && tcConfig.rankBehavior == "hideInaccessible") { return }
-        let item: CompletionItem = {
+        item = {
             label: name,
             kind: (def as any).compileIf ? CompletionItemKind.Property : CompletionItemKind.Method,
             commitCharacters: ["("],
-            data: {
-                type: CompletionItemType.FUNCTION,
-                definition: def,
-            } as CompletionItemData,
         }
         if (def.autocompleteSortPrefix) {
             item.sortText = "z" + def.autocompleteSortPrefix + item.label;
@@ -116,19 +106,57 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
         if (allowCallOrStartInersion && !isIdentifier(name)) {
             item.insertText = `call ${valueToTCString(name)}`;
         }
-        return item;
+        if (def.action) {
+            documentation = getActionDocumentation(def.action);
+        } else {
+            //creating a parameter object so that it can work with the existing string gen is kinda a hack but whatever
+            let returnTypeString: string = ""
+            if (def.defaultReturnType != null) {
+                let returnP = new AD.Parameter([
+                    [new AD.ParameterGroupValue(
+                        tcTypeToDF[def.defaultReturnType.name],
+                        // TODO: description for return types
+                    )]
+                ])
+
+                returnTypeString = getDFParamString([returnP],"\n\n**Returns Value:**\n\n","")
+            }
+
+            let paramString: string;
+            let convertedParams: AD.Parameter[] = [];
+            // TODO: handle multiple signatures maybe?
+            for (const param of def.signatures[0].params) {
+                convertedParams.push(new AD.Parameter([
+                    [new AD.ParameterGroupValue(
+                        tcTypeToDF[param.type.name],
+                        param.name,
+                        param.optional,
+                        param.plural,
+                        param.description != undefined ? param.description.split("\n") : undefined
+                    )]
+                ]))
+            }
+            paramString = getDFParamString(convertedParams, "\n\n**Parameters:**\n\n", "\n\n**No Parameters**");
+            
+            
+            documentation = `${paramString}${returnTypeString}`
+        }
     }
     else {
-        return {
+        item = {
             label: name,
             kind: CompletionItemKind.Field,
             commitCharacters: [";"],
-            data: {
-                type: CompletionItemType.VALUE,
-                definition: def,
-            } as CompletionItemData
+        }
+        if (def.gameValue) {
+            documentation = getValueDocumentation(def.gameValue);
         }
     }
+    item.documentation = {
+        kind: "markdown",
+        value: documentation
+    }
+    return item;
 }
 
 function generateTypeMemberCompletions(type: Type): CompletionItem[] {    
@@ -573,50 +601,8 @@ export class LanguageServer {
             if (!data) { return item; }
 
             let documentation = "";
-            if (data.type == CompletionItemType.FUNCTION) {
-                if (data.definition.action) {
-                    documentation = getActionDocumentation(data.definition.action);
-                } else {
-                    //creating a parameter object so that it can work with the existing string gen is kinda a hack but whatever
-                    let returnTypeString: string = ""
-                    if (data.definition.defaultReturnType != null) {
-                        let returnP = new AD.Parameter([
-                            [new AD.ParameterGroupValue(
-                                tcTypeToDF[data.definition.defaultReturnType.name],
-                                // TODO: description for return types
-                            )]
-                        ])
-
-                        returnTypeString = getDFParamString([returnP],"\n\n**Returns Value:**\n\n","")
-                    }
-
-                    let paramString: string;
-                    let convertedParams: AD.Parameter[] = [];
-                    // TODO: handle multiple signatures maybe?
-                    for (const param of data.definition.signatures[0].params) {
-                        convertedParams.push(new AD.Parameter([
-                            [new AD.ParameterGroupValue(
-                                tcTypeToDF[param.type.name],
-                                param.name,
-                                param.optional,
-                                param.plural,
-                                param.description != undefined ? param.description.split("\n") : undefined
-                            )]
-                        ]))
-                    }
-                    paramString = getDFParamString(convertedParams, "\n\n**Parameters:**\n\n", "\n\n**No Parameters**");
-                    
-                    
-                    documentation = `${paramString}${returnTypeString}`
-                }
-            }
-            else if (data.type == CompletionItemType.EVENT) {
+            if (data.type == CompletionItemType.EVENT) {
                 documentation = getEventDocumentation(data.event);
-            }
-            else if (data.type == CompletionItemType.VALUE) {
-                if (data.definition.gameValue) {
-                    documentation = getValueDocumentation(data.definition.gameValue);
-                }
             }
             else if (data.type == CompletionItemType.TAG_NAME) {
                 let options = Object.entries(data.tag.options).map(([name, data]) => `\`${name}\`${data.description.length > 0 ? " - "+data.description.replaceAll("<","\\<") : ""}`).join("\n\n")
