@@ -544,12 +544,12 @@ export class CodeCompiler {
                 if (callee.namespace.nameFunction) {
                     definition = callee.namespace.nameFunction;
                 } else {
-                    this.reportError(e.callee, `'${callee.namespace.identifier}' cannot be called as a function`);
+                    this.reportError(e.callee, `'${callee.namespace.identifier}' cannot be called as a function`, callee);
                 }
             } 
             // error case; no definition could be found
             else {
-                this.reportError(e.callee, `Type '${callee.getType(this.env.types).name}' cannot be called as a function`);
+                this.reportError(e.callee, `Type '${callee.getType(this.env.types).name}' cannot be called as a function`, callee);
             }
 
             if (definition) {
