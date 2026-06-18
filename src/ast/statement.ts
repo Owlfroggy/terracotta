@@ -150,8 +150,7 @@ export class PerSelectedStatement extends Statement {
 export class SingleKeywordStatement extends Statement {
     constructor(
         public keyword: Token,
-        public args: ListExpression | null
-    ) {super(keyword.startPos, args ? args.endPos : keyword.startPos);}
+    ) {super(keyword.startPos, keyword.endPos);}
 }
 
 export class ReturnStatement extends Statement {

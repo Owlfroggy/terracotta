@@ -132,8 +132,6 @@ export class Parser {
             [TokenType.RETURN,              this.parseReturnStatement],
             [TokenType.BREAK,               this.parseSingleKeywordStatement],
             [TokenType.CONTINUE,            this.parseSingleKeywordStatement],
-            [TokenType.ENDTHREAD,           this.parseSingleKeywordStatement],
-            [TokenType.ENDALLTHREADS,       this.parseSingleKeywordStatement],
         ]);
     }
 
@@ -849,14 +847,8 @@ export class Parser {
 
     parseSingleKeywordStatement = (): SingleKeywordStatement => {
         let keyword = this.consume();
-        let args: ListExpression | null = null;
-        if (keyword.type == TokenType.ENDALLTHREADS) {
-            if (this.currentToken().type == TokenType.OPEN_PAREN) {
-                args = this.parseListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA)
-            }
-        }
         this.expect(TokenType.SEMICOLON);
-        return new SingleKeywordStatement(keyword, args);
+        return new SingleKeywordStatement(keyword);
     }
 
     parseReturnStatement = (): ReturnStatement => {
