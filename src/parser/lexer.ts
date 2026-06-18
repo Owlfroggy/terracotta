@@ -194,8 +194,10 @@ export class Lexer {
             this.makeRegexPattern(TokenType.COMMENT,            /\/\/.*?(?=\n|$)/y),
             this.multiLineCommentPattern,
             this.makeRegexPattern(TokenType.WHITESPACE,         /\s+/y),
-            this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)*)\.?(?:\d+(?:_?\d+)*)?/y),
-            this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /\.(?:\d+(?:_?\d+)*)/y),
+            this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /0[xX](?:[a-fA-F0-9]+(?:_?[a-fA-F0-9]+)*)/y), // hex number
+            this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /0[bB](?:[01]+(?:_?[01]+)*)/y), // binary number
+            this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /(?:\d+(?:_?\d+)*)\.?(?:\d+(?:_?\d+)*)?/y), // normal number
+            this.makeRegexPattern(TokenType.NUMERIC_LITERAL,    /\.(?:\d+(?:_?\d+)*)/y), // number that starts with a decimal point
 
             // keywords
             this.makeKeywordPattern(TokenType.LAGSLAYER_CANCEL, "lscancel"),

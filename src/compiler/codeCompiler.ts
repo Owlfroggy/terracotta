@@ -826,7 +826,13 @@ export class CodeCompiler {
                     return [new MissingValue(e), []];
                 }
                 case TokenType.NUMERIC_LITERAL: {
-                    return [new NumberValue(e.value,e), []];
+                    let val = e.value;
+                    if (val.startsWith("0x") || val.startsWith("0X")) {
+                        val = parseInt(val.substring(2), 16).toString();
+                    } else if (val.startsWith("0b") || val.startsWith("0B")) {
+                        val = parseInt(val.substring(2), 2).toString();
+                    }
+                    return [new NumberValue(val,e), []];
                 }
                 case TokenType.STRING_LITERAL: {
                     return [new StringValue(e.value,e), []];
