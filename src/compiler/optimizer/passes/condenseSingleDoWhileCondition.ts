@@ -1,7 +1,7 @@
 import { getDifferentiatedActionName } from "../../../df/actiondump.ts";
-import { DFCodeblockName } from "../../../df/constants.ts";
+import { DFCodeblockName, TargetType } from "../../../df/constants.ts";
 import { ActionBlock, BracketDirection, BracketType, CodeBlock, SubActionBlock } from "../../codeBlock.ts";
-import { UNTARGETED_IF_BLOCK_TYPES, ValueFilterType } from "../matcher.ts";
+import { ALL_IF_BLOCK_TYPES, UNTARGETED_IF_BLOCK_TYPES, ValueFilterType } from "../matcher.ts";
 import { CodeOptimizer } from "../optimizer.ts";
 
 export function OPT_condenseSingleDoWhileCondition(line: CodeBlock[], optimizer: CodeOptimizer): boolean {
@@ -28,8 +28,9 @@ export function OPT_condenseSingleDoWhileCondition(line: CodeBlock[], optimizer:
         
         // check for a breaker condition that's only one condition
         let [ifBlockIndex, ifBlock] = optimizer.matcher.codeblock<ActionBlock>({
-            block: UNTARGETED_IF_BLOCK_TYPES, // targeted if blocks cannot be condensed since target information would be lost
-        }); 
+                block: ALL_IF_BLOCK_TYPES,
+            }); 
+        if (ifBlock.target != TargetType.UNSET) return false // targeted if blocks cannot be condensed since target information would be lost
         optimizer.matcher.bracket(BracketType.IF, BracketDirection.OPEN);
             optimizer.matcher.codeblock({
                 block: DFCodeblockName.CONTROL,
