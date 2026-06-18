@@ -1,20 +1,6 @@
 import { ASTNode } from "./astNode.ts";
 
 export enum TokenType {
-    EOF,
-    MISSING,
-    EMPTY,
-    SEMICOLON,
-    WHITESPACE,
-
-    COMMENT,
-    MULTILINE_COMMENT,
-
-    IDENTIFIER,
-    NUMERIC_LITERAL,
-    STRING_LITERAL,
-    STYLED_LITERAL,
-
     LAGSLAYER_CANCEL,
     PLAYER_EVENT,
     GAME_EVENT,
@@ -50,6 +36,26 @@ export enum TokenType {
 
     SELECT,
     FILTER,
+
+    // everythingn above here is considered a keyword and can be cast to identifiers by parser routines that request that
+    /** this is not actually a valid token type, it is used internally to control which types are considered keywords */
+    __KEYWORD_RANGE_END__, 
+
+    EOF,
+    MISSING,
+    EMPTY,
+    SEMICOLON,
+    WHITESPACE,
+
+    COMMENT,
+    MULTILINE_COMMENT,
+
+    IDENTIFIER,
+    NUMERIC_LITERAL,
+    STRING_LITERAL,
+    STYLED_LITERAL,
+
+    // symbols below here
 
     OPEN_PAREN,
     CLOSE_PAREN,
@@ -154,7 +160,11 @@ export class Token extends ASTNode {
         readonly type: TokenType,
         readonly value: string = "",
         readonly extraData: StringExtraData | null = null,
-    ) {super(startPos, endPos);}
+    ) {
+        if (type == TokenType.__KEYWORD_RANGE_END__) 
+            throw new Error(`Cannot create token of type ${TokenType[type]}`);
+        super(startPos, endPos);
+    }
     
     toString() {
         return `{${TokenType[this.type]} '${this.value}' [${this.startPos}-${this.endPos}]}`
@@ -165,6 +175,18 @@ export class Token extends ASTNode {
             throw new Error("Attempted to get string metadata on a token that wasn't a string literal");
         }
         return this.extraData as StringExtraData;
+    }
+
+    isKeyword(): boolean {
+        return this.type < TokenType.__KEYWORD_RANGE_END__;
+    }
+
+    convertToIdentifier() {
+        if (!this.isKeyword()) {
+            throw new Error(`Cannot convert token of type '${this.type}' to an identifier, only keywords can be converted`);
+        }
+        // me when i summon ancient runes to break readonly's spell of protection
+        (this as Token & {type: TokenType}).type = TokenType.IDENTIFIER;
     }
     
     static missing(pos: number): Token {

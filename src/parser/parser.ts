@@ -157,9 +157,24 @@ export class Parser {
         this.errors.push(e);
     }
 
-    expect(type: TokenType | TokenType[], advance: boolean = true): [Token, boolean] {
+    /**
+     * @param identCastKeywords If this is true and only TokenType.IDENTIFIER is accepted,
+     * keyword tokens will be converted to identifier tokens instead of rejected
+     */
+    expect(type: TokenType | TokenType[], advance: boolean = true, identCastKeywords: boolean = false): [Token, boolean] {
         this.consumeComments();
         let currentToken = this.currentToken();
+
+        // identifier casting
+        if (
+            identCastKeywords 
+            && currentToken.isKeyword()
+            //TODO: let identifiers specified in type pass through?
+            && (type == TokenType.IDENTIFIER || (Array.isArray(type) && type.includes(TokenType.IDENTIFIER)) ) 
+        ) {
+            currentToken.convertToIdentifier()
+        }
+            
         if (
             Array.isArray(type) ? (type.includes(currentToken.type)) : (currentToken.type == type)
         ) {
@@ -182,8 +197,8 @@ export class Parser {
             return [currentToken, false];
         }
     }
-    expectOrMissing(type: TokenType | TokenType[]): [Token, boolean] {
-        let result = this.expect(type);
+    expectOrMissing(type: TokenType | TokenType[], identCastKeywords: boolean = false): [Token, boolean] {
+        let result = this.expect(type, true, identCastKeywords);
         if (!result[1]) {
             result[0] = Token.missing(result[0].startPos);
         }
@@ -259,7 +274,7 @@ export class Parser {
 
     parseVariableExpression = (): VariableExpression => {
         let scope = this.consume();
-        let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
+        let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL], true);
         let type = this.parseTypeAssignmentExpression(true);
         return new VariableExpression(scope, name, type);
     }
@@ -343,7 +358,7 @@ export class Parser {
 
     parseCallOrStartExpression = () => {
         let keyword = this.consume();
-        let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL])
+        let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL], true)
         let args: ListExpression | null = null;
         if (this.currentToken().type == TokenType.OPEN_PAREN) {
             args = this.parseListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA);
@@ -367,7 +382,7 @@ export class Parser {
     parseAccessExpression = (left: Expression, bp: number): AccessExpression => {
         let accessorToken = this.consume();
 
-        let [propertyName, propertyNameFound] = this.expectOrMissing(TokenType.IDENTIFIER);
+        let [propertyName, propertyNameFound] = this.expectOrMissing(TokenType.IDENTIFIER, true);
         
         return new AccessExpression(
             left,
@@ -497,7 +512,7 @@ export class Parser {
             let comments = this.consumeComments();
 
             let key: Token | GroupExpression; let keyFound;
-            [key, keyFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL, TokenType.OPEN_PAREN]);
+            [key, keyFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL, TokenType.OPEN_PAREN], true);
             if (key.type == TokenType.OPEN_PAREN) {
                 this.position--;
                 key = this.parseGroupExpression(BindingPower.DEFAULT);
@@ -531,7 +546,7 @@ export class Parser {
 
             // normal types
             if (this.lookAhead(1).type == TokenType.COLON) {
-                let [key, keyFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);            
+                let [key, keyFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL], true);            
                 let [colon, colonFound] = this.expectOrMissing(TokenType.COLON);
                 let type = this.parseTypeExpression();
                 if (type != null) {
@@ -570,7 +585,7 @@ export class Parser {
 
     parseSelectionExpression = (): SelectionExpression => {
         let keyword = this.consume();
-        let [name, nameFound] = this.expectOrMissing(TokenType.IDENTIFIER);
+        let [name, nameFound] = this.expectOrMissing(TokenType.IDENTIFIER, true);
 
         let inverterToken: Token | null = null;
         if (this.currentToken().type == TokenType.BANG) {
@@ -710,7 +725,7 @@ export class Parser {
         let [mainKeyword, mainKeywordFound] = this.expectOrMissing([TokenType.PLAYER_EVENT, TokenType.ENTITY_EVENT, TokenType.GAME_EVENT]);
         if (!mainKeywordFound) return null;
         
-        let [eventName, eventNameFound] = this.expectOrMissing(TokenType.IDENTIFIER)
+        let [eventName, eventNameFound] = this.expectOrMissing(TokenType.IDENTIFIER, true)
 
         let [_, openCurlyFound] = this.expect(TokenType.OPEN_CURLY, false);
         let chunk = openCurlyFound ? this.parseChunkExpression(TokenType.OPEN_CURLY, TokenType.CLOSE_CURLY)! : new MissingExpression(this.currentToken().startPos);
