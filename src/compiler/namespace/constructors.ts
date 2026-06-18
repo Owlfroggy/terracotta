@@ -200,6 +200,37 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
     },
 }
 
+export const CSND_CONSTRUCTOR: FunctionDefinition = {
+    definitionType: DefinitionType.FUNCTION,
+    name: "csnd",
+    defaultReturnType: Type.snd,
+    signatures: [
+        {
+            params: [
+                {name: "sound", type: Type.str, optional: false, plural: false, description: "Specified using Minecraft's internal IDs, e.g. \"minecraft:block.anvil.land\". Custom resource pack sounds are supported."},
+                {name: "pitch", type: Type.num, optional: true, plural: false},
+                {name: "volume", type: Type.num, optional: true, plural: false},
+            ]
+        }
+    ],
+    getReturnType: USE_DEFAULT_RETURN_TYPE,
+    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+        if (validateArguments(args, callNode, this.signatures, ctx) == null) 
+            return [new MissingValue(callNode), []];
+
+
+        return evaluateConstOrBlockTemplates(
+            ctx, args,
+            new SoundValue("Pling",1.0,2.0,true,undefined,callNode), Type.snd,
+            [
+                [StringValue, "sound", "SetCustomSound"],
+                [NumberValue, "pitch", "SetSoundPitch"],
+                [NumberValue, "volume", "SetSoundVolume"],
+            ]
+        );
+    },
+}
+
 export const POT_CONSTRUCTOR: FunctionDefinition = {
     definitionType: DefinitionType.FUNCTION,
     name: "pot",
