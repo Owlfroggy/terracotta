@@ -1,8 +1,8 @@
 import * as util from "node:util";
 import { Token, TokenType } from "../ast/token.ts";
 import { VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, SelectionStatement, SingleKeywordStatement, Statement, WhileStatement } from "../ast/statement.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, WhileStatement } from "../ast/statement.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, MultiTypeAssignmentExpression, ParameterExpression, SelectionExpression, TypeAssignmentExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { ASTNode } from "../ast/astNode.ts";
 
 //=--------------------------------------=\\
@@ -205,8 +205,8 @@ function recurse(e: ASTNode | null): string {
         return `${C.RED}${C.B}while${C.CLR} ${recurse(e.condition)} ${recurse(e.chunk)}`;
     } else if (e instanceof DoStatement) {
         return `${C.RED}${C.B}do${C.CLR} ${recurse(e.chunk)} ${e.whileKeyword ? `while ${recurse(e.whileCondition)}` : ''} `;
-    } else if (e instanceof SelectionStatement) {
-        return `${C.RED}${C.B}${e.keyword.value}${C.CLR} ${recurse(e.name)}${recurse(e.args)};`;
+    } else if (e instanceof SelectionExpression) {
+        return `${C.RED}${C.B}${e.keyword.value}${C.CLR} ${recurse(e.name)}${e.inverterToken ? "!" : ""};`;
     } else if (e instanceof SingleKeywordStatement) {
         return `${C.RED}${C.B}${e.keyword.value}${C.CLR}${e.args ? recurse(e.args) : ""};`
     } else if (e instanceof ReturnStatement) {

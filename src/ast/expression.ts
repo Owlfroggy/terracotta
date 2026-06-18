@@ -212,6 +212,14 @@ export class PerSelectedExpression extends Expression {
     ) {super(keyword.startPos, expression.endPos);}
 }
 
+export class SelectionExpression extends Expression {
+    constructor (
+        public keyword: Token,
+        public name: Token,
+        public inverterToken: Token | null,
+    ) {super(keyword.startPos, inverterToken?.endPos ?? name.endPos);}
+}
+
 export class ChunkExpression extends Expression {
     constructor(
         public opener: Token,

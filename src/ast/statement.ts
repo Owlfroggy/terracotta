@@ -147,14 +147,6 @@ export class PerSelectedStatement extends Statement {
     ) {super(keyword.startPos, chunk.endPos);}
 }
 
-export class SelectionStatement extends Statement {
-    constructor (
-        public keyword: Token,
-        public name: Token,
-        public args: ListExpression | null,
-    ) {super(keyword.startPos, args != null ? args.endPos : name.endPos);}
-}
-
 export class SingleKeywordStatement extends Statement {
     constructor(
         public keyword: Token,

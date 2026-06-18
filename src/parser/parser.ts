@@ -1,9 +1,8 @@
 import { ASTNode, RootNode } from "../ast/astNode.ts";
-import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression, DictionaryTypeExpression, DictionaryTypeEntryExpression, PerSelectedExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, SelectionStatement, DoStatement, AssignmentStatement, PerSelectedStatement } from "../ast/statement.ts";
+import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression, DictionaryTypeExpression, DictionaryTypeEntryExpression, PerSelectedExpression, SelectionExpression } from "../ast/expression.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, DoStatement, AssignmentStatement, PerSelectedStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorPositionMode, ErrorType, TCError, TCNodeError } from "../error/error.ts";
-import { slog } from "../languageServer/logging.ts";
 import { dirWithoutRelations } from "../util/debug.ts";
 
 export const VARIABLE_SCOPE_KEYWORDS = [TokenType.GLOBAL,TokenType.SAVED,TokenType.LOCAL,TokenType.LOCAL];
@@ -47,6 +46,8 @@ export class Parser {
             [TokenType.LINE,            {bp: BindingPower.ATOM,     processor: this.parseVariableExpression}],
 
             [TokenType.PERSELECTED,     {bp: BindingPower.ATOM,     processor: this.parsePerSelectedExpression}],
+            [TokenType.SELECT,          {bp: BindingPower.ATOM,     processor: this.parseSelectionExpression}],
+            [TokenType.FILTER,          {bp: BindingPower.ATOM,     processor: this.parseSelectionExpression}],
             
             [TokenType.CALL,            {bp: BindingPower.ATOM,     processor: this.parseCallOrStartExpression}],
             [TokenType.START,           {bp: BindingPower.ATOM,     processor: this.parseCallOrStartExpression}],
@@ -127,9 +128,6 @@ export class Parser {
             [TokenType.DO,                  this.parseDoWhileStatement],
 
             [TokenType.PERSELECTED,         this.parsePerSelectedStatement],
-            
-            [TokenType.SELECT,              this.parseSelectionStatement],
-            [TokenType.FILTER,              this.parseSelectionStatement],
             
             [TokenType.RETURN,              this.parseReturnStatement],
             [TokenType.BREAK,               this.parseSingleKeywordStatement],
@@ -572,6 +570,18 @@ export class Parser {
         return new PerSelectedExpression(keyword, groupExpression);
     }
 
+    parseSelectionExpression = (): SelectionExpression => {
+        let keyword = this.consume();
+        let [name, nameFound] = this.expectOrMissing(TokenType.IDENTIFIER);
+
+        let inverterToken: Token | null = null;
+        if (this.currentToken().type == TokenType.BANG) {
+            inverterToken = this.consume();
+        }
+
+        return new SelectionExpression(keyword, name, inverterToken);
+    }
+
     parseChunkExpression = (openerType: TokenType, closerType: TokenType): ChunkExpression | null => {
         let opener: Token;
         let openerFound = false;
@@ -835,17 +845,6 @@ export class Parser {
         if (!chunk) return null;
 
         return new PerSelectedStatement(keyword, chunk);
-    }
-
-    parseSelectionStatement = (): SelectionStatement => {
-        let keyword = this.consume();
-        let [name, nameFound] = this.expectOrMissing(TokenType.IDENTIFIER);
-        let args: ListExpression | null = null;
-        if (this.currentToken().type == TokenType.OPEN_PAREN) {
-            args = this.parseListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA);
-        }
-        this.expect(TokenType.SEMICOLON);
-        return new SelectionStatement(keyword, name, args);
     }
 
     parseSingleKeywordStatement = (): SingleKeywordStatement => {
