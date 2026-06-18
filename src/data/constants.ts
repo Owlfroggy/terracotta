@@ -118,3 +118,16 @@ export const PAR_MATERIAL_FIELD_TYPES = {
     "Block": VALID_BLOCK_IDS,
     "Block Crumble": VALID_BLOCK_IDS,
 }
+
+export const TYPE_DESCRIPTIONS = {
+    "str": "A series of characters which is highly manipulatable. Recommended for variable operations.",
+    "txt": "Text with extra formatting via MiniMessage tags such as <color>. Recommended for text displayed through chat, item names, and others.",
+    "num": "Represents a number of an integer or decimal. It can have up to 3 decimal places.",
+    "loc": "Represents a location in the plot. [0,0,0] points to the north-west bottom corner of the plot.",
+    "vec": "A vector consists of X, Y, and Z values. Used for multiple purposes such as representing a direction, motion, or an offset.\n\nVectors use floating point values, meaning they have higher precision than standard numbers.",
+    "snd": "Represents a Minecraft sound.",
+    "par": "Represents a particle effect with customizable parameters.",
+    "pot": "Represents a potion effect with custom amplifier and duration.",
+    "list": "Contain a list of values. **List indicies start at 1, not 0.**",
+    "dict": "Consist of key/value pairs. All keys are stored as strings. The order of keys is preserved.",
+}

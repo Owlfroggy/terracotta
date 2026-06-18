@@ -5,7 +5,7 @@ import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, SelectionExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
-import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
+import { FuncTypeData, NamespaceTypeData, Type, TYPE_NAMESPACES } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
 import { EnvironmentFrame, isVariableEntry, TypeProcessor, VariableEntry, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
@@ -22,7 +22,7 @@ import { brotliDecompress } from "node:zlib";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
 import { ITEM_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
 import { FunctionValue, StringValue } from "../compiler/codeValue.ts";
-import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, VALID_ITEM_IDS } from "../data/constants.ts";
+import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, TYPE_DESCRIPTIONS, VALID_ITEM_IDS } from "../data/constants.ts";
 import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
 import { matchArgsToParams } from "../util/argValidation.ts";
 import { COMPILE_START_PROCESS } from "../compiler/namespace/compileCallFunction.ts";
@@ -967,11 +967,16 @@ export class LanguageServer {
             //=-----------------=\\
             if (includeGenerics) {
                 // namespaces
-                for (const id of Object.keys(Namespace.registry)) {
+                for (const [id, namespace] of Object.entries(Namespace.registry)) {
+                    let isTypeNamespace = (id in TYPE_NAMESPACES && id != "var");
                     items.push({
                         label: id,
-                        kind: CompletionItemKind.Module,
+                        kind: isTypeNamespace ? CompletionItemKind.Class : CompletionItemKind.Module,
                         commitCharacters: ["."],
+                        documentation: isTypeNamespace ? {
+                            kind: "markdown",
+                            value: (TYPE_DESCRIPTIONS[id] ?? "") + `\n\nAccess this as a namespace (e.g. \`${id}.${Object.keys(namespace.members)[0]}\`) for related functions.`
+                        } : undefined
                     });
                 }
                 // keywords
