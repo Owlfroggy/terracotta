@@ -399,5 +399,7 @@ Operations.registerBinary(Type.loc, TokenType.MINUS, Type.vec, Type.loc, false, 
     ]]
 });
 
+//=- txt -=\\
 
-// Operations.registerBinary(Type.txt, TokenType.PLUS, Type.any, Type.txt, true);
+Operations.registerBinary(Type.txt, TokenType.PLUS, Type.any, Type.txt, true,
+    singleActionHandler(Type.txt, "StyledText"));
