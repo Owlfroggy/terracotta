@@ -4,6 +4,14 @@ import { ListTypeData, Type } from "../typeProcessor/type.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { getTagsAndArgTypes } from "../util/utils.ts";
 
+const firstListGenericType = (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+    let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
+    if (argTypes.length > 0 && argTypes[0].matches(Type.list)) {
+        return (argTypes[0].data as ListTypeData).genericType;
+    }
+    return Type.unknown;
+};
+
 export const OVERRIDES: {
     actionNames: {[codeblock: string]: {[dfName: string]: string}},
     tagNames: {[dfName: string]: string},
@@ -598,6 +606,9 @@ export const OVERRIDES: {
                 let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
                 return argTypes[0] ?? Type.dict(Type.any);
             },
+            "PopListValue": firstListGenericType,
+            "GetListValue": firstListGenericType,
+
 
             "String": Type.str,
             "TranslateColors": Type.str,
