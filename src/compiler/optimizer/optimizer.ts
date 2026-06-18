@@ -12,6 +12,8 @@ import { profile, profileEnd } from "node:console";
 import { Type } from "../../typeProcessor/type.ts";
 import { OPT_condenseSingleWhileCondition } from "./passes/condenseSingleWhileCondition.ts";
 import { OPT_condenseSingleDoWhileCondition } from "./passes/condenseSingleDoWhileCondition.ts";
+import { OPT_condenseSingleSelectFilter } from "./passes/condenseSingleSelectFilter.ts";
+import { OPT_condenseSelectCreation } from "./passes/condenseSelectCreation.ts";
 
 /**
  * @returns true if the line was changed
@@ -30,6 +32,8 @@ const OPTIMIZATION_PASSES = [
     OPT_condenseSingleCondition,
     OPT_condenseSingleWhileCondition,
     OPT_condenseSingleDoWhileCondition,
+    OPT_condenseSingleSelectFilter,
+    OPT_condenseSelectCreation,
 ]
 
 export class CodeOptimizer {

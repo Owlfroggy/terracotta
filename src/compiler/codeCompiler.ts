@@ -1,4 +1,4 @@
-import { ASTNode } from "../ast/astNode.ts";
+import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, PerSelectedStatement, SingleKeywordStatement, Statement, WhileStatement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
@@ -7,7 +7,7 @@ import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, El
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, PerSelectedExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, PerSelectedExpression, SelectionExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
@@ -17,7 +17,7 @@ import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName, dfTypeToTC, DFValueType, tcTypeToDFParamType } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
 import { count } from "node:console";
-import { REPEAT_ACTIONS } from "./namespace/builtins.ts";
+import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "./namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
 import { PCodeParser } from "../pcode/pcodeParser.ts";
 import { SegmentPCode } from "../pcode/pcode.ts";
@@ -851,6 +851,15 @@ export class CodeCompiler {
         else if (e instanceof PerSelectedExpression) {
             return this.compileExpression(e.expression, {...context, perSelectedMode: true});
         }
+        // compileStatement() handles the actual compilation of selection statements
+        else if (e instanceof SelectionExpression) {
+            if (!(e.parent instanceof CallExpression)) {
+                this.reportError(e, `Expected argument list following action name`);
+                return [new MissingValue(), []];
+            }
+            this.reportError(e.parent, `'${e.keyword.value}' must be a standalone statement`);
+            return [new MissingValue(), []];
+        }
         else if (e instanceof MissingExpression) {
             return [new MissingValue(e), []];
         }
@@ -918,6 +927,124 @@ export class CodeCompiler {
                 return [new ActionBlock(DFCodeblockName.CONTROL,{
                     action: "Wait"
                 })];
+            // selection statements
+            } else if (e instanceof CallExpression && e.callee instanceof SelectionExpression) {
+                let selExpr = e.callee;
+                let definitionBank = selExpr.keyword.type == TokenType.SELECT ? SELECT_ACTIONS : FILTER_ACTIONS
+                if (!(selExpr.name.value in definitionBank)) {
+                    this.reportError(selExpr.name, `Invalid ${selExpr.keyword.value} action '${selExpr.name.value}'`);
+                    return [];
+                }
+                let definition = definitionBank[selExpr.name.value];
+
+                // condition actions
+                if (definition.action?.hasSubActions) {
+                    let selAction = definition.action!;
+                    if (e.args.elements.length > 1 || e.args.hasTrailingDelimiter) {
+                        this.reportError(e.args, `Select action condition cannot have multiple arguments`);
+                        return [];
+                    } else if (e.args.elements.length == 0) {
+                        this.reportError(e.args, `Expected condition inside parentheses`);
+                        return [];
+                    }
+                    let conditionExpr = e.args.elements[0];
+                    let oprTree = BooleanOperation.generateIfPossible(conditionExpr);
+                    if (e.callee.inverterToken) oprTree = new BooleanOperation(TokenType.BANG, oprTree);
+                    if (oprTree instanceof BooleanOperation) oprTree = BooleanOperation.simplify(oprTree);
+                    
+                    let code: CodeBlock[] = [];
+
+                    // create new selection if the action says to do that
+                    // if this select action ends up being one where you can use a direct
+                    // PlayersCond/EntitiesCond block, the optimizer will handle actually doing that
+                    if (selAction.name == "PlayersCond" || selAction.name == "EntitiesCond") {
+                        code.push(new SubActionBlock(DFCodeblockName.SELECT_OBJECT, {
+                            action: selAction.name == "PlayersCond" ? "AllPlayers" : "AllEntities",
+                        }))
+                    }
+
+                    const recurse = (opr: BooleanOperation | Expression, invertAtomic?: boolean) => {
+                        if (opr instanceof BooleanOperation && opr.operation != TokenType.BOOL_OR) {
+                            if (opr.operation == TokenType.BOOL_AND) {
+                                recurse(opr.a);
+                                recurse(opr.b!);
+                            }
+                            else if (opr.operation == TokenType.BANG) {
+                                recurse(opr.a, true);
+                            }
+                        } else {
+                            let value: CodeValue;
+                            let valueCode: CodeBlock[];
+                            let errorNode: ASTNode;
+
+                            if (opr instanceof Expression) {
+                                // if the condition could be inlined in the filter block, the optimizer will handle that
+                                [value, valueCode] = this.compileExpression(opr, {...exprContext, perSelectedMode: true});
+                                errorNode = opr;
+                                if (!(value instanceof TangibleValue)) {
+                                    this.reportError(opr, `Cannot check truthiness of '${value.constructor.name}'`, value);
+                                    return;
+                                }
+                            } else {
+                                value = this.perSelectedTempVarProvider.newTempVar(Type.num);
+                                valueCode = [
+                                    new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+                                        action: "=",
+                                        args: [value as VariableValue, new NumberValue("0")]
+                                    }),
+                                    ...this.compileBooleanOperation(opr, [
+                                        new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                                            action: "=",
+                                            args: [value as VariableValue, new NumberValue("1")]
+                                        })
+                                    ], {...exprContext, perSelectedMode: true})
+                                ]
+                            }
+
+                            code.push(
+                                ...valueCode,
+                                new SubActionBlock(DFCodeblockName.SELECT_OBJECT, {
+                                    action: "FilterCondition",
+                                    subAction: "!=",
+                                    args: [value as TangibleValue, new NumberValue("0")],
+                                    not: invertAtomic,
+                                })
+                            );
+                        }
+                    }
+                    recurse(oprTree);
+                    return code;
+                } 
+                // normal actions
+                else {
+                    let [_, code] = this.compileCallExpression(e, definition, exprContext);
+                    return code;
+                }
+            // syntactic sugar for argless selection expresions
+            } else if (e instanceof SelectionExpression) {
+                let selExpr = e;
+                let definitionBank = selExpr.keyword.type == TokenType.SELECT ? SELECT_ACTIONS : FILTER_ACTIONS
+                if (!(selExpr.name.value in definitionBank)) {
+                    this.reportError(selExpr.name, `Invalid ${selExpr.keyword.value} action '${selExpr.name.value}'`);
+                    return [];
+                }
+                let definition = definitionBank[selExpr.name.value];
+
+                if (
+                    definition.signatures[0]?.params.length > 0 
+                    || Object.keys(definition.action!.tags).length > 0
+                    || definition.action?.hasSubActions
+                ) {
+                    let reqStr = definition.action?.hasSubActions ? "a condition wrapped in parentheses" : "arguments";
+                    this.reportError(selExpr.name, `${upperFirst(selExpr.keyword.value)} action '${selExpr.name.value}' requires ${reqStr}`);
+                    return [];
+                }
+
+                return [
+                    new ActionBlock(DFCodeblockName.SELECT_OBJECT,{
+                        action: definition.action?.name!,
+                    })
+                ]
             } else {
                 // all other expressions
                 let [_, code] = this.compileExpression(e, exprContext);

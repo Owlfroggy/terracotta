@@ -106,6 +106,7 @@ export class Action {
     
         public parameters: Parameter[],
         public returnTypes: Parameter[],
+        public hasSubActions: boolean = false,
     
         /** will be true or false for events, undefined for non-events */
         public cancellable: boolean | undefined,
@@ -325,6 +326,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
         actionJson.icon.worksWith,
         parameters,
         returnTypes,
+        actionJson.subActionBlocks != undefined,
         actionJson.icon.cancellable,
         actionJson.icon.cancelledAutomatically,
         actionJson.icon.name === "" && actionJson.icon.material === "STONE",

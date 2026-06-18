@@ -4,7 +4,7 @@ import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocu
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, SelectionExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
 import { FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
@@ -16,7 +16,7 @@ import { getActionDocumentation, getDFParamString, getEventDocumentation, getVal
 import { getAllowedParticleFields, isIdentifier, valueToTCString } from "../util/utils.ts";
 import { DFCodeblockName, DFRank, tcTypeToDF } from "../df/constants.ts";
 import { OVERRIDES } from "../data/overrides.ts";
-import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
+import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { posIndexIsInListElement, isForLoopActionCall, binaryIsNamedArgument, getExistingNamedArgs } from "../util/astUtils.ts";
 import { brotliDecompress } from "node:zlib";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
@@ -300,6 +300,13 @@ const particleFieldCompletions: {[field: string]: CompletionItem} = Object.fromE
 );
 
 const globalScopeInjectionCompletions: CompletionItem[] = Object.entries(GLOBAL_SCOPE_INJECTIONS).map(
+    ([name, def]) => generateDefinitionCompletion(name, def)
+);
+
+const createSelectionCompletions: CompletionItem[] = Object.entries(SELECT_ACTIONS).map(
+    ([name, def]) => generateDefinitionCompletion(name, def)
+);
+const filterSelectionCompletions: CompletionItem[] = Object.entries(FILTER_ACTIONS).map(
     ([name, def]) => generateDefinitionCompletion(name, def)
 );
 
@@ -765,6 +772,17 @@ export class LanguageServer {
                         return item;
                     }
                 ))
+            }
+
+            // action names in a select/filter statement
+            else if (
+                (node instanceof SelectionExpression && node.keyword.endPos < index && index <= node.endPos) || 
+                (node instanceof Token && node.parent instanceof SelectionExpression && node.keyInParent == "name")
+            ) {
+                includeGenerics = false;
+                let callExpression = (node instanceof SelectionExpression ? node : node.parent) as SelectionExpression;
+                let isFilter = callExpression.keyword.type == TokenType.FILTER;
+                items = isFilter ? filterSelectionCompletions : createSelectionCompletions;
             }
             // hide generics when typing parameters in a function definition
             // or when typing a function's name

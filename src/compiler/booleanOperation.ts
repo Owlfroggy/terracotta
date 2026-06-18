@@ -103,6 +103,12 @@ export class BooleanOperation {
     static generateFromExpression(booleanExpression: BinaryExpression | UnaryPrefixExpression): BooleanOperation {
         return this.generateRecurse(booleanExpression) as BooleanOperation;
     }
+    static generateIfPossible(expression: Expression): BooleanOperation | Expression {
+        if (this.exprIsBooleanExpression(expression)) {
+            return this.generateFromExpression(expression);
+        }
+        return expression;
+    }
 
 
     static exprIsBooleanExpression(expression: Expression): expression is BinaryExpression | UnaryPrefixExpression {

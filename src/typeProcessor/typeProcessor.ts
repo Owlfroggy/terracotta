@@ -1,5 +1,5 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, DictionaryTypeExpression, Expression, ListExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, DictionaryTypeExpression, Expression, ListExpression, SelectionExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { AssignmentStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, PerSelectedStatement, Statement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
@@ -7,7 +7,7 @@ import { Operations } from "../compiler/operations.ts";
 import { DictTypeData, FuncTypeData, ListTypeData, MultiValueTypeData, NamespaceTypeData, Type, TypeConstructor } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { ps } from "../util/utils.ts";
-import { REPEAT_ACTIONS } from "../compiler/namespace/builtins.ts";
+import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
 import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, ParameterSignature, ParameterSignatureEntry, USE_DEFAULT_RETURN_TYPE } from "../compiler/namespace/definition.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
@@ -724,6 +724,14 @@ export class TypeProcessor {
                 expression.operator.type,
                 this.evaluateExpression(expression.right, frame),
             )
+        } 
+        else if (expression instanceof SelectionExpression) {
+            let definitionBank = expression.keyword.type == TokenType.SELECT ? SELECT_ACTIONS : FILTER_ACTIONS
+            if (expression.name.value in definitionBank) {
+                return Type.func(definitionBank[expression.name.value])
+            } else {
+                return Type.unknown;
+            }
         } else {
             return Type.unknown;
         }

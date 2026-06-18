@@ -64,6 +64,13 @@ export const TYPE_DOMAIN_CONDITIONS = {
     snd: [],
 }
 
+//controls which select actions go with the select/filter keywords
+//! IF A SELECTION ACTION ISN'T PRESENT IN THESE TABLES IT WON'T BE ACCESSIBLE AT ALL !
+//df name
+export const CREATE_SELECTION_ACTION_LIST = ["RandomPlayer","LastEntity","EntityName","PlayerName","AllEntities","Reset","EventTarget","EntitiesCond","AllPlayers","Invert","PlayersCond","EntityUUID"]
+export const FILTER_SELECTION_ACTION_LIST = ["FilterRandom","FilterDistance","FilterRay","FilterCondition","FilterSort"]
+
+
 /** 
  * also serves as a registry of valid particle field names.
  * for that reason, all particle fields must be present here

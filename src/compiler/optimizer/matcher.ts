@@ -1,7 +1,7 @@
 import { DFCodeblockName } from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { VariableScope } from "../../typeProcessor/typeProcessor.ts";
-import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../codeBlock.ts";
+import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, SubActionBlock } from "../codeBlock.ts";
 import { CodeValue, NumberValue, VariableValue } from "../codeValue.ts";
 
 export const MATCH_FAILED = Symbol("Codeblock match failed");
@@ -39,6 +39,7 @@ export type CodeValueFilter = TempVarValueFilter | VarValueFilter | NumValueFilt
 export interface CodeBlockFilter {
     block?: DFCodeblockName | DFCodeblockName[],
     action?: string,
+    subAction?: string,
     /** 
      * If a CodeValue is passed in, it will only match an arg 
      * value if the two values are represented by the same object.
@@ -48,6 +49,7 @@ export interface CodeBlockFilter {
      * This is fine when using temp vars but should generally be avoided for anything else.
      */
     args?: (CodeValueFilter | CodeValue)[]
+    not?: boolean,
 }
 
 export class CodeBlockMatcher {
@@ -65,6 +67,7 @@ export class CodeBlockMatcher {
         }
 
         let block = this.line[index] as T;
+        if (!block) throw MATCH_FAILED;
         if (filter.block != undefined) {
             if (Array.isArray(filter.block)) {
                 if (!(filter.block.includes(block.block))) throw MATCH_FAILED;
@@ -78,6 +81,10 @@ export class CodeBlockMatcher {
             if (block.action != filter.action) throw MATCH_FAILED;
         }
 
+        if (filter.subAction != undefined) {
+            if (!(block instanceof SubActionBlock)) throw MATCH_FAILED;
+            if (block.subAction != filter.subAction) throw MATCH_FAILED;
+        }
         
         if (filter.args != undefined) {
             if (!(block instanceof ActionBlock)) throw MATCH_FAILED;
@@ -102,6 +109,11 @@ export class CodeBlockMatcher {
                     if (argFilter.value != undefined && blockArg.value != argFilter.value) throw MATCH_FAILED;
                 }
             }
+        }
+
+        if (filter.not != undefined) {
+            if (!(block instanceof ActionBlock)) throw MATCH_FAILED;
+            if (block.not != filter.not) throw MATCH_FAILED;
         }
 
         let blockIndex = index;
