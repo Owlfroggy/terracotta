@@ -19,7 +19,6 @@ export function OPT_condenseSetChain(line: CodeBlock[], optimizer: CodeOptimizer
         ]
     });
 
-
     let actionDef = AD.actions.get(actualSetBlock.block)![actualSetBlock.action];
     if (!optimizer.actionIsSetter(actionDef)) return false;
 
@@ -28,7 +27,15 @@ export function OPT_condenseSetChain(line: CodeBlock[], optimizer: CodeOptimizer
     let usages = optimizer.findVariableUsages(line, tempVar.getVarId(), actualSetBlockIndex);
 
     let unneededSetBlockIndex: number | undefined, unneededSetBlock: ActionBlock | undefined;
+    let lastChainIndex: number | undefined;
     for (const u of usages) {
+        // only condense set chains that are consecutive
+        // if this isn't done, statements like `dingus = !dingus` break
+        if (lastChainIndex != undefined) {
+            if (u.blockIndex != lastChainIndex + 1) return false;
+        }
+        lastChainIndex = u.blockIndex;
+
         // im not sure how this could happen but its probably best to be safe and just not touch it
         if (u.pcodePath) return false;
         
