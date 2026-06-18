@@ -5,7 +5,7 @@ import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } f
 import { Type, TYPE_NAMESPACES } from "../../typeProcessor/type.ts";
 import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
-import { TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
+import { CREATE_SELECTION_ACTION_LIST, FILTER_SELECTION_ACTION_LIST, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
 import { expressionizeIfBlock } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
@@ -300,6 +300,7 @@ function gameValueEntries(target: TargetType, filter: (v: AD.GameValue) => boole
 export function registerBuiltinNamespaces() {
     // player action namespaces
     for (const [identifier, target] of [
+        ["player",     TargetType.UNSET],
         ["selected",   TargetType.SELECTION],
         ["default",    TargetType.DEFAULT],
         ["killer",     TargetType.KILLER],
@@ -317,6 +318,7 @@ export function registerBuiltinNamespaces() {
 
     // entity action namespaces
     for (const [identifier, target] of [
+        ["entity",           TargetType.UNSET],
         ["selectedEntity",   TargetType.SELECTION],
         ["defaultEntity",    TargetType.DEFAULT],
         ["killerEntity",     TargetType.KILLER],
@@ -489,3 +491,17 @@ export const REPEAT_ACTIONS: {[tcName: string]: {def: FunctionDefinition, return
     path:       {def: generateActionHook('path', DFCodeblockName.REPEAT, "Path"),       returnType: Type.loc},
     sphere:     {def: generateActionHook('sphere', DFCodeblockName.REPEAT, "Sphere"),   returnType: Type.loc},
 }
+
+export const SELECT_ACTIONS: {[tcName: string]: FunctionDefinition} = Object.fromEntries(
+    CREATE_SELECTION_ACTION_LIST.map(dfName => {
+        let tcName = AD.getTCActionName(DFCodeblockName.SELECT_OBJECT, dfName);
+        return [tcName, generateActionHook(tcName, DFCodeblockName.SELECT_OBJECT, dfName)]
+    })
+)
+
+export const FILTER_ACTIONS: {[tcName: string]: FunctionDefinition} = Object.fromEntries(
+    FILTER_SELECTION_ACTION_LIST.map(dfName => {
+        let tcName = AD.getTCActionName(DFCodeblockName.SELECT_OBJECT, dfName);
+        return [tcName, generateActionHook(tcName, DFCodeblockName.SELECT_OBJECT, dfName)]
+    })
+)
