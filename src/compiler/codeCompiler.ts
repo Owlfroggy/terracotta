@@ -22,6 +22,7 @@ import { isForLoopActionCall } from "../util/astUtils.ts";
 import { PCodeParser } from "../pcode/pcodeParser.ts";
 import { SegmentPCode } from "../pcode/pcode.ts";
 import { BooleanOperation } from "./booleanOperation.ts";
+import { GLOBAL_SCOPE_INJECTIONS } from "./namespace/globalScopeInjections.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -922,13 +923,28 @@ export class CodeCompiler {
         let exprContext: ExpressionContext = {perSelectedMode: context.perSelectedMode};
         if (s instanceof ExpressionStatement) {
             let e = s.expression;
-            // wait 1 tick syntactic sugar
-            if (e instanceof AtomicExpression && e.token.type == TokenType.IDENTIFIER && e.token.value == "wait") {
-                return [new ActionBlock(DFCodeblockName.CONTROL,{
-                    action: "Wait"
-                })];
+
+            // syntactic sugar for argless control functions
+            if (e instanceof AtomicExpression && e.token.type == TokenType.IDENTIFIER) {
+                let resolved = this.env.types.resolveIdentifier(e.token);
+                let blockName: string | undefined;
+                if (resolved == GLOBAL_SCOPE_INJECTIONS.wait) {
+                    blockName = "Wait";
+                } else if (resolved == GLOBAL_SCOPE_INJECTIONS.endthread) {
+                    blockName = "End";
+                } else if (resolved == GLOBAL_SCOPE_INJECTIONS.endallthreads) {
+                    blockName = "EndAllThreads";
+                }
+                if (blockName) {
+                    return [new ActionBlock(DFCodeblockName.CONTROL,{
+                        action: blockName
+                    })];
+                }
+            }
+            
+            // other argless control blocks
             // selection statements
-            } else if (e instanceof CallExpression && e.callee instanceof SelectionExpression) {
+            if (e instanceof CallExpression && e.callee instanceof SelectionExpression) {
                 let selExpr = e.callee;
                 let definitionBank = selExpr.keyword.type == TokenType.SELECT ? SELECT_ACTIONS : FILTER_ACTIONS
                 if (!(selExpr.name.value in definitionBank)) {

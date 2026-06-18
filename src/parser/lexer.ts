@@ -211,8 +211,6 @@ export class Lexer {
             this.makeKeywordPattern(TokenType.RETURN,           "return"),
             this.makeKeywordPattern(TokenType.BREAK,            "break"),
             this.makeKeywordPattern(TokenType.CONTINUE,         "continue"),
-            this.makeKeywordPattern(TokenType.ENDTHREAD,        "endthread"),
-            this.makeKeywordPattern(TokenType.ENDALLTHREADS,    "endallthreads"),
             
             this.makeKeywordPattern(TokenType.GLOBAL,           "global"),
             this.makeKeywordPattern(TokenType.SAVED,            "saved"),

@@ -28,8 +28,6 @@ export enum TokenType {
     RETURN,
     BREAK,
     CONTINUE,
-    ENDTHREAD,
-    ENDALLTHREADS,
 
     GLOBAL,
     SAVED,

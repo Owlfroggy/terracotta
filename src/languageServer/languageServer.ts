@@ -278,7 +278,7 @@ const typeNameCompletions: CompletionItem[] = Object.entries(Type).map(([k, v]) 
 const keywordCompletions: CompletionItem[] = [
     "lscancel", "playerevent", "entityevent", "gameevent", "function", "process",
     "call", "start",
-    "return", "break", "continue", "endthread", "endallthreads",
+    "return", "break", "continue",
     "global", "saved", "local", "line",
     "for", "repeat", "if", "else", "while", "do",
     "perselected",
