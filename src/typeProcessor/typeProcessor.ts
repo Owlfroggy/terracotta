@@ -634,8 +634,11 @@ export class TypeProcessor {
                             subFrame = frame.addChild(c);
                             this.framesByASTNode.set(c, subFrame);
                         }
-                        this.collectionStage(c.statements, subFrame);
+                        // these functions need to be called in this order since
+                        // `c.statements`'s variables could be influenced by the result of
+                        // applyStatementVariables (e.g. when `statement` is a function with params)
                         this.applyStatementVariables(statement, subFrame);
+                        this.collectionStage(c.statements, subFrame);
                     }
                 }
             }
