@@ -136,8 +136,8 @@ export class Type {
                 return false;
             }
             let assignabilityCallback = (to: Type) => {
-                if (to.matches(Type.any)) return true;
                 if (to.matches(Type.var)) to = (to.data as VarTypeData).varType;
+                if (to.matches(Type.any)) return true;
                 if (!to.matches(Type.list)) return false;
                 let toData = to.data as ListTypeData;
 
@@ -203,8 +203,8 @@ export class Type {
                 return false;
             }
             let assignabilityCallback = (to: Type) => {
-                if (to.matches(Type.any)) return true;
                 if (to.matches(Type.var)) to = (to.data as VarTypeData).varType;
+                if (to.matches(Type.any)) return true;
                 if (!to.matches(Type.dict)) return false;
 
                 let toData = to.data as DictTypeData;
@@ -340,8 +340,8 @@ export class Type {
 
     // this method is overridden by types that have special assignability behavior
     isAssignableTo = (to: Type) => {
-        if (to.matches(Type.any)) return true;
         if (to.matches(Type.var)) to = (to.data as VarTypeData).varType;
+        if (to.matches(Type.any)) return true;
         return this.strictlyMatches(to);
     }
 }
