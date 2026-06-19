@@ -444,7 +444,7 @@ export class TypeProcessor {
                     let type: Type;
                     let varType: Type;
                     if (param.assignedType) {
-                        type = this.evaluateExplicitType(param.assignedType.type);
+                        type = this.evaluateExplicitType(param.assignedType.type, {reportErrors: true});
                         if (param.ellipses) {
                             varType = Type.list(type);
                         } else if (type.matches(Type.var)) {
@@ -475,9 +475,9 @@ export class TypeProcessor {
             let returnType: Type = Type.void;
             if (statement.returnType != null) {
                 if (statement.returnType.types.length == 1) {
-                    returnType = this.evaluateExplicitType(statement.returnType.types[0]);
+                    returnType = this.evaluateExplicitType(statement.returnType.types[0], {reportErrors: true});
                 } else {
-                    returnType = Type.multivalue(statement.returnType.types.map(t => this.evaluateExplicitType(t)));
+                    returnType = Type.multivalue(statement.returnType.types.map(t => this.evaluateExplicitType(t, {reportErrors: true})));
                 }
             }
 
@@ -582,7 +582,7 @@ export class TypeProcessor {
                         frame.registerVariable({
                             id: varId, 
                             type: 
-                            this.evaluateExplicitType(variableExpr.assignedType.type), 
+                            this.evaluateExplicitType(variableExpr.assignedType.type, {reportErrors: true}), 
                             effectiveBeyondPosition: statement.endPos,
                             astNode: statement,
                         });
@@ -611,7 +611,7 @@ export class TypeProcessor {
 
                 frame.registerVariable({
                     id: varId,
-                    type: variableExpr.assignedType ? this.evaluateExplicitType(variableExpr.assignedType.type) : null,
+                    type: variableExpr.assignedType ? this.evaluateExplicitType(variableExpr.assignedType.type, {reportErrors: true}) : null,
                     effectiveBeyondPosition: statement.endPos,
                     astNode: variableExpr
                 });
@@ -832,9 +832,9 @@ export class TypeProcessor {
         }
     }
 
-    evaluateExplicitType(expression: TypeExpression, allowEllipses: boolean = false): Type {
+    evaluateExplicitType(expression: TypeExpression, {allowEllipses, reportErrors}: {allowEllipses?: boolean, reportErrors?: boolean} = {}): Type {
         if (!allowEllipses && expression.ellipses){ 
-            this.reportError(expression.ellipses, `Ellipses are not allowed here`);
+            if (reportErrors) this.reportError(expression.ellipses, `Ellipses are not allowed here`);
         }
 
         // special syntax handling
@@ -848,21 +848,21 @@ export class TypeProcessor {
                 let element = expression.type.elements[i];
                 if (element.ellipses) {
                     if (nonEllipsesTypeFound) {
-                        this.reportError(
+                        if (reportErrors) this.reportError(
                             element,
                             `Overflow type must come at the end of the list, after all positional types`
                         );
                     }
                     if (genericType == undefined) {
-                        genericType = this.evaluateExplicitType(element, true);
+                        genericType = this.evaluateExplicitType(element, {allowEllipses: true, reportErrors});
                     } else {
-                        this.reportError(
+                        if (reportErrors) this.reportError(
                             element,
                             `Lists may only specify one overflow type`
                         );
                     }
                 } else {
-                    elementTypes.unshift(this.evaluateExplicitType(element))
+                    elementTypes.unshift(this.evaluateExplicitType(element, {reportErrors}))
                     nonEllipsesTypeFound = true;
                 }
             }
@@ -877,20 +877,20 @@ export class TypeProcessor {
             for (let i = expression.type.overflowTypes.length-1; i >= 0; i--) {
                 let type = expression.type.overflowTypes[i];
                 if (!type.ellipses) {
-                    this.reportError(type, "Expected key name before this type or ellipses after this type");
+                    if (reportErrors) this.reportError(type, "Expected key name before this type or ellipses after this type");
                     continue;
                 }
 
                 if (genericType == undefined) {
-                    genericType = this.evaluateExplicitType(type, true);
+                    genericType = this.evaluateExplicitType(type, {allowEllipses: true, reportErrors});
                 } else {
-                    this.reportError(type, "Dictionaries may only specify one overflow type");
+                    if (reportErrors) this.reportError(type, "Dictionaries may only specify one overflow type");
                 }
             }
 
             // key types
             for (let entry of expression.type.entries) {
-               elementTypes[entry.key.value] = this.evaluateExplicitType(entry.value);
+               elementTypes[entry.key.value] = this.evaluateExplicitType(entry.value, {reportErrors});
             }
 
 
@@ -900,7 +900,7 @@ export class TypeProcessor {
         let name = expression.type.value;
         if (Type[name] && Type[name] instanceof Type) {
             if (expression.subType) {
-                this.reportError(
+                if (reportErrors) this.reportError(
                     expression.subType,
                     `Type '${name}' is not generic and does not support subtypes`
                 );
@@ -909,7 +909,7 @@ export class TypeProcessor {
         } else if (Type[name] && Type[name].constructsType) {
             let constructor = Type[name] as TypeConstructor<(...args: any[]) => Type>;
             if (constructor.subTypeCount == 0) {
-                this.reportError(
+                if (reportErrors) this.reportError(
                     expression,
                     `Type '${name}' cannot be directly assigned`
                 )
@@ -918,10 +918,10 @@ export class TypeProcessor {
             let argTypes: Type[] = [];
             if (expression.subType != undefined) {
                 argTypes = expression.subType.elements.map(elm => {
-                    return this.evaluateExplicitType(elm);
+                    return this.evaluateExplicitType(elm, {reportErrors});
                 })
                 if (argTypes.length > constructor.subTypeCount) {
-                    this.reportError(
+                    if (reportErrors) this.reportError(
                         expression.subType,
                         `Type '${name}' expects ${constructor.subTypeCount} argument${ps(constructor.subTypeCount)}, ${argTypes.length} were provided.`
                     );
@@ -935,7 +935,7 @@ export class TypeProcessor {
             }
             return constructor(...argTypes);
         } else {
-            this.reportError(
+            if (reportErrors) this.reportError(
                 expression,
                 `Invalid type '${name}'`
             );

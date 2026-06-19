@@ -847,7 +847,7 @@ export class CodeCompiler {
         }
         else if (e instanceof TypecastExpression) {
             let [value, valueCode] = this.compileExpression(e.left, context);
-            let type = this.env.types.evaluateExplicitType(e.type);
+            let type = this.env.types.evaluateExplicitType(e.type, {reportErrors: true});
             // this is definitely in the runnings for "most sinful code i've ever written"
             value.getType = () => type;
             return [value, valueCode];
