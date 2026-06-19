@@ -444,13 +444,19 @@ export class LanguageServer {
             let result: Location | null = null;
 
             let resolved: Namespace | VariableEntry | Definition | null = null;
+            let getVarEntryOf: VariableId | undefined;
             if (node instanceof Token && node.type == TokenType.IDENTIFIER && node.parent instanceof AtomicExpression) {
                 resolved = doc.workspace.typeProcessor.resolveIdentifier(node);
+                // if this declaration doesn't have an ast node, find one that does
+                if (isVariableEntry(resolved) && !resolved.astNode) getVarEntryOf = resolved.id;
             }
             else if (node instanceof Token && node.parent instanceof VariableExpression && node.keyInParent == 'name') {
-                resolved = doc.workspace.typeProcessor.getNodeFrame(node).getVariableEntry(node.parent.getVarId(), node.startPos);
+                getVarEntryOf = node.parent.getVarId();
             }
-            else return;
+            if (getVarEntryOf) {
+                resolved = doc.workspace.typeProcessor.getNodeFrame(node).getVariableEntry(getVarEntryOf, node.startPos, true);
+            }
+            if (!resolved) return;
 
             if (
                 (isFunctionDefinition(resolved) || isVariableEntry(resolved)) 

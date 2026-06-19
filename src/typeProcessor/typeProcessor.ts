@@ -1,18 +1,20 @@
 import { ASTNode } from "../ast/astNode.ts";
-import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, DictionaryTypeExpression, Expression, ListExpression, SelectionExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { AssignmentStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, PerSelectedStatement, Statement } from "../ast/statement.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, DictionaryTypeExpression, Expression, GroupExpression, ListExpression, SelectionExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
+import { AssignmentStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, PerSelectedStatement, Statement, IfStatement, WhileStatement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
 import { DictTypeData, FuncTypeData, ListTypeData, MultiValueTypeData, NamespaceTypeData, Type, TypeConstructor } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
-import { ps } from "../util/utils.ts";
+import { getTagsAndArgTypes, ps } from "../util/utils.ts";
 import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
 import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, ParameterSignature, ParameterSignatureEntry, USE_DEFAULT_RETURN_TYPE } from "../compiler/namespace/definition.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
 import { COMPILE_START_PROCESS, COMPILE_CALL_FUNCTION } from "../compiler/namespace/compileCallFunction.ts";
 import { DFCodeblockName } from "../df/constants.ts";
+import { BooleanOperation } from "../compiler/booleanOperation.ts";
+import { actions } from "../df/actiondump.ts";
 
 export enum VariableScope {
     SAVED,
@@ -87,7 +89,7 @@ export class EnvironmentFrame {
         valueExpression?: Expression | null;
         forLoopVarPos?: number;
         assignmentVarPos?: number;
-        astNode: ASTNode;
+        astNode?: ASTNode;
     }) {
         let entry: VariableEntry = {
             id: id,
@@ -113,7 +115,7 @@ export class EnvironmentFrame {
      * If a string is passed in, all variables with that name and any scope will be considered
      * @returns VariableEntry if this variable is present and unconflicted on any scope at or above this frame
      */
-    getVariableEntry(variable: VariableId | string, atPos: number): VariableEntry | null {
+    getVariableEntry(variable: VariableId | string, atPos: number, requireASTNode: boolean = false): VariableEntry | null {
         let frame = this;
         let name: string;
         let scope: VariableScope | null;
@@ -144,7 +146,7 @@ export class EnvironmentFrame {
                         if (entries[i].effectiveBeyondPosition < atPos) break;
                     }
 
-                    if (i != -1) {
+                    if (i != -1 && !(requireASTNode && entries[i].astNode == undefined)) {
                         return entries[i];
                     } else {
                         return null;
@@ -348,6 +350,85 @@ export class TypeProcessor {
             return requirements;
         }
     }
+    
+    // TODO: get inferences from ORs, find overlap, and apply the overlap
+    // TODO: apply inferences after the if block if it always returns
+    // TODO: apply inverse of inferences in else blocks
+    // TODO: apply inference within the condition itself
+    applyConditionInferenceVariables(opr: BooleanOperation | Expression, frame: EnvironmentFrame) {
+        const getVarIdOfExpr = (expr?: Expression): VariableId | null => {
+            if (!expr) return null;
+            if (expr instanceof AtomicExpression && expr.token.type == TokenType.IDENTIFIER) {
+                let resolved = this.resolveIdentifier(expr.token);
+                if (isVariableEntry(resolved)) return resolved.id;
+            } else if (expr instanceof VariableExpression) {
+                return expr.getVarId();
+            }
+            return null;
+        }
+
+        // console.log(opr.constructor.name);
+        if (opr instanceof BooleanOperation && opr.operation == TokenType.BOOL_AND) {
+            this.applyConditionInferenceVariables(opr.a, frame);
+            this.applyConditionInferenceVariables(opr.b!, frame);
+        }
+        // == comparison
+        else if (
+            (opr instanceof BinaryExpression && opr.operator.type == TokenType.DOUBLE_EQUALS)
+            || (opr instanceof BooleanOperation && opr.operation == TokenType.BANG && opr.a instanceof BinaryExpression && opr.a.operator.type == TokenType.BANG_EQUALS)
+        ) {
+            let binary = opr instanceof BinaryExpression ? opr : opr.a as BinaryExpression;
+
+            let varId = getVarIdOfExpr(binary.left);
+            if (!varId) return;
+
+            frame.registerVariable({
+                id: varId,
+                effectiveBeyondPosition: binary.endPos,
+                requirements: this.getRequirements(binary.right, frame),
+                valueExpression: binary.right
+            });
+        }
+        else if (opr instanceof CallExpression) {
+            // it's okay that expressions are being evaluated before types have been analyzed since var
+            // namespace methods have no requirements to call so it will always return the right definition
+            let calleeType = this.evaluateExpression(opr.callee);
+            if (!calleeType.matches(Type.func)) return;
+            let def = (calleeType.data as FuncTypeData).definition;
+
+            // var.isType();
+            if (def.action == actions.get(DFCodeblockName.IF_VARIABLE)!["VarIsType"]) {
+                let [_, tags] = getTagsAndArgTypes(opr.args.elements, this);
+                if (!tags.type) return;
+                
+                let varId = getVarIdOfExpr(opr.args.elements[0]);
+                if (!varId) return;
+
+                let type = (
+                    tags.type == "Number" ? Type.num :
+                    tags.type == "String" ? Type.str :
+                    tags.type == "Styled Text" ? Type.txt :
+                    tags.type == "Location" ? Type.loc :
+                    tags.type == "Item" ? Type.item :
+                    tags.type == "List" ? Type.list(Type.any) :
+                    tags.type == "Potion effect" ? Type.pot :
+                    tags.type == "Particle" ? Type.par : 
+                    tags.type == "Vector" ? Type.vec :
+                    tags.type == "Dictionary" ? Type.dict(Type.any)
+                    : null
+                )
+                if (type == null) return;
+
+                frame.registerVariable({
+                    id: varId,
+                    effectiveBeyondPosition: opr.endPos,
+                    requirements: [],
+                    type
+                });
+            }
+        }
+        // TODO: handle var.equals() block
+    }
 
     applyStatementVariables(statement: Statement, frame: EnvironmentFrame) { 
         // function/process parameters
@@ -468,6 +549,12 @@ export class TypeProcessor {
                 });
             }
         }
+        // if statement type inference
+        else if (statement instanceof IfStatement || statement instanceof WhileStatement) {
+            let booleanOpr = BooleanOperation.generateIfPossible(statement.condition.getRealExpression());
+            if (booleanOpr instanceof BooleanOperation) booleanOpr = BooleanOperation.simplify(booleanOpr);
+            this.applyConditionInferenceVariables(booleanOpr, frame)
+        }
     }
 
     collectionStage(statements: Statement[], frame: EnvironmentFrame = this.globalFrame) {
@@ -529,8 +616,14 @@ export class TypeProcessor {
             }
             //=- stuff below here is for entering child frames -=\\
             else {
-                for (const c of statement.children){ 
+                for (let c of statement.children) { 
+                    // fix else ifs not getting their own frames
+                    if (c instanceof IfStatement && c.chunk) {
+                        this.collectionStage([c], frame)
+                    }
+
                     if (c instanceof ChunkExpression) {
+                        // console.log(c.parent.constructor.name)
                         let subFrame: EnvironmentFrame;
                         // consider contents of perselected statements to be on the same level as the statement's parent
                         if (statement instanceof PerSelectedStatement) { 
