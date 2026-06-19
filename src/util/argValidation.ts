@@ -2,7 +2,7 @@ import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, BinaryExpression, CallExpression, CallOrStartExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
 import { EvaluationContext } from "../compiler/codeCompiler.ts";
-import { CodeValue, MissingValue, TangibleValue } from "../compiler/codeValue.ts";
+import { CodeValue, MissingValue, TangibleValue, VariableValue } from "../compiler/codeValue.ts";
 import { ParameterSignature, ParameterSignatureEntry } from "../compiler/namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { binaryIsNamedArgument } from "./astUtils.ts";
@@ -117,16 +117,20 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
         let argIndex;
         let argValueIndex = 0;
         for (argIndex = 0; argIndex < argExpressions.length; argIndex++) {
+            let argValue = args[argValueIndex];
             let param = sig.params[argsToParams[argIndex]];
             if (!param) {
                 tooManyArguments = true;
                 break;
             };
-            if (args[argValueIndex] instanceof MissingValue) {
+            if (argValue instanceof MissingValue) {
                 // dont error for missing values
             }
-            else if (!(args[argValueIndex] instanceof TangibleValue)) {
-                errors.push([argExpressions[argIndex],`${args[argValueIndex].constructor.name} cannot be passed to functions`]);
+            else if (!(argValue instanceof TangibleValue)) {
+                errors.push([argExpressions[argIndex],`${argValue.constructor.name} cannot be passed to functions`]);
+            }
+            else if (param.type.matches(Type.var) && !(argValue instanceof VariableValue && !argValue.isTempVar)) {
+                errors.push([argExpressions[argIndex],`Expected a standalone variable for parameter '${param.name}'`]);
             }
             else if (
                 // never throw invalid type error if the param accepts everything
@@ -138,7 +142,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
                     || param.plural && argTypes[argIndex].isAssignableTo(Type.list(param.type))
                 )
                 // dont throw another error if this value has itself already thrown an error
-                && !(args[argValueIndex] instanceof MissingValue)) 
+                && !(argValue instanceof MissingValue)) 
             {
                 errors.push([argExpressions[argIndex], `Expected ${param.type} for parameter '${param.name}', got ${argTypes[argIndex]}`]);
             }
