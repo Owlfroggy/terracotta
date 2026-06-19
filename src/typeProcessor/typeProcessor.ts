@@ -444,7 +444,7 @@ export class TypeProcessor {
                     let type: Type;
                     let varType: Type;
                     if (param.assignedType) {
-                        type = this.evaluateExplicitType(param.assignedType.type, {reportErrors: true});
+                        type = this.evaluateExplicitType(param.assignedType.type, {reportErrors: true, allowVarType: true});
                         if (param.ellipses) {
                             varType = Type.list(type);
                         } else if (type.matches(Type.var)) {
@@ -832,7 +832,7 @@ export class TypeProcessor {
         }
     }
 
-    evaluateExplicitType(expression: TypeExpression, {allowEllipses, reportErrors}: {allowEllipses?: boolean, reportErrors?: boolean} = {}): Type {
+    evaluateExplicitType(expression: TypeExpression, {allowEllipses, allowVarType, reportErrors}: {allowEllipses?: boolean, allowVarType?: boolean, reportErrors?: boolean} = {}): Type {
         if (!allowEllipses && expression.ellipses){ 
             if (reportErrors) this.reportError(expression.ellipses, `Ellipses are not allowed here`);
         }
@@ -898,6 +898,12 @@ export class TypeProcessor {
         }
 
         let name = expression.type.value;
+        if (name == "var" && !allowVarType) {
+            if (reportErrors) this.reportError(
+                expression.type,
+                `Variable type is not allowed here`
+            );
+        }
         if (Type[name] && Type[name] instanceof Type) {
             if (expression.subType) {
                 if (reportErrors) this.reportError(
