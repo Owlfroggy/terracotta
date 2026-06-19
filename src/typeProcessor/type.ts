@@ -1,8 +1,6 @@
 import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition } from "../compiler/namespace/definition.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { canFuncBeMethod, getNamespaceMemberType } from "../compiler/namespace/utils.ts";
-import { dfTypeToString } from "../df/constants.ts";
-import { slog } from "../languageServer/logging.ts";
 
 // NOTE: this gets populated after this file is done running,
 // when creating types in this file you cannot rely on this being filled out.
@@ -14,6 +12,10 @@ export type FuncTypeData = {
 
 export type NamespaceTypeData = {
     namespace: Namespace;
+}
+
+export type VarTypeData = {
+    varType: Type,
 }
 
 export type ListTypeData = {
@@ -34,7 +36,7 @@ export type MultiValueTypeData = {
     types: Type[],
 }
 
-type ExtraData = FuncTypeData | NamespaceTypeData | ListTypeData | DictTypeData | MultiValueTypeData | null;
+type ExtraData = FuncTypeData | NamespaceTypeData | ListTypeData | DictTypeData | MultiValueTypeData | VarTypeData | null;
 
 export type TypeConstructor<F extends ((...args: any[]) => Type)> = F & {
     constructsType: string
@@ -68,13 +70,29 @@ export class Type {
     public static pot = new Type('pot');
     public static par = new Type('par');
     public static snd = new Type('snd');
-    public static var = new Type('var');
     public static unknown = this.any; // just in case unknown type ever needs to be separated
 
     // type is created in this way (as opposed to using makeTypeConstructor) so 
     // that only one object representing the void type ever has to be created
     public static void = new Type('void');
     
+    public static var = this.makeTypeConstructor(
+        'var', 1,
+        (varType: Type) => {
+            let stringify = () => {
+                return `var[${varType}]`;
+            }
+            let strictMatchCallback = (other: Type) => {
+                if (other.matches(Type.list)) {
+                    let otherData = other.data as VarTypeData;
+                    return varType.strictlyMatches(otherData.varType);
+                }
+                return false;
+            }
+            return new Type('var', {strictMatchCallback, stringify, data: {varType}});
+        }
+    );
+
     public static list = this.makeTypeConstructor(
         'list', 1,
         (genericType: Type, indexTypes: Type[] = []) => {
@@ -119,6 +137,7 @@ export class Type {
             }
             let assignabilityCallback = (to: Type) => {
                 if (to.matches(Type.any)) return true;
+                if (to.matches(Type.var)) to = (to.data as VarTypeData).varType;
                 if (!to.matches(Type.list)) return false;
                 let toData = to.data as ListTypeData;
 
@@ -185,7 +204,9 @@ export class Type {
             }
             let assignabilityCallback = (to: Type) => {
                 if (to.matches(Type.any)) return true;
+                if (to.matches(Type.var)) to = (to.data as VarTypeData).varType;
                 if (!to.matches(Type.dict)) return false;
+
                 let toData = to.data as DictTypeData;
 
                 //=- compare key types -=\\
@@ -320,6 +341,7 @@ export class Type {
     // this method is overridden by types that have special assignability behavior
     isAssignableTo = (to: Type) => {
         if (to.matches(Type.any)) return true;
+        if (to.matches(Type.var)) to = (to.data as VarTypeData).varType;
         return this.strictlyMatches(to);
     }
 }

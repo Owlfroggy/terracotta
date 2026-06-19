@@ -4,7 +4,7 @@ import { AssignmentStatement, ExpressionStatement, ForStatement, FunctionStateme
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
-import { DictTypeData, FuncTypeData, ListTypeData, MultiValueTypeData, NamespaceTypeData, Type, TypeConstructor } from "./type.ts";
+import { DictTypeData, FuncTypeData, ListTypeData, MultiValueTypeData, NamespaceTypeData, Type, TypeConstructor, VarTypeData } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { getTagsAndArgTypes, ps } from "../util/utils.ts";
 import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
@@ -447,6 +447,8 @@ export class TypeProcessor {
                         type = this.evaluateExplicitType(param.assignedType.type);
                         if (param.ellipses) {
                             varType = Type.list(type);
+                        } else if (type.matches(Type.var)) {
+                            varType = (type.data as VarTypeData).varType;
                         } else {
                             varType = type;
                         }
