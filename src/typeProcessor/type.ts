@@ -80,10 +80,14 @@ export class Type {
         'var', 1,
         (varType: Type) => {
             let stringify = () => {
-                return `var[${varType}]`;
+                if (varType.matches(Type.any)) {
+                    return `var`;
+                } else {
+                    return `var[${varType}]`;
+                }
             }
             let strictMatchCallback = (other: Type) => {
-                if (other.matches(Type.list)) {
+                if (other.matches(Type.var)) {
                     let otherData = other.data as VarTypeData;
                     return varType.strictlyMatches(otherData.varType);
                 }

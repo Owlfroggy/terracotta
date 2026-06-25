@@ -127,7 +127,7 @@ export const dfTypeToTC: Map<DFValueType, Type> = new Map([
     [DFValueType.COMPONENT,     Type.txt],
     [DFValueType.TEXT,          Type.str],
     [DFValueType.DICT,          Type.dict(Type.any)],
-    [DFValueType.VARIABLE,      Type.var],
+    [DFValueType.VARIABLE,      Type.var(Type.any)],
     [DFValueType.ANY_TYPE,      Type.any],
     [DFValueType.BLOCK_TAG,     Type.str],
     [DFValueType.BLOCK,         Type.item],
