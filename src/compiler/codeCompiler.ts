@@ -23,6 +23,7 @@ import { PCodeParser } from "../pcode/pcodeParser.ts";
 import { SegmentPCode } from "../pcode/pcode.ts";
 import { BooleanOperation } from "./booleanOperation.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "./namespace/globalScopeInjections.ts";
+import { SliceCodeLine } from "./lineSplitter.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -1471,7 +1472,7 @@ export class CodeCompiler {
         return [];
     }
 
-    compile({outputFormat}: {outputFormat: "GZIP" | "DFONLINE"}) {
+    compile({outputFormat, splitToLength = -1}: {outputFormat: "GZIP" | "DFONLINE", splitToLength?: number}) {
         this.errors.length = 0;
         
         let declarationsToCompile = this.processLineDeclarations(this.ast);
@@ -1507,14 +1508,26 @@ export class CodeCompiler {
                     optimizer.optimize(joinedCode);
                 }
 
-                let serialized: string = "error :(";
-                if (outputFormat == "DFONLINE") {
-                    serialized = `https://dfonline.dev/edit/?template=${gzipize(jsonize(joinedCode))}`;
+                let outputLines: CodeBlock[][];
+
+                if (splitToLength != -1) {
+                    outputLines = SliceCodeLine(joinedCode, splitToLength);
                 } else {
-                    serialized = gzipize(jsonize(joinedCode));
+                    outputLines = [joinedCode];
                 }
 
-                output.get(headerType)![name] = serialized;
+                for (let outLine of outputLines) {
+                    let firstBlock = outLine[0] as ActionBlock;
+
+                    let serialized: string = "error :(";
+                    if (outputFormat == "DFONLINE") {
+                        serialized = `https://dfonline.dev/edit/?template=${gzipize(jsonize(outLine))}`;
+                    } else {
+                        serialized = gzipize(jsonize(outLine));
+                    }
+    
+                    output.get(firstBlock.block as HeaderType)![firstBlock.action] = serialized;
+                }
             }
         }
 

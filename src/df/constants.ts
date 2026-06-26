@@ -1,5 +1,7 @@
 import { Type } from "../typeProcessor/type.ts";
 
+export const TC_HEADER = "@__TC_"
+
 export enum DFRank {
     OVERLORD = "Overlord",
     MYTHIC = "Mythic",

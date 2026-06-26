@@ -25,7 +25,7 @@ export interface CompiledProjectTemplates {
     processes: {[key: string]: CompiledTemplate}
 }
 
-export async function compileProject(projectPath: string): Promise<CompiledProjectTemplates> {
+export async function compileProject(projectPath: string, plotSize: number): Promise<CompiledProjectTemplates> {
     let statements: Statement[] = [];
 
     let errors: TCError[] = [];
@@ -58,7 +58,7 @@ export async function compileProject(projectPath: string): Promise<CompiledProje
     errors.push(...typeProcessor.errors);
 
     let codeCompiler = new CodeCompiler(statements, {types: typeProcessor, optimizationsEnabled: true});
-    let templates = codeCompiler.compile({outputFormat: "GZIP"});
+    let templates = codeCompiler.compile({outputFormat: "GZIP", splitToLength: plotSize});
     errors.push(...codeCompiler.errors);
 
     return {

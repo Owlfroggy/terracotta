@@ -116,7 +116,7 @@ async function Main() {
             }
 
             const compiler = new CodeCompiler(root.statements, {types: typeChecker, optimizationsEnabled: true});
-            let results = compiler.compile({outputFormat: values.outmode?.toUpperCase() as any ?? "GZIP"});
+            let results = compiler.compile({outputFormat: values.outmode?.toUpperCase() as any ?? "GZIP", splitToLength: parseInt(values.plotsize ?? "-1") ?? -1});
 
             let errors = [...lexer.errors, ...parser.errors, ...typeChecker.errors, ...compiler.errors];
 
@@ -124,7 +124,7 @@ async function Main() {
                 if (values.includemeta) {
                     output = JSON.stringify(Object.fromEntries(results.entries()));
                 } else {
-                    output = [...results.values().map(v => Object.values(v))].join("\n");
+                    output = [...results.values().map(v => Object.values(v).join('\n'))].join("\n");
                 }
             } else {
                 process.stderr.write("\n\n")
@@ -135,7 +135,7 @@ async function Main() {
             }
         }
         else if (values.project) {
-            let results = await compileProject(values.project);
+            let results = await compileProject(values.project, parseInt(values.plotsize ?? "-1") ?? -1);
 
             if (results.errors.length == 0) {
                 if (values.includemeta) {
