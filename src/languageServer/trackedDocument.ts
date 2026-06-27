@@ -59,9 +59,14 @@ export class TrackedDocument {
         }
     }
 
+    /**
+     * @param version pass -1 to update regardless of version
+     */
     update(changes: (TextDocumentContentChangeEvent | {text: string})[], version: number) {
-        if (this.version > version) return;
-        this.version = version;
+        if (version != -1) {
+            if (this.version > version) return;
+            this.version = version;
+        }
 
         for (const change of changes) {
             change.text = change.text.replaceAll(/\r\n/g, "\n")

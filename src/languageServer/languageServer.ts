@@ -1,6 +1,7 @@
 import * as rpc from "vscode-jsonrpc/node.js"
 import * as AD from "../df/actiondump.ts"
-import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp, MarkupContent, HoverParams, Hover, Location } from "vscode-languageserver";
+import * as fs from "node:fs/promises"
+import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp, MarkupContent, HoverParams, Hover, Location, FileChangeType } from "vscode-languageserver";
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
@@ -1066,7 +1067,14 @@ export class LanguageServer {
         })
 
         conn.onNotification("workspace/didChangeWatchedFiles", async (param: DidChangeWatchedFilesParams) => {
-            
+            param.changes.forEach(async change => {
+                if (change.type == FileChangeType.Changed) {
+                    let doc = this.getDocFromUri(change.uri);
+                    if (!doc) return;
+                    let contents = await fs.readFile(new URL(doc.uri))
+                    doc.update([{text: contents.toString()}], -1)
+                }
+            })
         })
 
         //==========[ notification handling ]=========\\
@@ -1106,6 +1114,27 @@ export class LanguageServer {
             }
         }
         return null;
+    }
+
+    /** 
+     * if the uri to a workspace is passed in, it will return that workspace
+     * if the uri to a file inside a workspace is passed in, it will return the farthest down workspace that contains that file
+     */
+    getWorkspaceFromUri(uri: URI): WorkspaceManager | null {
+        let closestWorkspace: WorkspaceManager | null = null;
+        let closestLength: number = 0;
+        for (const workspace of this.workspaces.values()) {
+            if (uri == workspace.uri) return workspace;
+            if (
+                uri.startsWith(workspace.uri) 
+                && uri.charAt(workspace.uri.length) == "/"
+                && workspace.uri.length > closestLength
+            ) {
+                closestWorkspace = workspace;
+                closestLength = workspace.uri.length;
+            }
+        }
+        return closestWorkspace
     }
 
     getScriptFromUri(uri: URI): TrackedScript | null {
