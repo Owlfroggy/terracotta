@@ -9,6 +9,7 @@ import { CodeCompiler } from "../compiler/codeCompiler.ts";
 import { Statement } from "../ast/statement.ts";
 import { inspect } from "node:util";
 import { slog, snotif } from "./logging.ts";
+import { TrackedScript } from "./trackedScript.ts";
 
 export class WorkspaceManager {
     documents: Map<URI, TrackedDocument> = new Map();
@@ -21,6 +22,14 @@ export class WorkspaceManager {
         public server: LanguageServer,
     ) {
         this.initialize();
+    }
+
+    forEachScript(callback: (script: TrackedScript) => void) {
+        for (const script of this.documents.values()) {
+            if (script instanceof TrackedScript) {
+                callback(script);
+            }
+        }
     }
 
     reanalyzeTypes() {
@@ -83,7 +92,7 @@ export class WorkspaceManager {
             let uri = pathToUri(path.join(f.parentPath, f.name));
 
             this.combinedAST[uri] = [];
-            this.documents.set(uri, new TrackedDocument(uri, this))
+            this.documents.set(uri, new TrackedScript(uri, this))
         }
         this.reanalyzeTypes();
     }

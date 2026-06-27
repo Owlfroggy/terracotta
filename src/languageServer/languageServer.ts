@@ -27,6 +27,7 @@ import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
 import { matchArgsToParams } from "../util/argValidation.ts";
 import { COMPILE_START_PROCESS } from "../compiler/namespace/compileCallFunction.ts";
 import { methodizeParameterSignatures } from "../compiler/namespace/utils.ts";
+import { TrackedScript } from "./trackedScript.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -434,7 +435,7 @@ export class LanguageServer {
 
         conn.onRequest("textDocument/definition",(param: DefinitionParams) => {
             if (!param.textDocument.uri.endsWith(".tc")) return
-            let doc = this.getDocFromUri(param.textDocument.uri);
+            let doc = this.getScriptFromUri(param.textDocument.uri);
             if (doc == undefined) return;
             let index = doc?.linePositionToIndex(param.position);
             if (index == undefined) return;
@@ -463,7 +464,7 @@ export class LanguageServer {
                 && resolved 
                 && resolved.astNode
             ) {
-                let declarationDoc = this.getDocFromUri(resolved.astNode.getRoot().filePath)
+                let declarationDoc = this.getScriptFromUri(resolved.astNode.getRoot().filePath)
                 if (!declarationDoc) return null;
                 result = {
                     uri: declarationDoc.uri,
@@ -479,7 +480,7 @@ export class LanguageServer {
 
         conn.onRequest("textDocument/hover", (param: HoverParams) => {
             if (!param.textDocument.uri.endsWith(".tc")) return
-            let doc = this.getDocFromUri(param.textDocument.uri);
+            let doc = this.getScriptFromUri(param.textDocument.uri);
             if (doc == undefined) return;
             let index = doc?.linePositionToIndex(param.position);
             if (index == undefined) return;
@@ -543,7 +544,7 @@ export class LanguageServer {
         // TODO: handle empties
         conn.onRequest("textDocument/signatureHelp",(param: SignatureHelpParams) => {
             if (!param.textDocument.uri.endsWith(".tc")) return
-            let doc = this.getDocFromUri(param.textDocument.uri);
+            let doc = this.getScriptFromUri(param.textDocument.uri);
             if (doc == undefined) return;
             let index = doc?.linePositionToIndex(param.position);
             if (index == undefined) return
@@ -668,7 +669,7 @@ export class LanguageServer {
 
         conn.onRequest("textDocument/completion", async (param: CompletionParams) => {
             if (!param.textDocument.uri.endsWith(".tc")) return
-            let doc = this.getDocFromUri(param.textDocument.uri);
+            let doc = this.getScriptFromUri(param.textDocument.uri);
             if (doc == undefined) return;
             let index = doc?.linePositionToIndex(param.position);
             if (index == undefined) return
@@ -1093,6 +1094,12 @@ export class LanguageServer {
                 }
             }
         }
+        return null;
+    }
+
+    getScriptFromUri(uri: URI): TrackedScript | null {
+        let doc = this.getDocFromUri(uri);
+        if (doc instanceof TrackedScript) return doc;
         return null;
     }
 }
