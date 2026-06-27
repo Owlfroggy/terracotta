@@ -7,6 +7,7 @@ import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { TCError } from "../error/error.ts";
 import { CodeCompiler } from "./codeCompiler.ts";
 import { DFCodeblockName } from "../df/constants.ts";
+import { ItemLibrary } from "./itemLibrary.ts";
 
 export type CompiledTemplate = string
 
@@ -27,6 +28,7 @@ export interface CompiledProjectTemplates {
 
 export async function compileProject(projectPath: string, plotSize: number): Promise<CompiledProjectTemplates> {
     let statements: Statement[] = [];
+    let itemLibraries: ItemLibrary[] = [];
 
     let errors: TCError[] = [];
 
@@ -36,20 +38,29 @@ export async function compileProject(projectPath: string, plotSize: number): Pro
         
     for (const file of files) {
         if (!file.isFile()) continue;
-        if (!file.name.endsWith(".tc")) continue;
+        if (!(file.name.endsWith(".tc") || file.name.endsWith(".tcil"))) continue;
         let fullPath = path.join(file.parentPath, file.name);
+        let fileContents = (await fs.readFile(fullPath)).toString();
 
-        let fileContents = (await fs.readFile(path.join(file.parentPath,file.name))).toString();
-        lexer.tokenize(fileContents, fullPath);
-        errors.push(...lexer.errors);
-
-        
-        parser.tokens = lexer.tokens;
-        let root = parser.parse();
-        root.scriptContents = fileContents;
-        root.filePath = fullPath;
-        errors.push(...parser.errors);
-        statements.push(...root.statements);
+        if (file.name.endsWith(".tc")) {
+            lexer.tokenize(fileContents, fullPath);
+            errors.push(...lexer.errors);
+    
+            
+            parser.tokens = lexer.tokens;
+            let root = parser.parse();
+            root.scriptContents = fileContents;
+            root.filePath = fullPath;
+            errors.push(...parser.errors);
+            statements.push(...root.statements);
+        }
+        else if (file.name.endsWith(".tcil")) {
+            try {
+                // TODO: find an nbt library that works and do validation here
+                // TODO: also validate the json
+                itemLibraries.push(JSON.parse(fileContents))
+            } catch (ignored) {}
+        }
     }
 
     let typeProcessor = new TypeProcessor();
@@ -58,6 +69,7 @@ export async function compileProject(projectPath: string, plotSize: number): Pro
     errors.push(...typeProcessor.errors);
 
     let codeCompiler = new CodeCompiler(statements, {types: typeProcessor, optimizationsEnabled: true});
+    for (const lib of itemLibraries) codeCompiler.compileItemLibrary(lib);
     let templates = codeCompiler.compile({outputFormat: "GZIP", splitToLength: plotSize});
     errors.push(...codeCompiler.errors);
 

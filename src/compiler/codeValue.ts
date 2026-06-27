@@ -400,6 +400,30 @@ export class ItemValue extends TangibleValue {
     }
 }
 
+export class LibraryItemValue extends TangibleValue {
+    constructor(
+        public data: string,
+        public dfNbt: number = 4671,
+        public libraryId: string,
+        public itemId: string,
+    ) {
+        super();
+    }
+
+    getType(typeProcessor: TypeProcessor): Type {
+        return Type.item;
+    }
+
+    templateForm() {
+        return {
+            "id": "item",
+            "data": {
+                "item": this.data.substring(0,this.data.length-1)+`,DF_NBT:${this.dfNbt}}` // TODO: use an actual nbt library :sob:
+            }
+        }
+    }
+}
+
 export class VariableValue extends TangibleValue {
     public isTempVar: boolean = false;
 

@@ -8,13 +8,13 @@ import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, PerSelectedExpression, SelectionExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { CodeValue, EmptyValue, FunctionValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
+import { CodeValue, EmptyValue, FunctionValue, ItemValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, LibraryItemValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
 import { DefinitionType, FunctionCallExtraInfo, FunctionDefinition, isFunctionDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
-import { DFCodeblockName, dfTypeToTC, DFValueType, tcTypeToDFParamType } from "../df/constants.ts";
+import { DFCodeblockName, dfTypeToTC, DFValueType, TC_HEADER, tcTypeToDFParamType } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
 import { count } from "node:console";
 import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "./namespace/builtins.ts";
@@ -24,6 +24,7 @@ import { SegmentPCode } from "../pcode/pcode.ts";
 import { BooleanOperation } from "./booleanOperation.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "./namespace/globalScopeInjections.ts";
 import { SliceCodeLine } from "./lineSplitter.ts";
+import { ItemLibrary } from "./itemLibrary.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -130,8 +131,9 @@ export class CodeCompiler {
      */
     getLineEntry(headerType: HeaderType, name: string): CodeLineEntry {
         let entries = getOrCreateMapLayer(this.codeLines, headerType, {});
+        let headerBlockConstructor = (headerType == DFCodeblockName.PROCESS || headerType == DFCodeblockName.FUNCTION ? ActionBlock : EventBlock);
         return getOrCreateDictLayer<CodeLineEntry>(entries, name, {
-            headerBlock: null,
+            headerBlock: new headerBlockConstructor(headerType, {action: name}),
             returnTypes: null,
             code: []
         })
@@ -1470,6 +1472,30 @@ export class CodeCompiler {
             this.reportError(s,`${upperFirst((s.headerType ?? 'this').toLowerCase())} declarations can only appear at the top level of a file`);
         }
         return [];
+    }
+
+    /** 
+     * Generated code will be added to the internal templates and will be outputted
+     * along with the rest of the project's generated code when compile() is called
+     * */
+    compileItemLibrary(library: ItemLibrary) {
+        let setupFuncName = `${TC_HEADER}IL_${library.id}`;
+        
+        let functionLineEntry = this.getLineEntry(DFCodeblockName.FUNCTION, setupFuncName);
+        functionLineEntry.code.push(Object.entries(library.items).map(
+            ([id, item]) => new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+                action: "=",
+                args: [
+                    new VariableValue(`${TC_HEADER}_LI_${library.id}\uFFFF${id}`, VariableScope.GLOBAL),
+                    new LibraryItemValue(item.data,item.version,library.id,id),
+                ]
+            })
+        ));
+
+        let gameStartupEntry = this.getLineEntry(DFCodeblockName.GAME_EVENT, "PlotStartup")
+        gameStartupEntry.code.push([new ActionBlock(DFCodeblockName.CALL_FUNCTION, {
+            action: setupFuncName
+        })]);
     }
 
     compile({outputFormat, splitToLength = -1}: {outputFormat: "GZIP" | "DFONLINE", splitToLength?: number}) {
