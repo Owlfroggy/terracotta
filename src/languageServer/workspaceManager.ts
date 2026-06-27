@@ -104,6 +104,18 @@ export class WorkspaceManager {
         }
     }
 
+    /** If the doc does not exist, this will do nothing */
+    unregisterDoc(uri: string) {
+        let doc = this.documents.get(uri);
+        if (!doc) return;
+
+        if (doc instanceof TrackedScript) {
+            delete this.combinedAST[doc.uri];
+        }
+        
+        this.documents.delete(uri)
+    }
+
     async initialize() {
         let files = await fs.readdir(URL.parse(this.uri)!, {recursive: true, withFileTypes: true});
         for (const f of files) {

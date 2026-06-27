@@ -1052,7 +1052,10 @@ export class LanguageServer {
         })
         
         conn.onNotification("workspace/didDeleteFiles",(param:DeleteFilesParams) => {
-
+            for (const file of param.files) {
+                let doc = this.getDocFromUri(file.uri);
+                doc?.workspace.unregisterDoc(doc.uri);
+            }
         })
         
         conn.onNotification("textDocument/didOpen",(param: DidOpenTextDocumentParams) => {
@@ -1079,8 +1082,11 @@ export class LanguageServer {
                 }
                 else if (change.type == FileChangeType.Created) {
                     let workspace = this.getWorkspaceFromUri(change.uri);
-                    if (!workspace) return;
-                    workspace.registerDoc(change.uri);
+                    workspace?.registerDoc(change.uri);
+                }
+                else if (change.type == FileChangeType.Deleted) {
+                    let workspace = this.getWorkspaceFromUri(change.uri);
+                    workspace?.unregisterDoc(change.uri);
                 }
             })
         })
