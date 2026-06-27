@@ -10,6 +10,7 @@ import { Statement } from "../ast/statement.ts";
 import { inspect } from "node:util";
 import { slog, snotif } from "./logging.ts";
 import { TrackedScript } from "./trackedScript.ts";
+import { TrackedItemLibrary } from "./trackedItemLibrary.ts";
 
 export class WorkspaceManager {
     documents: Map<URI, TrackedDocument> = new Map();
@@ -28,6 +29,14 @@ export class WorkspaceManager {
         for (const script of this.documents.values()) {
             if (script instanceof TrackedScript) {
                 callback(script);
+            }
+        }
+    }
+
+    forEachItemLibrary(callback: (library: TrackedItemLibrary) => void) {
+        for (const library of this.documents.values()) {
+            if (library instanceof TrackedItemLibrary) {
+                callback(library);
             }
         }
     }
@@ -88,11 +97,14 @@ export class WorkspaceManager {
         let files = await fs.readdir(URL.parse(this.uri)!, {recursive: true, withFileTypes: true});
         for (const f of files) {
             if (!f.isFile()) continue;
-            if (!f.name.endsWith(".tc")) continue;
             let uri = pathToUri(path.join(f.parentPath, f.name));
-
-            this.combinedAST[uri] = [];
-            this.documents.set(uri, new TrackedScript(uri, this))
+            if (f.name.endsWith(".tc")) {
+                this.combinedAST[uri] = [];
+                this.documents.set(uri, new TrackedScript(uri, this))
+            }
+            else if (f.name.endsWith(".tcil")) {
+                this.documents.set(uri, new TrackedItemLibrary(uri, this))
+            }
         }
         this.reanalyzeTypes();
     }

@@ -28,6 +28,7 @@ import { matchArgsToParams } from "../util/argValidation.ts";
 import { COMPILE_START_PROCESS } from "../compiler/namespace/compileCallFunction.ts";
 import { methodizeParameterSignatures } from "../compiler/namespace/utils.ts";
 import { TrackedScript } from "./trackedScript.ts";
+import { TrackedItemLibrary } from "./trackedItemLibrary.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -1017,6 +1018,16 @@ export class LanguageServer {
                 }
             }
 
+            // items = [];
+            // doc.workspace.forEachItemLibrary(l => {
+            //     if (l.parsedContents == null) return;
+            //     for (const i of Object.keys(l.parsedContents.items)) {
+            //         items.push({
+            //             label: `${l.parsedContents.id} ${i}`
+            //         })
+            //     }
+            // })
+
             slog ("Returned",items.length,"items")
             let response: CompletionList = {
                 isIncomplete: true,
@@ -1100,6 +1111,12 @@ export class LanguageServer {
     getScriptFromUri(uri: URI): TrackedScript | null {
         let doc = this.getDocFromUri(uri);
         if (doc instanceof TrackedScript) return doc;
+        return null;
+    }
+
+    getLibraryFromUri(uri: URI): TrackedItemLibrary | null {
+        let doc = this.getDocFromUri(uri);
+        if (doc instanceof TrackedItemLibrary) return doc;
         return null;
     }
 }
