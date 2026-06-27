@@ -1041,7 +1041,10 @@ export class LanguageServer {
         //==========[ document handling ]=========\\
 
         conn.onNotification("workspace/didCreateFiles",(param: CreateFilesParams) => {
-            
+            for (const file of param.files) {
+                let workspace = this.getWorkspaceFromUri(file.uri);
+                workspace?.registerDoc(file.uri);
+            }
         })
         
         conn.onRequest("workspace/willRenameFiles",(param: RenameFilesParams) => {
@@ -1073,6 +1076,11 @@ export class LanguageServer {
                     if (!doc) return;
                     let contents = await fs.readFile(new URL(doc.uri))
                     doc.update([{text: contents.toString()}], -1)
+                }
+                else if (change.type == FileChangeType.Created) {
+                    let workspace = this.getWorkspaceFromUri(change.uri);
+                    if (!workspace) return;
+                    workspace.registerDoc(change.uri);
                 }
             })
         })

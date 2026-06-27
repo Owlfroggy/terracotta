@@ -93,18 +93,23 @@ export class WorkspaceManager {
         }
     }
 
+    /** If the doc already exists, this will do nothing */
+    registerDoc(uri: string) {
+        if (uri.endsWith(".tc")) {
+            this.combinedAST[uri] = [];
+            this.documents.set(uri, new TrackedScript(uri, this))
+        }
+        else if (uri.endsWith(".tcil")) {
+            this.documents.set(uri, new TrackedItemLibrary(uri, this))
+        }
+    }
+
     async initialize() {
         let files = await fs.readdir(URL.parse(this.uri)!, {recursive: true, withFileTypes: true});
         for (const f of files) {
             if (!f.isFile()) continue;
             let uri = pathToUri(path.join(f.parentPath, f.name));
-            if (f.name.endsWith(".tc")) {
-                this.combinedAST[uri] = [];
-                this.documents.set(uri, new TrackedScript(uri, this))
-            }
-            else if (f.name.endsWith(".tcil")) {
-                this.documents.set(uri, new TrackedItemLibrary(uri, this))
-            }
+            this.registerDoc(uri);
         }
         this.reanalyzeTypes();
     }
