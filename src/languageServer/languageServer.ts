@@ -1030,17 +1030,22 @@ export class LanguageServer {
 
         //==========[ document handling ]=========\\
         conn.onNotification("textDocument/didOpen",(param: DidOpenTextDocumentParams) => {
-            let doc = this.getDocFromUri(param.textDocument.uri)!;
+            let doc = this.getDocFromUri(param.textDocument.uri);
+            if (!doc) return;
+            doc.isOpen = true;
             doc.update([{text: param.textDocument.text}], param.textDocument.version);
         })
 
         conn.onNotification("textDocument/didChange", (param: DidChangeTextDocumentParams) => {
-            let doc = this.getDocFromUri(param.textDocument.uri)!;
+            let doc = this.getDocFromUri(param.textDocument.uri);
+            if (!doc) return;
             doc.update(param.contentChanges, param.textDocument.version);
         })
 
         conn.onNotification("textDocument/didClose", (param: DidCloseTextDocumentParams) => {
-            
+            let doc = this.getDocFromUri(param.textDocument.uri);
+            if (!doc) return;
+            doc.isOpen = false;
         })
 
         //==========[ notification handling ]=========\\

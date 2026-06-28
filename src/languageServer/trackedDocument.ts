@@ -14,6 +14,7 @@ export abstract class TrackedDocument {
     private lineStartIndexes: number[] = [];
     public readonly diagnostics: Diagnostic[] = [];
     public version: number = 0;
+    public isOpen: boolean = false;
 
     public isInitialized: boolean = false;
     protected markAsInitialized: (value: void) => void;

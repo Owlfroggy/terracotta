@@ -155,7 +155,7 @@ export class WorkspaceManager {
         .on("change", async path => {
             let uri = pathToUri(path);
             let doc = this.documents.get(uri);
-            if (!doc) return; // TODO: return if doc is open in editor
+            if (!doc || doc.isOpen) return;
             let contents = await fs.readFile(new URL(doc.uri))
             doc.update([{text: contents.toString()}], -1)
         })
