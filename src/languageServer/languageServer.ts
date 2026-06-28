@@ -388,11 +388,17 @@ export class LanguageServer {
         //==========[ request handling ]=========\\
 
         conn.onRequest("initialize", (param: InitializeParams) => {
-            let yesIWouldLikeToKnowAboutThat = {
+            let yesIWouldLikeToKnowAboutThat: FileOperationRegistrationOptions = {
                 filters: [
-                    { pattern: {"glob": "**/*.{tcil,tc}"} },
+                    { pattern: {"glob": "**/*.{tcil,tc}", matches: "file"} },
                 ]
-            } as FileOperationRegistrationOptions
+            }
+            let yesIWouldLikeToKnowAboutThatAlsoGiveMeFolders: FileOperationRegistrationOptions = {
+                filters: [
+                    { pattern: {"glob": "**/*.{tcil,tc}", matches: "file"} },
+                    { pattern: {"glob": "**", matches: "folder"} },
+                ]
+            }
 
             let response: InitializeResult = {
                 capabilities: {
@@ -405,7 +411,7 @@ export class LanguageServer {
                         },
                         fileOperations: {
                             didCreate: yesIWouldLikeToKnowAboutThat,
-                            willRename: yesIWouldLikeToKnowAboutThat,
+                            didRename: yesIWouldLikeToKnowAboutThatAlsoGiveMeFolders,
                             didDelete: yesIWouldLikeToKnowAboutThat,
                         }
                     },
@@ -1047,9 +1053,42 @@ export class LanguageServer {
             }
         })
         
-        conn.onRequest("workspace/willRenameFiles",(param: RenameFilesParams) => {
-            
-        })
+        conn.onNotification("workspace/didRenameFiles", (param: RenameFilesParams) => {
+            param.files.forEach(async file => {
+                const oldWorkspace = this.getWorkspaceFromUri(file.oldUri);
+                const newWorkspace = this.getWorkspaceFromUri(file.newUri);
+    
+                if (!oldWorkspace) return;
+                let fileType: "file" | "folder" | undefined;
+                
+                try {
+                    let stat = (await fs.stat(new URL(file.newUri)));
+                    fileType = (
+                        stat.isDirectory() ? "folder"
+                        : stat.isFile() ? "file"
+                        : undefined
+                    );
+                } catch (ignored) {}
+    
+                if (fileType == "folder") {
+                    // if it was a folder rename, move every doc under that prefix
+                    const prefix = file.oldUri 
+    
+                    const movedDocs = [...oldWorkspace.documents.keys()].filter(uri => uri.startsWith(prefix)) ?? [];
+    
+                    for (const oldDocUri of movedDocs) {
+                        const newDocUri = file.newUri + oldDocUri.slice(file.oldUri.length);
+    
+                        oldWorkspace.unregisterDoc(oldDocUri);
+                        newWorkspace?.registerDoc(newDocUri);
+                    }
+                } else if (fileType == "file") {
+                    // unregister the old thing
+                    oldWorkspace.unregisterDoc(file.oldUri);
+                    newWorkspace?.registerDoc(file.newUri);
+                }
+            })
+        });
         
         conn.onNotification("workspace/didDeleteFiles",(param:DeleteFilesParams) => {
             for (const file of param.files) {
