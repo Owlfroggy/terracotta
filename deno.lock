@@ -103,6 +103,7 @@
       "dependencies": [
         "npm:@pkgjs/parseargs@0.11",
         "npm:@types/node@^22.19.3",
+        "npm:chokidar@5",
         "npm:copy-paste@^1.5.3",
         "npm:fflate@~0.8.2",
         "npm:nbtify@^2.2.0",

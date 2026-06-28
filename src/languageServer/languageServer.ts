@@ -388,18 +388,6 @@ export class LanguageServer {
         //==========[ request handling ]=========\\
 
         conn.onRequest("initialize", (param: InitializeParams) => {
-            let yesIWouldLikeToKnowAboutThat: FileOperationRegistrationOptions = {
-                filters: [
-                    { pattern: {"glob": "**/*.{tcil,tc}", matches: "file"} },
-                ]
-            }
-            let yesIWouldLikeToKnowAboutThatAlsoGiveMeFolders: FileOperationRegistrationOptions = {
-                filters: [
-                    { pattern: {"glob": "**/*.{tcil,tc}", matches: "file"} },
-                    { pattern: {"glob": "**", matches: "folder"} },
-                ]
-            }
-
             let response: InitializeResult = {
                 capabilities: {
                     textDocumentSync: TextDocumentSyncKind.Full,
@@ -408,11 +396,6 @@ export class LanguageServer {
                         workspaceFolders: {
                             supported: true,
                             changeNotifications: false
-                        },
-                        fileOperations: {
-                            didCreate: yesIWouldLikeToKnowAboutThat,
-                            didRename: yesIWouldLikeToKnowAboutThatAlsoGiveMeFolders,
-                            didDelete: yesIWouldLikeToKnowAboutThat,
                         }
                     },
                     hoverProvider: true,
@@ -429,6 +412,7 @@ export class LanguageServer {
                     signatureHelpProvider: {
                         triggerCharacters: [",","("],
                     },
+                    
                 }
             }
 
@@ -1045,58 +1029,6 @@ export class LanguageServer {
         })
 
         //==========[ document handling ]=========\\
-
-        conn.onNotification("workspace/didCreateFiles",(param: CreateFilesParams) => {
-            for (const file of param.files) {
-                let workspace = this.getWorkspaceFromUri(file.uri);
-                workspace?.registerDoc(file.uri);
-            }
-        })
-        
-        conn.onNotification("workspace/didRenameFiles", (param: RenameFilesParams) => {
-            param.files.forEach(async file => {
-                const oldWorkspace = this.getWorkspaceFromUri(file.oldUri);
-                const newWorkspace = this.getWorkspaceFromUri(file.newUri);
-    
-                if (!oldWorkspace) return;
-                let fileType: "file" | "folder" | undefined;
-                
-                try {
-                    let stat = (await fs.stat(new URL(file.newUri)));
-                    fileType = (
-                        stat.isDirectory() ? "folder"
-                        : stat.isFile() ? "file"
-                        : undefined
-                    );
-                } catch (ignored) {}
-    
-                if (fileType == "folder") {
-                    // if it was a folder rename, move every doc under that prefix
-                    const prefix = file.oldUri 
-    
-                    const movedDocs = [...oldWorkspace.documents.keys()].filter(uri => uri.startsWith(prefix)) ?? [];
-    
-                    for (const oldDocUri of movedDocs) {
-                        const newDocUri = file.newUri + oldDocUri.slice(file.oldUri.length);
-    
-                        oldWorkspace.unregisterDoc(oldDocUri);
-                        newWorkspace?.registerDoc(newDocUri);
-                    }
-                } else if (fileType == "file") {
-                    // unregister the old thing
-                    oldWorkspace.unregisterDoc(file.oldUri);
-                    newWorkspace?.registerDoc(file.newUri);
-                }
-            })
-        });
-        
-        conn.onNotification("workspace/didDeleteFiles",(param:DeleteFilesParams) => {
-            for (const file of param.files) {
-                let doc = this.getDocFromUri(file.uri);
-                doc?.workspace.unregisterDoc(doc.uri);
-            }
-        })
-        
         conn.onNotification("textDocument/didOpen",(param: DidOpenTextDocumentParams) => {
             let doc = this.getDocFromUri(param.textDocument.uri)!;
             doc.update([{text: param.textDocument.text}], param.textDocument.version);
@@ -1109,25 +1041,6 @@ export class LanguageServer {
 
         conn.onNotification("textDocument/didClose", (param: DidCloseTextDocumentParams) => {
             
-        })
-
-        conn.onNotification("workspace/didChangeWatchedFiles", async (param: DidChangeWatchedFilesParams) => {
-            param.changes.forEach(async change => {
-                if (change.type == FileChangeType.Changed) {
-                    let doc = this.getDocFromUri(change.uri);
-                    if (!doc) return;
-                    let contents = await fs.readFile(new URL(doc.uri))
-                    doc.update([{text: contents.toString()}], -1)
-                }
-                else if (change.type == FileChangeType.Created) {
-                    let workspace = this.getWorkspaceFromUri(change.uri);
-                    workspace?.registerDoc(change.uri);
-                }
-                else if (change.type == FileChangeType.Deleted) {
-                    let workspace = this.getWorkspaceFromUri(change.uri);
-                    workspace?.unregisterDoc(change.uri);
-                }
-            })
         })
 
         //==========[ notification handling ]=========\\

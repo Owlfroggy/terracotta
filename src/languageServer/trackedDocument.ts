@@ -8,12 +8,21 @@ import { inspect } from "node:util";
 import { slog, snotif } from "./logging.ts";
 import { CodeCompiler } from "../compiler/codeCompiler.ts";
 
-export class TrackedDocument {
+export abstract class TrackedDocument {
     contents: string;
     
     private lineStartIndexes: number[] = [];
     public readonly diagnostics: Diagnostic[] = [];
     public version: number = 0;
+
+    public isInitialized: boolean = false;
+    protected markAsInitialized: (value: void) => void;
+    public onInitializedPromise = new Promise<void>((resolve) => {
+        this.markAsInitialized = () => {
+            this.isInitialized = true;
+            resolve();
+        }
+    });
 
     constructor(
         public uri: URI,
@@ -82,6 +91,9 @@ export class TrackedDocument {
         }
     }
 
+    /**
+     * NOTE: classes implementing TrackedDocument MUST call `this.markAsInitialized();` at the end of this method
+     */
     async initialize() {
         this.contents = (await fs.readFile(URL.parse(this.uri)!)).toString().replaceAll(/\r\n/g, "\n");
         this.refreshLineIndexes();

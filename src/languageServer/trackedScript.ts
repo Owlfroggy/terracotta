@@ -93,5 +93,6 @@ export class TrackedScript extends TrackedDocument {
     async initialize() {
         await super.initialize();
         this.reparse();
+        this.markAsInitialized();
     }
 }

@@ -11,6 +11,8 @@ import { inspect } from "node:util";
 import { slog, snotif } from "./logging.ts";
 import { TrackedScript } from "./trackedScript.ts";
 import { TrackedItemLibrary } from "./trackedItemLibrary.ts";
+import chokidar, { watch } from 'chokidar';
+import { fileURLToPath } from "node:url"
 
 export class WorkspaceManager {
     documents: Map<URI, TrackedDocument> = new Map();
@@ -93,15 +95,19 @@ export class WorkspaceManager {
         }
     }
 
-    /** If the doc already exists, this will do nothing */
-    registerDoc(uri: string) {
+    registerDoc(uri: string): TrackedDocument | null {
+        let doc: TrackedDocument | null = null;
         if (uri.endsWith(".tc")) {
             this.combinedAST[uri] = [];
-            this.documents.set(uri, new TrackedScript(uri, this))
+            doc = new TrackedScript(uri, this);
         }
         else if (uri.endsWith(".tcil")) {
-            this.documents.set(uri, new TrackedItemLibrary(uri, this))
+            doc = new TrackedItemLibrary(uri, this);
         }
+        if (!doc) return null;
+
+        this.documents.set(uri, doc);
+        return doc;
     }
 
     /** If the doc does not exist, this will do nothing */
@@ -112,17 +118,49 @@ export class WorkspaceManager {
         if (doc instanceof TrackedScript) {
             delete this.combinedAST[doc.uri];
         }
-        
+
         this.documents.delete(uri)
     }
 
     async initialize() {
-        let files = await fs.readdir(URL.parse(this.uri)!, {recursive: true, withFileTypes: true});
-        for (const f of files) {
-            if (!f.isFile()) continue;
-            let uri = pathToUri(path.join(f.parentPath, f.name));
-            this.registerDoc(uri);
-        }
-        this.reanalyzeTypes();
+        // set up filesystem watcher
+        const watcher = chokidar.watch(fileURLToPath(this.uri), {
+            ignored: (path, stats) => !!stats?.isFile() && !(path.endsWith(".tc") || path.endsWith(".tcil")),
+        });
+
+        let docLoadPromises: Promise<void>[] = [];
+
+        watcher
+        .on("ready", async () => {
+            // when all initial docs have been loaded and parsed,
+            // parse them all again now that the type env is completed
+
+            // if this isn't done, erroneous errors will be reported since
+            // the first-pass parse was working on incomplete type information
+
+            await Promise.all(docLoadPromises);
+            this.reanalyzeTypes();
+            for (let [uri, doc] of this.documents) {
+                if (doc instanceof TrackedScript) {
+                    doc.reparse();
+                }
+            }
+        })
+        .on("add", path => {
+            let doc = this.registerDoc(pathToUri(path));
+            if (doc && !watcher._readyEmitted && !doc.isInitialized) {
+                docLoadPromises.push(doc.onInitializedPromise);
+            }
+        })
+        .on("change", async path => {
+            let uri = pathToUri(path);
+            let doc = this.documents.get(uri);
+            if (!doc) return; // TODO: return if doc is open in editor
+            let contents = await fs.readFile(new URL(doc.uri))
+            doc.update([{text: contents.toString()}], -1)
+        })
+        .on("unlink", path => {
+            this.unregisterDoc(pathToUri(path));
+        })
     }
 }
