@@ -129,7 +129,7 @@ async function Main() {
             } else {
                 process.stderr.write("\n\n")
                 for (const e of errors) {
-                    printError(e, "FILE NAMES WIP");
+                    printError(e, e.getFilePath());
                 }
                 process.exit(1);
             }
@@ -153,7 +153,11 @@ async function Main() {
             } else {
                 process.stderr.write("\n")
                 for (const e of results.errors) {
-                    printError(e, "FILE NAMES WIP");
+                    let fileName = e.getFilePath();
+                    if (fileName.startsWith(values.project)) {
+                        fileName = fileName.substring(values.project.length+1);
+                    }
+                    printError(e, fileName);
                 }
                 process.exit(1);
             }
