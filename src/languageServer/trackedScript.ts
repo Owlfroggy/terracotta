@@ -61,6 +61,7 @@ export class TrackedScript extends TrackedDocument {
             // recompile
             let compiler = new CodeCompiler(this.ast.statements, {
                 types: this.workspace.typeProcessor, 
+                rank: this.workspace.server.configuration.dfRank,
                 getItemLibraries: this.workspace.allItemLibraryDatas,
                 optimizationsEnabled: false
             });

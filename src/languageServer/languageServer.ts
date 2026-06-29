@@ -1,7 +1,7 @@
 import * as rpc from "vscode-jsonrpc/node.js"
 import * as AD from "../df/actiondump.ts"
 import * as fs from "node:fs/promises"
-import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp, MarkupContent, HoverParams, Hover, Location, FileChangeType } from "vscode-languageserver";
+import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp, MarkupContent, HoverParams, Hover, Location, FileChangeType, CompletionItemTag } from "vscode-languageserver";
 import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
@@ -54,6 +54,11 @@ type CompletionItemData = {
     option: string,
 }
 
+let configuration: ServerTCConfiguration = {
+    dfRank: DFRank.OVERLORD,
+    rankBehavior: "crossOutInaccessible"
+}
+
 /**
  * NOTE: The item passed into this should have the string's raw contents as its label.
  * This function takes care of the stringification of said contents.
@@ -103,6 +108,7 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
             label: name,
             kind: (def as any).compileIf ? CompletionItemKind.Property : CompletionItemKind.Method,
             commitCharacters: ["("],
+
         }
         if (def.autocompleteSortPrefix) {
             item.sortText = "z" + def.autocompleteSortPrefix + item.label;
@@ -111,7 +117,12 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
             item.insertText = `call ${valueToTCString(name)}`;
         }
         if (def.action) {
-            documentation = getActionDocumentation(def.action);
+            documentation = getActionDocumentation(def.action, configuration.dfRank);
+            if (!AD.rankCheck(configuration.dfRank, def.action.requiresRank)) {
+                if (!item.tags) item.tags = [];
+                item.sortText = "\uFFFF" + item.label;
+                item.tags.push(CompletionItemTag.Deprecated);
+            }
         } else {
             //creating a parameter object so that it can work with the existing string gen is kinda a hack but whatever
             let returnTypeString: string = ""
@@ -193,6 +204,12 @@ function generateTypePropertyCompletions(type: Type): CompletionItem[] {
     for (const p of properties) {
         let def = type.getPropertyDefinition(p);
         if (!def) continue;
+        if (
+            configuration.rankBehavior == "hideInaccessible" 
+            && isFunctionDefinition(def) 
+            && def.action
+            && !AD.rankCheck(configuration.dfRank, def.action.requiresRank)
+        ) continue;
         items.push(generateDefinitionCompletion(p, def));
     }
 
@@ -367,6 +384,7 @@ function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFram
 export class LanguageServer {
     connection: rpc.MessageConnection;
     workspaces: Map<URI, WorkspaceManager> = new Map();
+    configuration: ServerTCConfiguration;
 
     constructor() {
         //==========[ setup ]=========\\
@@ -377,14 +395,10 @@ export class LanguageServer {
         );
         this.connection = conn;
         conn.listen()
-
-        let configuration: ServerTCConfiguration = {
-            dfRank: DFRank.OVERLORD,
-            rankBehavior: "crossOutInaccessible"
-        }
         
         setSlogCallback(this.log);
         setSnotifCallback(this.showText);
+        this.configuration = configuration;
         
         //==========[ request handling ]=========\\
 
@@ -646,10 +660,7 @@ export class LanguageServer {
             if (!data) { return item; }
 
             let documentation = "";
-            if (data.type == CompletionItemType.EVENT) {
-                documentation = getEventDocumentation(data.event);
-            }
-            else if (data.type == CompletionItemType.TAG_NAME) {
+            if (data.type == CompletionItemType.TAG_NAME) {
                 let options = Object.entries(data.tag.options).map(([name, data]) => `\`${name}\`${data.description.length > 0 ? " - "+data.description.replaceAll("<","\\<") : ""}`).join("\n\n")
                 documentation = `${data.tag.name}\n\n**Options:** \n\n${options}\n\n**Default option:** \`${data.tag.defaultOption}\``;
             }
@@ -729,14 +740,24 @@ export class LanguageServer {
                 let headerType: HeaderType = DFCodeblockName[TokenType[s.type.type]];
 
                 for (const [tcEvent, dfEvent] of Object.entries(tcEventToDf.get(headerType) ?? {})) {
-                    items.push({
+                    let eventAction = AD.actions.get(headerType)![dfEvent];
+                    let item: CompletionItem = {
                         label: tcEvent,
                         kind: CompletionItemKind.Event,
-                        data: {
-                            type: CompletionItemType.EVENT,
-                            event: AD.actions.get(headerType)![dfEvent]
-                        } as CompletionItemData
-                    });
+                        documentation: {
+                            kind: "markdown",
+                            value: getEventDocumentation(eventAction, configuration.dfRank)
+                        }
+                    };
+                    if (!AD.rankCheck(configuration.dfRank, eventAction.requiresRank)) {
+                        if (configuration.rankBehavior == "crossOutInaccessible") {
+                            item.tags = [CompletionItemTag.Deprecated];
+                            item.sortText = "\uFFFF" + item.label;
+                        } else {
+                            continue;
+                        }
+                    }
+                    items.push(item);
                 }
 
                 includeGenerics = false;
@@ -1094,11 +1115,19 @@ export class LanguageServer {
             for (const [k, v] of Object.entries(param)) {
                 configuration[k] = v
             }
+            this.reanalyzeAllFiles();
         })
 
         conn.onNotification("terracotta/exit", param => {
             process.exit(0)
         })
+    }
+    
+    /** Reanalyzes every script in every workspace */
+    reanalyzeAllFiles() {
+        for (const workspace of this.workspaces.values()) {
+            workspace.forEachScript(s => s.reparse());
+        }
     }
 
     showText = (message: string, messageType: MessageType = MessageType.Info) => {

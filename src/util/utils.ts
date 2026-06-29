@@ -58,6 +58,10 @@ export function upperFirst(s: string): string {
     return s.substring(0,1).toUpperCase() + s.substring(1);
 }
 
+export function toNameCase(s: string): string {
+    return s.substring(0,1).toUpperCase() + s.substring(1).toLowerCase();
+}
+
 export function pathToUri(path: string): URI { 
     return pathToFileURL(path).href;
 }

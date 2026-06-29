@@ -2,7 +2,7 @@ import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, PerSelectedStatement, SingleKeywordStatement, Statement, WhileStatement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { getOrCreateDictLayer, getOrCreateMapLayer, ps, upperFirst } from "../util/utils.ts";
+import { getOrCreateDictLayer, getOrCreateMapLayer, ps, toNameCase, upperFirst } from "../util/utils.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, SubActionBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
@@ -14,7 +14,7 @@ import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
 import { DefinitionType, FunctionCallExtraInfo, FunctionDefinition, isFunctionDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
-import { DFCodeblockName, dfTypeToTC, DFValueType, TC_HEADER, tcTypeToDFParamType } from "../df/constants.ts";
+import { DFCodeblockName, DFRank, dfTypeToTC, DFValueType, TC_HEADER, tcTypeToDFParamType } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
 import { count } from "node:console";
 import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "./namespace/builtins.ts";
@@ -33,12 +33,14 @@ export type HeaderType = EventType | UserMethodType;
 
 export type CompliationEnvironment = {
     types: TypeProcessor, 
+    rank: DFRank,
     getItemLibraries: () => {[id: string]: ItemLibrary},
     optimizationsEnabled: boolean,
 };
 export type EvaluationContext = {
     tvp: TempVarProvider,
     types: TypeProcessor,
+    rank: DFRank,
     getItemLibraries: () => {[id: string]: ItemLibrary},
     reportError: (node: ASTNode, message: string) => void,
 }
@@ -116,6 +118,7 @@ export class CodeCompiler {
         return {
             tvp: perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider,
             types: this.env.types,
+            rank: this.env.rank,
             getItemLibraries: this.env.getItemLibraries,
             reportError: this.reportError,
         }
@@ -170,7 +173,15 @@ export class CodeCompiler {
                     dfEvent = `$ERROR$ ${tcEvent}`;
                 }
 
-                let adAction = AD.actions.get(headerType)?.[dfEvent];
+                let adAction = AD.actions.get(headerType)?.[dfEvent]!;
+
+                // rank check
+                if (!AD.rankCheck(this.env.rank, adAction.requiresRank)) {
+                    this.reportError(
+                        s.eventName, 
+                        `${toNameCase(headerType)} '${tcEvent}' requires ${toNameCase(adAction.requiresRank)} rank, compiler is set to ${toNameCase(this.env.rank || "unranked")}`
+                    );
+                }
 
                 lineEntry = this.getLineEntry(headerType, dfEvent);
 
@@ -182,7 +193,7 @@ export class CodeCompiler {
                         if (adAction && !adAction.cancellable) {
                             this.reportError(
                                 m,
-                                `${upperFirst(headerType.toLowerCase())} '${tcEvent}' cannot be cancelled automatically`
+                                `${toNameCase(headerType)} '${tcEvent}' cannot be cancelled automatically`
                             );
                         }
                     }
@@ -332,7 +343,7 @@ export class CodeCompiler {
                         statement instanceof EventStatement ? statement.eventName 
                         : statement instanceof FunctionStatement ? statement.name
                         : statement,
-                        `${upperFirst(headerType.toLowerCase())} '${name}' declared in multiple places`
+                        `${toNameCase(headerType)} '${name}' declared in multiple places`
                     );
                 }
             } 
@@ -1475,7 +1486,7 @@ export class CodeCompiler {
             return s.chunk.statements.map(s => this.compileStatement(s, {...context, perSelectedMode: true})).flat();
         }
         else if (s instanceof EventStatement || s instanceof FunctionStatement) {
-            this.reportError(s,`${upperFirst((s.headerType ?? 'this').toLowerCase())} declarations can only appear at the top level of a file`);
+            this.reportError(s,`${toNameCase(s.headerType ?? 'this')} declarations can only appear at the top level of a file`);
         }
         return [];
     }

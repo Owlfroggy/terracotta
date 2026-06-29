@@ -4,6 +4,7 @@ import { TokenType } from "../ast/token.ts";
 import { EvaluationContext } from "../compiler/codeCompiler.ts";
 import { CodeValue, MissingValue, TangibleValue, VariableValue } from "../compiler/codeValue.ts";
 import { ParameterSignature, ParameterSignatureEntry } from "../compiler/namespace/definition.ts";
+import { getImprovedErrorNode } from "../error/errorUtils.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { binaryIsNamedArgument } from "./astUtils.ts";
 import { ps } from "./utils.ts";
@@ -88,10 +89,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
     let signatureErrors: Map<ParameterSignature, [ASTNode, string][]> = new Map();
 
     // when calling an access chain, only highlight the last function's name in errors
-    let calleeErrorNode = callNode.callee;
-    if (calleeErrorNode instanceof AccessExpression) {
-        calleeErrorNode = calleeErrorNode.propertyName;
-    }
+    let calleeErrorNode = getImprovedErrorNode(callNode);
 
     //let positionalArgCount = argExpressions.filter(arg => !(arg instanceof BinaryExpression && arg.operator.type == TokenType.EQUALS)).length;
     for (const sig of signatures) {

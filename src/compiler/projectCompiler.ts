@@ -6,7 +6,7 @@ import { Parser } from "../parser/parser.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { ErrorType, TCError, TCManualError } from "../error/error.ts";
 import { CodeCompiler } from "./codeCompiler.ts";
-import { DFCodeblockName } from "../df/constants.ts";
+import { DFCodeblockName, DFRank } from "../df/constants.ts";
 import { ItemLibrary } from "./itemLibrary.ts";
 
 export type CompiledTemplate = string
@@ -26,7 +26,7 @@ export interface CompiledProjectTemplates {
     processes: {[key: string]: CompiledTemplate}
 }
 
-export async function compileProject(projectPath: string, plotSize: number): Promise<CompiledProjectTemplates> {
+export async function compileProject(projectPath: string, plotSize: number, rank: DFRank): Promise<CompiledProjectTemplates> {
     let statements: Statement[] = [];
     let itemLibraries: {[id: string]: ItemLibrary} = {};
 
@@ -75,6 +75,7 @@ export async function compileProject(projectPath: string, plotSize: number): Pro
 
     let codeCompiler = new CodeCompiler(statements, {
         types: typeProcessor, 
+        rank: rank,
         getItemLibraries: () => itemLibraries,
         optimizationsEnabled: true
     });

@@ -19,7 +19,7 @@ registerBuiltinNamespaces()
 // probably by doing a custom loading order
 new Lexer();
 new Parser([]);
-new CodeCompiler([],{types: new TypeProcessor(), getItemLibraries: () => ({}), optimizationsEnabled: false});
+new CodeCompiler([],{types: new TypeProcessor(), rank: DFRank.OVERLORD, getItemLibraries: () => ({}), optimizationsEnabled: false});
 
 let test = `
 playerevent join {
@@ -115,7 +115,7 @@ async function Main() {
                 console.log(`${typeChecker.globalFrame}`);
             }
 
-            const compiler = new CodeCompiler(root.statements, {types: typeChecker, getItemLibraries: () => ({}), optimizationsEnabled: true});
+            const compiler = new CodeCompiler(root.statements, {types: typeChecker, rank, getItemLibraries: () => ({}), optimizationsEnabled: true});
             let results = compiler.compile({outputFormat: values.outmode?.toUpperCase() as any ?? "GZIP", splitToLength: parseInt(values.plotsize ?? "-1") ?? -1});
 
             let errors = [...lexer.errors, ...parser.errors, ...typeChecker.errors, ...compiler.errors];
@@ -135,7 +135,7 @@ async function Main() {
             }
         }
         else if (values.project) {
-            let results = await compileProject(values.project, parseInt(values.plotsize ?? "-1") ?? -1);
+            let results = await compileProject(values.project, parseInt(values.plotsize ?? "-1") ?? -1, rank);
 
             if (results.errors.length == 0) {
                 if (values.includemeta) {

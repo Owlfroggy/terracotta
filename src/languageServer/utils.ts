@@ -1,7 +1,8 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { Action } from "../df/actiondump.ts";
 import * as AD from "../df/actiondump.ts";
-import { dfTypeToString } from "../df/constants.ts";
+import { DFRank, dfTypeToString } from "../df/constants.ts";
+import { toNameCase, upperFirst } from "../util/utils.ts";
 
 export function getDFParamString(parameters: AD.Parameter[], header: string, noParamsFallback: string) {
     if (parameters.length == 0) { return noParamsFallback }
@@ -33,7 +34,15 @@ export function getDFParamString(parameters: AD.Parameter[], header: string, noP
     return header + paramStrings.join("\n\n\n\n")
 }
 
-export function getActionDocumentation(action: Action) {
+export function getRankString(ownedRank: DFRank, requiredRank: DFRank) {
+    if (!AD.rankCheck(ownedRank,requiredRank)) {
+        return `\n\n❌ **(Requires ${toNameCase(requiredRank)})**\n\n`;
+    } else {
+        return ""
+    }
+}
+
+export function getActionDocumentation(action: Action, ownedRank: DFRank = DFRank.OVERLORD) {
     let paramString = getDFParamString(action.parameters,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")
     let infoString = action.additionalInfo.join("\\\n  ⏵ "); if (infoString) {infoString = "\\\n  ⏵ " + infoString}
 
@@ -52,8 +61,7 @@ export function getActionDocumentation(action: Action) {
 
     let returnString = getDFParamString(action.returnTypes,"\n\n**Returns:**\n\n","")
 
-    // let rankString = (action.RequiresRank && (!AD.RankCheck(configuration.dfRank,action?.RequiresRank!))) ? `\n\n❌ **(Requires ${action.RequiresRank})**\n\n` : ""
-    let rankString = "";
+    let rankString = getRankString(ownedRank, action.requiresRank);
     let worldPlotString = (action.worldPlotExclusive ? "🌐 **World Plot Exclusive**\n\n" : "");
 
     return `${worldPlotString}${rankString}${action.description}${infoString}${worksWithString}${paramString}${tagsString}${returnString}`
@@ -82,11 +90,12 @@ export function getValueDocumentation(val: AD.GameValue) {
     return `${worldPlotString}${description}${worksWithString}${info}${returnType}`
 }
 
-export function getEventDocumentation(event: Action) {
+export function getEventDocumentation(event: Action, ownedRank: DFRank = DFRank.OVERLORD) {
     let info = event.additionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
     let cancelInfo = event.cancellable ? "\n\n∅ Cancellable" : event.cancelledAutomatically ? "\n\n∅ Cancelled automatically" : ""
+    let rankString = getRankString(ownedRank, event.requiresRank);
     let worldPlotString = (event.worldPlotExclusive ? "🌐 **World Plot Exclusive**\n\n" : "");
-    return `${worldPlotString}${event.description}${info}${cancelInfo}`
+    return `${worldPlotString}${rankString}${event.description}${info}${cancelInfo}`
 }
 
 export function visualizeNodeAncestors(node: ASTNode, prev: ASTNode | null = null): string {

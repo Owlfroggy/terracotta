@@ -7,12 +7,13 @@ import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDe
 import { Namespace } from "./namespace.ts";
 import { CREATE_SELECTION_ACTION_LIST, FILTER_SELECTION_ACTION_LIST, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
-import { expressionizeIfBlock } from "../../util/utils.ts";
+import { expressionizeIfBlock, toNameCase, upperFirst } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
 import { validateArguments } from "../../util/argValidation.ts";
 import { AtomicExpression } from "../../ast/expression.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
 import { methodizeParameterSignatures } from "./utils.ts";
+import { getImprovedErrorNode } from "../../error/errorUtils.ts";
 
 export function compileTags(actionDef: AD.Action, namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext): ActionTagValue[] {
     let tags: ActionTagValue[] = [];
@@ -174,6 +175,14 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         action: actionDef,
         getReturnType,
         compile(this: FunctionDefinition, args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] {
+            // rank check
+            if (!AD.rankCheck(ctx.rank, actionDef.requiresRank)) {
+                ctx.reportError(
+                    getImprovedErrorNode(callNode), 
+                    `${toNameCase(codeblock)} '${functionName}' requires ${toNameCase(actionDef.requiresRank)} rank, compiler is set to ${toNameCase(ctx.rank || "unranked")}`
+                );
+            }
+
             let tags = actionDef ? compileTags(actionDef, namedArgs, ctx) : [];
 
             // arg validation
