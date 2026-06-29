@@ -446,6 +446,10 @@ export class LanguageServer {
             else if (node instanceof Token && node.parent instanceof VariableExpression && node.keyInParent == 'name') {
                 getVarEntryOf = node.parent.getVarId();
             }
+            else if (node instanceof Token && node.parent instanceof CallOrStartExpression && node.keyInParent == "callee") {
+                let type = node.parent.keyword.type == TokenType.CALL ? "functions" : "processes"
+                resolved = doc.workspace.typeProcessor.globalFrame[type].get(node.value)?.[0] ?? null;
+            }
             if (getVarEntryOf) {
                 resolved = doc.workspace.typeProcessor.getNodeFrame(node).getVariableEntry(getVarEntryOf, node.startPos, true);
             }
