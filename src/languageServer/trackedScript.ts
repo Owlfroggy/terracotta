@@ -8,6 +8,7 @@ import { inspect } from "node:util";
 import { slog, snotif } from "./logging.ts";
 import { CodeCompiler } from "../compiler/codeCompiler.ts";
 import { TrackedDocument } from "./trackedDocument.ts";
+import { ItemLibrary } from "../compiler/itemLibrary.ts";
 
 export class TrackedScript extends TrackedDocument {
     private lexer: Lexer = new Lexer();
@@ -58,7 +59,11 @@ export class TrackedScript extends TrackedDocument {
             this.workspace.reanalyzeTypes();
     
             // recompile
-            let compiler = new CodeCompiler(this.ast.statements, {types: this.workspace.typeProcessor, optimizationsEnabled: false});
+            let compiler = new CodeCompiler(this.ast.statements, {
+                types: this.workspace.typeProcessor, 
+                getItemLibraries: this.workspace.allItemLibraryDatas,
+                optimizationsEnabled: false
+            });
             this.compiler = compiler;
             try {
                 compiler.compile({outputFormat: 'GZIP'});

@@ -31,10 +31,15 @@ export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS;
 
 export type HeaderType = EventType | UserMethodType;
 
-export type CompliationEnvironment = {types: TypeProcessor, optimizationsEnabled: boolean};
+export type CompliationEnvironment = {
+    types: TypeProcessor, 
+    getItemLibraries: () => {[id: string]: ItemLibrary},
+    optimizationsEnabled: boolean,
+};
 export type EvaluationContext = {
     tvp: TempVarProvider,
     types: TypeProcessor,
+    getItemLibraries: () => {[id: string]: ItemLibrary},
     reportError: (node: ASTNode, message: string) => void,
 }
 
@@ -111,6 +116,7 @@ export class CodeCompiler {
         return {
             tvp: perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider,
             types: this.env.types,
+            getItemLibraries: this.env.getItemLibraries,
             reportError: this.reportError,
         }
     }
@@ -1486,7 +1492,7 @@ export class CodeCompiler {
             ([id, item]) => new ActionBlock(DFCodeblockName.SET_VARIABLE, {
                 action: "=",
                 args: [
-                    new VariableValue(`${TC_HEADER}_LI_${library.id}\uFFFF${id}`, VariableScope.GLOBAL),
+                    new VariableValue(`${TC_HEADER}LI_${library.id}\uFFFF${id}`, VariableScope.GLOBAL),
                     new LibraryItemValue(item.data,item.version,library.id,id),
                 ]
             })

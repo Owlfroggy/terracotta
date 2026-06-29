@@ -5,6 +5,7 @@ export enum ErrorType {
     PARSER,
     TYPE_PROCESSOR,
     COMPILER,
+    ITEM_LIBRARY,
 }
 
 export enum ErrorPositionMode {

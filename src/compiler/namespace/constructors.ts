@@ -1,8 +1,8 @@
-import { DFCodeblockName} from "../../df/constants.ts";
+import { DFCodeblockName, TC_HEADER} from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, parseTcNumber } from "../../util/utils.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
-import { CodeValue, ItemValue, LocationValue, MissingValue, NumberValue, ParticleValue, PotionValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
+import { CodeValue, ItemValue, LibraryItemValue, LocationValue, MissingValue, NumberValue, ParticleValue, PotionValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
 import { DefinitionType, FunctionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 import * as AD from "../../df/actiondump.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
@@ -10,6 +10,8 @@ import { AtomicExpression } from "../../ast/expression.ts";
 import { TokenType } from "../../ast/token.ts";
 import { BLOCK_OR_ITEM_IDS, DF_PAR_FIELD_TO_TC, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, VALID_BLOCK_IDS, VALID_ITEM_IDS } from "../../data/constants.ts";
 import { validateArguments } from "../../util/argValidation.ts";
+import { VariableScope } from "../../typeProcessor/typeProcessor.ts";
+import { ItemLibrary } from "../itemLibrary.ts";
 
 function evaluateConstOrBlockTemplates(
     ctx: EvaluationContext, 
@@ -647,5 +649,113 @@ export const ITEM_CONSTRUCTOR: FunctionDefinition = {
                 [NumberValue, "count", "SetItemAmount"],
             ]
         );
+    },
+}
+
+// TODO: special case for item("air")
+export const LITEM_CONSTRUCTOR: FunctionDefinition = {
+    definitionType: DefinitionType.FUNCTION,
+    name: "litem",
+    defaultReturnType: Type.item,
+    signatures: [
+        {
+            params: [
+                {name: "library", type: Type.str, optional: false, plural: false},
+                {name: "item", type: Type.str, optional: false, plural: false},
+                {name: "count", type: Type.num, optional: true, plural: false},
+            ]
+        }
+    ],
+    getReturnType: USE_DEFAULT_RETURN_TYPE,
+    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+        // validation
+        let failed = false;
+        let constantLibrary: ItemLibrary | undefined;
+        let constantItemId: string | undefined;
+        if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
+            let libraries = ctx.getItemLibraries();
+            let libId = args[0].value;
+            if (libId in libraries) {
+                if (args.length > 1 && args[1] instanceof StringValue && args[1].isCompileTimeConstant()) {
+                    constantLibrary = libraries[libId];
+                    constantItemId = args[1].value;
+                    if (!(constantItemId in constantLibrary.items)) {
+                        ctx.reportError(
+                            args[1].astNode ?? callNode,
+                            `Library '${libId}' has no item with id '${constantItemId}'`
+                        );
+                        failed = true;
+                    }
+                }
+            }
+            else {
+                ctx.reportError(
+                    args[0].astNode ?? callNode,
+                    `Invalid library id '${args[0].value}'`
+                );
+                failed = true;
+            }
+        }
+
+        
+        if (validateArguments(args, callNode, this.signatures, ctx) == null || failed) 
+            return [new ItemValue("stone", 1, undefined, callNode), []];
+
+
+        if (constantLibrary != undefined && constantItemId != undefined && constantLibrary.compilationMode == 'item') {
+            // TODO: make count work in here
+            let item = constantLibrary.items[constantItemId];
+            return [new LibraryItemValue(item.data, item.version, constantLibrary.id, constantItemId), []];
+        } else {
+            let code: CodeBlock[] = [];
+            let outputVarName = `${TC_HEADER}LI_`;
+    
+            function addVarToName(v: VariableValue) {
+                let nameToAdd: string;
+                if (v.scope == VariableScope.LINE) {
+                    nameToAdd = typeof v.name == "string" ? v.name : v.name.join("");
+                } 
+                // if this variable isn't line scoped, it must be extracted to a line
+                // scoped var because of %var's ambiguous scoping
+                else {
+                    let temp = ctx.tvp.newTempVar(Type.str);
+                    code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                        action: "=",
+                        args: [temp, v]
+                    }))
+                    nameToAdd = temp.name;
+                }
+                outputVarName += `%var(${nameToAdd})`
+            }
+    
+            if (constantLibrary != undefined) {
+                outputVarName += constantLibrary.id;
+            } else {
+                addVarToName(args[0] as VariableValue);
+            }
+            outputVarName += "\uFFFF";
+            if (constantItemId != undefined) {
+                outputVarName += constantItemId;
+            } else {
+                addVarToName(args[1] as VariableValue);
+            }
+
+            let itemVar = new VariableValue(outputVarName, VariableScope.GLOBAL, Type.item, callNode);
+
+            // item count needs to be changed
+            // TODO: take the item's default count into consideration instead of assuming it's just 1
+            if (args[2] && !(args[2] instanceof NumberValue && args[2].isCompileTimeConstant() && args[2].toNumber() == 1)) {
+                let temp = ctx.tvp.newTempVar(Type.item);
+                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetItemAmount",
+                    args: [temp, itemVar, args[2] as TangibleValue]
+                }));
+                return [temp, code];
+            } 
+            // item count can remain as 1
+            else {
+                return [itemVar, code];
+            }
+        }
     },
 }

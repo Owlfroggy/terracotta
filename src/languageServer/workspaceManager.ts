@@ -13,6 +13,7 @@ import { TrackedScript } from "./trackedScript.ts";
 import { TrackedItemLibrary } from "./trackedItemLibrary.ts";
 import chokidar, { watch } from 'chokidar';
 import { fileURLToPath } from "node:url"
+import { ItemLibrary } from "../compiler/itemLibrary.ts";
 
 export class WorkspaceManager {
     documents: Map<URI, TrackedDocument> = new Map();
@@ -41,6 +42,17 @@ export class WorkspaceManager {
                 callback(library);
             }
         }
+    }
+
+    // this needs to be an arrow function so it doesn't lose what its `this` points to
+    /** NOTE: if there are multiple libraries with the same id, this will only return one */
+    allItemLibraryDatas = () => {
+        let libraries: {[id: string]: ItemLibrary} = {};
+        this.forEachItemLibrary(lib => {
+            if (!lib.parsedContents) return;
+            libraries[lib.parsedContents.id] = lib.parsedContents;
+        })
+        return libraries;
     }
 
     reanalyzeTypes() {

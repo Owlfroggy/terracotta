@@ -21,7 +21,7 @@ import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/name
 import { posIndexIsInListElement, isForLoopActionCall, binaryIsNamedArgument, getExistingNamedArgs } from "../util/astUtils.ts";
 import { brotliDecompress } from "node:zlib";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
-import { ITEM_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
+import { ITEM_CONSTRUCTOR, LITEM_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
 import { FunctionValue, StringValue } from "../compiler/codeValue.ts";
 import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, TYPE_DESCRIPTIONS, VALID_ITEM_IDS } from "../data/constants.ts";
 import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
@@ -30,6 +30,7 @@ import { COMPILE_START_PROCESS } from "../compiler/namespace/compileCallFunction
 import { methodizeParameterSignatures } from "../compiler/namespace/utils.ts";
 import { TrackedScript } from "./trackedScript.ts";
 import { TrackedItemLibrary } from "./trackedItemLibrary.ts";
+import { ItemLibrary } from "../compiler/itemLibrary.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -412,7 +413,6 @@ export class LanguageServer {
                     signatureHelpProvider: {
                         triggerCharacters: [",","("],
                     },
-                    
                 }
             }
 
@@ -953,6 +953,36 @@ export class LanguageServer {
                                 sortText: "\u0000"+name,
                             }, node, doc)
                         ));
+                    }
+                }
+                else if (definition == LITEM_CONSTRUCTOR) {
+                    // library id
+                    if (posIndexIsInListElement(callNode.args, index, 0)) {
+                        doc.workspace.forEachItemLibrary(lib => {
+                            if (!lib.parsedContents) return;
+                            items.push(stringizeCompletionItem({
+                                label: lib.parsedContents.id,
+                                kind: CompletionItemKind.Text,
+                                sortText: "\u0000"+name,
+                            }, node, doc));
+                        })
+                    }
+                    else if (posIndexIsInListElement(callNode.args, index, 1)) {
+                        let libraryNameArg = callNode.args.elements[0];
+                        if (libraryNameArg instanceof GroupExpression) libraryNameArg = libraryNameArg.getRealExpression();
+
+                        if (libraryNameArg && libraryNameArg instanceof AtomicExpression && libraryNameArg.token.type == TokenType.STRING_LITERAL) {
+                            let library = doc.workspace.allItemLibraryDatas()[libraryNameArg.token.value];
+                            if (library) {
+                                for (const id of Object.keys(library.items)) {
+                                    items.push(stringizeCompletionItem({
+                                        label: id,
+                                        kind: CompletionItemKind.Text,
+                                        sortText: "\u0000"+name,
+                                    }, node, doc));
+                                }
+                            }
+                        }
                     }
                 }
             }

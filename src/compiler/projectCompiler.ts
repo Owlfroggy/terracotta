@@ -4,7 +4,7 @@ import { Lexer } from "../parser/lexer.ts";
 import { Statement } from "../ast/statement.ts";
 import { Parser } from "../parser/parser.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
-import { TCError } from "../error/error.ts";
+import { ErrorType, TCError, TCManualError } from "../error/error.ts";
 import { CodeCompiler } from "./codeCompiler.ts";
 import { DFCodeblockName } from "../df/constants.ts";
 import { ItemLibrary } from "./itemLibrary.ts";
@@ -28,7 +28,7 @@ export interface CompiledProjectTemplates {
 
 export async function compileProject(projectPath: string, plotSize: number): Promise<CompiledProjectTemplates> {
     let statements: Statement[] = [];
-    let itemLibraries: ItemLibrary[] = [];
+    let itemLibraries: {[id: string]: ItemLibrary} = {};
 
     let errors: TCError[] = [];
 
@@ -58,7 +58,12 @@ export async function compileProject(projectPath: string, plotSize: number): Pro
             try {
                 // TODO: find an nbt library that works and do validation here
                 // TODO: also validate the json
-                itemLibraries.push(JSON.parse(fileContents))
+                let lib: ItemLibrary = JSON.parse(fileContents);
+                if (lib.id in itemLibraries) {
+                    errors.push(new TCManualError(0, 0, fileContents, fullPath, ErrorType.ITEM_LIBRARY, `Multiple item libraries with id '${lib.id}'`))
+                } else {
+                    itemLibraries[lib.id] = lib;
+                }
             } catch (ignored) {}
         }
     }
@@ -68,8 +73,12 @@ export async function compileProject(projectPath: string, plotSize: number): Pro
     typeProcessor.evaluationStage()
     errors.push(...typeProcessor.errors);
 
-    let codeCompiler = new CodeCompiler(statements, {types: typeProcessor, optimizationsEnabled: true});
-    for (const lib of itemLibraries) codeCompiler.compileItemLibrary(lib);
+    let codeCompiler = new CodeCompiler(statements, {
+        types: typeProcessor, 
+        getItemLibraries: () => itemLibraries,
+        optimizationsEnabled: true
+    });
+    for (const lib of Object.values(itemLibraries)) codeCompiler.compileItemLibrary(lib);
     let templates = codeCompiler.compile({outputFormat: "GZIP", splitToLength: plotSize});
     errors.push(...codeCompiler.errors);
 
