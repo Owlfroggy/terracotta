@@ -89,6 +89,23 @@ export class TCNodeError extends TCError {
     }
 }
 
+export class TCStandaloneError extends TCError {
+    constructor(
+        type: ErrorType,
+        message: string,
+    ) {
+        super(type, message);
+    }
+
+    getStartPos() { return -1; }
+
+    getEndPos() { return -1; }
+
+    getScriptContents() { return ""; }
+
+    getFilePath() { return ""; }
+}
+
 export class PCodeError {
     constructor(
         /** inclusive, relative to the start of the expression */

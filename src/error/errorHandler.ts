@@ -1,4 +1,4 @@
-import { TCError } from "./error.ts";
+import { TCError, TCStandaloneError } from "./error.ts";
 
 //=------------------------------------------------=\\
 //=- this whole file sucks and needs to be redone -=\\
@@ -50,6 +50,12 @@ function getLineFromIndex(index: number, script: string) {
 }
 
 export function printError(e: TCError, fileName: string) {
+    process.stderr.write("   \n")
+    if (e instanceof TCStandaloneError) {
+        process.stderr.write(`${COLOR.Reset}Error: ${COLOR.Red}${e.message}${COLOR.Reset}\n`)
+        return;
+    }
+
     let script = e.getScriptContents();
     let startPos = e.getStartPos();
     let endPos = e.getEndPos()-1;

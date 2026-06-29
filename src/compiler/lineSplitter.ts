@@ -13,8 +13,9 @@ import { NumberValue, ParameterValue, StringValue, StyledTextValue, VariableValu
 
 /**the maximum number of line vars that can be shared between the parent codeline and a slice */
 export const MAX_LINE_VARS = 26;
-export const pcodeParser = new PCodeParser();
+export const SPLIT_FAILED_ERROR_MESSAGE = "Could not automatially split line";
 
+const pcodeParser = new PCodeParser();
 interface InProgressSlice {
     blocks: CodeBlock[],
     variables: {[key: string]: number},
@@ -362,7 +363,7 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
         sliceAlgorithm(1)
 
         if (sliceCount == lastSliceCount) {
-            throw new Error("Could not automatically split line")
+            throw new Error(SPLIT_FAILED_ERROR_MESSAGE);
         }
         lastSliceCount = sliceCount
     }

@@ -6,7 +6,7 @@ import { getOrCreateDictLayer, getOrCreateMapLayer, ps, upperFirst } from "../ut
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, SubActionBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
-import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
+import { ErrorType, TCError, TCNodeError, TCStandaloneError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, PerSelectedExpression, SelectionExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, ItemValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, LibraryItemValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
@@ -23,7 +23,7 @@ import { PCodeParser } from "../pcode/pcodeParser.ts";
 import { SegmentPCode } from "../pcode/pcode.ts";
 import { BooleanOperation } from "./booleanOperation.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "./namespace/globalScopeInjections.ts";
-import { SliceCodeLine } from "./lineSplitter.ts";
+import { SliceCodeLine, SPLIT_FAILED_ERROR_MESSAGE } from "./lineSplitter.ts";
 import { ItemLibrary } from "./itemLibrary.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
@@ -1534,31 +1534,47 @@ export class CodeCompiler {
         ]);
         for (let [headerType, lineList] of this.codeLines.entries()) {
             for (let [name, line] of Object.entries(lineList)) {
-                let joinedCode = [line.headerBlock!, ...line.code.flat()];
-
-                if (this.env.optimizationsEnabled) {
-                    optimizer.optimize(joinedCode);
-                }
-
-                let outputLines: CodeBlock[][];
-
-                if (splitToLength != -1) {
-                    outputLines = SliceCodeLine(joinedCode, splitToLength);
-                } else {
-                    outputLines = [joinedCode];
-                }
-
-                for (let outLine of outputLines) {
-                    let firstBlock = outLine[0] as ActionBlock;
-
-                    let serialized: string = "error :(";
-                    if (outputFormat == "DFONLINE") {
-                        serialized = `https://dfonline.dev/edit/?template=${gzipize(jsonize(outLine))}`;
-                    } else {
-                        serialized = gzipize(jsonize(outLine));
+                try {
+                    let joinedCode = [line.headerBlock!, ...line.code.flat()];
+    
+                    if (this.env.optimizationsEnabled) {
+                        optimizer.optimize(joinedCode);
                     }
     
-                    output.get(firstBlock.block as HeaderType)![firstBlock.action] = serialized;
+                    let outputLines: CodeBlock[][];
+    
+                    if (splitToLength != -1) {
+                        outputLines = SliceCodeLine(joinedCode, splitToLength);
+                    } else {
+                        outputLines = [joinedCode];
+                    }
+    
+                    for (let outLine of outputLines) {
+                        let firstBlock = outLine[0] as ActionBlock;
+    
+                        let serialized: string = "error :(";
+                        if (outputFormat == "DFONLINE") {
+                            serialized = `https://dfonline.dev/edit/?template=${gzipize(jsonize(outLine))}`;
+                        } else {
+                            serialized = gzipize(jsonize(outLine));
+                        }
+        
+                        output.get(firstBlock.block as HeaderType)![firstBlock.action] = serialized;
+                    }
+                } catch (e) {
+                    if (e instanceof Error && e.message == SPLIT_FAILED_ERROR_MESSAGE) {
+                        let errorMessage = (
+                            `Could not automatically split code line ${headerType} '${name}'.\n`+
+                            `This is often caused by using percent codes inside line variables or using percent codes inside %var().\n`+
+                            `Try manually splitting this code line into separate functions.`
+                        );
+                        let astNode = line.headerBlock?.astNode;
+                        if (astNode && (astNode instanceof EventStatement || astNode instanceof FunctionStatement)) {
+                            this.errors.push(new TCNodeError((astNode.chunk as ChunkExpression).opener ?? astNode.chunk, ErrorType.COMPILER, errorMessage));
+                        } else {
+                            this.errors.push(new TCStandaloneError(ErrorType.COMPILER, errorMessage));
+                        }
+                    }
                 }
             }
         }
