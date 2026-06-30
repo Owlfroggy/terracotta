@@ -217,7 +217,26 @@ export const CSND_CONSTRUCTOR: FunctionDefinition = {
     ],
     getReturnType: USE_DEFAULT_RETURN_TYPE,
     compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
-        if (validateArguments(args, callNode, this.signatures, ctx) == null) 
+        // validation
+        let failed = false;
+        if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
+            if (!/^[a-z0-9/._\-:]*$/g.test(args[0].value)) {
+                ctx.reportError(
+                    args[0].astNode ?? callNode,
+                    `Sound key contains invalid character(s). Sound keys can only use: lowercase a-z, 0-9, '/', '.', '_', '-', and ':'`
+                );
+                failed = true;
+            }
+            else if (/.*:.*:.*/.test(args[0].value)) {
+                ctx.reportError(
+                    args[0].astNode ?? callNode,
+                    `Sound keys may only contain a maximum of one colon (':')`
+                );
+                failed = true;
+            }
+        }
+
+        if (validateArguments(args, callNode, this.signatures, ctx) == null || failed) 
             return [new MissingValue(callNode), []];
 
 
