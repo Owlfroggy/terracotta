@@ -59,9 +59,9 @@ export function matchArgsToParams(args: Expression[], argTypes: Type[], signatur
         // optional special behavior
         else if (p.optional && !argTypes[argIndex].matches(Type.any) && !argTypes[argIndex].matches(p.type) && paramIndex <= lastSkippableOptional) {
             let canSkip = false;
-            // only skip this param if there's a later param which matches this arg
+            // only skip this param if there's a later param which matches this arg AND if this signature allows skips
             for (let i = paramIndex + 1; i < signature.params.length; i++) {
-                if (argTypes[argIndex].matches(signature.params[i].type)) {
+                if (!signature.disallowSkips && argTypes[argIndex].matches(signature.params[i].type)) {
                     canSkip = true;
                     break;
                 }

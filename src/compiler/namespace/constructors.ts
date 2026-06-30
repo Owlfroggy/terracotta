@@ -12,20 +12,24 @@ import { BLOCK_OR_ITEM_IDS, DF_PAR_FIELD_TO_TC, PAR_MATERIAL_FIELD_TYPES, PARTIC
 import { validateArguments } from "../../util/argValidation.ts";
 import { VariableScope } from "../../typeProcessor/typeProcessor.ts";
 import { ItemLibrary } from "../itemLibrary.ts";
+import { MCNote } from "../../util/note.ts";
+import { ASTNode } from "../../ast/astNode.ts";
 
+/** pass undefined in place of a template to skip this ark */
 function evaluateConstOrBlockTemplates(
     ctx: EvaluationContext, 
     args: CodeValue[], 
     starterValue: TangibleValue, 
     outputType: Type,
-    paramTemplates: [new (...args: any[]) => StringValue | NumberValue, string, string][]
+    paramTemplates: ([new (...args: any[]) => StringValue | NumberValue, string, string] | undefined)[]
 ): [TangibleValue, CodeBlock[]] {
     let code: CodeBlock[] = [];
     let tempVar = ctx.tvp.newTempVar(outputType);
     let latestValue: TangibleValue = starterValue;
     for (let i = 0; i < args.length; i++) {
         let arg = args[i] as TangibleValue;
-        let [constValueType, soundField, action] = paramTemplates[i];
+        if (paramTemplates[i] == undefined) continue;
+        let [constValueType, soundField, action] = paramTemplates[i]!;
         if (arg instanceof constValueType && arg.isCompileTimeConstant()) {
             starterValue[soundField] = arg.value;
         } else {
@@ -37,6 +41,41 @@ function evaluateConstOrBlockTemplates(
         }
     }
     return [latestValue, code]
+}
+
+/**
+ * @returns new outVal (set outVal to the result of this function)
+ */
+function applyPitchArg(
+    pitchArg: CodeValue, 
+    originalSound: SoundValue, 
+    callNode: ASTNode, 
+    ctx: EvaluationContext, 
+    originalOutVal: TangibleValue, 
+    code: CodeBlock[]
+): TangibleValue {
+     // pitch is done seperately from the main handler since the note name shenanigans
+    if (pitchArg instanceof StringValue && pitchArg.isCompileTimeConstant()) {
+        let pitch = MCNote.getPitchFromNote(pitchArg.value);
+        if (pitch) {
+            originalSound.pitch = pitch;
+        } else {
+            ctx.reportError(pitchArg.astNode ?? callNode, `Invalid pitch '${pitchArg.value}'`);
+        }
+        return originalOutVal;
+    }
+    else if (pitchArg instanceof NumberValue && pitchArg.isCompileTimeConstant()) {
+        originalSound.pitch = pitchArg.value as unknown as number; // TODO: fix this
+        return originalOutVal;
+    }
+    else {
+        let tempVar = (originalOutVal instanceof VariableValue && originalOutVal.isTempVar) ? originalOutVal : ctx.tvp.newTempVar(Type.snd);
+        code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+            action: "SetSoundPitch",
+            args: [tempVar, originalOutVal, pitchArg as TangibleValue]
+        }))
+        return tempVar;
+    }
 }
 
 export const VEC_CONSTRUCTOR: FunctionDefinition = {
@@ -152,7 +191,17 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
                 {name: "pitch", type: Type.num, optional: true, plural: false},
                 {name: "volume", type: Type.num, optional: true, plural: false},
                 {name: "variant", type: Type.str, optional: true, plural: false},
-            ]
+            ],
+            disallowSkips: true
+        },
+        {
+            params: [
+                {name: "sound", type: Type.str, optional: false, plural: false},
+                {name: "pitch", type: Type.str, optional: false, plural: false, description: "Note name (e.g. A1) in the range 'F#0' -> 'Gb2'"},
+                {name: "volume", type: Type.num, optional: true, plural: false},
+                {name: "variant", type: Type.str, optional: true, plural: false},
+            ],
+            disallowSkips: true
         }
     ],
     getReturnType: USE_DEFAULT_RETURN_TYPE,
@@ -189,16 +238,21 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
             return [new MissingValue(callNode), []];
 
 
-        return evaluateConstOrBlockTemplates(
+        let originalSound = new SoundValue("Pling",1.0,2.0,false,undefined,callNode);
+        let [outVal, code] = evaluateConstOrBlockTemplates(
             ctx, args,
-            new SoundValue("Pling",1.0,2.0,false,undefined,callNode), Type.snd,
+            originalSound, Type.snd,
             [
                 [StringValue, "sound", "SetSoundType"],
-                [NumberValue, "pitch", "SetSoundPitch"],
+                undefined,
                 [NumberValue, "volume", "SetSoundVolume"],
                 [StringValue, "variant", "SetSoundVariant"],
             ]
         );
+
+        if (args[1]) outVal = applyPitchArg(args[1], originalSound, callNode, ctx, outVal, code);
+
+        return [outVal, code]
     },
 }
 
@@ -210,9 +264,18 @@ export const CSND_CONSTRUCTOR: FunctionDefinition = {
         {
             params: [
                 {name: "sound", type: Type.str, optional: false, plural: false, description: "Specified using Minecraft's internal IDs, e.g. \"minecraft:block.anvil.land\". Custom resource pack sounds are supported."},
-                {name: "pitch", type: Type.num, optional: true, plural: false},
+                {name: "pitch", type: Type.num, optional: true, plural: false, description: "Pitch in the range 1.0 -> 2.0"},
                 {name: "volume", type: Type.num, optional: true, plural: false},
-            ]
+            ],
+            disallowSkips: true
+        },
+        {
+            params: [
+                {name: "sound", type: Type.str, optional: false, plural: false, description: "Specified using Minecraft's internal IDs, e.g. \"minecraft:block.anvil.land\". Custom resource pack sounds are supported."},
+                {name: "pitch", type: Type.str, optional: true, plural: false, description: "Note name (e.g. A1) in the range 'F#0' -> 'Gb2'"},
+                {name: "volume", type: Type.num, optional: true, plural: false},
+            ],
+            disallowSkips: true
         }
     ],
     getReturnType: USE_DEFAULT_RETURN_TYPE,
@@ -239,16 +302,20 @@ export const CSND_CONSTRUCTOR: FunctionDefinition = {
         if (validateArguments(args, callNode, this.signatures, ctx) == null || failed) 
             return [new MissingValue(callNode), []];
 
-
-        return evaluateConstOrBlockTemplates(
+        let originalSound = new SoundValue("Pling",1.0,2.0,true,undefined,callNode);
+        let [outVal, code] = evaluateConstOrBlockTemplates(
             ctx, args,
-            new SoundValue("Pling",1.0,2.0,true,undefined,callNode), Type.snd,
+            originalSound, Type.snd,
             [
                 [StringValue, "sound", "SetCustomSound"],
-                [NumberValue, "pitch", "SetSoundPitch"],
+                undefined,
                 [NumberValue, "volume", "SetSoundVolume"],
             ]
         );
+        
+        if (args[1]) outVal = applyPitchArg(args[1], originalSound, callNode, ctx, outVal, code);
+
+        return [outVal, code];
     },
 }
 
@@ -262,7 +329,8 @@ export const POT_CONSTRUCTOR: FunctionDefinition = {
                 {name: "effect", type: Type.str, optional: false, plural: false},
                 {name: "amplifier", type: Type.num, optional: true, plural: false},
                 {name: "duration", type: Type.num, optional: true, plural: false, description: "Unit: ticks\n20 ticks = 1 second"},
-            ]
+            ],
+            disallowSkips: true
         }
     ],
     getReturnType: USE_DEFAULT_RETURN_TYPE,
@@ -638,7 +706,8 @@ export const ITEM_CONSTRUCTOR: FunctionDefinition = {
             params: [
                 {name: "item", type: Type.str, optional: false, plural: false},
                 {name: "count", type: Type.num, optional: true, plural: false},
-            ]
+            ],
+            disallowSkips: true
         }
     ],
     getReturnType: USE_DEFAULT_RETURN_TYPE,
@@ -682,7 +751,8 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
                 {name: "library", type: Type.str, optional: false, plural: false},
                 {name: "item", type: Type.str, optional: false, plural: false},
                 {name: "count", type: Type.num, optional: true, plural: false},
-            ]
+            ],
+            disallowSkips: true
         }
     ],
     getReturnType: USE_DEFAULT_RETURN_TYPE,

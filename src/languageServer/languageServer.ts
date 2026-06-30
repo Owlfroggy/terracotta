@@ -21,7 +21,7 @@ import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/name
 import { posIndexIsInListElement, isForLoopActionCall, binaryIsNamedArgument, getExistingNamedArgs } from "../util/astUtils.ts";
 import { brotliDecompress } from "node:zlib";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
-import { ITEM_CONSTRUCTOR, LITEM_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
+import { CSND_CONSTRUCTOR, ITEM_CONSTRUCTOR, LITEM_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
 import { FunctionValue, StringValue } from "../compiler/codeValue.ts";
 import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, TYPE_DESCRIPTIONS, VALID_ITEM_IDS } from "../data/constants.ts";
 import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
@@ -30,6 +30,7 @@ import { COMPILE_START_PROCESS } from "../compiler/namespace/compileCallFunction
 import { methodizeParameterSignatures } from "../compiler/namespace/utils.ts";
 import { TrackedScript } from "./trackedScript.ts";
 import { TrackedItemLibrary } from "./trackedItemLibrary.ts";
+import { MCNote } from "../util/note.ts";
 import { ItemLibrary } from "../compiler/itemLibrary.ts";
 
 type ServerTCConfiguration = {
@@ -638,7 +639,12 @@ export class LanguageServer {
                     let paramIndex = argsToParams[argIndex];
                     if (paramIndex == -1) continue;
                     if (argTypes[argIndex].matches(signature.params[paramIndex].type)) {
-                        strength++;
+                        // prioritize filling required parameters over later on optional parameters of the same type
+                        if (signature.params[paramIndex].optional) {
+                            strength += 1;
+                        } else {
+                            strength += 2;
+                        }
                     }
                 }
                 if (strength > bestFitStrength) {
@@ -875,7 +881,20 @@ export class LanguageServer {
                         }
                     }
                 }
-                // sound stuff
+                // note names in pitch param
+                else if (posIndexIsInListElement(callNode.args, index, 1) && definition == SND_CONSTRUCTOR || definition == CSND_CONSTRUCTOR) {
+                    let relevantArg = callNode.args.elements[1]?.getRealExpression();
+                    // only show if you're in a string to avoid unnecessarily cluttering completion list
+                    if (relevantArg instanceof AtomicExpression && relevantArg.token.type == TokenType.STRING_LITERAL) {
+                        items.push(...MCNote.getAllNotes().map(note => stringizeCompletionItem({
+                            label: note,
+                            filterText: note,
+                            kind: CompletionItemKind.Text,
+                            sortText: ""+MCNote.getPitchFromNote(note)!
+                        }, relevantArg.token, doc)));
+                    }
+                }
+                // sound names and variants
                 else if (definition == SND_CONSTRUCTOR) {
                     // names
                     if (posIndexIsInListElement(callNode.args, index, 0)) {
@@ -887,6 +906,7 @@ export class LanguageServer {
                             }, node, doc)
                         ));
                     }
+                    // variants
                     else if (posIndexIsInListElement(callNode.args, index, 3)) {
                         let [nameValue, _] = doc.compiler.compileExpression(callNode.args.elements[0], {});
                         if (nameValue instanceof StringValue && nameValue.isCompileTimeConstant()) {

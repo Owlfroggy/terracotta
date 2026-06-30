@@ -26,6 +26,7 @@ export interface ParameterSignatureEntry {
 export interface ParameterSignature {
     params: ParameterSignatureEntry[],
     name?: string,
+    disallowSkips?: boolean,
 }
 
 export interface FunctionCallExtraInfo {
