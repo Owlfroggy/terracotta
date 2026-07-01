@@ -31,7 +31,7 @@ import { methodizeParameterSignatures } from "../compiler/namespace/utils.ts";
 import { TrackedScript } from "./trackedScript.ts";
 import { TrackedItemLibrary } from "./trackedItemLibrary.ts";
 import { MCNote } from "../util/note.ts";
-import { ItemLibrary } from "../compiler/itemLibrary.ts";
+import { convertDFValue } from "./valueConverter.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -1101,6 +1101,21 @@ export class LanguageServer {
             }
 
             return response
+        })
+
+        //==========[ special requests ]=========\\
+        conn.onRequest("terracotta/convertValues", (param: string[]) => {
+            let output: {dfType: string, value: string}[] = [];
+
+            for (const rawValue of param) {
+                let parsedValue = JSON.parse(rawValue);
+                let converted = convertDFValue(parsedValue);
+                if (converted != null) {
+                    output.push({dfType: parsedValue.id, value: converted});
+                }
+            }
+
+            return {values: output};
         })
 
         //==========[ document handling ]=========\\
