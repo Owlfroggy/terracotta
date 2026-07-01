@@ -327,7 +327,7 @@ export const POT_CONSTRUCTOR: FunctionDefinition = {
         {
             params: [
                 {name: "effect", type: Type.str, optional: false, plural: false},
-                {name: "amplifier", type: Type.num, optional: true, plural: false},
+                {name: "level", type: Type.num, optional: true, plural: false},
                 {name: "duration", type: Type.num, optional: true, plural: false, description: "Unit: ticks\n20 ticks = 1 second"},
             ],
             disallowSkips: true
@@ -357,7 +357,7 @@ export const POT_CONSTRUCTOR: FunctionDefinition = {
             new PotionValue("Speed", 1, 1000000, callNode), Type.pot,
             [
                 [StringValue, "effect", "SetPotionType"],
-                [NumberValue, "amplifier", "SetPotionAmp"],
+                [NumberValue, "level", "SetPotionAmp"],
                 [NumberValue, "duration", "SetPotionDur"],
             ]
         );

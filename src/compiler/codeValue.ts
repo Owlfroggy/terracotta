@@ -303,7 +303,8 @@ export class SoundValue extends TangibleValue {
 export class PotionValue extends TangibleValue {
     constructor(
         public effect: string, 
-        public amplifier: number, 
+        /** UNLIKE MINECRAFT this is 1-based; value of 0 != level 1 */
+        public level: number, 
         /** `1000000` is what df considers 'infinite' */
         public duration: number,
         astNode?: ASTNode,
@@ -319,7 +320,7 @@ export class PotionValue extends TangibleValue {
             "data": {
                 "pot": this.effect,
                 "dur": this.duration,
-                "amp": this.amplifier
+                "amp": this.level-1
             }
         }
     }
