@@ -217,7 +217,15 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
     }
 }
 
-export function generateTagSpecifiedActionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, tagOptions: {[tag: string]: string}, signatures: ParameterSignature[], target: TargetType = TargetType.UNSET): FunctionDefinition {
+export function generateTagSpecifiedActionHook(
+    functionName: string, 
+    codeblock: DFCodeblockName, 
+    actionDFName: string, 
+    tagOptions: {[tag: string]: string}, 
+    signatures: ParameterSignature[], 
+    description: string | undefined,
+    target: TargetType = TargetType.UNSET, 
+): FunctionDefinition {
     let actionDef = AD.actions.get(codeblock)?.[actionDFName]!;
 
     let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
@@ -226,6 +234,7 @@ export function generateTagSpecifiedActionHook(functionName: string, codeblock: 
     return {
         definitionType: DefinitionType.FUNCTION,
         name: functionName,
+        description,
         signatures,
         defaultReturnType: tcReturnType,
         getReturnType: USE_DEFAULT_RETURN_TYPE,
@@ -368,7 +377,8 @@ export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition
         [{params: [
             {name: "Number to floor", type: Type.num, optional: false, plural: false},
             {name: "Round multiple", type: Type.num, optional: true, plural: false},
-        ]}]
+        ]}],
+        "Rounds a number down to the nearest whole number or multiple."
     ),
     ceil: generateTagSpecifiedActionHook(
         "ceil", DFCodeblockName.SET_VARIABLE, " RoundNumber ",
@@ -376,86 +386,102 @@ export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition
         [{params: [
             {name: "Number to ceiling", type: Type.num, optional: false, plural: false},
             {name: "Round multiple", type: Type.num, optional: true, plural: false},
-        ]}]
+        ]}],
+        "Rounds a number up to the nearest whole number or multiple."
     ),
     
     // degrees trig functions
     asin: generateTagSpecifiedActionHook(
         "asin", DFCodeblockName.SET_VARIABLE, "Sine",
         {"Sine Variant": "Inverse sine (arcsine)"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the arc sine of a number.\n\nUnit: **degrees**"
     ),
     sinh: generateTagSpecifiedActionHook(
         "sinh", DFCodeblockName.SET_VARIABLE, "Sine",
         {"Sine Variant": "Hyperbolic sine"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the hyperbolic sine of a number.\n\nUnit: **degrees**"
     ),    
     acos: generateTagSpecifiedActionHook(
         "acos", DFCodeblockName.SET_VARIABLE, "Cosine",
         {"Cosine Variant": "Inverse cosine (arccosine)"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the arc cosine of a number.\n\nUnit: **degrees**"
     ),
     cosh: generateTagSpecifiedActionHook(
         "cosh", DFCodeblockName.SET_VARIABLE, "Cosine",
         {"Cosine Variant": "Hyperbolic cosine"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the hyperbolic cosine of a number.\n\nUnit: **degrees**"
     ),    
     atan: generateTagSpecifiedActionHook(
         "atan", DFCodeblockName.SET_VARIABLE, "Tangent",
         {"Tangent Variant": "Inverse tangent (arctangent)"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the arc tangent of a number.\n\nUnit: **degrees**"
     ),
     tanh: generateTagSpecifiedActionHook(
         "tanh", DFCodeblockName.SET_VARIABLE, "Tangent",
         {"Tangent Variant": "Hyperbolic tangent"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the hyperbolic tangent of a number.\n\nUnit: **degrees**"
     ),
     
     // radians trig functions
     sinr: generateTagSpecifiedActionHook(
         "sinr", DFCodeblockName.SET_VARIABLE, "Sine",
         {"Input": "Radians"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the sine of a number.\n\nUnit: **radians**"
     ),
     asinr: generateTagSpecifiedActionHook(
         "asinr", DFCodeblockName.SET_VARIABLE, "Sine",
         {"Input": "Radians", "Sine Variant": "Inverse sine (arcsine)"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the arc sine of a number.\n\nUnit: **radians**"
     ),
     sinhr: generateTagSpecifiedActionHook(
         "sinhr", DFCodeblockName.SET_VARIABLE, "Sine",
         {"Input": "Radians", "Sine Variant": "Hyperbolic sine"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the hyperbolic sine of a number.\n\nUnit: **radians**"
     ),    
     cosr: generateTagSpecifiedActionHook(
         "cosr", DFCodeblockName.SET_VARIABLE, "Cosine",
         {"Input": "Radians"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the cosine of a number.\n\nUnit: **radians**"
     ),
     acosr: generateTagSpecifiedActionHook(
         "acosr", DFCodeblockName.SET_VARIABLE, "Cosine",
         {"Input": "Radians", "Cosine Variant": "Inverse cosine (arccosine)"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the arc cosine of a number.\n\nUnit: **radians**"
     ),
     coshr: generateTagSpecifiedActionHook(
         "coshr", DFCodeblockName.SET_VARIABLE, "Cosine",
         {"Input": "Radians", "Cosine Variant": "Hyperbolic cosine"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the hyperbolic cosine of a number.\n\nUnit: **radians**"
     ),    
     tanr: generateTagSpecifiedActionHook(
         "tanr", DFCodeblockName.SET_VARIABLE, "Tangent",
         {"Input": "Radians"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the tangent of a number.\n\nUnit: **radians**"
     ),
     atanr: generateTagSpecifiedActionHook(
         "atanr", DFCodeblockName.SET_VARIABLE, "Tangent",
         {"Input": "Radians", "Tangent Variant": "Inverse tangent (arctangent)"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the arc tangent of a number.\n\nUnit: **radians**"
     ),
     tanhr: generateTagSpecifiedActionHook(
         "tanhr", DFCodeblockName.SET_VARIABLE, "Tangent",
         {"Input": "Radians", "Tangent Variant": "Hyperbolic tangent"},
-        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}]
+        [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
+        "Sets a variable to the hyperbolic tangent of a number.\n\nUnit: **radians**"
     ),
     atan2r: generateTagSpecifiedActionHook(
         "atan2r", DFCodeblockName.SET_VARIABLE, "ArcTangent2",
@@ -463,7 +489,8 @@ export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition
         [{params: [ 
             {name: "Y", type: Type.num, optional: false, plural: false}, 
             {name: "X", type: Type.num, optional: false, plural: false}, 
-        ]}]
+        ]}],
+        "Sets a variable to the arc tangent of 2 numbers.\n\nUnit: **radians**"
     ),
 }
 

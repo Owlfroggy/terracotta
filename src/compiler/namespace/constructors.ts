@@ -259,6 +259,7 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
 export const CSND_CONSTRUCTOR: FunctionDefinition = {
     definitionType: DefinitionType.FUNCTION,
     name: "csnd",
+    description: "Returns a sound value representing a raw sound key. Use this for custom sounds added by resource packs. Due to DiamondFire/Minecraft limitations, variants cannot be specified.",
     defaultReturnType: Type.snd,
     signatures: [
         {
@@ -744,6 +745,7 @@ export const ITEM_CONSTRUCTOR: FunctionDefinition = {
 export const LITEM_CONSTRUCTOR: FunctionDefinition = {
     definitionType: DefinitionType.FUNCTION,
     name: "litem",
+    description: "Returns an item from an item library. \n\nVariables may be passed to the Library ID and Item ID parameters. Invalid library/item ids will return `0`.",
     defaultReturnType: Type.item,
     signatures: [
         {
