@@ -68,7 +68,3 @@ export class RootNode extends ASTNode {
         return this;
     }
 }
-
-export interface CommentHolder {
-    attachedComments: Token[];
-}

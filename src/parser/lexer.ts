@@ -154,27 +154,12 @@ export class Lexer {
         let startPos = result.index;
         let endPos = result.index + result[0].length;
 
-        let commentLines = (
+        let contents = (
             // trim out opening /* and closing */
             result[0].substring(2,result[0].length-2)
-
-            // split by lnies
-            .split("\n")
         );
 
-        // trim out the <space> * <space> pattern that multiline comments use
-        for (let i = 0; i < commentLines.length; i++) {
-            let line = commentLines[i];
-            let whitespaceMatch = line.match(/(?:\s+\*?|\*)\s?/y);
-            if (whitespaceMatch != null) {
-                line = line.substring(whitespaceMatch[0].length);
-                commentLines[i] = line;
-            }
-        }
-        if (commentLines[0] == "") commentLines.splice(0,1);
-        if (commentLines[commentLines.length-1] == "") commentLines.splice(commentLines.length-1,1);
-
-        return new Token(startPos, endPos, TokenType.MULTILINE_COMMENT,commentLines.join("\n"));
+        return new Token(startPos, endPos, TokenType.MULTILINE_COMMENT,contents);
     }
 
     public tokenize(script: string, filePath: string) {

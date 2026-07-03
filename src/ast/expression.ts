@@ -1,5 +1,6 @@
 import { VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { ASTNode, CommentHolder } from "./astNode.ts";
+import { ASTNode } from "./astNode.ts";
+import { CommentHolder } from "./documenter.ts";
 import { Statement } from "./statement.ts";
 import { Token, TokenType } from "./token.ts";
 

@@ -15,6 +15,7 @@ import { COMPILE_START_PROCESS, COMPILE_CALL_FUNCTION } from "../compiler/namesp
 import { DFCodeblockName } from "../df/constants.ts";
 import { BooleanOperation } from "../compiler/booleanOperation.ts";
 import { actions } from "../df/actiondump.ts";
+import { commentsToDocumentation } from "../ast/documenter.ts";
 
 export enum VariableScope {
     SAVED,
@@ -472,7 +473,7 @@ export class TypeProcessor {
                         type: type,
                         optional: param.star != null, 
                         plural: param.ellipses != null,
-                        description: param.attachedComments.length > 0 ? param.attachedComments.map(t => t.value).join("\n") : undefined
+                        description: commentsToDocumentation(param.attachedComments)
                     })
                 }
             }
