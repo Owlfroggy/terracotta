@@ -741,7 +741,6 @@ export const ITEM_CONSTRUCTOR: FunctionDefinition = {
     },
 }
 
-// TODO: special case for item("air")
 export const LITEM_CONSTRUCTOR: FunctionDefinition = {
     definitionType: DefinitionType.FUNCTION,
     name: "litem",

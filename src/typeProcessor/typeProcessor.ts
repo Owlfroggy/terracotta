@@ -16,7 +16,6 @@ import { DFCodeblockName } from "../df/constants.ts";
 import { BooleanOperation } from "../compiler/booleanOperation.ts";
 import { actions } from "../df/actiondump.ts";
 import { commentsToDocumentation } from "../ast/documenter.ts";
-import { slog } from "../languageServer/logging.ts";
 
 export enum VariableScope {
     SAVED,
@@ -693,8 +692,6 @@ export class TypeProcessor {
         }
     }
 
-    // TODO: idk if it should happen here, but at some point we gotta throw error
-    // for declaring the same variable in multiple different places within a scope
     evaluationStage(frame: EnvironmentFrame = this.globalFrame) {
         let newSolves = -1;
         let hitWall = false;

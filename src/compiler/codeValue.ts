@@ -441,10 +441,10 @@ export class VariableValue extends TangibleValue {
 
     getType(typeProcessor: TypeProcessor): Type {
         if (this.explicitType) return this.explicitType;
-        // todo: make sure that putting Infinity here isnt as big of a war crime as i think it is
         if (!this.astNode) return Type.unknown;
         let frame = typeProcessor.getNodeFrame(this.astNode);
-
+        
+        // todo: make sure that putting Infinity here isnt as big of a war crime as i think it is
         return frame.getVariableType(this.getVarId(), this.astNode?.startPos ?? Infinity);
     }
 

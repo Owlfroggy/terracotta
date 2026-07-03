@@ -170,7 +170,7 @@ export class Parser {
         if (
             identCastKeywords 
             && currentToken.isKeyword()
-            //TODO: let identifiers specified in type pass through?
+            //TODO: let keywords specified in type pass through?
             && (type == TokenType.IDENTIFIER || (Array.isArray(type) && type.includes(TokenType.IDENTIFIER)) ) 
         ) {
             currentToken.convertToIdentifier()

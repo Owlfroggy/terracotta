@@ -95,6 +95,8 @@ for (const eventType of [DFCodeblockName.PLAYER_EVENT, DFCodeblockName.ENTITY_EV
  */
 
 export type CodeLineEntry = {
+    headerType: HeaderType,
+    name: string,
     headerBlock: CodeBlock | null,
     /** Will be `null` for codelines that don't support return types (anything other than FUNCTION) */
     returnTypes: Type[] | null,
@@ -142,6 +144,8 @@ export class CodeCompiler {
         let entries = getOrCreateMapLayer(this.codeLines, headerType, {});
         let headerBlockConstructor = (headerType == DFCodeblockName.PROCESS || headerType == DFCodeblockName.FUNCTION ? ActionBlock : EventBlock);
         return getOrCreateDictLayer<CodeLineEntry>(entries, name, {
+            headerType,
+            name,
             headerBlock: new headerBlockConstructor(headerType, {action: name}),
             returnTypes: null,
             code: []
@@ -264,7 +268,6 @@ export class CodeCompiler {
                             if (plural) this.reportError(param, `Variable parameters cannot be plural`);
                         }
 
-                        // TODO: return values
                         parameters.push(new ParameterValue(
                             param.name.value,
                             dfType,
@@ -432,7 +435,6 @@ export class CodeCompiler {
 
     compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition, context: ExpressionContext, extraInfo: FunctionCallExtraInfo = {}): [CodeValue, CodeBlock[]] {
         let [args, namedArgs, argCode] = this.compileArgsList(e.args, context);
-        // TODO: handle return types
         let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(context.perSelectedMode), e, extraInfo);
         value.astNode = e;
         return [value, [...argCode, ...code]];
@@ -452,7 +454,6 @@ export class CodeCompiler {
                 }
                 // TODO: optimize cases where you don't need an actual structural or (like val == 1 || val == 2)
                 case TokenType.BOOL_OR: {
-                    // TODO: handle not
                     // BOOLEAN EXPRESSION CASE:
                     // if a IS a boolean expression, we can't rely on built-in if-else since
                     // a cannot be put into that if.
@@ -709,7 +710,7 @@ export class CodeCompiler {
             else {
                 this.reportError(
                     e.propertyName,
-                    `Member access not allowed on type '${accessee.getType(this.env.types).name}'`, // TODO: better error message
+                    `Member access not allowed on type '${accessee.getType(this.env.types).name}'`,
                     accessee
                 );
                 return [new MissingValue(e), preCode];
@@ -746,14 +747,7 @@ export class CodeCompiler {
             else {
                 return [new MissingValue(e), preCode];
             }
-            // else {
-            //     this.reportError(
-            //         e.propertyName,
-            //         `Property access not allowed on type '${accessee.getType(this.env.types).name}'`, // TODO: better error message
-            //         accessee
-            //     );
-            //     return [new MissingValue(e), preCode];
-            // }
+
         }
         else if (e instanceof VariableExpression) {
             // throw error for type annotation in bad place
@@ -1353,7 +1347,6 @@ export class CodeCompiler {
         }
         else if (s instanceof RepeatStatement) {
             let countExpression = s.countExpression?.getRealExpression();
-            // TODO: repeat (line i to x)
             if (countExpression) {
                 let code: CodeBlock[] = [];
                 let counterVar: VariableValue | undefined;
@@ -1480,7 +1473,6 @@ export class CodeCompiler {
             if (isForLoopActionCall(iteratorExpr)) {
                 let definition = REPEAT_ACTIONS[iteratorExpr.callee.token.value].def;
                 let [_, headerCode] = this.compileCallExpression(iteratorExpr, definition, exprContext);
-                // TODO: error for incorrect # of vars
                 (headerCode[headerCode.length-1] as ActionBlock).args.unshift(...varValues) // add vars
                 code.push(...headerCode)
             }

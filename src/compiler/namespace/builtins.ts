@@ -240,7 +240,6 @@ export function generateTagSpecifiedActionHook(
         getReturnType: USE_DEFAULT_RETURN_TYPE,
         compile: (args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] => {
             let tags: ActionTagValue[] = [];
-            // todo: default tag values
 
             for (const [name, option] of Object.entries(tagOptions)) {
                 let tagDef = actionDef.tags[name];
