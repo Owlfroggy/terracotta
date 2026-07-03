@@ -73,6 +73,20 @@ export function valueToTCString(value: string, quoteChar: string = '"'): string 
 }
 
 /** 
+ * turns a stringified tc number into an actual number 
+ * 
+ * will return NaN for invalid numbers
+ * */
+export function tcParseNumber(val: string): number {
+    if (val.startsWith("0x") || val.startsWith("0X")) {
+        return parseInt(val.substring(2), 16);
+    } else if (val.startsWith("0b") || val.startsWith("0B")) {
+        return parseInt(val.substring(2), 2);
+    }
+    return parseFloat(val);
+}
+
+/** 
  * stands for 'plural s' (i think)
  * @returns '' if count == 1, else returns 's' 
  * */

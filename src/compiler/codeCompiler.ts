@@ -2,7 +2,7 @@ import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, PerSelectedStatement, SingleKeywordStatement, Statement, WhileStatement, DeclareStatement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { getOrCreateDictLayer, getOrCreateMapLayer, ps, toNameCase, upperFirst } from "../util/utils.ts";
+import { getOrCreateDictLayer, getOrCreateMapLayer, ps, tcParseNumber, toNameCase, upperFirst } from "../util/utils.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, SubActionBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
@@ -642,8 +642,7 @@ export class CodeCompiler {
             let accessorValue: number | string | undefined = undefined;
             if (accessor.isCompileTimeConstant()) {
                 if (accessor instanceof NumberValue) {
-                    // todo: actually handle all terracotta numbers
-                    let v = parseInt(accessor.value as string);
+                    let v = tcParseNumber(accessor.value as string);
                     if (!isNaN(v)) {
                         accessorValue = v;
                     }
@@ -852,13 +851,7 @@ export class CodeCompiler {
                     return [new MissingValue(e), []];
                 }
                 case TokenType.NUMERIC_LITERAL: {
-                    let val = e.value;
-                    if (val.startsWith("0x") || val.startsWith("0X")) {
-                        val = parseInt(val.substring(2), 16).toString();
-                    } else if (val.startsWith("0b") || val.startsWith("0B")) {
-                        val = parseInt(val.substring(2), 2).toString();
-                    }
-                    return [new NumberValue(val,e), []];
+                    return [new NumberValue(tcParseNumber(e.value).toString(),e), []];
                 }
                 case TokenType.STRING_LITERAL: {
                     return [new StringValue(e.value,e), []];

@@ -6,7 +6,7 @@ import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
 import { DictTypeData, FuncTypeData, ListTypeData, MultiValueTypeData, NamespaceTypeData, Type, TypeConstructor, VarTypeData } from "./type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
-import { getTagsAndArgTypes, ps } from "../util/utils.ts";
+import { getTagsAndArgTypes, ps, tcParseNumber } from "../util/utils.ts";
 import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
 import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, ParameterSignature, ParameterSignatureEntry, USE_DEFAULT_RETURN_TYPE } from "../compiler/namespace/definition.ts";
@@ -829,8 +829,7 @@ export class TypeProcessor {
             let propName: number | string | undefined = undefined;
             if (propNameExpr instanceof AtomicExpression) {
                 if (propNameExpr.token.type == TokenType.NUMERIC_LITERAL) {
-                    // TODO: make this actually handle all tc numbers
-                    let parsed = parseInt(propNameExpr.token.value);
+                    let parsed = tcParseNumber(propNameExpr.token.value);
                     if (!isNaN(parsed)) {
                         propName = parsed;
                     }
