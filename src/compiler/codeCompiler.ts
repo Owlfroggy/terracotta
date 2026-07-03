@@ -23,7 +23,7 @@ import { PCodeParser } from "../pcode/pcodeParser.ts";
 import { SegmentPCode } from "../pcode/pcode.ts";
 import { BooleanOperation } from "./booleanOperation.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "./namespace/globalScopeInjections.ts";
-import { SliceCodeLine, SPLIT_FAILED_ERROR_MESSAGE } from "./lineSplitter.ts";
+import { MAX_FUNCTION_PARAMS, SliceCodeLine, SPLIT_FAILED_ERROR_MESSAGE } from "./lineSplitter.ts";
 import { ItemLibrary } from "./itemLibrary.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
@@ -203,8 +203,7 @@ export class CodeCompiler {
             else if (s instanceof FunctionStatement) {
                 let headerType: HeaderType = DFCodeblockName[TokenType[s.keyword.type]];
                 // TODO: warning for trying to include pcodes in name
-                // TODO: error for too many params
-
+                
                 let parameters: ParameterValue[] = [];
                 if (s.params) {
                     let seenNames: Set<string> = new Set();
@@ -314,6 +313,14 @@ export class CodeCompiler {
                     } else {
                         this.reportError(s.returnType, "Processes cannot return values");
                     }
+                }
+
+                if (parameters.length > MAX_FUNCTION_PARAMS) {
+                    this.reportError(s.name,
+                        s.returnType 
+                        ? `Total number of parameters + total number of return values cannot exceed ${MAX_FUNCTION_PARAMS}.`
+                        : `Total number of parameters cannot exceed ${MAX_FUNCTION_PARAMS}`
+                    );
                 }
                 
                 lineEntry = this.getLineEntry(headerType, s.name.value);

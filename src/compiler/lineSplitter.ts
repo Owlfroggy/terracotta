@@ -12,7 +12,7 @@ import { ActionBlock, BracketBlock, BracketDirection, CodeBlock, ElseBlock, Even
 import { NumberValue, ParameterValue, StringValue, StyledTextValue, VariableValue } from "./codeValue.ts";
 
 /**the maximum number of line vars that can be shared between the parent codeline and a slice */
-export const MAX_LINE_VARS = 26;
+export const MAX_FUNCTION_PARAMS = 26;
 export const SPLIT_FAILED_ERROR_MESSAGE = "Could not automatially split line";
 
 const pcodeParser = new PCodeParser();
@@ -308,13 +308,13 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
                 return
             }
             //if this chunk by itself is unqualified to be a slice, apply current slice and skip it
-            else if (chunk.physicalLength > maxLineLength - 2 || Object.keys(chunk.variables).length > MAX_LINE_VARS || chunk.hasNonConstantVarNames) {
+            else if (chunk.physicalLength > maxLineLength - 2 || Object.keys(chunk.variables).length > MAX_FUNCTION_PARAMS || chunk.hasNonConstantVarNames) {
                 applyCurrentSlice()
                 i += chunk.blocks.length
                 currentSlice.startIndex = i + 1
             } 
             //if this chunk would invalidate the current slice but can be in its own slice, apply current slice but let offending chunk be part of the next one
-            else if (currentSlice.physicalLength + chunk.physicalLength > maxLineLength - 2 || Object.keys(currentSlice.variables).length + Object.keys(chunk.variables).length > MAX_LINE_VARS) {
+            else if (currentSlice.physicalLength + chunk.physicalLength > maxLineLength - 2 || Object.keys(currentSlice.variables).length + Object.keys(chunk.variables).length > MAX_FUNCTION_PARAMS) {
                 applyCurrentSlice()
             }
             //otherwise add this chunk to the slice
