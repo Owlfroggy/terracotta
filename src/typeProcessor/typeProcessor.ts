@@ -809,11 +809,14 @@ export class TypeProcessor {
         }
         else if (expression instanceof DictionaryExpression) {
             let keyTypes: {[key: string]: Type} = {};
+            let keyDescriptions: {[key: string]: string} = {};
             for (const entry of expression.entries) {
                 if (!(entry.key instanceof Token)) continue;
                 keyTypes[entry.key.value] = this.evaluateExpression(entry.value);
+                let documentation = commentsToDocumentation(entry.attachedComments)
+                if (documentation != undefined) keyDescriptions[entry.key.value] = documentation;
             }
-            return Type.dict(Type.void, keyTypes);
+            return Type.dict(Type.void, keyTypes, keyDescriptions);
         }
         else if (expression instanceof VariableExpression) {
             return frame.getVariableType(VariableId.fromExpression(expression), expression.startPos);
@@ -922,6 +925,7 @@ export class TypeProcessor {
         }
         else if (expression.type instanceof DictionaryTypeExpression) {
             let elementTypes: {[key: string]: Type} = {};
+            let elementDescriptions: {[key: string]: string} = {};
             let genericType: Type | undefined;
 
             // overflow type
@@ -942,10 +946,12 @@ export class TypeProcessor {
             // key types
             for (let entry of expression.type.entries) {
                elementTypes[entry.key.value] = this.evaluateExplicitType(entry.value, {reportErrors});
+               let documentation = commentsToDocumentation(entry.attachedComments)
+               if (documentation != undefined) elementDescriptions[entry.key.value] = documentation;
             }
 
 
-            return Type.dict(genericType ?? Type.void,elementTypes);
+            return Type.dict(genericType ?? Type.void,elementTypes,elementDescriptions);
         }
 
         let name = expression.type.value;

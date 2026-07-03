@@ -6,7 +6,7 @@ import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, SelectionExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
-import { FuncTypeData, NamespaceTypeData, Type, TYPE_NAMESPACES } from "../typeProcessor/type.ts";
+import { DictTypeData, FuncTypeData, NamespaceTypeData, Type, TYPE_NAMESPACES } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
 import { EnvironmentFrame, isVariableEntry, TypeProcessor, VariableEntry, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
@@ -186,10 +186,17 @@ function generateTypeMemberCompletions(type: Type): CompletionItem[] {
         if (mType.matches(Type.func)) {
             items.push(generateDefinitionCompletion(m, (mType.data as FuncTypeData).definition));
         } else {
-            // TODO: make these items prettier
+            let name = isIdentifier(m) ? m : valueToTCString(m);
+            let description: string | undefined;
+            if (type.matches(Type.dict)) {
+                description = (type.data as DictTypeData).keyDescriptions[m];
+            }
             items.push({
                 label: m, 
-                documentation: mType.toString(),
+                documentation: {
+                    kind: "markdown",
+                    value: `\`\`\`tc\n${name}: ${mType.toString()}\n\`\`\`\n${description ? "\n\n"+description : ""}`
+                },
                 kind: CompletionItemKind.Field
             });
         }

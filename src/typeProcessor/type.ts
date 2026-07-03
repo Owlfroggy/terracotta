@@ -30,6 +30,7 @@ export type ListTypeData = {
 export type DictTypeData = {
     genericType: Type,
     keyTypes: {[key: string]: Type},
+    keyDescriptions: {[key: string]: string},
 }
 
 export type MultiValueTypeData = {
@@ -168,7 +169,7 @@ export class Type {
 
     public static dict = this.makeTypeConstructor(
         'dict', 1,
-        (genericType: Type, keyTypes: {[key: string]: Type} = {}) => {
+        (genericType: Type, keyTypes: {[key: string]: Type} = {}, keyDescriptions: {[key: string]: string} = {}) => {
             let getMemberType = (m?: string | number) => {
                 if (typeof m == 'string' && m in keyTypes) {
                     return keyTypes[m];
@@ -232,7 +233,7 @@ export class Type {
             }
             let members = Object.keys(keyTypes);
             let getMembers = () => members;
-            return new Type('dict', {getMemberType, getMembers, strictMatchCallback, assignabilityCallback, stringify, data: {genericType, keyTypes}})
+            return new Type('dict', {getMemberType, getMembers, strictMatchCallback, assignabilityCallback, stringify, data: {genericType, keyTypes, keyDescriptions}})
         }
     );
 

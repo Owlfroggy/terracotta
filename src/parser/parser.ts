@@ -542,7 +542,6 @@ export class Parser {
             this.currentToken().type != TokenType.CLOSE_CURLY
             && !this.isLineDelimiter(this.currentToken())
         ) {
-            // TODO: maybe do something with comments
             let comments = this.consumeComments();
 
             // normal types
@@ -551,7 +550,9 @@ export class Parser {
                 let [colon, colonFound] = this.expectOrMissing(TokenType.COLON);
                 let type = this.parseTypeExpression();
                 if (type != null) {
-                    entries.push(new DictionaryTypeEntryExpression(key, colon, type));
+                    let expr = new DictionaryTypeEntryExpression(key, colon, type);
+                    expr.attachedComments.push(...comments);
+                    entries.push(expr);
                 } else {
                     this.consume();
                 }
