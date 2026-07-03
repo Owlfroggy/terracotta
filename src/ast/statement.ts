@@ -26,6 +26,13 @@ export class ExpressionStatement extends Statement {
     }
 }
 
+export class DeclareStatement extends Statement {
+    constructor(
+        public keyword: Token,
+        public subStatement: ExpressionStatement | AssignmentStatement
+    ) {super(keyword.startPos, subStatement.endPos);}
+}
+
 export class AssignmentStatement extends Statement {
     constructor(
         public leftValues: Expression[],

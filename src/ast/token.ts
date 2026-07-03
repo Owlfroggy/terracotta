@@ -7,6 +7,7 @@ export enum TokenType {
     ENTITY_EVENT,
     FUNCTION,
     PROCESS,
+    DECLARE,
 
     CALL,
     START,

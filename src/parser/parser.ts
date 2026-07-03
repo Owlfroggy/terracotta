@@ -1,6 +1,6 @@
 import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression, DictionaryTypeExpression, DictionaryTypeEntryExpression, PerSelectedExpression, SelectionExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, DoStatement, AssignmentStatement, PerSelectedStatement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, DoStatement, AssignmentStatement, PerSelectedStatement, DeclareStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorPositionMode, ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { dirWithoutRelations } from "../util/debug.ts";
@@ -120,6 +120,7 @@ export class Parser {
             [TokenType.GAME_EVENT,          this.parseEventStatement],
             [TokenType.FUNCTION,            this.parseFunctionStatement],
             [TokenType.PROCESS,             this.parseFunctionStatement],
+            [TokenType.DECLARE,             this.parseDeclareStatement],
 
             [TokenType.FOR,                 this.parseForStatement],
             [TokenType.REPEAT,              this.parseRepeatStatement],
@@ -684,6 +685,13 @@ export class Parser {
         }
 
         return left;
+    }
+
+    parseDeclareStatement = (): DeclareStatement => {
+        let keyword = this.consume();
+        let subStatement = this.parseExpressionStatement();
+        this.expect(TokenType.SEMICOLON);
+        return new DeclareStatement(keyword, subStatement);
     }
 
     parseExpressionStatement = (): ExpressionStatement | AssignmentStatement => {
