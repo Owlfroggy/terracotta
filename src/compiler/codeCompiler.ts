@@ -1242,8 +1242,7 @@ export class CodeCompiler {
                 let expectedValueAmount = context.lineEntry.returnTypes?.length ?? 0
                 let actualValueAmount = s.values.length;
                 if (context.lineEntry.returnTypes == null) {
-                    // TODO: better error message probably
-                    this.reportError(s.values[0], `Values cannot be returned from here`);
+                    this.reportError(s.values[0], `Values cannot be returned from a ${context.lineEntry.headerType.toLowerCase()}`);
                     return [];
                 }
                 else if (actualValueAmount != expectedValueAmount) {
