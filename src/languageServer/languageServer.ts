@@ -218,7 +218,7 @@ function generateTypePropertyCompletions(type: Type): CompletionItem[] {
     return items;
 }
 
-function generateVariableCompletions(envFrame: EnvironmentFrame, options: {explicitScope?: VariableScope, replaceString?: Token, doc?: TrackedDocument, excludeName?: string} = {}): CompletionItem[] {
+function generateVariableCompletions(envFrame: EnvironmentFrame, position: number, options: {explicitScope?: VariableScope, replaceString?: Token, doc?: TrackedDocument, excludeName?: string} = {}): CompletionItem[] {
     if (options.replaceString != undefined && options.doc == undefined) throw new Error("options.doc must be provided if options.replaceString is present");
     let items: CompletionItem[] = [];
     // collect variable data
@@ -231,8 +231,9 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, options: {expli
                 if (options.explicitScope !== undefined && scope != options.explicitScope) continue;
                 for (const variable of varLayer) {
                     if (options.excludeName !== undefined && variable.id.name == options.excludeName) continue;
+                    if (variable.effectiveBeyondPosition >= position) continue;
                     let entries = seenVars.getOrInsert(variable.id.name, new Map());
-                    if (entries.has(variable.id.scope)) continue;
+                    if (entries.has(variable.id.scope) && entries.get(variable.id.scope)!.effectiveBeyondPosition > variable.effectiveBeyondPosition) continue;
                     entries.set(variable.id.scope, variable);
                 }
             }
@@ -777,7 +778,7 @@ export class LanguageServer {
             else if (node instanceof VariableExpression || (node instanceof Token && node.parent instanceof VariableExpression && node.keyInParent == "name")) {
                 let variableExpression = (node instanceof VariableExpression ? node : node.parent) as VariableExpression;
                 includeGenerics = false;
-                items.push(...generateVariableCompletions(envFrame, {
+                items.push(...generateVariableCompletions(envFrame, node.startPos, {
                     explicitScope: VariableScope[TokenType[variableExpression.scope.type]],
                     replaceString: node instanceof Token && node.type == TokenType.STRING_LITERAL ? node : undefined,
                     doc: doc,
@@ -860,7 +861,7 @@ export class LanguageServer {
                             }
                             includeGenerics = false;
                             if (!(node instanceof Token && node.type == TokenType.STRING_LITERAL)) {
-                                items.push(...generateVariableCompletions(envFrame));
+                                items.push(...generateVariableCompletions(envFrame, node.startPos));
                             }
                         }
                     }
@@ -1064,7 +1065,7 @@ export class LanguageServer {
                 items.push(...globalScopeInjectionCompletions);
                 
                 // variables and functions
-                items.push(...generateVariableCompletions(envFrame));
+                items.push(...generateVariableCompletions(envFrame, node.startPos));
                 items.push(...doc.workspace.typeProcessor.globalFrame.functions.values().flatMap(
                     funcs => funcs.map(f => generateDefinitionCompletion(f.name, f))
                 ));
