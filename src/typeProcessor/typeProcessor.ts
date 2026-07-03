@@ -1,6 +1,6 @@
 import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, DictionaryTypeExpression, Expression, GroupExpression, ListExpression, SelectionExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { AssignmentStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, PerSelectedStatement, Statement, IfStatement, WhileStatement } from "../ast/statement.ts";
+import { AssignmentStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, PerSelectedStatement, Statement, IfStatement, WhileStatement, DeclareStatement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
@@ -91,6 +91,11 @@ export class EnvironmentFrame {
         assignmentVarPos?: number;
         astNode?: ASTNode;
     }) {
+        // don't let line variables be registered to the global frame
+        if (id.scope == VariableScope.LINE && this.parent == null) {
+            return;
+        }
+
         let entry: VariableEntry = {
             id: id,
             solved: type != null,
@@ -563,14 +568,22 @@ export class TypeProcessor {
      * If a RootNode is passed in, an extra frame will be created to represent that RootNode's document 
      * The RootNode's statements will then be collected
      * */
-    collectionStage(statements: RootNode[] | Statement[], frame: EnvironmentFrame = this.globalFrame) {        
-        for (const statement of statements) {
+    collectionStage(statements: RootNode[] | Statement[], defaultFrame: EnvironmentFrame = this.globalFrame) {        
+        for (let statement of statements) {
+            let frame = defaultFrame;
             // handle root nodes
             if (statement instanceof RootNode) {
                 let rootFrame = frame.addChild(statement);
                 this.framesByASTNode.set(statement, rootFrame);
                 this.collectionStage(statement.statements, rootFrame);
                 continue;
+            }
+
+            // handle declaration statements
+            if (statement instanceof DeclareStatement) {
+                statement = statement.subStatement;
+                // declare statements always push things to the global frame
+                frame = this.globalFrame; 
             }
             
             // variable assignments
@@ -584,7 +597,9 @@ export class TypeProcessor {
 
                     // if this variable has already been declared and there's no explicit type
                     // being specified, don't override the var's type with the inferred value type
-                    if (!variableExpr.assignedType) {
+                    // also, "allow" having multiple declarations in the global frame since the compiler can 
+                    // detect that and display a proper error
+                    if (!variableExpr.assignedType && frame != this.globalFrame) {
                         let existingEntry = frame.getVariableEntry(variableExpr.getVarId(), variableExpr.startPos);
                         if (existingEntry) continue;
                     }
@@ -619,7 +634,9 @@ export class TypeProcessor {
                 let varId = VariableId.fromExpression(variableExpr);
                 let existingDeclaration = frame.getVariableEntry(varId, variableExpr.startPos);
 
-                if (existingDeclaration && !variableExpr.assignedType) continue;
+                // "allow" having multiple declarations in the global frame since the compiler can 
+                // detect that and display a proper error
+                if (existingDeclaration && !variableExpr.assignedType && frame != this.globalFrame) continue;
 
                 frame.registerVariable({
                     id: varId,

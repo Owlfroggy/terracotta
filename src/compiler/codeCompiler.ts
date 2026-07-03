@@ -1,5 +1,5 @@
 import { ASTNode, RootNode } from "../ast/astNode.ts";
-import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, PerSelectedStatement, SingleKeywordStatement, Statement, WhileStatement } from "../ast/statement.ts";
+import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, PerSelectedStatement, SingleKeywordStatement, Statement, WhileStatement, DeclareStatement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, ps, toNameCase, upperFirst } from "../util/utils.ts";
@@ -156,8 +156,6 @@ export class CodeCompiler {
         let statementMap: Map<HeaderType, Map<string, Statement[]>> = new Map();
 
         for (const s of statements) {
-            if (s.headerType == null) continue; // maybe throw error here for the time being
-
             let lineEntry: CodeLineEntry;
 
             if (s instanceof EventStatement) {
@@ -326,8 +324,13 @@ export class CodeCompiler {
                     args: parameters
                 })
             }
+            else if (s instanceof DeclareStatement) {
+                this.validateDeclareStatement(s, false);
+                continue;
+            }
             else {
                 //TODO: this is very temporary
+                continue; // maybe throw error here for the time being
                 throw new Error(`no idea how to compile this: ${s.constructor.name}`);
             }
 
@@ -945,7 +948,49 @@ export class CodeCompiler {
         }
     }
 
+    validateDeclareStatement(declareStatement: DeclareStatement, allowInitialization: boolean) {
+        let keyword = declareStatement.keyword;
+        let s = declareStatement.subStatement;
+        let varExpressions: Expression[] = [];
+            
+        // error for applying 'declare' to invalid places
+        if (s instanceof ExpressionStatement && s.expression instanceof VariableExpression) {
+            varExpressions.push(s.expression);
+        } else if (s instanceof AssignmentStatement) {
+            varExpressions = s.leftValues;
+            if (!allowInitialization && s.rightValue) {
+                this.reportError(s.rightValue, "Variables cannot be assigned values here. Move this declaration into an event, function, or process.");
+            }
+        } else {
+            this.reportError(keyword,"'declare' keyword cannot be used here");
+        }
+
+        for (let v of varExpressions) {
+            if (v instanceof VariableExpression) {
+                if (v.scope.type == TokenType.LINE) {
+                    this.reportError(v, "Line variables cannot be globally declared");
+                }
+                let varId = v.getVarId();
+                let varEntries = this.env.types.globalFrame.variables.get(varId.name)?.get(varId.scope);
+                if (varEntries && varEntries.length > 1) {
+                    this.reportError(v, `${toNameCase(v.scope.value)} variable '${varId.name}' declared in multiple places`);
+                }
+            }
+            else if (v instanceof AtomicExpression && v.token.type == TokenType.IDENTIFIER) {
+                this.reportError(v, "Variables must specify their scope to be globally declared");
+            }
+            else {
+                this.reportError(v, "'declare' keyword cannot be applied to this value");
+            }
+        }
+    }
+
     compileStatement = (s: Statement, context: StatementContext): CodeBlock[] => {
+        if (s instanceof DeclareStatement) {
+            this.validateDeclareStatement(s, true);
+            s = s.subStatement;
+        }
+
         let exprContext: ExpressionContext = {perSelectedMode: context.perSelectedMode};
         if (s instanceof ExpressionStatement) {
             let e = s.expression;

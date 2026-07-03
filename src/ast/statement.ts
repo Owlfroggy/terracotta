@@ -68,6 +68,8 @@ export class AssignmentStatement extends Statement {
 }
 
 export class EventStatement extends Statement {
+    override headerType: HeaderType;
+    
     constructor(
         public modifiers: Token[],
         public type: Token,
@@ -81,6 +83,8 @@ export class EventStatement extends Statement {
 
 /** Also used for processes */
 export class FunctionStatement extends Statement {
+    override headerType: HeaderType;
+
     constructor(
         public keyword: Token,
         public name: Token,
