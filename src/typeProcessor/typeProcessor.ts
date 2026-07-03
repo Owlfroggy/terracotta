@@ -16,6 +16,7 @@ import { DFCodeblockName } from "../df/constants.ts";
 import { BooleanOperation } from "../compiler/booleanOperation.ts";
 import { actions } from "../df/actiondump.ts";
 import { commentsToDocumentation } from "../ast/documenter.ts";
+import { slog } from "../languageServer/logging.ts";
 
 export enum VariableScope {
     SAVED,
@@ -125,7 +126,7 @@ export class EnvironmentFrame {
      * If a string is passed in, all variables with that name and any scope will be considered
      * @returns VariableEntry if this variable is present and unconflicted on any scope at or above this frame
      */
-    getVariableEntry(variable: VariableId | string, atPos: number, requireASTNode: boolean = false): VariableEntry | null {
+    getVariableEntry(variable: VariableId | string, atPos: number, flags: {requireASTNode?: boolean, requireDescription?: boolean} = {}): VariableEntry | null {
         let frame = this;
         let name: string;
         let scope: VariableScope | null;
@@ -153,10 +154,16 @@ export class EnvironmentFrame {
                     // otherwise, go through all definitions to get the latest one that fulfills atPos
                     let i;
                     for (i = entries.length-1; i >= 0; i--) {
-                        if (entries[i].effectiveBeyondPosition < atPos) break;
+                        if (
+                            entries[i].effectiveBeyondPosition < atPos
+                            && !(flags.requireASTNode && entries[i].astNode == undefined)
+                            && !(flags.requireDescription && entries[i].description == undefined)
+                        ) break;
                     }
 
-                    if (i != -1 && !(requireASTNode && entries[i].astNode == undefined)) {
+                    if (
+                        i != -1 
+                    ) {
                         return entries[i];
                     } else {
                         return null;
@@ -184,7 +191,7 @@ export class EnvironmentFrame {
             // variable could not be evaluated on any level
             return null;
         } else {
-            return this.parent.getVariableEntry(variable, atPos);
+            return this.parent.getVariableEntry(variable, atPos, flags);
         }
     }
 

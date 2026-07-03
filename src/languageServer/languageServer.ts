@@ -218,7 +218,7 @@ function generateTypePropertyCompletions(type: Type): CompletionItem[] {
     return items;
 }
 
-function generateVariableCompletions(envFrame: EnvironmentFrame, position: number, options: {explicitScope?: VariableScope, replaceString?: Token, doc?: TrackedDocument, excludeName?: string} = {}): CompletionItem[] {
+function generateVariableCompletions(envFrame: EnvironmentFrame, atPos: number, options: {explicitScope?: VariableScope, replaceString?: Token, doc?: TrackedDocument, excludeName?: string} = {}): CompletionItem[] {
     if (options.replaceString != undefined && options.doc == undefined) throw new Error("options.doc must be provided if options.replaceString is present");
     let items: CompletionItem[] = [];
     // collect variable data
@@ -231,7 +231,7 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, position: numbe
                 if (options.explicitScope !== undefined && scope != options.explicitScope) continue;
                 for (const variable of varLayer) {
                     if (options.excludeName !== undefined && variable.id.name == options.excludeName) continue;
-                    if (variable.effectiveBeyondPosition >= position) continue;
+                    if (variable.effectiveBeyondPosition >= atPos) continue;
                     let entries = seenVars.getOrInsert(variable.id.name, new Map());
                     if (entries.has(variable.id.scope) && entries.get(variable.id.scope)!.effectiveBeyondPosition > variable.effectiveBeyondPosition) continue;
                     entries.set(variable.id.scope, variable);
@@ -252,7 +252,16 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, position: numbe
             }
             let multipleVars = (scopeLayer.size > 1 && scope != Math.max(...scopeLayer.keys()));
             
-            let description = entry.description ? "\n"+entry.description : ""
+            let rawDescription: string | undefined;
+            if (entry.description !== undefined) {
+                rawDescription = entry.description;
+            } else {
+                // if there is a higher up definition that does have a description, use that
+                let betterEntry = envFrame.getVariableEntry(entry.id, atPos, {requireDescription: true});
+                if (betterEntry) rawDescription = betterEntry.description;
+            }
+
+            let description = rawDescription ? "\n"+rawDescription : ""
             let documentation: MarkupContent = {
                 kind: 'markdown', 
                 value: `\`\`\`tc\n${scopeStr} ${stringifiedName}: ${type}\n\`\`\`${description}`
@@ -472,7 +481,7 @@ export class LanguageServer {
                 resolved = doc.workspace.typeProcessor.globalFrame[type].get(node.value)?.[0] ?? null;
             }
             if (getVarEntryOf) {
-                resolved = doc.workspace.typeProcessor.getNodeFrame(node).getVariableEntry(getVarEntryOf, node.startPos, true);
+                resolved = doc.workspace.typeProcessor.getNodeFrame(node).getVariableEntry(getVarEntryOf, node.startPos, {requireASTNode: true});
             }
             if (!resolved) return;
 
