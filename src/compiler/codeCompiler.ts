@@ -1521,6 +1521,7 @@ export class CodeCompiler {
         let declarationsToCompile = this.processLineDeclarations(this.ast);
 
         for (const [lineEntry, declaration] of declarationsToCompile) {
+            this.tempVarProvider.resetCount();
             if (declaration instanceof EventStatement || declaration instanceof FunctionStatement) {
                 if (!(declaration.chunk instanceof ChunkExpression)) continue;
                 lineEntry.code.push(...declaration.chunk.statements.map(
