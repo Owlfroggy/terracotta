@@ -328,10 +328,12 @@ export class CodeCompiler {
                 this.validateDeclareStatement(s, false);
                 continue;
             }
+            else if (s instanceof ExpressionStatement && s.expression instanceof VariableExpression) {
+                continue;
+            }
             else {
-                //TODO: this is very temporary
-                continue; // maybe throw error here for the time being
-                throw new Error(`no idea how to compile this: ${s.constructor.name}`);
+                this.reportError(s, "This kind of statement can only be placed in an event, function, or process");
+                continue;
             }
 
             declarationsToCompile.push([lineEntry, s]);
