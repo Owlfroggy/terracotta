@@ -41,6 +41,7 @@ export type EvaluationContext = {
     tvp: TempVarProvider,
     types: TypeProcessor,
     rank: DFRank,
+    compiler: CodeCompiler,
     getItemLibraries: () => {[id: string]: ItemLibrary},
     reportError: (node: ASTNode, message: string) => void,
 }
@@ -121,6 +122,7 @@ export class CodeCompiler {
             tvp: perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider,
             types: this.env.types,
             rank: this.env.rank,
+            compiler: this,
             getItemLibraries: this.env.getItemLibraries,
             reportError: this.reportError,
         }
@@ -150,6 +152,27 @@ export class CodeCompiler {
             returnTypes: null,
             code: []
         })
+    }
+
+    private airItemCreated: boolean = false;
+    /**
+     * Will return a variable that's set to an item stack with material "air"
+     * 
+     * The first time this is called, the initializer blocks for said variable will be added to gameevent startup
+     */
+    getAirItem() {
+        let varName = `${TC_HEADER}AIR`;
+        if (!this.airItemCreated) {
+            let entry = this.getLineEntry(DFCodeblockName.GAME_EVENT, "PlotStartup");
+            entry.code.unshift([
+                new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+                    action: "SetItemType",
+                    args: [new VariableValue(varName, VariableScope.GLOBAL, Type.item), new StringValue("air")]
+                })
+            ]);
+            this.airItemCreated = true;
+        }
+        return new VariableValue(varName, VariableScope.GLOBAL, Type.item);
     }
 
     /** Returns an array of statements which need to be compiled */

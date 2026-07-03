@@ -715,8 +715,12 @@ export const ITEM_CONSTRUCTOR: FunctionDefinition = {
     compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
         // validation
         let failed = false;
+        let useAirItem = false;
         if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
-            if (!(VALID_ITEM_IDS.has(args[0].value))) {
+            if (args[0].value == "air") {
+                useAirItem = true;
+            }
+            else if (!(VALID_ITEM_IDS.has(args[0].value))) {
                 ctx.reportError(
                     args[0].astNode ?? callNode,
                     `Invalid item id '${args[0].value}'`
@@ -729,6 +733,9 @@ export const ITEM_CONSTRUCTOR: FunctionDefinition = {
         if (validateArguments(args, callNode, this.signatures, ctx) == null || failed) 
             return [new ItemValue("stone", 1, undefined, callNode), []];
 
+        if (useAirItem) {
+            return [ctx.compiler.getAirItem(), []];
+        }
 
         return evaluateConstOrBlockTemplates(
             ctx, args,
