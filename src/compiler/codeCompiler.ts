@@ -501,7 +501,7 @@ export class CodeCompiler {
         let [val, valCode] = this.compileExpression(e, context);
 
         if (!(val instanceof TangibleValue)) {
-            this.reportError(e, `Cannot check truthiness of '${val.constructor.name}'`);
+            this.reportError(e, `Cannot check truthiness of '${val.constructor.name}'`, val);
             return [];
         }
 
@@ -1161,10 +1161,7 @@ export class CodeCompiler {
                     (assigneeExpr instanceof VariableExpression)
                     || (assigneeExpr instanceof AtomicExpression && variable instanceof VariableValue)
                 )) {
-                    this.reportError(
-                        assigneeExpr,
-                        `Left-hand side of an assignment statement must be a variable`
-                    )
+                    this.reportError(assigneeExpr, `Left-hand side of an assignment statement must be a variable`, variable)
                     continue;
                 }
 
@@ -1316,10 +1313,7 @@ export class CodeCompiler {
                     if (cVar instanceof VariableValue && !cVar.isTempVar) {
                         counterVar = cVar;
                     } else {
-                        this.reportError(
-                            countExpression.left,
-                            `Repeat counter must be a variable`
-                        );
+                        this.reportError(countExpression.left, `Repeat counter must be a variable`, cVar);
                     }
 
                     amountExpr = countExpression.right;
