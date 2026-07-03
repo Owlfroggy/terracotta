@@ -632,7 +632,11 @@ export class Parser {
             }
 
             if (statement != null) {
-                statement.attachedComments.push(...comments);
+                if (statement instanceof DeclareStatement) {
+                    statement.subStatement.attachedComments.push(...comments);
+                } else {
+                    statement.attachedComments.push(...comments);
+                }
                 statements.push(statement);
             };
         }

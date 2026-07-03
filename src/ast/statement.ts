@@ -27,6 +27,7 @@ export class ExpressionStatement extends Statement {
     }
 }
 
+/** NOTE: all comments that would be attached to this statement will instead be passed to its subStatement */
 export class DeclareStatement extends Statement {
     constructor(
         public keyword: Token,
