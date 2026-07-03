@@ -174,7 +174,7 @@ export class CodeCompiler {
                 let adAction = AD.actions.get(headerType)?.[dfEvent]!;
 
                 // rank check
-                if (!AD.rankCheck(this.env.rank, adAction.requiresRank)) {
+                if (!AD.rankCheck(this.env.rank, adAction?.requiresRank)) {
                     this.reportError(
                         s.eventName, 
                         `${toNameCase(headerType)} '${tcEvent}' requires ${toNameCase(adAction.requiresRank)} rank, compiler is set to ${toNameCase(this.env.rank || "unranked")}`

@@ -151,7 +151,7 @@ const nameToIdentifierMap: Map<DFCodeblockName, string> = new Map();
 /**
  * returns true if ownedRank >= requiredRank
  */
-export function rankCheck(ownedRank: DFRank, requiredRank: DFRank) {
+export function rankCheck(ownedRank: DFRank, requiredRank: DFRank = DFRank.UNRANKED) {
     return RANK_ORDER[ownedRank] >= RANK_ORDER[requiredRank];
 }
 
