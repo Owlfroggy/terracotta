@@ -222,7 +222,7 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, options: {expli
     if (options.replaceString != undefined && options.doc == undefined) throw new Error("options.doc must be provided if options.replaceString is present");
     let items: CompletionItem[] = [];
     // collect variable data
-    let seenVars: Map<string, Map<VariableScope, Type>> = new Map();
+    let seenVars: Map<string, Map<VariableScope, VariableEntry>> = new Map();
     let varFrame: EnvironmentFrame | null = envFrame;
 
     while (varFrame != null) {
@@ -233,7 +233,7 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, options: {expli
                     if (options.excludeName !== undefined && variable.id.name == options.excludeName) continue;
                     let entries = seenVars.getOrInsert(variable.id.name, new Map());
                     if (entries.has(variable.id.scope)) continue;
-                    entries.set(variable.id.scope, variable.type ?? Type.unknown);
+                    entries.set(variable.id.scope, variable);
                 }
             }
         }
@@ -242,17 +242,21 @@ function generateVariableCompletions(envFrame: EnvironmentFrame, options: {expli
 
     // turn variable data into items
     for (const [name, scopeLayer] of seenVars.entries()) {
-        for (const [scope, type] of scopeLayer.entries()) {
+        for (const [scope, entry] of scopeLayer.entries()) {
+            let type = entry.type ?? Type.unknown;
             let scopeStr = VariableScope[scope].toLowerCase();
             let stringifiedName = name;
             if (!isIdentifier(stringifiedName) || options.replaceString) {
                 stringifiedName = valueToTCString(name, options.replaceString?.getStringExtraData().quoteChar ?? '"');
             }
             let multipleVars = (scopeLayer.size > 1 && scope != Math.max(...scopeLayer.keys()));
+            
+            let description = entry.description ? "\n"+entry.description : ""
             let documentation: MarkupContent = {
                 kind: 'markdown', 
-                value: `\`\`\`tc\n${scopeStr} ${stringifiedName}: ${type}\n\`\`\``
+                value: `\`\`\`tc\n${scopeStr} ${stringifiedName}: ${type}\n\`\`\`${description}`
             };
+
             if (!multipleVars && stringifiedName == name) {
                 items.push({
                     label: name,

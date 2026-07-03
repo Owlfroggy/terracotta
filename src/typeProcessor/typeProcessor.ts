@@ -37,6 +37,7 @@ export interface VariableEntry {
     forLoopVarPos?: number, 
     assignmentVarPos?: number,
     effectiveBeyondPosition: number
+    description?: string,
     astNode?: ASTNode,
 }
 
@@ -75,6 +76,7 @@ export class EnvironmentFrame {
 
     registerVariable({
         id,
+        description,
         type = null,
         effectiveBeyondPosition,
         requirements = [],
@@ -90,6 +92,7 @@ export class EnvironmentFrame {
         valueExpression?: Expression | null;
         forLoopVarPos?: number;
         assignmentVarPos?: number;
+        description?: string,
         astNode?: ASTNode;
     }) {
         // don't let line variables be registered to the global frame
@@ -106,6 +109,7 @@ export class EnvironmentFrame {
             forLoopVarPos: forLoopVarPos,
             assignmentVarPos: assignmentVarPos,
             effectiveBeyondPosition: effectiveBeyondPosition,
+            description: description,
             astNode: astNode,
         }
         // TODO: update all these to use the new util function (im too lazy rn)
@@ -218,7 +222,7 @@ export class EnvironmentFrame {
         for (const [id, entries] of this.entryLists()) {
             let strEntries: string[] = entries.map(e => {
                 let requirements = e.requirements.map(r => `${r.atPos}>${r.item}`).join(", ");
-                return `[${e.solved ? "√" : "X"} ${e.type?.toString() ?? 'unknown'} @${e.effectiveBeyondPosition} req:(${requirements}) exp:${e.valueExpression ? e.valueExpression.constructor.name : ''}]`
+                return `[${e.solved ? "√" : "X"} ${e.type?.toString() ?? 'unknown'} @${e.effectiveBeyondPosition} req:(${requirements}) exp:${e.valueExpression ? e.valueExpression.constructor.name : ''} ${e.description != undefined ? "desc:'"+e.description+"'" : ""}]`
             });
             vars.push(`${id} -> ${strEntries.join(",  ")}`)
         }
@@ -462,18 +466,20 @@ export class TypeProcessor {
                         type = Type.any;
                         varType = Type.any;
                     }
+                    let description = commentsToDocumentation(param.attachedComments);
                     frame.registerVariable({
                         id: VariableId.get(VariableScope.LINE,param.name.value),
                         type: varType,
                         effectiveBeyondPosition: statement.chunk.startPos,
-                        astNode: param
+                        astNode: param,
+                        description,
                     })
                     signatureParams.push({
                         name: param.name.value, 
                         type: type,
                         optional: param.star != null, 
                         plural: param.ellipses != null,
-                        description: commentsToDocumentation(param.attachedComments)
+                        description,
                     })
                 }
             }
@@ -607,6 +613,7 @@ export class TypeProcessor {
                     }
 
                     let varId = VariableId.fromExpression(variableExpr);
+                    let description = commentsToDocumentation(statement.attachedComments);
                     if (variableExpr.assignedType) {
                         frame.registerVariable({
                             id: varId, 
@@ -614,6 +621,7 @@ export class TypeProcessor {
                             this.evaluateExplicitType(variableExpr.assignedType.type, {reportErrors: true}), 
                             effectiveBeyondPosition: statement.endPos,
                             astNode: statement,
+                            description,
                         });
                     } else {
                         let value = statement.rightValue;
@@ -625,6 +633,7 @@ export class TypeProcessor {
                             valueExpression: value, 
                             assignmentVarPos: i,
                             astNode: statement,
+                            description,
                         });
                     }
                 }
@@ -644,7 +653,8 @@ export class TypeProcessor {
                     id: varId,
                     type: variableExpr.assignedType ? this.evaluateExplicitType(variableExpr.assignedType.type, {reportErrors: true}) : null,
                     effectiveBeyondPosition: statement.endPos,
-                    astNode: variableExpr
+                    astNode: variableExpr,
+                    description: commentsToDocumentation(statement.attachedComments)
                 });
             }
             //=- stuff below here is for entering child frames -=\\
