@@ -152,10 +152,11 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
                     )]
                 ]))
             }
+
             paramString = getDFParamString(convertedParams, "\n\n**Parameters:**\n\n", "\n\n**No Parameters**");
-            
-            
-            documentation = `${paramString}${returnTypeString}`
+            documentation = `${paramString}${returnTypeString}`;
+
+            if (def.description) documentation = def.description + "\n" + documentation;
         }
     }
     else {

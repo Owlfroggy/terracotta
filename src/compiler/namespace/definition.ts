@@ -37,6 +37,7 @@ export interface FunctionCallExtraInfo {
 export interface FunctionDefinition {
     definitionType: DefinitionType.FUNCTION,
     name: string,
+    description?: string,
     signatures: ParameterSignature[],
     defaultReturnType: Type,
     getReturnType: (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => Type,

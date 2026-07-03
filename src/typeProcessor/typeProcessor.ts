@@ -494,6 +494,7 @@ export class TypeProcessor {
                 map.getOrInsert(statement.name.value, []).push({
                     definitionType: DefinitionType.FUNCTION,
                     name: statement.name.value,
+                    description: commentsToDocumentation(statement.attachedComments),
                     signatures: [{params: signatureParams}],
                     defaultReturnType: returnType,
                     getReturnType: USE_DEFAULT_RETURN_TYPE,
