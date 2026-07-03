@@ -8,6 +8,7 @@ import { ErrorType, TCError, TCManualError } from "../error/error.ts";
 import { CodeCompiler } from "./codeCompiler.ts";
 import { DFCodeblockName, DFRank } from "../df/constants.ts";
 import { ItemLibrary } from "./itemLibrary.ts";
+import { RootNode } from "../ast/astNode.ts";
 
 export type CompiledTemplate = string
 
@@ -27,6 +28,7 @@ export interface CompiledProjectTemplates {
 }
 
 export async function compileProject(projectPath: string, plotSize: number, rank: DFRank): Promise<CompiledProjectTemplates> {
+    let roots: RootNode[] = [];
     let statements: Statement[] = [];
     let itemLibraries: {[id: string]: ItemLibrary} = {};
 
@@ -53,6 +55,7 @@ export async function compileProject(projectPath: string, plotSize: number, rank
             root.filePath = fullPath;
             errors.push(...parser.errors);
             statements.push(...root.statements);
+            roots.push(root);
         }
         else if (file.name.endsWith(".tcil")) {
             try {
@@ -69,7 +72,7 @@ export async function compileProject(projectPath: string, plotSize: number, rank
     }
 
     let typeProcessor = new TypeProcessor();
-    typeProcessor.collectionStage(statements);
+    typeProcessor.collectionStage(roots);
     typeProcessor.evaluationStage()
     errors.push(...typeProcessor.errors);
 

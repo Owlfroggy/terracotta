@@ -55,7 +55,7 @@ export class TrackedScript extends TrackedDocument {
             this.ast.filePath = this.uri;
     
             // recompute types before compiling
-            this.workspace.combinedAST[this.uri] = this.ast.statements;
+            this.workspace.combinedAST[this.uri] = [this.ast];
             this.workspace.reanalyzeTypes();
     
             // recompile

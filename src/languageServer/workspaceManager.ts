@@ -14,11 +14,12 @@ import { TrackedItemLibrary } from "./trackedItemLibrary.ts";
 import chokidar, { watch } from 'chokidar';
 import { fileURLToPath } from "node:url"
 import { ItemLibrary } from "../compiler/itemLibrary.ts";
+import { RootNode } from "../ast/astNode.ts";
 
 export class WorkspaceManager {
     documents: Map<URI, TrackedDocument> = new Map();
 
-    combinedAST: {[uri: string]: Statement[]} = {};
+    combinedAST: {[uri: string]: RootNode[]} = {};
     typeProcessor: TypeProcessor = new TypeProcessor();
 
     constructor(

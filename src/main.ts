@@ -107,7 +107,7 @@ async function Main() {
             }
 
             const typeChecker = new TypeProcessor();
-            typeChecker.collectionStage(root.statements);
+            typeChecker.collectionStage([root]);
             typeChecker.evaluationStage()
 
             if (values.debugprint) {

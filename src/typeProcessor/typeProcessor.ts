@@ -1,4 +1,4 @@
-import { ASTNode } from "../ast/astNode.ts";
+import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, ChunkExpression, DictionaryEntryExpression, DictionaryExpression, DictionaryTypeExpression, Expression, GroupExpression, ListExpression, SelectionExpression, TypecastExpression, TypeExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { AssignmentStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement, PerSelectedStatement, Statement, IfStatement, WhileStatement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
@@ -65,10 +65,10 @@ export class EnvironmentFrame {
     /** Currently, only the global frame will have this filled out */
     processes: Map<string, FunctionDefinition[]> = new Map();
 
-    children: Map<ChunkExpression, EnvironmentFrame> = new Map();
+    children: Map<RootNode | ChunkExpression, EnvironmentFrame> = new Map();
     
     constructor(
-        public astNode: ChunkExpression | null,
+        public astNode: RootNode | ChunkExpression | null,
         public parent: EnvironmentFrame | null,
     ) {}
 
@@ -201,7 +201,7 @@ export class EnvironmentFrame {
         }
     }
 
-    addChild(astNode: ChunkExpression): EnvironmentFrame {
+    addChild(astNode: RootNode | ChunkExpression): EnvironmentFrame {
         let child = new EnvironmentFrame(astNode, this);
         this.children.set(astNode, child);
         return child;
@@ -482,9 +482,9 @@ export class TypeProcessor {
             }
 
             // frame here will be the function's chunk's frame so the parent needs to be accessed 
-            if (frame.parent == this.globalFrame) {
+            if (frame.parent?.astNode instanceof RootNode) {
                 let isProcess = statement.headerType == DFCodeblockName.PROCESS;
-                let map = frame.parent[isProcess ? "processes" : "functions"];
+                let map = this.globalFrame[isProcess ? "processes" : "functions"];
                 map.getOrInsert(statement.name.value, []).push({
                     definitionType: DefinitionType.FUNCTION,
                     name: statement.name.value,
@@ -559,8 +559,20 @@ export class TypeProcessor {
         }
     }
 
-    collectionStage(statements: Statement[], frame: EnvironmentFrame = this.globalFrame) {
+    /** 
+     * If a RootNode is passed in, an extra frame will be created to represent that RootNode's document 
+     * The RootNode's statements will then be collected
+     * */
+    collectionStage(statements: RootNode[] | Statement[], frame: EnvironmentFrame = this.globalFrame) {        
         for (const statement of statements) {
+            // handle root nodes
+            if (statement instanceof RootNode) {
+                let rootFrame = frame.addChild(statement);
+                this.framesByASTNode.set(statement, rootFrame);
+                this.collectionStage(statement.statements, rootFrame);
+                continue;
+            }
+            
             // variable assignments
             if (statement instanceof AssignmentStatement
                 && statement.isErrorFree()
