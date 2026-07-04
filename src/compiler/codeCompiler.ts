@@ -85,16 +85,6 @@ for (const eventType of [DFCodeblockName.PLAYER_EVENT, DFCodeblockName.ENTITY_EV
     }
 }
 
-/**
- * =- TODO -=
- * initialize variables declared in the global scope
- * throw error for random crap being placed in the global scope
- * support multiple files 💀
- * functions and process statements (with parameters)
- * better error for trying to use an operator with no definitions
- * throw an error for this kinda thing: line value: str; >> global value: num << ; value = 5;
- */
-
 export type CodeLineEntry = {
     headerType: HeaderType,
     name: string,
