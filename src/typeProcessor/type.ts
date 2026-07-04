@@ -103,9 +103,9 @@ export class Type {
         (genericType: Type, indexTypes: Type[] = []) => {
             let getMemberType = (m?: string | number) => {
                 if (typeof m == 'number') {
-                    // acount for df lists being 1-indexed
+                    // account for df lists being 1-indexed
                     let realIndex = m - 1;
-                    if (realIndex < indexTypes.length) {
+                    if (realIndex < indexTypes.length && realIndex >= 0) {
                         return indexTypes[realIndex];
                     } else {
                         return genericType;
