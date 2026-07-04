@@ -36,6 +36,7 @@ export interface VariableEntry {
     valueExpression: Expression | null,
     forLoopVarPos?: number, 
     assignmentVarPos?: number,
+    /** Set this to -1 to be available regardless of position */
     effectiveBeyondPosition: number
     description?: string,
     astNode?: ASTNode,
@@ -594,10 +595,12 @@ export class TypeProcessor {
             }
 
             // handle declaration statements
+            let varPositionOverride: number | undefined = undefined;
             if (statement instanceof DeclareStatement) {
                 statement = statement.subStatement;
-                // declare statements always push things to the global frame
+                // declare statements always push things to the top of the global frame
                 frame = this.globalFrame; 
+                varPositionOverride = -1;
             }
             
             // variable assignments
@@ -625,7 +628,7 @@ export class TypeProcessor {
                             id: varId, 
                             type: 
                             this.evaluateExplicitType(variableExpr.assignedType.type, {reportErrors: true}), 
-                            effectiveBeyondPosition: statement.endPos,
+                            effectiveBeyondPosition: varPositionOverride ?? statement.endPos,
                             astNode: statement,
                             description,
                         });
@@ -634,7 +637,7 @@ export class TypeProcessor {
                         frame.registerVariable({
                             id: varId, 
                             type: null, 
-                            effectiveBeyondPosition: statement.endPos, 
+                            effectiveBeyondPosition: varPositionOverride ?? statement.endPos, 
                             requirements: this.getRequirements(value, frame), 
                             valueExpression: value, 
                             assignmentVarPos: i,
@@ -658,7 +661,7 @@ export class TypeProcessor {
                 frame.registerVariable({
                     id: varId,
                     type: variableExpr.assignedType ? this.evaluateExplicitType(variableExpr.assignedType.type, {reportErrors: true}) : null,
-                    effectiveBeyondPosition: statement.endPos,
+                    effectiveBeyondPosition: varPositionOverride ?? statement.endPos,
                     astNode: variableExpr,
                     description: commentsToDocumentation(statement.attachedComments)
                 });
