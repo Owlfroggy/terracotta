@@ -545,12 +545,13 @@ export class CodeCompiler {
     }
 
     compileExpression(e: Expression | Token, context: ExpressionContext): [CodeValue, CodeBlock[]] {
+        let tvp = context.perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider;
         // TODO: structure this and the compileStatement thing more like how the parser does stuff
         if (e instanceof Expression && BooleanOperation.exprIsBooleanExpression(e)) {
             // convert expression into BooleanOperation classes to make it easier to work with
             let operationTree = BooleanOperation.generateFromExpression(e);
             let simplified = BooleanOperation.simplify(operationTree);
-            let output = this.tempVarProvider.newTempVar(Type.num);
+            let output = tvp.newTempVar(Type.num);
             let code = [
                 new ActionBlock(DFCodeblockName.SET_VARIABLE, {
                     action: "=",
@@ -691,7 +692,7 @@ export class CodeCompiler {
                     }
                 }
 
-                let tempVar = this.tempVarProvider.newTempVar(accesseeType.getMemberType(accessorValue));
+                let tempVar = tvp.newTempVar(accesseeType.getMemberType(accessorValue));
 
                 let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
                     action: "GetListValue",
@@ -709,7 +710,7 @@ export class CodeCompiler {
                     );
                     return [new MissingValue(e), preCode];
                 }
-                let tempVar = this.tempVarProvider.newTempVar(accesseeType.getMemberType(accessorValue));
+                let tempVar = tvp.newTempVar(accesseeType.getMemberType(accessorValue));
 
                 let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
                     action: "GetDictValue",
@@ -782,7 +783,7 @@ export class CodeCompiler {
         }
         else if (e instanceof ListExpression) {
             let code: CodeBlock[] = [];
-            let tempVar = this.tempVarProvider.newTempVar(this.env.types.evaluateExpression(e));
+            let tempVar = tvp.newTempVar(this.env.types.evaluateExpression(e));
             
             let contents: TangibleValue[] = [];
             for (const element of e.elements) {
@@ -799,9 +800,9 @@ export class CodeCompiler {
         }
         else if (e instanceof DictionaryExpression) {
             let code: CodeBlock[] = []
-            let tempVar = this.tempVarProvider.newTempVar(this.env.types.evaluateExpression(e));
-            let keysTempVar = this.tempVarProvider.newTempVar(Type.list(Type.str));
-            let valuesTempVar = this.tempVarProvider.newTempVar(Type.list(Type.any));
+            let tempVar = tvp.newTempVar(this.env.types.evaluateExpression(e));
+            let keysTempVar = tvp.newTempVar(Type.list(Type.str));
+            let valuesTempVar = tvp.newTempVar(Type.list(Type.any));
             let keysContents: TangibleValue[] = [];
             let valuesContents: TangibleValue[] = [];
 
@@ -917,6 +918,7 @@ export class CodeCompiler {
     }
 
     compileIfStatement(condition: Expression, innerCode: CodeBlock[], invertEntireCondition: boolean, exprContext: ExpressionContext): CodeBlock[] {
+        let tvp = exprContext.perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider;
         let operationTree: BooleanOperation | undefined;
         let realCondition = condition.getRealExpression();
         if (BooleanOperation.exprIsBooleanExpression(realCondition)) {
@@ -941,7 +943,7 @@ export class CodeCompiler {
         if (directInsertBoolOpMode) {
             return this.compileBooleanOperation(simplifiedBooleanExpression, innerCode, exprContext);
         } else {
-            let value = this.tempVarProvider.newTempVar(Type.num);
+            let value = tvp.newTempVar(Type.num);
             let valueCode = [
                 new ActionBlock(DFCodeblockName.SET_VARIABLE, {
                     action: "=",
@@ -1006,6 +1008,8 @@ export class CodeCompiler {
     }
 
     compileStatement = (s: Statement, context: StatementContext): CodeBlock[] => {
+        let tvp = context.perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider;
+
         if (s instanceof DeclareStatement) {
             this.validateDeclareStatement(s, true);
             s = s.subStatement;
@@ -1330,7 +1334,7 @@ export class CodeCompiler {
                     })
                 ], s.whileInverterToken == null, exprContext);
                 
-                let firstRunTempVar = this.tempVarProvider.newTempVar(Type.num);
+                let firstRunTempVar = tvp.newTempVar(Type.num);
 
                 return [
                     new ActionBlock(DFCodeblockName.SET_VARIABLE, {
