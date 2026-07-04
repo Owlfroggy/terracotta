@@ -44,12 +44,17 @@ export class Lexer {
 
     makeStringPattern(qouteChar: string) {
         return () => {
-            let regex = new RegExp(`s?${qouteChar}((?:[^${qouteChar}\\\\]|\\\\.)*?)(?:${qouteChar}|\\n|$)`,'y')
+            let regex = new RegExp(`[sn]?${qouteChar}((?:[^${qouteChar}\\\\]|\\\\.)*?)(?:${qouteChar}|\\n|$)`,'y')
             regex.lastIndex = this.position;
             let result = regex.exec(this.script);
             if (result == null) return null;
 
-            let tokenType = this.script[result.index] == "s" ? TokenType.STYLED_LITERAL : TokenType.STRING_LITERAL;
+            let flagChar = this.script[result.index]
+            let tokenType = (
+                flagChar == "s" ? TokenType.STYLED_LITERAL : 
+                flagChar == "n" ? TokenType.NUMEXPR_LITERAL :
+                TokenType.STRING_LITERAL
+            );
 
             let startPos = this.position;
             let endPos = this.position + result[0].length;

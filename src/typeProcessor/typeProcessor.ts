@@ -795,6 +795,7 @@ export class TypeProcessor {
                     return Type.unknown;
                 };
                 case TokenType.NUMERIC_LITERAL: return Type.num;
+                case TokenType.NUMEXPR_LITERAL: return Type.num;
                 case TokenType.STRING_LITERAL: return Type.str;
                 case TokenType.STYLED_LITERAL: return Type.txt;
                 default: return Type.unknown;

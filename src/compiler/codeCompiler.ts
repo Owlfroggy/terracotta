@@ -6,7 +6,7 @@ import { getOrCreateDictLayer, getOrCreateMapLayer, ps, tcParseNumber, toNameCas
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock, ElseBlock, EventBlock, SubActionBlock } from "./codeBlock.ts";
 import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
-import { ErrorType, TCError, TCNodeError, TCStandaloneError } from "../error/error.ts";
+import { ErrorType, TCError, TCNodeError, TCNodePCodeError, TCStandaloneError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, PerSelectedExpression, SelectionExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, ItemValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, LibraryItemValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
@@ -865,6 +865,17 @@ export class CodeCompiler {
                 }
                 case TokenType.NUMERIC_LITERAL: {
                     return [new NumberValue(tcParseNumber(e.value).toString(),e), []];
+                }
+                case TokenType.NUMEXPR_LITERAL: {
+                    let [errors, parsed] = this.pcodeParser.parse(e.value);
+                    if (errors.length > 0) {
+                        for (let err of errors) {
+                            this.errors.push(new TCNodePCodeError(e,err,ErrorType.COMPILER));
+                        }
+                        return [new MissingValue(e), []];
+                    } else {
+                        return [new NumberValue(parsed,e), []];
+                    }
                 }
                 case TokenType.STRING_LITERAL: {
                     return [new StringValue(e.value,e), []];

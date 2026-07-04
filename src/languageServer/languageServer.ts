@@ -1054,7 +1054,7 @@ export class LanguageServer {
                 }
             }
 
-            if (node instanceof Token && (node.type == TokenType.STRING_LITERAL || node.type == TokenType.STYLED_LITERAL || node.type == TokenType.NUMERIC_LITERAL)) {
+            if (node instanceof Token && (node.type == TokenType.STRING_LITERAL || node.type == TokenType.STYLED_LITERAL || node.type == TokenType.NUMERIC_LITERAL || node.type == TokenType.NUMEXPR_LITERAL)) {
                 includeGenerics = false;
             }
 

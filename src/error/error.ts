@@ -1,4 +1,6 @@
 import { ASTNode } from "../ast/astNode.ts";
+import { Token, TokenType } from "../ast/token.ts";
+import { PCode } from "../pcode/pcode.ts";
 
 export enum ErrorType {
     LEXER,
@@ -78,6 +80,43 @@ export class TCNodeError extends TCError {
         if (this.positionMode == ErrorPositionMode.AFTER_NODE) 
             return this.astNode.endPos+1;
         return this.astNode.endPos;
+    }
+
+    getScriptContents(): string {
+        return this.astNode.getRoot().scriptContents;
+    }
+
+    getFilePath(): string {
+        return this.astNode.getRoot().filePath ?? "unknown file";
+    }
+}
+
+export class TCNodePCodeError extends TCError {
+    constructor(
+        private astNode: ASTNode,
+        private pcodeError: PCodeError,
+        type: ErrorType,
+    ) {
+        super(type, pcodeError.message);
+    }
+
+    getOffset(): number {
+        if (this.astNode instanceof Token) {
+            switch (this.astNode.type) {
+                case TokenType.NUMEXPR_LITERAL: return 2;
+                case TokenType.STYLED_LITERAL: return 2;
+                case TokenType.STRING_LITERAL: return 1;
+            }
+        }
+        return 0;
+    }
+
+    getStartPos(): number {
+        return this.astNode.startPos + this.pcodeError.startPos + this.getOffset();
+    }
+
+    getEndPos(): number {
+        return this.astNode.startPos + this.pcodeError.endPos + this.getOffset();
     }
 
     getScriptContents(): string {

@@ -55,6 +55,7 @@ export enum TokenType {
     NUMERIC_LITERAL,
     STRING_LITERAL,
     STYLED_LITERAL,
+    NUMEXPR_LITERAL,
 
     // symbols below here
 

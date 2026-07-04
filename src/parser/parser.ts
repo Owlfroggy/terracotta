@@ -34,6 +34,7 @@ export class Parser {
         this.tokenNUDProperties = new Map<TokenType, NUDProcessingProperties>([
             [TokenType.IDENTIFIER,      {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}],
             [TokenType.NUMERIC_LITERAL, {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}],
+            [TokenType.NUMEXPR_LITERAL, {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}],
             [TokenType.STRING_LITERAL,  {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}],
             [TokenType.STYLED_LITERAL,  {bp: BindingPower.ATOM,     processor: this.parseAtomicExpression}],
             [TokenType.OPEN_PAREN,      {bp: BindingPower.GROUP,    processor: this.parseGroupExpression}],
@@ -255,9 +256,13 @@ export class Parser {
         let token = this.currentToken();
         let type = token.type;
 
+        this.consume();
+
+
         // error handling for a non-atomic token
         if (
             type != TokenType.NUMERIC_LITERAL
+            && type != TokenType.NUMEXPR_LITERAL
             && type != TokenType.STRING_LITERAL
             && type != TokenType.STYLED_LITERAL
             && type != TokenType.IDENTIFIER
@@ -269,7 +274,6 @@ export class Parser {
             return new MissingExpression(token.startPos);
         }
 
-        this.consume();
         return new AtomicExpression(token);
     }
 
