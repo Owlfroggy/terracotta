@@ -329,7 +329,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
         actionJson.subActionBlocks != undefined,
         actionJson.icon.cancellable,
         actionJson.icon.cancelledAutomatically,
-        actionJson.icon.name === "" && actionJson.icon.material === "STONE",
+        actionJson.legacyReplacement != undefined,
         (actionJson.icon.requireTokens ? "" : actionJson.icon.requiredRank) as DFRank,
         actionJson.icon.worldExclusive
     );

@@ -129,6 +129,7 @@ export const OVERRIDES: {
             "TrimStyledText": "trim",
             "GetMiniMessageExpr": "getExpression",
             "ContentLength": "len",
+            "JoinStyledText": "joinStyled",
             "ShiftAllAxes": "shiftAllAxes",
             "ShiftOnVector": "shiftOnVector",
             "ShiftRotation": "shiftRotation",
@@ -221,6 +222,7 @@ export const OVERRIDES: {
             "RandomizeList": "randomize",
             "RemoveListValue": "removeValue",
             "DestructureList": "destructure",
+            "SegmentList": "segment",
             "ClearDict": "clear",
             "SortDict": "sort",
             "CreateDict": "create",
@@ -255,6 +257,7 @@ export const OVERRIDES: {
             "GetParticleDur": "getDuration",
             "SetParticlePower": "setPower",
             "GetParticlePower": "getPower",
+            "ClampVector": "clamp",
             "MultiplyVector": "multiply",
             "VectorBetween": "between",
             "GetVectorComp": "getComponent",
@@ -289,7 +292,7 @@ export const OVERRIDES: {
             "SetSoundPitch": "setPitch",
             "SetCustomSound": "setCustomKey",
             "SetSoundVariant": "setVariant",
-            "GetSoundPitch": "getPitch"
+            "GetSoundPitch": "getPitch",
         },
         "IF PLAYER": {},
         "IF ENTITY": {
@@ -299,7 +302,9 @@ export const OVERRIDES: {
         "IF GAME": {
             "HasPlayer": "hasPlayer",
             "IsChunkLoaded": "chunkIsLoaded",
-            "EventChunkNew": "chunkIsNew"
+            "EventChunkNew": "chunkIsNew",
+            "HasEntitiesName": "hasEntitiesWithName",
+            "HasEntitiesUUID": "hasEntitiesWithUUID",
         },
         "IF VARIABLE": {
             "=": "equals",
@@ -324,6 +329,7 @@ export const OVERRIDES: {
             "ItemHasTag": "hasTag",
             "ItemHasEnchant": "hasEnchantment",
             "ItemIsUnbreakable": "isUnbreakable",
+            "IsTooltipVisible": "isTooltipVisible",
             "ListContains": "contains",
             "ListValueEq": "valueEquals",
             "ListSizeEquals": "sizeEquals",
@@ -614,6 +620,7 @@ export const OVERRIDES: {
             "TranslateColors": Type.str,
             "Base64Encode": Type.list(Type.num),
             "Base64Decode": Type.list(Type.num),
+            "AllRegexMatches": Type.list(Type.str),
             "AllRegexGroups": Type.list(Type.str),
             "NamedRegexGrps": Type.dict(Type.str),
             "GzipCompress": Type.list(Type.num),
@@ -683,6 +690,9 @@ export const OVERRIDES: {
             "SetItemColor": Type.item,
             "AddItemAttribute": Type.item,
             "SetMapTexture": Type.item,
+            
+            "GetAllItems": Type.list(Type.str),
+            "GetBlockShape": Type.list(Type.list(Type.void, [Type.loc, Type.loc])),
 
             "GetDictKeys": Type.list(Type.str),
 
@@ -730,6 +740,9 @@ export const OVERRIDES: {
         "Selection Target Names": Type.list(Type.str),
         "Selection Target UUIDs": Type.list(Type.str),
 
+        "Full Inventory Items": Type.list(Type.item),
+        "Upper Inventory Items": Type.list(Type.item),
+        "Trade Ingredients": Type.list(Type.item),
         "Armor Items": Type.list(Type.item),
         "Attached Leads": Type.list(Type.str),
         "Hotbar Items": Type.list(Type.item),
