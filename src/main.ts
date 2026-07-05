@@ -46,6 +46,7 @@ async function Main() {
         /* only works for --file mode: */
         //"gzip": output gzipped df template json
         //"json": output stringified df template json
+        //"none": dont output any templates (can be used for validation or debugging)
         //default is "gzip"
         outmode: { type: "string" },
         
@@ -165,12 +166,14 @@ async function Main() {
             process.stderr.write("\nError: --compile must be provided with either a file or a project\n")
         }
 
-        //copy to clipboard if you're into that
-        if (values.copy) {
-            ncp.copy(output)
-            process.stdout.write("Copied output to clipboard\n")
-        } else {
-            process.stdout.write(output)
+        if (values.outmode != "none") {
+            //copy to clipboard if you're into that
+            if (values.copy) {
+                ncp.copy(output)
+                process.stdout.write("Copied output to clipboard\n")
+            } else {
+                process.stdout.write(output)
+            }
         }
     } 
     else if (command == "server") {
