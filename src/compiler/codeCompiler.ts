@@ -1647,6 +1647,15 @@ export class CodeCompiler {
                             this.errors.push(new TCStandaloneError(ErrorType.COMPILER, errorMessage));
                         }
                     }
+                    else {
+                        this.errors.push(new TCStandaloneError(ErrorType.COMPILER, 
+                            `There was an internal compiler error while compiling code line ${headerType} ${name}. Please report the below text (alongside any scripts contributing to this code line) to Terracotta developers.\n`
+                            +"#".repeat(60)
+                            +`\n${e}`
+                            +(e instanceof Error ? `\n${e.stack}\n` : "")
+                            +"#".repeat(60)
+                        ))
+                    }
                 }
             }
         }
