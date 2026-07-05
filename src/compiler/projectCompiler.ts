@@ -4,11 +4,12 @@ import { Lexer } from "../parser/lexer.ts";
 import { Statement } from "../ast/statement.ts";
 import { Parser } from "../parser/parser.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
-import { ErrorType, TCError, TCManualError } from "../error/error.ts";
+import { ErrorType, TCError, TCManualError, TCStandaloneError } from "../error/error.ts";
 import { CodeCompiler } from "./codeCompiler.ts";
 import { DFCodeblockName, DFRank } from "../df/constants.ts";
 import { ItemLibrary } from "./itemLibrary.ts";
 import { RootNode } from "../ast/astNode.ts";
+import { isSNBTValid } from "../util/snbtUtils.ts";
 
 export type CompiledTemplate = string
 
@@ -59,15 +60,34 @@ export async function compileProject(projectPath: string, plotSize: number, rank
         }
         else if (file.name.endsWith(".tcil")) {
             try {
-                // TODO: find an nbt library that works and do validation here
-                // TODO: also validate the json
+                // TODO: validate the json structure
+                // TODO: move this validation to a place where the language server can do it
                 let lib: ItemLibrary = JSON.parse(fileContents);
                 if (lib.id in itemLibraries) {
                     errors.push(new TCManualError(0, 0, fileContents, fullPath, ErrorType.ITEM_LIBRARY, `Multiple item libraries with id '${lib.id}'`))
                 } else {
                     itemLibraries[lib.id] = lib;
+                    // validate item data
+                    for (let [id, item] of Object.entries(lib.items)) {
+                        let result = isSNBTValid(item.data);
+                        if (result != true) {
+                            // TODO: when we get proper json structure validation, report this error with actual position data
+                            errors.push(new TCStandaloneError(
+                                ErrorType.ITEM_LIBRARY,
+                                `Error in item library '${lib.id}': item '${id}' has invalid NBT data. \n > ${result}`
+                            ));
+                        }
+                    }
                 }
-            } catch (ignored) {}
+            } catch (error) {
+                let errorString = `${error}`;
+                let pos = 0;
+                let posMatch = [...errorString.matchAll(/at position (\d+) \(line \d+ column \d+\)$/g)];
+                if (posMatch.length > 0) {
+                    pos = parseInt(posMatch[0][1]);
+                }
+                errors.push(new TCManualError(pos, pos+1, fileContents, fullPath, ErrorType.ITEM_LIBRARY, `Internal error compiling item library at ${file.name}: ${error}`))
+            }
         }
     }
 

@@ -25,6 +25,7 @@ import { BooleanOperation } from "./booleanOperation.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "./namespace/globalScopeInjections.ts";
 import { MAX_FUNCTION_PARAMS, SliceCodeLine, SPLIT_FAILED_ERROR_MESSAGE } from "./lineSplitter.ts";
 import { ItemLibrary } from "./itemLibrary.ts";
+import { isSNBTValid } from "../util/snbtUtils.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -1559,8 +1560,9 @@ export class CodeCompiler {
         let setupFuncName = `${TC_HEADER}IL_${library.id}`;
         
         let functionLineEntry = this.getLineEntry(DFCodeblockName.FUNCTION, setupFuncName);
-        functionLineEntry.code.push(Object.entries(library.items).map(
-            ([id, item]) => new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+        functionLineEntry.code.push(Object.entries(library.items)
+        .filter(([id, item]) => isSNBTValid(item.data))
+        .map(([id, item]) => new ActionBlock(DFCodeblockName.SET_VARIABLE, {
                 action: "=",
                 args: [
                     new VariableValue(`${TC_HEADER}LI_${library.id}\uFFFF${id}`, VariableScope.GLOBAL),
@@ -1576,8 +1578,6 @@ export class CodeCompiler {
     }
 
     compile({outputFormat, splitToLength = -1}: {outputFormat: "GZIP" | "DFONLINE", splitToLength?: number}) {
-        this.errors.length = 0;
-        
         let declarationsToCompile = this.processLineDeclarations(this.ast);
 
         for (const [lineEntry, declaration] of declarationsToCompile) {
