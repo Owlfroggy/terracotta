@@ -369,6 +369,16 @@ export function registerBuiltinNamespaces() {
 
 // TODO: write descriptions for all these functions and get their documentation working
 export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition} = {
+    randomd: generateTagSpecifiedActionHook(
+        "randomd", DFCodeblockName.SET_VARIABLE, "RandomNumber",
+        {"Rounding Mode": "Decimal number"},
+        [{params: [
+            {name: "Minimum Number", type: Type.num, optional: false, plural: false},
+            {name: "Maximum Number", type: Type.num, optional: false, plural: false},
+        ]}],
+        "Sets a variable to a random decimal number between two other numbers."
+    ),
+
     // rounding
     floor: generateTagSpecifiedActionHook(
         "floor", DFCodeblockName.SET_VARIABLE, " RoundNumber ",
