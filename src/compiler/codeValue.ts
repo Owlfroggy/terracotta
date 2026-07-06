@@ -6,7 +6,7 @@ import { PCode } from "../pcode/pcode.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { parseTcNumber } from "../util/utils.ts";
-import { EvaluationContext } from "./codeCompiler.ts";
+import * as NBT from "nbtify";
 import { FunctionDefinition } from "./namespace/definition.ts";
 import { Namespace } from "./namespace/namespace.ts";
 
@@ -403,12 +403,15 @@ export class ItemValue extends TangibleValue {
 
 export class LibraryItemValue extends TangibleValue {
     constructor(
+        /** this data MUST be valid nbt, always validate nbt before passing it in here */
         public data: string,
-        public dfNbt: number = 4671,
+        public dfNbt: number,
         public libraryId: string,
         public itemId: string,
+        public countOverride?: number,
+        astNode?: ASTNode,
     ) {
-        super();
+        super(astNode);
     }
 
     getType(typeProcessor: TypeProcessor): Type {
@@ -416,10 +419,14 @@ export class LibraryItemValue extends TangibleValue {
     }
 
     templateForm() {
+        let tag = NBT.parse<NBT.CompoundTag>(this.data);
+        tag.DF_NBT = this.dfNbt;
+        if (this.countOverride) tag.count = this.countOverride;
+
         return {
             "id": "item",
             "data": {
-                "item": this.data.substring(0,this.data.length-1)+`,DF_NBT:${this.dfNbt}}` // TODO: use an actual nbt library :sob:
+                "item": NBT.stringify(tag)
             }
         }
     }

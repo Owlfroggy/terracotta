@@ -14,6 +14,8 @@ import { VariableScope } from "../../typeProcessor/typeProcessor.ts";
 import { ItemLibrary } from "../itemLibrary.ts";
 import { MCNote } from "../../util/note.ts";
 import { ASTNode } from "../../ast/astNode.ts";
+import { isSNBTValid } from "../../util/snbtUtils.ts";
+import * as NBT from "nbtify"
 
 /** pass undefined in place of a template to skip this ark */
 function evaluateConstOrBlockTemplates(
@@ -769,20 +771,22 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
         let failed = false;
         let constantLibrary: ItemLibrary | undefined;
         let constantItemId: string | undefined;
+
+        if (args.length > 1 && args[1] instanceof StringValue && args[1].isCompileTimeConstant()) {
+            constantItemId = args[1].value;
+        }
+        
         if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
             let libraries = ctx.getItemLibraries();
             let libId = args[0].value;
             if (libId in libraries) {
-                if (args.length > 1 && args[1] instanceof StringValue && args[1].isCompileTimeConstant()) {
-                    constantLibrary = libraries[libId];
-                    constantItemId = args[1].value;
-                    if (!(constantItemId in constantLibrary.items)) {
-                        ctx.reportError(
-                            args[1].astNode ?? callNode,
-                            `Library '${libId}' has no item with id '${constantItemId}'`
-                        );
-                        failed = true;
-                    }
+                constantLibrary = libraries[libId];
+                if (constantItemId != undefined && !(constantItemId in constantLibrary.items)) {
+                    ctx.reportError(
+                        args[1].astNode ?? callNode,
+                        `Library '${libId}' has no item with id '${constantItemId}'`
+                    );
+                    failed = true;
                 }
             }
             else {
@@ -799,11 +803,34 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
             return [new ItemValue("stone", 1, undefined, callNode), []];
 
 
-        if (constantLibrary != undefined && constantItemId != undefined && constantLibrary.compilationMode == 'item') {
+        let code: CodeBlock[] = [];
+        let outVal: TangibleValue;
+        let defaultCount = -1;
+
+        let useVarCompilation = true;
+        if (constantLibrary != undefined && constantItemId != undefined) {
             // TODO: make count work in here
             let item = constantLibrary.items[constantItemId];
-            return [new LibraryItemValue(item.data, item.version, constantLibrary.id, constantItemId), []];
-        } else {
+            let isValid = isSNBTValid(item.data)
+            if (isValid) {
+                // TODO: dont double parse nbt
+                let c = NBT.parse<NBT.CompoundTag>(item.data).count
+                if (c != undefined && typeof c == "number") 
+                    defaultCount = c;
+
+                if (constantLibrary.compilationMode == 'item') {
+                    outVal = new LibraryItemValue(item.data, item.version, constantLibrary.id, constantItemId);
+                    useVarCompilation = false;
+                }
+            } else {
+
+                if (constantLibrary.compilationMode == 'item') {
+                    outVal = new ItemValue("stone", 1);
+                    useVarCompilation = false;
+                }
+            }
+        }
+        if (useVarCompilation) {
             let code: CodeBlock[] = [];
             let outputVarName = `${TC_HEADER}LI_`;
     
@@ -822,7 +849,7 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
                     }))
                     nameToAdd = temp.name;
                 }
-                outputVarName += `%var(${nameToAdd})`
+                outputVarName += `%var(${nameToAdd})`;
             }
     
             if (constantLibrary != undefined) {
@@ -837,22 +864,27 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
                 addVarToName(args[1] as VariableValue);
             }
 
-            let itemVar = new VariableValue(outputVarName, VariableScope.GLOBAL, Type.item, callNode);
+            outVal = new VariableValue(outputVarName, VariableScope.GLOBAL, Type.item, callNode);
+        }
 
-            // item count needs to be changed
-            // TODO: take the item's default count into consideration instead of assuming it's just 1
-            if (args[2] && !(args[2] instanceof NumberValue && args[2].isCompileTimeConstant() && args[2].toNumber() == 1)) {
+        //=- handle item count -=\\
+        if (args[2]) {
+            let numIsConstant = args[2] instanceof NumberValue && args[2] instanceof NumberValue && args[2].isCompileTimeConstant();
+            // if the count can be inlined directly into the item, do that
+            if (numIsConstant && outVal! instanceof LibraryItemValue) {
+                outVal!.countOverride = parseTcNumber((args[2] as NumberValue).value as string);
+            } 
+            // otherwise, generate a codeblock
+            else {
                 let temp = ctx.tvp.newTempVar(Type.item);
                 code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
                     action: "SetItemAmount",
-                    args: [temp, itemVar, args[2] as TangibleValue]
+                    args: [temp, outVal!, args[2] as TangibleValue]
                 }));
-                return [temp, code];
-            } 
-            // item count can remain as 1
-            else {
-                return [itemVar, code];
+                outVal = temp;
             }
         }
+
+        return [outVal!, code];
     },
 }
