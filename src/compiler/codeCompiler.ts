@@ -1275,7 +1275,7 @@ export class CodeCompiler {
                     }
                     let valType = value.getType(this.env.types);
                     let expectedType = context.lineEntry.returnTypes[i];
-                    if (!valType.strictlyMatches(expectedType)) {
+                    if (!valType.isAssignableTo(expectedType)) {
                         this.reportError(valueExpr, `Expected type ${expectedType} for this return value, got ${valType}`);
                     }
                     values.push(value);
