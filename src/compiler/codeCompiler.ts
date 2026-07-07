@@ -225,6 +225,7 @@ export class CodeCompiler {
                 let parameters: ParameterValue[] = [];
                 if (s.params) {
                     let seenNames: Set<string> = new Set();
+                    let hasSeenPluralAny = false;
                     for (const param of s.params.elements) {
                         if (seenNames.has(param.name.value)) {
                             this.reportError(
@@ -280,6 +281,12 @@ export class CodeCompiler {
                         if (tcType && tcType.matches(Type.var)) {
                             if (optional) this.reportError(param, `Variable parameters cannot be optional`);
                             if (plural) this.reportError(param, `Variable parameters cannot be plural`);
+                        }
+
+                        if (hasSeenPluralAny) {
+                            this.reportError(param, `Functions cannot have any more parameters after a plural parameter of type 'any' (this parameter would be completely inaccessible)`);
+                        } else if (plural && tcType?.matches(Type.any)) {
+                            hasSeenPluralAny = true;
                         }
 
                         parameters.push(new ParameterValue(
