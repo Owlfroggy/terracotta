@@ -44,6 +44,7 @@ export class TrackedScript extends TrackedDocument {
     }
 
     reparse() {
+        if (this.contents == undefined) return;
         try {
             try {
                 this.lexer.tokenize(this.contents, this.uri);
