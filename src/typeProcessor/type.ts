@@ -107,11 +107,9 @@ export class Type {
                     let realIndex = m - 1;
                     if (realIndex < indexTypes.length && realIndex >= 0) {
                         return indexTypes[realIndex];
-                    } else {
-                        return genericType;
                     }
                 }
-                return genericType;
+                return getWidestType(...indexTypes, genericType);
             }
             let stringify = () => {
                 if (indexTypes.length > 0) {
@@ -174,7 +172,7 @@ export class Type {
                 if (typeof m == 'string' && m in keyTypes) {
                     return keyTypes[m];
                 }
-                return genericType;
+                return getWidestType(...Object.values(keyTypes), genericType);
             }
             let stringify = () => {
                 let keyTypeEntries = Object.entries(keyTypes);
@@ -349,4 +347,30 @@ export class Type {
         if (to.matches(Type.any)) return true;
         return this.strictlyMatches(to);
     }
+}
+
+// TODO: when we get unions, make this work better
+// TODO: make this handle subtypes better (e.g. list[str], list[num] should genericize to list[any] instead of just any)
+function getWidestType(...types: Type[]): Type {
+    let widestType = Type.void;
+    for (let t of types) {
+        if (t.matches(Type.void)) continue;
+        if (widestType.matches(Type.void)) {
+            widestType = t;
+        }
+        else if (t.isAssignableTo(widestType)) {
+            // keep the type
+        } 
+        else if (widestType.isAssignableTo(t)) {
+            // if t isn't assignable to the old widest but the old widest 
+            // is assignable to t, that means t is the new widest type
+            widestType = t;
+        } 
+        else {
+            // if the types are incompatible, just fall back to any and call it a day
+            widestType = Type.any;
+            break;
+        }
+    }
+    return widestType;
 }
