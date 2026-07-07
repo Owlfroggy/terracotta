@@ -251,7 +251,7 @@ export class CodeCompiler {
                         }
 
                         let plural = param.ellipses != null;
-                        let optional = param.star != null;
+                        let optional = param.optionalMarker != null;
                         let defaultValue: TangibleValue | null = null;
 
                         if (param.defaultValue) {

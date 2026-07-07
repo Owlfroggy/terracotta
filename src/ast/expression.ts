@@ -72,7 +72,7 @@ export class ParameterExpression extends Expression {
     constructor(
         public name: Token,
         public ellipses: Token | null,
-        public star: Token | null,
+        public optionalMarker: Token | null,
         public assignedType: TypeAssignmentExpression | null,
         public assignmentOperator: Token | null,
         public defaultValue: Expression | null
@@ -83,7 +83,7 @@ export class ParameterExpression extends Expression {
             defaultValue ? defaultValue.endPos : 
             assignmentOperator ? assignmentOperator.endPos : 
             assignedType ? assignedType.endPos : 
-            star ? star.endPos :
+            optionalMarker ? optionalMarker.endPos :
             name.endPos
         );
     }

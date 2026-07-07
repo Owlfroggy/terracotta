@@ -489,9 +489,9 @@ export class Parser {
         let [name, nameFound] = this.expect([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
         if (!nameFound) return null;
 
-        let star: Token | null = null;
-        if (this.currentToken().type == TokenType.STAR) {
-            star = this.consume();
+        let optionalMarker: Token | null = null;
+        if (this.currentToken().type == TokenType.QUESTION) {
+            optionalMarker = this.consume();
         }
 
         let type = this.parseTypeAssignmentExpression(true);
@@ -503,7 +503,7 @@ export class Parser {
                 defaultValue = this.parseExpression(BindingPower.DEFAULT);
             }
         }
-        return new ParameterExpression(name, ellipses, star, type, equals, defaultValue);
+        return new ParameterExpression(name, ellipses, optionalMarker, type, equals, defaultValue);
     }
 
 

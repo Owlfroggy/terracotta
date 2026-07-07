@@ -484,7 +484,7 @@ export class TypeProcessor {
                     signatureParams.push({
                         name: param.name.value, 
                         type: type,
-                        optional: param.star != null, 
+                        optional: param.optionalMarker != null, 
                         plural: param.ellipses != null,
                         description,
                     })

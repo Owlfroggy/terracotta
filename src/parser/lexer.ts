@@ -252,6 +252,8 @@ export class Lexer {
             this.makeSymbolPattern(TokenType.BOOL_AND,          "&&"),
             this.makeSymbolPattern(TokenType.BOOL_OR,           "||"),
 
+            this.makeSymbolPattern(TokenType.QUESTION,          "?"),
+
             // bitwise land of doom
             this.makeSymbolPattern(TokenType.PBW_OR_EQUALS,     "^|="),
             this.makeSymbolPattern(TokenType.PBW_AND_EQUALS,    "^&="),

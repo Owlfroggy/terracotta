@@ -90,6 +90,8 @@ export enum TokenType {
     BOOL_AND,
     BOOL_OR,
 
+    QUESTION,
+
     PLUS,
     MINUS,
     STAR,
