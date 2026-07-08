@@ -299,7 +299,7 @@ function codeblockActionEntries(block: DFCodeblockName, target: TargetType, gene
     )
 }
 
-function gameValueEntries(target: TargetType, filter: (v: AD.GameValue) => boolean) {
+function gameValueEntries(target: TargetType, filter: (v: AD.GameValue) => boolean): [string, ValueDefinition][] {
     return (
         Object.values(AD.gameValues)
             .filter(filter)
@@ -353,13 +353,24 @@ export function registerBuiltinNamespaces() {
             ...gameValueEntries(target, v => v.targetType == GameValueTargetType.TARGETS_ANYTHING || v.targetType == GameValueTargetType.TARGETS_ENTITIES)
         ]));
     }
+    
+    let gameActionEntries = codeblockActionEntries(DFCodeblockName.GAME_ACTION, TargetType.UNSET)
+    let ifGameEntries = codeblockActionEntries(DFCodeblockName.IF_GAME, TargetType.UNSET, generateConditionHook);
+    let untargetedGameValueEntries = gameValueEntries(TargetType.UNSET, v => v.targetType == GameValueTargetType.UNTARGETED);
 
     // game action namespace
     new Namespace("game", Object.fromEntries([
-        ...codeblockActionEntries(DFCodeblockName.GAME_ACTION, TargetType.UNSET),
-        ...codeblockActionEntries(DFCodeblockName.IF_GAME, TargetType.UNSET, generateConditionHook),
+        ...gameActionEntries.filter(([k,v]) => !v.action?.iconName.includes("Event")),
+        ...ifGameEntries.filter(([k,v]) => !v.action?.iconName.includes("Event")),
         ...Object.entries(typeActionMembers('game')),
-        ...gameValueEntries(TargetType.UNSET, v => v.targetType == GameValueTargetType.UNTARGETED)
+        ...untargetedGameValueEntries.filter(([k,v]) => !v.gameValue?.name.includes("Event"))
+    ]));
+    
+    // event namespace
+    new Namespace("event", Object.fromEntries([
+        ...gameActionEntries.filter(([k,v]) => v.action?.iconName.includes("Event")),
+        ...ifGameEntries.filter(([k,v]) => v.action?.iconName.includes("Event")),
+        ...untargetedGameValueEntries.filter(([k,v]) => v.gameValue?.name.includes("Event"))
     ]));
 }
 

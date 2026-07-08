@@ -68,7 +68,7 @@ export const OVERRIDES: {
         },
         "GAME ACTION": {
             "LaunchProj": "launchProjectile",
-            "RedstoneStrength": "setEventRedstoneStrength"
+            "RedstoneStrength": "setRedstoneStrength"
         },
         "SET VARIABLE": {
             "PurgeVars": "purgeMatching",
@@ -519,7 +519,9 @@ export const OVERRIDES: {
         "Experience Level": "xpLevel",
         "Experience Progreess": "xpProgress",
         "Entity Width": "width",
-        "Entity Height": "height"
+        "Entity Height": "height",
+        "Event Redstone Current Strength": "redstoneStrength",
+        "Event New Redstone Current Strength": "newRedstoneStrength",
     },
     returnTypes: {
         "SET VARIABLE": {

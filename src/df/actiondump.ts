@@ -161,16 +161,20 @@ export function getTCActionName(block: DFCodeblockName, dfSignName: string) {
 
     let iconName = actions.get(block)?.[dfSignName]?.iconName!;
 
-    if (iconName != undefined && block == DFCodeblockName.PLAYER_EVENT || block == DFCodeblockName.ENTITY_EVENT || block == DFCodeblockName.GAME_EVENT) {
-        if (iconName.startsWith("Entity") && block == DFCodeblockName.ENTITY_EVENT) 
-            iconName = iconName.substring(6);
-        else if (iconName.startsWith("Player") && block == DFCodeblockName.PLAYER_EVENT) 
-            iconName = iconName.substring(6);
-        else if (iconName.startsWith("Plot")) 
-            iconName = iconName.substring(4);
-
-        if (iconName.endsWith("Event"))
-            iconName = iconName.substring(0,iconName.length-5);
+    if (iconName != undefined) {
+        if (block == DFCodeblockName.PLAYER_EVENT || block == DFCodeblockName.ENTITY_EVENT || block == DFCodeblockName.GAME_EVENT) {
+            if (iconName.startsWith("Entity") && block == DFCodeblockName.ENTITY_EVENT) 
+                iconName = iconName.substring(6);
+            else if (iconName.startsWith("Player") && block == DFCodeblockName.PLAYER_EVENT) 
+                iconName = iconName.substring(6);
+            else if (iconName.startsWith("Plot")) 
+                iconName = iconName.substring(4);
+    
+            if (iconName.endsWith("Event"))
+                iconName = iconName.substring(0,iconName.length-5);
+        } else {
+            iconName = iconName.replaceAll("Event","");
+        }
     }
     return codeifyName(iconName ?? dfSignName);
 }
@@ -184,7 +188,7 @@ export function getTCTagName(name: string) {
 export function getTCGameValueName(dfValueName: string) {
     let override = OVERRIDES.gameValueNames[dfValueName];
     if (override) return override;
-    return codeifyName(dfValueName);
+    return codeifyName(dfValueName.replaceAll("Event",""));
 }
 
 export function getDifferentiatedActionName(block: DFCodeblockName, dfActionName: string): string {
