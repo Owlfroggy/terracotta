@@ -178,6 +178,8 @@ async function Main() {
     } 
     else if (command == "server") {
         new LanguageServer()
+    } else {
+        console.log("Helper text wip (if terracotta is out of beta and this is still here go yell at owlfroggy)")
     }
 }
 

@@ -1,5 +1,5 @@
 import { pathToFileURL } from "node:url";
-import { FoldingRangeRefreshRequest, LSPErrorCodes, URI } from "vscode-languageserver";
+import { FoldingRangeRefreshRequest, LSPErrorCodes, URI} from "vscode-languageserver";
 import { Type } from "../typeProcessor/type.ts";
 import { ParameterSignature, ParameterSignatureEntry } from "../compiler/namespace/definition.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression } from "../ast/expression.ts";
@@ -15,6 +15,7 @@ import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import * as AD from "../df/actiondump.ts";
 import { DF_PAR_FIELD_TO_TC } from "../data/constants.ts";
 import { binaryIsNamedArgument } from "./astUtils.ts";
+import { URI as URIUtil } from "vscode-uri";
 
 export function getOrCreateMapLayer<K, V>(map: Map<K, V>, key: K, defaultValue: V): V {
     if (!map.has(key)) {
@@ -63,7 +64,7 @@ export function toNameCase(s: string): string {
 }
 
 export function pathToUri(path: string): URI { 
-    return pathToFileURL(path).href;
+    return URIUtil.file(path).toString();
 }
 
 

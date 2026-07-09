@@ -4,9 +4,9 @@ import * as fs from "node:fs/promises"
 import { pathToFileURL } from "node:url";
 import { DATA_PATH } from "../util/fileUtils.ts";
 
-const ITEM_IDS_JSON   = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"item_ids.json") )).toString())
+const ITEM_IDS_JSON   = JSON.parse((await Deno.readTextFile( pathToFileURL(DATA_PATH+"item_ids.json") )).toString())
 export const VALID_ITEM_IDS: Set<string> = new Set(ITEM_IDS_JSON);
-const BLOCK_IDS_JSON   = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"block_ids.json") )).toString())
+const BLOCK_IDS_JSON   = JSON.parse((await Deno.readTextFile( pathToFileURL(DATA_PATH+"block_ids.json") )).toString())
 export const VALID_BLOCK_IDS: Set<string> = new Set(BLOCK_IDS_JSON);
 /** contains block and item ids in the same set for when particles don't know what to allow */
 export const BLOCK_OR_ITEM_IDS: Set<string> = new Set([...ITEM_IDS_JSON,...BLOCK_IDS_JSON]);

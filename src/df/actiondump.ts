@@ -6,7 +6,7 @@ import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName, DFRank, DFValueType, GameValueTargetType, RANK_ORDER } from "./constants.ts";
 import { OVERRIDES } from "../data/overrides.ts";
 
-const ACTION_DUMP_JSON      = JSON.parse((await fs.readFile( pathToFileURL(DATA_PATH+"actiondump.json") )).toString());
+const ACTION_DUMP_JSON      = JSON.parse((await Deno.readTextFile( pathToFileURL(DATA_PATH+"actiondump.json") )).toString());
 
 //==========[ classes ]=========\\
 
