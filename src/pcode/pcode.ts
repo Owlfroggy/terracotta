@@ -1,0 +1,156 @@
+import { VariableId } from "../typeProcessor/typeProcessor.ts";
+
+export enum PCodeTarget {
+    default = "default",
+    defaultuuid = "defaultuuid",
+    damager = "damager",
+    damageruuid = "damageruuid",
+    killer = "killer",
+    killeruuid = "killeruuid",
+    shooter = "shooter",
+    shooteruuid = "shooteruuid",
+    victim = "victim",
+    victimuuid = "victimuuid",
+    projectile = "projectile",
+    projectileuuid = "projectileuuid",
+    uuid = "uuid",
+    selected = "selected",
+}
+
+export enum PCodeOperation {
+    "+" = "+",
+    "-" = "-",
+    "*" = "*",
+    "/" = "/",
+    "%" = "%",
+}
+
+/**
+ * NOTE: startPos and endPos are relative to the start of the 
+ * expression, NOT to the start of a script
+ * 
+ * they will also ONLY be accurate for pcodes parsed from strings.
+ * modifying pcodes directly with code does not update their start/end positions,
+ * you'd have to stringify and reparse to get that
+ */
+export abstract class PCode {
+    constructor(
+        public startPos?: number, 
+        public endPos?: number,
+    ) {}
+}
+
+export class RootPCode extends PCode {
+    constructor(
+        public elements: PCode[],
+    ) { super(0, elements[elements.length-1]?.endPos ?? 0); }
+
+    toString() {
+        return this.elements.join("");
+    }
+}
+
+export class TargetPCode extends PCode {
+    constructor(
+        public target: PCodeTarget,
+        startPos?: number, endPos?: number,
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return `%${this.target}`
+    }
+}
+
+export class SegmentPCode extends PCode {
+    constructor(
+        public contents: string,
+        startPos?: number, endPos?: number
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return this.contents;
+    }
+}
+
+export class OperationPCode extends PCode {
+    constructor(
+        public op: PCodeOperation,
+        pos?: number
+    ) { super(pos, pos); }
+
+    toString() {
+        return this.op;
+    }
+}
+
+export class MathPCode extends PCode {
+    constructor(
+        public expr: PCode[],
+        startPos?: number, endPos?: number,
+    ) { super(startPos, endPos) }
+
+    toString() {
+        return `%math(${this.expr.join("")})`;
+    }
+}
+
+export class VarPCode extends PCode {
+    constructor(
+        public name: PCode[],
+        startPos?: number, endPos?: number,
+        /** 
+         * Used internally by the compiler to keep track of the var that created this pcode. 
+         * PCodes outputted by parsing a string should never have this since the scope there is ambiguous.
+         * */
+        public varId?: VariableId,
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return `%var(${this.name.join("")})`
+    }
+}
+
+export class RoundPCode extends PCode {
+    constructor(
+        public value: PCode[],
+        startPos?: number, endPos?: number
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return `%round(${this.value.join("")})`
+    }
+}
+
+export class RandomPCode extends PCode {
+    constructor(
+        public args: PCode[][],
+        startPos?: number, endPos?: number
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return `%random(${this.args.map(a=>a.join("")).join(",")})`
+    }
+}
+
+export class IndexPCode extends PCode {
+    constructor(
+        public args: PCode[][],
+        startPos?: number, endPos?: number
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return `%index(${this.args.map(a=>a.join("")).join(",")})`
+    }
+}
+
+export class EntryPCode extends PCode {
+    constructor(
+        /** this has a max length of 2 bc of the weird parsing rules */
+        public args: PCode[][],
+        startPos?: number, endPos?: number
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return `%entry(${this.args.map(a=>a.join("")).join(",")})`
+    }
+}

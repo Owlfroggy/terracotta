@@ -1,1169 +1,1242 @@
 import * as rpc from "vscode-jsonrpc/node.js"
-import * as Domains from "../util/domains.ts"
-import * as AD from "../util/actionDump.ts"
-import { CompletionItem, CompletionItemKind, CompletionList, CompletionRegistrationOptions, ConnectionStrategy, InitializeResult, MarkupContent, MarkupKind, Message, MessageType, TextDocumentSyncKind, Position, InitializeParams, CompletionParams, combineNotebooksFeatures, SignatureHelpParams, SignatureInformation, SignatureHelp, ParameterInformation, Range, FileOperationRegistrationOptions, DefinitionParams, Location, SymbolTag } from "vscode-languageserver";
-import { EventHeaderToken, ExpressionToken, GetLineIndexes, OperatorToken, SelectActionToken, StringToken, Tokenize, VariableToken } from "../tokenizer/tokenizer.ts";
-import { DocumentTracker, TrackedDocument, TrackedItemLibrary, TrackedScript } from "./documentTracker.ts";
-import { ADDITIONAL_CONSTRUCTORS, CONTROL_PRINT_DEBUG_STYLES, CREATE_SELECTION_ACTIONS, FILTER_SELECTION_ACTIONS, PLAYER_ONLY_GAME_VALUES, REPEAT_ON_ACTIONS, STATEMENT_KEYWORDS, VALID_PARAM_MODIFIERS, ValueType } from "../util/constants.ts";
-import { Dict } from "../util/dict.ts"
-import { AssigneeContext, CodeContext, ConditionContext, ConstructorContext, ContextDictionaryLocation, ContextDomainAccessType, DictionaryContext, DomainAccessContext, EventContext, ForLoopContext, ListContext, NumberContext, ParameterContext, RepeatContext, SelectionContext, StandaloneFunctionContext, TagsContext, TypeContext, UserCallContext, VariableContext } from "./codeContext.ts";
-import { VALID_VAR_SCOPES, VAR_SCOPE_TC_NAMES } from "../util/constants.ts";
-import { FOR_LOOP_MODES } from "../util/constants.ts";
-import { print } from "../main.ts";
-import { ActionBlock, CodeItem, CompileLines, VariableItem } from "../compiler/codelineCompiler.ts";
-import { GameValueItem } from "../compiler/codelineCompiler.ts";
-import { CharUtils } from "../util/characterUtils.ts";
-import { config } from "node:process";
-import { Server } from "node:http";
+import * as AD from "../df/actiondump.ts"
+import * as fs from "node:fs/promises"
+import { CompletionItem, CompletionList, InitializeResult, MessageType, TextDocumentSyncKind, InitializeParams, CompletionParams, SignatureHelpParams, FileOperationRegistrationOptions, DefinitionParams, CreateFilesParams, RenameFilesParams, DeleteFilesParams, DidOpenTextDocumentParams, DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidChangeWatchedFilesParams, URI, CompletionItemKind, SignatureInformation, SignatureHelp, MarkupContent, HoverParams, Hover, Location, FileChangeType, CompletionItemTag } from "vscode-languageserver";
+import { TrackedDocument } from "./trackedDocument.ts";
+import { WorkspaceManager } from "./workspaceManager.ts";
+import { ASTNode } from "../ast/astNode.ts";
+import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, SelectionExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
+import { DictTypeData, FuncTypeData, NamespaceTypeData, Type, TYPE_NAMESPACES } from "../typeProcessor/type.ts";
+import { Namespace } from "../compiler/namespace/namespace.ts";
+import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
+import { EnvironmentFrame, isVariableEntry, TypeProcessor, VariableEntry, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
+import { AssignmentStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement } from "../ast/statement.ts";
+import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
+import { StringExtraData, Token, TokenType } from "../ast/token.ts";
+import { getActionDocumentation, getDFParamString, getEventDocumentation, getValueDocumentation, visualizeNodeAncestors } from "./utils.ts";
+import { getAllowedParticleFields, isIdentifier, valueToTCString } from "../util/utils.ts";
+import { DFCodeblockName, DFRank, tcTypeToDF } from "../df/constants.ts";
+import { OVERRIDES } from "../data/overrides.ts";
+import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
+import { posIndexIsInListElement, isForLoopActionCall, binaryIsNamedArgument, getExistingNamedArgs } from "../util/astUtils.ts";
+import { brotliDecompress } from "node:zlib";
+import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
+import { CSND_CONSTRUCTOR, ITEM_CONSTRUCTOR, LITEM_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
+import { FunctionValue, StringValue } from "../compiler/codeValue.ts";
+import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, TYPE_DESCRIPTIONS, VALID_ITEM_IDS } from "../data/constants.ts";
+import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
+import { matchArgsToParams } from "../util/argValidation.ts";
+import { COMPILE_START_PROCESS } from "../compiler/namespace/compileCallFunction.ts";
+import { methodizeParameterSignatures } from "../compiler/namespace/utils.ts";
+import { TrackedScript } from "./trackedScript.ts";
+import { TrackedItemLibrary } from "./trackedItemLibrary.ts";
+import { MCNote } from "../util/note.ts";
+import { convertDFValue } from "./valueConverter.ts";
 
 type ServerTCConfiguration = {
-    dfRank: AD.DFRank,
+    dfRank: DFRank,
     rankBehavior: "crossOutInaccessible" | "hideInaccessible"
 }
 
 enum CompletionItemType {
-    SelectionAction,
-    DomainAction,
-    DomainCondition,
-    DomainValue,
-    EventName,
-    UserCall,
-    ForLoopAction,
-    Keyword,
+    EVENT,
+    TAG_NAME,
+    TAG_OPTION,
+}
+type CompletionItemData = {
+    type: CompletionItemType.EVENT,
+    event: AD.Action
+} | {
+    type: CompletionItemType.TAG_NAME,
+    tag: AD.Tag,
+} | {
+    type: CompletionItemType.TAG_OPTION,
+    tag: AD.Tag,
+    option: string,
 }
 
-//function that other things can call to log to the language server output when debugging
-export let slog = (...data: any[]) => {}
-export let snotif = (message: string, type: MessageType = MessageType.Info) => {}
-
-export function LinePositionToIndex(script: string, position: Position): number | null {
-    let lines = script.split("\n")
-
-    let index = 0
-
-    for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-        if (lineNum == position.line) {
-            index += position.character
-            return index
-        }
-        index += lines[lineNum].length + 1
-    }
-
-    return null
+let configuration: ServerTCConfiguration = {
+    dfRank: DFRank.OVERLORD,
+    rankBehavior: "crossOutInaccessible"
 }
 
-function scuffedContextDebugPrint(context: CodeContext) {
-    let rawNames: any = []
-    let l = context
-    while (l.parent) {
-        rawNames.unshift(l.constructor.name.replace("Context",""))
-        l = l.parent
-        if (!l.parent) {
-            rawNames.unshift(l.constructor.name.replace("Context",""))
-        }
-    }
+/**
+ * NOTE: The item passed into this should have the string's raw contents as its label.
+ * This function takes care of the stringification of said contents.
+ * 
+ * @param leaveIdentifiersAlone If existingNode is an identifier and the completion item's label can stay as an identifier, make no changes to this tiem
+ */
+function stringizeCompletionItem(item: CompletionItem, existingNode: ASTNode, doc: TrackedDocument, leaveIdentifiersAlone: boolean = false) {
+    if (
+        leaveIdentifiersAlone 
+        && existingNode instanceof Token 
+        && existingNode.type == TokenType.IDENTIFIER 
+        && isIdentifier(item.label)
+    ) return item;
 
-    let printResult: any[] = []
-    let layer = context
-    while (layer.parent) {
-        let thisLayer = layer
-        let name = layer.constructor.name
-        let displayLayer = structuredClone(layer)
-        printResult.unshift(displayLayer)
-        printResult.unshift(name)
-        if (layer.parent) {
-            layer = layer.parent
+    let extraStringData: StringExtraData | null = (existingNode instanceof Token && existingNode.type == TokenType.STRING_LITERAL) ? existingNode.getStringExtraData() : null;
+    let stringified = valueToTCString(item.label, extraStringData?.quoteChar ?? '"');
+    if (
+        existingNode instanceof Token 
+        && (existingNode.parent instanceof AtomicExpression || existingNode.parent instanceof CallOrStartExpression) 
+        && extraStringData?.isClosed
+    ) {
+        item.textEdit = {
+            range: {
+                start: doc.indexToLinePosition(existingNode.startPos), 
+                end: doc.indexToLinePosition(existingNode.endPos),
+                // start: param.position,
+                // end: param.position,
+            },
+            newText: stringified,
+        };
+        if (existingNode.type == TokenType.STRING_LITERAL) {
+            item.filterText = stringified//extraData.quoteChar + stringified + extraData.quoteChar;
         }
-        displayLayer.parent = undefined
-        displayLayer.child = undefined
+    } else {
+        item.insertText = valueToTCString(item.label);
     }
-    slog (JSON.stringify(printResult),"\n",rawNames)
+    return item;
 }
 
+function generateDefinitionCompletion(name: string, def: Definition, allowCallOrStartInersion: boolean = true): CompletionItem {
+    let item: CompletionItem;
+    let documentation: string = "";
+    if (def.definitionType == DefinitionType.FUNCTION) {
+        // let isUnusable = !AD.RankCheck(tcConfig.dfRank,action?.RequiresRank!)
+        // if (isUnusable && tcConfig.rankBehavior == "hideInaccessible") { return }
+        item = {
+            label: name,
+            kind: (def as any).compileIf ? CompletionItemKind.Property : CompletionItemKind.Method,
+            commitCharacters: ["("],
 
-function generateCompletions(entries: (string)[], kind: CompletionItemKind = CompletionItemKind.Property, type: CompletionItemType | null = null): CompletionItem[] {
-    let result: CompletionItem[] = []
-    for (const v of entries) {
-        let item: CompletionItem = {
-            label: v,
-            kind: kind,
-            data: {
-                value: v,
-                type: type
-            }
         }
-        result.push(item)
-    }
-    return result
-}
-
-//try not to use this function its very slow
-function indexToLinePosition(script: string,index: number): Position {
-    let lines = script.split("\n")///\r\n|\r|\n/)//"\n")
-    let finalLine: number = 0
-    let totalIndex: number = 0
-    for (const l of lines) {
-        totalIndex += l.length + 1
-        if (totalIndex >= index) {
-            return {"line": finalLine, "character": 1 + index - (totalIndex - (l.length))}
+        if (def.autocompleteSortPrefix) {
+            item.sortText = "z" + def.autocompleteSortPrefix + item.label;
         }
-        finalLine++
-    }
-    return {} as Position
-}
-
-// keyword aggregation
-let variableScopeKeywords = generateCompletions(Object.keys(VALID_VAR_SCOPES),CompletionItemKind.Keyword)
-let typeKeywords = generateCompletions(Object.keys(ValueType),CompletionItemKind.Keyword)
-let paramModifierKeywords = generateCompletions(VALID_PARAM_MODIFIERS,CompletionItemKind.Keyword)
-let toKeyword = {
-    label: "to",
-    kind: CompletionItemKind.Keyword,
-}
-
-let forLoopModeKeywords = FOR_LOOP_MODES.map(mode => {
-    return {
-        label: mode,
-        kind: CompletionItemKind.Keyword,
-        sortText: "\u0000" + mode,
-    }
-})
-
-let generalKeywords = generateCompletions([
-    STATEMENT_KEYWORDS,
-    ADDITIONAL_CONSTRUCTORS,
-].flat(),CompletionItemKind.Keyword, CompletionItemType.Keyword)
-
-let domainKeywords = Object.values(Domains.PublicDomains).map(domain => {
-    return {
-        label: domain!.Identifier,
-        commitCharacters: [":",".","?"],
-        kind: CompletionItemKind.Keyword
-    }
-})
-
-let genericDomainKeywords = ["player","entity"].map(id => {
-    return {
-        label: id,
-        commitCharacters: [":",".","?"],
-        kind: CompletionItemKind.Keyword,
-        sortText: "\u0000" + id
-    } as CompletionItem
-})
-
-let domainMemberCompletionEntries: Dict<{
-    [ContextDomainAccessType.Action]: CompletionItem[], 
-    [ContextDomainAccessType.Condition]: CompletionItem[], 
-    [ContextDomainAccessType.Value]: CompletionItem[], 
-}> = {}
-function generateDomainMemberCompletions(tcConfig: ServerTCConfiguration) {
-    for (const domain of Object.values(Domains.DomainList)) {
-        if (!domain) { continue }
-        domainMemberCompletionEntries[domain.Identifier] = {
-            [ContextDomainAccessType.Action]: Object.values(domain.Actions).map(action => {
-                let isUnusable = !AD.RankCheck(tcConfig.dfRank,action?.RequiresRank!)
-                if (isUnusable && tcConfig.rankBehavior == "hideInaccessible") { return }
-                return {
-                    label: action?.TCId,
-                    kind: CompletionItemKind.Method,
-                    commitCharacters: [";","("],
-                    data: {
-                        type: CompletionItemType.DomainAction,
-                        domainId: domain.Identifier,
-                        memberId: action?.TCId,
-                    },
-                    sortText: isUnusable ? "\uFFFF"+action?.TCId : undefined,
-                    tags: isUnusable ? [SymbolTag.Deprecated] : undefined
-                } as CompletionItem
-            }).filter(v => !!v), //v => !!v filters out undefineds created from early returns 
-            [ContextDomainAccessType.Condition]: Object.values(domain.Conditions).map(action => {
-                return {
-                    label: action?.TCId,
-                    kind: CompletionItemKind.Method,
-                    commitCharacters: ["(",")"],
-                    data: {
-                        type: CompletionItemType.DomainCondition,
-                        domainId: domain.Identifier,
-                        memberId: action?.TCId
-                    }
-                } as CompletionItem
-            }), 
-            [ContextDomainAccessType.Value]: Object.values(domain.Values).map(value => {
-                return {
-                    label: value?.TCId,
-                    kind: CompletionItemKind.Field,
-                    commitCharacters: [";"],
-                    data: {
-                        type: CompletionItemType.DomainValue,
-                        domainId: domain.Identifier,
-                        memberId: value?.TCId
-                    }
-                } as CompletionItem
-            }), 
+        if (allowCallOrStartInersion && !isIdentifier(name)) {
+            item.insertText = `call ${valueToTCString(name)}`;
         }
-    }
-}
-
-let eventNameCompletionEntries = {
-    player: [] as CompletionItem[],
-    entity: [] as CompletionItem[],
-    game:   [] as CompletionItem[],
-}
-for (const mode of ["player","entity","game"]) {
-    for (const [dfName, event] of Object.entries(AD.DFActionMap[`${mode == "player" ? '' : mode == "game" ? "game_" : 'entity_'}event`]!)) {
-        let item: CompletionItem = {
-            label: dfName,
-            kind: CompletionItemKind.Function,
-            commitCharacters: [";"],
-            data: {
-                type: CompletionItemType.EventName,
-                eventType: mode,
-                eventDFId: dfName
-            }
-        }
-        eventNameCompletionEntries[mode].push(item)
-    }
-}
-
-let selectionActionCompletionEntries = {
-    select: [] as CompletionItem[],
-    filter: [] as CompletionItem[]
-}
-for (const actionType of ["select","filter"]) {
-    for (const dfName of actionType == "select" ? CREATE_SELECTION_ACTIONS : FILTER_SELECTION_ACTIONS) {
-        let action = AD.DFActionMap.select_obj![dfName]!
-        let item: CompletionItem = {
-            label: action.TCId,
-            kind: CompletionItemKind.Function,
-            commitCharacters: ["(",";"],
-            data: {
-                type: CompletionItemType.SelectionAction,
-                selectionType: actionType,
-                actionDFId: dfName
-            }
-        }
-        selectionActionCompletionEntries[actionType].push(item)
-    }
-}
-
-let forOnActionCompletionEntries: CompletionItem[] = REPEAT_ON_ACTIONS.map(dfId => {
-    let action = AD.DFActionMap.repeat![dfId]!
-    return {
-        label: action.TCId,
-        kind: CompletionItemKind.Function,
-        commitCharacters: ["("],
-        data: {
-            type: CompletionItemType.ForLoopAction,
-            actionDFId: dfId
-        }
-    } as CompletionItem
-});
-
-
-// ugly ahh function
-function getParamString(parameters: AD.Parameter[], header: string, noParamsFallback: string) {
-    if (parameters.length == 0) { return noParamsFallback }
-
-    let paramStrings: string[] = []
-
-    for (const param of parameters) {
-        let groupStrings: string[] = []
-        for (const group of param.Groups) {
-            let valueStrings: string[] = []
-            for (const value of group) {                
-                // notes
-                let notesString = ""
-                for (const note of value.Notes) {
-                    if (note.length > 0) {
-                        notesString += `\\\n  ⏵ ${note}`
-                    }
-                }
-
-                // main string
-                let pluralSuffix = value.Plural ? "(s)" : ""
-                let optionalSuffix = value.Optional ? "*" : ""
-                valueStrings.push(`\`${AD.DFTypeToString[value.DFType]}${pluralSuffix}${optionalSuffix}\` ${value.Description.length + notesString.length > 0 ? "-" : ""} ${value.Description}${notesString}`)
-            }
-            groupStrings.push(valueStrings.join("\\\n"))
-        }
-        paramStrings.push(groupStrings.join("\\\n **OR**\\\n"))
-    }
-    return header + paramStrings.join("\n\n\n\n")
-}
-
-export function StartServer() {
-    //==========[ setup ]=========\\
-
-    let connection = rpc.createMessageConnection(
-        new rpc.StreamMessageReader(process.stdin),
-        new rpc.StreamMessageWriter(process.stdout)
-    );
-    connection.listen()
-
-    let documentTracker: DocumentTracker = new DocumentTracker(connection)
-
-    let configuration: ServerTCConfiguration = {
-        dfRank: "Overlord",
-        rankBehavior: "crossOutInaccessible"
-    }
-
-    //==========[ utility functions ]=========\\
-
-    function showText(message: string, messageType: MessageType = MessageType.Info) {
-        connection.sendNotification("window/showMessage",{message: message.toString(),type: messageType})
-    }
-
-    function log(...message: string[]) {
-        connection.sendNotification("window/logMessage",{message: message.join(" "), type: MessageType.Log})
-    }
-
-    // warning: this function is stupid
-    // the idea here is we create a dummy script with our expression token and then compile it to see what comes out
-    // its the objectively wrong way of coding this but that basically describes this entire codebase so i dont care
-    function getExpressionType(expression: ExpressionToken, expressionInDocUri: string): string {
-        /**
-         * FUNCTION dummyScript;
-         * line dummyVariable = expression;
-         */
-        let dummyScript = [
-            [new EventHeaderToken([], "FUNCTION", "dummyScript")],
-            [new VariableToken([], "line", "dummyVariable", null), new OperatorToken([], "="), expression]
-        ]
-
-        let document = documentTracker.Documents[expressionInDocUri] as TrackedScript
-        let ownerFolder = document?.OwnedBy
-
-        let returnTypes = {}
-        if (ownerFolder) {
-            for (const id of Object.keys(ownerFolder.Functions)) {
-                let docs = ownerFolder.Functions[id]
-                let doc = docs?.values().toArray()[0]
-                if (doc?.CodeLineName && doc.FunctionReturnType) {
-                    returnTypes[doc?.CodeLineName] = doc?.FunctionReturnType
-                }
-            }
-        }
-
-        try {
-            let compilationResults = CompileLines(dummyScript, {
-                rank: "Overlord",
-                codeInjections: { playerEvents: {}, entityEvents: {}, gameEvents: {}, functions: {}, processes: {} }, itemLibraries: {},
-                skipConstructorValidation: true,
-                funcReturnTypes: returnTypes
-            })
-            let item: CodeItem = (compilationResults.code[1] as ActionBlock).Arguments[1]!
-            if (item instanceof VariableItem) {
-                return item.StoredType ?? "any"
-            } else if (item instanceof GameValueItem) {
-                return AD.DFGameValueMap[item.Value]!.ReturnType ?? "any"
-            } else {
-                return item.itemtype
-            }
-        } catch {
-            return "any"
-        }
-    }
-
-    function getFunctionCompletions(documentUri: string, context: CodeContext): CompletionItem[] {
-        let categories = 
-              context instanceof UserCallContext && context.mode == "function" ? ["Functions"]
-            : context instanceof UserCallContext && context.mode == "process" ?  ["Processes"]
-            : ["Functions", "Processes"]
-        let document = documentTracker.Documents[documentUri] as TrackedScript
-        let ownerFolder = document?.OwnedBy
-        if (document && ownerFolder) {
-            let items: CompletionItem[] = []
-            for (const category of categories) {
-                items.push(...Object.keys(ownerFolder[category]).map(name => {
-                    let item: CompletionItem
-                    item = {
-                        label: name,
-                        kind: CompletionItemKind.Function,
-                        commitCharacters: [";"],
-                        data: {
-                            type: CompletionItemType.UserCall,
-                            documentUri: documentUri
-                        }
-                    }
-
-                    //if name has special characters and needs ("akjhdgffkj") syntax
-                    if ((name.match(/[^a-z_0-9]/gi) || name.match(/^[0-9]/gi)) && !context.inComplexName && !context.stringInfo) {
-                        item.insertText = `("${name.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}")`
-                    } else {
-                        item.insertText = name
-                    }
-
-                    if (context instanceof UserCallContext) {
-                        if (context.stringInfo || context.inComplexName) {
-                            item.data.isString = true
-                        }
-                    } else {
-                        item.insertText = (category == "Functions" ? "call " : "start ") + item.insertText
-                    }
-
-                    if (category == "Functions") {
-                        item.commitCharacters?.push("(")
-                        item.data.category = "Functions"
-                    } else {
-                        item.commitCharacters?.push("{")
-                        item.data.category = "Processes"
-                    }
-
-                    item.data.name = name
-                    
-                    return item
-                }))
-            }
-            return items
-        }
-        return []
-    }
-
-    function getVariableCompletions(documentUri: string, context: CodeContext) {
-        let document = documentTracker.Documents[documentUri] as TrackedScript
-        if (document == undefined) { return }
-        let ownerFolder = document.OwnedBy
-
-        let variables = {global: {}, saved: {}, local: {}, line: {}}
-        let items: CompletionItem[] = []
-        
-
-        let nameFirstScopes: Dict<string> = {}
-        let multiScopeNames: Dict<boolean> = {}
-        function addvar(scope,name) {
-            if (variables[scope][name] == undefined) {
-                variables[scope][name] = true
-            }
-            if (nameFirstScopes[name] == undefined) {
-                nameFirstScopes[name] = scope
-            } else if (nameFirstScopes[name] != scope) {
-                multiScopeNames[name] = true
-            }
-        }
-
-        //if this document is owned by a folder, include all global and saved vars from that folder
-        if (ownerFolder != null) {
-            Object.values(ownerFolder.OwnedDocuments).forEach(doc => {
-                if (doc instanceof TrackedScript) {
-                    ["global","saved"].forEach(scope => {
-                        Object.keys(doc!.Variables[scope]).forEach(name => {
-                            addvar(scope,name)
-                        });
-                    });
-                }
-            });
-        }
-        
-        //include all variables from this document
-        ["global","saved","local","line"].forEach(scope => {
-            Object.keys(document.Variables[scope]).forEach(name => {
-                addvar(scope,name)
-            });
-        });
-        
-        let scopes = ["global","saved","local","line"]
-        
-        if (context instanceof VariableContext) {
-            scopes = [VAR_SCOPE_TC_NAMES[context.scope]!]
-        }
-
-        //generate completion items
-        for (const scope of scopes) {
-            for (let name of Object.keys(variables[scope])) {
-                let item: CompletionItem = {
-                    label: `${name}`,
-                    sortText: `${name} ${scope == "line" ? "a" : scope == "local" ? "b" : scope == "saved" ? "c" : "d"}`,
-                    filterText: name,
-                    kind: CompletionItemKind.Variable,
-                    data: {}
-                }
-
-                if (multiScopeNames[name] && scopes.length != 1) {
-                    item.label = `${name} (${scope})`
-                }
-
-                //if name has special characters and needs ("akjhdgffkj") syntax
-                if ((name.match(/[^a-z_0-9]/gi) || name.match(/^[0-9]/gi)) && !context.inComplexName && !context.stringInfo) {
-                    item.insertText = `("${name.replaceAll("\\","\\\\").replaceAll('"','\\"')}")`
-                } else {
-                    item.insertText = `${name}`
-                }
-
-                if (context instanceof VariableContext) {
-                    //prevent what's already typed in the doc from hogging the top of the autocomplete list
-                    if ((context.name && context.name == name) || (context.stringInfo && context.stringInfo.value == name)) {
-                        continue
-                    }
-                    if (context.stringInfo || context.inComplexName) {
-                        item.data.isString = true
-                    }
-                } else {
-                    item.insertText = scope + " " + item.insertText
-                }
-                items.push(item)
-            }
-        }
-
-        return items
-    }
-    
-    slog = log
-    snotif = showText
-    
-    //==========[ request handling ]=========\\
-
-    connection.onRequest("initialize", (param: InitializeParams) => {
-        documentTracker.Initialize(param)
-
-        let yesIWouldLikeToKnowAboutThat = {
-            filters: [
-                { pattern: {"glob": "**/*.{tcil,tc}"} },
-            ]
-        } as FileOperationRegistrationOptions
-
-        let response: InitializeResult = {
-            capabilities: {
-                textDocumentSync: TextDocumentSyncKind.Incremental,
-                //workspace folders
-                workspace: {
-                    workspaceFolders: {
-                        supported: true,
-                        changeNotifications: false
-                    },
-                    fileOperations: {
-                        didCreate: yesIWouldLikeToKnowAboutThat,
-                        willRename: yesIWouldLikeToKnowAboutThat,
-                        didDelete: yesIWouldLikeToKnowAboutThat,
-                    }
-                },
-                definitionProvider: true,
-                //completion
-                completionProvider: {
-                    resolveProvider: true,
-                    triggerCharacters: [":",".","?",'"',"'"],
-                    completionItem: {
-                        labelDetailsSupport: true
-                    }
-                },
-                //function signature
-                signatureHelpProvider: {
-                    triggerCharacters: [",","("],
-                },
-            }
-        }
-
-        return response
-    })
-
-    connection.onRequest("textDocument/definition",(param: DefinitionParams) => {
-        if (!param.textDocument.uri.endsWith(".tc")) {return}
-        let script = documentTracker.GetFileText(param.textDocument.uri)
-        let cu = new CharUtils(script,true)
-
-        let lineIndexes = GetLineIndexes(script)
-        let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": cu.GetIdentifier(lineIndexes[param.position.line]+param.position.character + 1)[0],"startFromLine": param.position.line, "fromLanguageServer": true}) as CodeContext
-
-        if (context instanceof UserCallContext) {
-            let category = context.mode == "function" ? "Functions" : "Processes"
-            let document = documentTracker.Documents[param.textDocument.uri] as TrackedScript
-            let ownerFolder = document?.OwnedBy
-            if (document && ownerFolder && ownerFolder[category][context.name]) {
-                return {
-                    uri: ([...ownerFolder[category][context.name]?.values()][0] as TrackedScript).Uri,
-                    range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}}
-                } as Location
-            }
-        }
-    })
-
-    connection.onRequest("textDocument/signatureHelp",(param: SignatureHelpParams) => {
-        if (!param.textDocument.uri.endsWith(".tc")) {return}
-        let previouslySelectedSignature = param.context?.activeSignatureHelp?.activeSignature
-        let script = documentTracker.GetFileText(param.textDocument.uri)
-
-        let lineIndexes = GetLineIndexes(script)
-        let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": lineIndexes[param.position.line]+param.position.character + 1,"startFromLine": param.position.line, "fromLanguageServer": true}) as CodeContext
-
-        //travel up the context tree until an arguments list context is found
-        while (context.parent) {
-            if (context instanceof ListContext && (
-                context.parent instanceof UserCallContext || 
-                context.parent instanceof DomainAccessContext || 
-                context.parent instanceof ConstructorContext || 
-                context.parent instanceof SelectionContext ||
-                context.parent instanceof StandaloneFunctionContext ||
-                context.parent instanceof ForLoopContext
-            )) {
-                break
-            }
-            context = context.parent
-        }
-        if (!(context instanceof ListContext)) { return }
-
-        let paramData: AD.Parameter[] = []
-
-        //check if this call is in an assignee
-        let isAssignee = false
-        let level: CodeContext = context
-        while (level?.parent) {
-            if (level instanceof AssigneeContext || level instanceof ForLoopContext || level instanceof ConditionContext || level instanceof ListContext || level instanceof DictionaryContext) {
-                isAssignee = true
-                break
-            }
-            level = level.parent
-        }
-
-        //get signature data from context
-        let prefix: string = ""
-        let tagAmount: number = 0
-        if (context.parent instanceof DomainAccessContext) {
-            prefix = context.parent.name + "("
-            let action = Domains.DomainList[context.parent.domainId]?.[context.parent.type == ContextDomainAccessType.Condition ? "Conditions" : "Actions"]?.[context.parent.name!]
-            if (action) {
-                tagAmount = Object.keys(action.Tags).length
-                paramData = action.Parameters
-            } else { return }
-        } else if (context.parent instanceof SelectionContext) {
-            prefix = context.parent.type + " " + context.parent.action + "("
-            let action = AD.TCActionMap.select_obj![context.parent.action!]
-            if (action) {
-                tagAmount = Object.keys(action.Tags).length
-                paramData = action.Parameters
-            } else { return }
-        } else if (context.parent instanceof UserCallContext) {
-            let category = context.parent.mode == "function" ? "Functions" : "Processes"
-            let document = documentTracker.Documents[param.textDocument.uri] as TrackedScript
-            let ownerFolder = document?.OwnedBy
-            prefix = context.parent.name + "("
-            if (document && ownerFolder && ownerFolder[category][context.parent.name]) {
-                paramData = ([...ownerFolder[category][context.parent.name]?.values()][0] as TrackedScript).FunctionSignature
-            } else {
-                return
-            }
-        } else if (context.parent instanceof ConstructorContext) {
-            prefix = context.parent.name + "("
-            paramData = AD.ConstructorSignatures[context.parent.name]
-        } else if (context.parent instanceof StandaloneFunctionContext) {
-            if (context.parent.name == "wait") {
-                prefix = "wait("
-                paramData = AD.DFActionMap.control?.Wait!.Parameters!
-            } else if (context.parent.name in CONTROL_PRINT_DEBUG_STYLES) {
-                prefix = context.parent.name+"("
-                paramData = AD.DFActionMap.control?.PrintDebug!.Parameters!
-            } else {
-                return
-            }
-        } else if (context.parent instanceof ForLoopContext) {
-            if (context.parent.mode == "in") { return }
-            let action = AD.TCActionMap.repeat![context.parent.action!]
-            prefix = context.parent.action + "("
-            if (action) {
-                tagAmount = Object.keys(action.Tags).length
-                paramData = action.Parameters
-            } else {
-                return
+        if (def.action) {
+            documentation = getActionDocumentation(def.action, configuration.dfRank);
+            if (!AD.rankCheck(configuration.dfRank, def.action.requiresRank)) {
+                if (!item.tags) item.tags = [];
+                item.sortText = "\uFFFF" + item.label;
+                item.tags.push(CompletionItemTag.Deprecated);
             }
         } else {
-            return
-        }
-
-        
-        // create a unique signature for every possible combination of arguments
-        let uniqueSignatures: AD.ParameterValue[][] = [[]]
-        for (const parameter of paramData) {
-            let groupIndex = -1
-            let initialSignatureAmount = uniqueSignatures.length
-            for (const group of parameter.Groups) {
-                let values = [...group]
-                //if being assigned to a variable, exclude first var param from signature
-                if (values[0].DFType == "VARIABLE" && (values[0].Description == "Variable to set" || values[0].Description.match(/Gets the current .+ each iteration/g)) && isAssignee) {
-                    values.shift()
-                    if (values.length == 0) {
-                        continue
-                    }
-                }
-
-                groupIndex++
-                for (let i = 0; i < initialSignatureAmount; i++) {
-                    if (groupIndex == parameter.Groups.length - 1) {
-                        uniqueSignatures[i].push(...values)
-                    } else {
-                        uniqueSignatures.push([...uniqueSignatures[i], ...values])
-                    }
-                }
-            }
-        }
-
-        // build the signature infos
-        let signatureInfos: SignatureInformation[] = []
-        for (const signature of uniqueSignatures) {
-            let info = {
-                parameters: [],
-                label: ""
-            } as SignatureInformation
-
-            let valueStrings: string[] = []
-
-            for (const value of signature) {
-                let valueString: string
-                if (value.DFType == "NONE") {
-                    if (value.Description.endsWith(")")) {value.Description = value.Description.substring(0,value.Description.length-1)}
-                    valueString = `Empty Slot${value.Description ? " - " + value.Description : ""}`
-                } else {
-                    valueString = `${value.Description}: ${AD.DFTypeToTC[value.DFType]}${value.Plural ? "(s)" : ""}${value.Optional ? "*" : ""}`
-                }
-                info.parameters!.push({label: valueString, documentation: value.Notes.join("\n")})
-                valueStrings.push(valueString)
-            }
-
-            info.label = valueStrings.join(", ")
-            info.label = prefix + info.label + `)${tagAmount > 0 ? ` + ${tagAmount} tag${tagAmount > 1 ? "s" : ""}` : ""}`
-            signatureInfos.push(info)
-
-            let activeParameter: number = 0
-            for (let i = 0; i < context.elementIndex; i++) {
-                //always highlight the final parameter if its plural
-                if (i == signature.length-1 && signature[signature.length-1].Plural) {
-                    break
-                }
-                activeParameter++
-            }
-            info.activeParameter = activeParameter
-        }
-
-        // figure out which signature should be displayed first based on what arguments
-        // are present earlier in the list
-        let activeSignature = 0
-        let candidateIndexes = [...Array(uniqueSignatures.length).keys()]
-        candidateLoop: for (let elementIndex = 0; elementIndex < context.elementIndex; elementIndex++) {
-            let expression = context.prevoiusElements[elementIndex]
-            let candidatesToRemove: number[] = []
-
-            if (candidateIndexes.length <= 1) { break }
-            
-            let i = -1
-            for (const signatureIndex of candidateIndexes) {
-                i++
-                let signature = uniqueSignatures[signatureIndex]
-                if (
-                    signature.length < elementIndex ||
-                    signature[signature.length - 1].DFType == "NONE" ||
-                    expression && AD.DFTypeToTC[signature[elementIndex].DFType] != getExpressionType(expression,param.textDocument.uri)
-                ) {
-                    if (candidateIndexes.length - candidatesToRemove.length > 1) {
-                        candidatesToRemove.push(i)
-                    } else {
-                        activeSignature = signatureIndex
-                        break candidateLoop
-                    }
-                } else {
-                    activeSignature = signatureIndex
-                }
-            }
-            for (const index of candidatesToRemove) {candidateIndexes.splice(index,1)}
-        }
-        //never put the "NONE" signature as the top result since thats usually not what you want
-        if (uniqueSignatures[activeSignature][uniqueSignatures[activeSignature].length - 1]?.DFType == "NONE") {
-            activeSignature += 1
-            if (activeSignature > uniqueSignatures.length - 1) {
-                activeSignature = 0
-            }
-        }
-
-        return {
-            signatures: signatureInfos,
-            activeSignature: activeSignature
-        } as SignatureHelp
-    }) 
-
-    connection.onRequest("completionItem/resolve", (item: CompletionItem) => {
-        if (!item.data) { return item }
-        var itemType: CompletionItemType = item.data.type
-
-        let domain: Domains.Domain
-        if (item.data.domainId) {domain = Domains.DomainList[item.data.domainId]!}
-
-        let documentation: string = ""
-        // domain action
-        if (itemType == CompletionItemType.DomainAction || itemType == CompletionItemType.DomainCondition || itemType == CompletionItemType.SelectionAction || itemType == CompletionItemType.ForLoopAction || itemType == CompletionItemType.Keyword) {
-            let action: AD.Action | null = 
-                  itemType == CompletionItemType.SelectionAction ? AD.DFActionMap.select_obj![item.data.actionDFId]!
-                : itemType == CompletionItemType.ForLoopAction ? AD.DFActionMap.repeat![item.data.actionDFId]!
-                : null
-            if (!action) {
-                if (itemType == CompletionItemType.Keyword) {
-                    if (item.data.value == "wait") {
-                        action = AD.DFActionMap.control!.Wait!
-                    } else if (item.data.value == "endallthreads") {
-                        action = AD.DFActionMap.control?.EndAllThreads!
-                    } else if (item.data.value in CONTROL_PRINT_DEBUG_STYLES) {
-                        action = AD.DFActionMap.control!.PrintDebug!
-                    }
-                } else {
-                    action = domain![itemType == CompletionItemType.DomainAction ? "Actions" : "Conditions"][item.data.memberId]!
-                }
-            }
-            if (!action) { return item }
-
-            let paramString = getParamString(action.Parameters,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")
-            let infoString = action.AdditionalInfo.join("\\\n  ⏵ "); if (infoString) {infoString = "\\\n  ⏵ " + infoString}
-
-            let worksWithString = ""
-            if (action.WorksWith.length > 0) {
-                worksWithString = "\n\n**Works with:**\n\n  ⏵ " + action.WorksWith.join("\\\n  ⏵ ")
-            }
-
-            let tagsString = ""
-            if (Object.keys(action.Tags).length > 0) {
-                tagsString = "\n\n**Tags:**"
-                for (const tag of Object.values(action.Tags)) {
-                    tagsString += `\\\n\`${tag?.Name}\` - ${tag?.Options.map(v => `"${v}"`).join(", ")}`
-                }
-            }
-
-            let returnString = getParamString(action.ReturnValues,"\n\n**Returns:**\n\n","")
-
-            let rankString = (action.RequiresRank && (!AD.RankCheck(configuration.dfRank,action?.RequiresRank!))) ? `\n\n❌ **(Requires ${action.RequiresRank})**\n\n` : ""
-            let worldPlotString = (action.WorldPlotExclusive ? "🌐 **World Plot Exclusive**\n\n" : "");
-
-            documentation = `${worldPlotString}${rankString}${action.Description}${infoString}${worksWithString}${paramString}${tagsString}${returnString}`
-        }
-        // game value
-        else if (itemType == CompletionItemType.DomainValue) {
-            let val = domain!.Values[item.data.memberId]
-            if (!val) { return item }
-            
-            let description = val.Description
-            let info = val.AdditionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
-            let worksWithString = ""
-            if (val.WorksWith.length > 0) {
-                worksWithString = "\n\n**Works with:**\n\n  ⏵ " + val.WorksWith.join("\\\n  ⏵ ")
-            }
-
             //creating a parameter object so that it can work with the existing string gen is kinda a hack but whatever
-            let returnV = new AD.ParameterValue()
-            returnV.DFType = val.DFReturnType
-            returnV.Description = val.ReturnDescription
-            let returnP = new AD.Parameter()
-            returnP.Groups[0] = [returnV]
-            let returnType = getParamString([returnP],"\n\n**Returns Value:**\n\n","")
+            let returnTypeString: string = ""
+            if (def.defaultReturnType != null) {
+                let returnP = new AD.Parameter([
+                    [new AD.ParameterGroupValue(
+                        tcTypeToDF[def.defaultReturnType.name],
+                        // TODO: description for return types
+                    )]
+                ])
 
-            let worldPlotString = (val.WorldPlotExclusive ? "🌐 **World Plot Exclusive**\n\n" : "");
+                returnTypeString = getDFParamString([returnP],"\n\n**Returns Value:**\n\n","")
+            }
 
-            documentation = `${worldPlotString}${description}${worksWithString}${info}${returnType}`
+            let paramString: string;
+            let convertedParams: AD.Parameter[] = [];
+            // TODO: handle multiple signatures maybe?
+            for (const param of def.signatures[0].params) {
+                convertedParams.push(new AD.Parameter([
+                    [new AD.ParameterGroupValue(
+                        tcTypeToDF[param.type.name],
+                        param.name,
+                        param.optional,
+                        param.plural,
+                        param.description != undefined ? param.description.split("\n") : undefined
+                    )]
+                ]))
+            }
+
+            paramString = getDFParamString(convertedParams, "\n\n**Parameters:**\n\n", "\n\n**No Parameters**");
+            documentation = `${paramString}${returnTypeString}`;
+
+            if (def.description) documentation = def.description + "\n" + documentation;
         }
-        // event name
-        else if (item.data.type == CompletionItemType.EventName) {
-            let event = AD.DFActionMap[`${item.data.eventType == "player" ? '' : item.data.eventType == "game" ? "game_" : 'entity_'}event`]![item.data.eventDFId]
-            if (!event) { return item }
-            let info = event.AdditionalInfo.join("\\\n  ⏵ "); if (info) {info = "\\\n  ⏵ " + info}
-            let cancelInfo = event.Cancellable ? "\n\n∅ Cancellable" : event.CancelledAutomatically ? "\n\n∅ Cancelled automatically" : ""
-            let worldPlotString = (event.WorldPlotExclusive ? "🌐 **World Plot Exclusive**\n\n" : "");
-            documentation = `${worldPlotString}${event.Description}${info}${cancelInfo}`
+    }
+    else {
+        item = {
+            label: name,
+            kind: CompletionItemKind.Field,
+            commitCharacters: [";"],
         }
-        // custom function
-        else if (item.data.type == CompletionItemType.UserCall) {
-            let category = item.data.category
-            let document = documentTracker.Documents[item.data.documentUri] as TrackedScript
-            let ownerFolder = document?.OwnedBy
-            if (!(document && ownerFolder && ownerFolder[category][item.data.name])) { return item }
+        if (def.gameValue) {
+            documentation = getValueDocumentation(def.gameValue);
+        }
+    }
+    item.documentation = {
+        kind: "markdown",
+        value: documentation
+    }
+    return item;
+}
 
+function generateTypeMemberCompletions(type: Type): CompletionItem[] {    
+    let members = type.getMembers();
+    if (members == null) return [];
+
+    let items: CompletionItem[] = [];
+    for (const m of members) {
+        let mType = type.getMemberType(m);
+        if (mType.matches(Type.func)) {
+            items.push(generateDefinitionCompletion(m, (mType.data as FuncTypeData).definition));
+        } else {
+            let name = isIdentifier(m) ? m : valueToTCString(m);
+            let description: string | undefined;
+            if (type.matches(Type.dict)) {
+                description = (type.data as DictTypeData).keyDescriptions[m];
+            }
+            items.push({
+                label: m, 
+                documentation: {
+                    kind: "markdown",
+                    value: `\`\`\`tc\n${name}: ${mType.toString()}\n\`\`\`\n${description ? "\n\n"+description : ""}`
+                },
+                kind: CompletionItemKind.Field
+            });
+        }
+    }
+    return items;
+}
+
+function generateTypePropertyCompletions(type: Type): CompletionItem[] {
+    let properties = type.getProperties();
+    if (properties == null) return [];
+
+
+    let items: CompletionItem[] = [];
+    for (const p of properties) {
+        let def = type.getPropertyDefinition(p);
+        if (!def) continue;
+        if (
+            configuration.rankBehavior == "hideInaccessible" 
+            && isFunctionDefinition(def) 
+            && def.action
+            && !AD.rankCheck(configuration.dfRank, def.action.requiresRank)
+        ) continue;
+        items.push(generateDefinitionCompletion(p, def));
+    }
+
+    return items;
+}
+
+function generateVariableCompletions(envFrame: EnvironmentFrame, atPos: number, options: {explicitScope?: VariableScope, replaceString?: Token, doc?: TrackedDocument, excludeName?: string} = {}): CompletionItem[] {
+    if (options.replaceString != undefined && options.doc == undefined) throw new Error("options.doc must be provided if options.replaceString is present");
+    let items: CompletionItem[] = [];
+    // collect variable data
+    let seenVars: Map<string, Map<VariableScope, VariableEntry>> = new Map();
+    let varFrame: EnvironmentFrame | null = envFrame;
+
+    while (varFrame != null) {
+        for (const scopeLayer of varFrame.variables.values()) {
+            for (const [scope, varLayer] of scopeLayer.entries()) {
+                if (options.explicitScope !== undefined && scope != options.explicitScope) continue;
+                for (const variable of varLayer) {
+                    if (options.excludeName !== undefined && variable.id.name == options.excludeName) continue;
+                    if (variable.effectiveBeyondPosition >= atPos) continue;
+                    let entries = seenVars.getOrInsert(variable.id.name, new Map());
+                    if (entries.has(variable.id.scope) && entries.get(variable.id.scope)!.effectiveBeyondPosition > variable.effectiveBeyondPosition) continue;
+                    entries.set(variable.id.scope, variable);
+                }
+            }
+        }
+        varFrame = varFrame.parent;
+    }
+
+    // turn variable data into items
+    for (const [name, scopeLayer] of seenVars.entries()) {
+        for (const [scope, entry] of scopeLayer.entries()) {
+            let type = entry.type ?? Type.unknown;
+            let scopeStr = VariableScope[scope].toLowerCase();
+            let stringifiedName = name;
+            if (!isIdentifier(stringifiedName) || options.replaceString) {
+                stringifiedName = valueToTCString(name, options.replaceString?.getStringExtraData().quoteChar ?? '"');
+            }
+            let multipleVars = (scopeLayer.size > 1 && scope != Math.max(...scopeLayer.keys()));
             
-            let calledDoc = ([...ownerFolder[category][item.data.name]?.values()][0] as TrackedScript)
-            //creating a parameter object so that it can work with the existing string gen is kinda a hack but whatever
-            let returnType: string = ""
-            if (calledDoc.FunctionReturnType) {
-                let returnV = new AD.ParameterValue()
-                returnV.DFType = AD.TCTypeToDF[calledDoc.FunctionReturnType]
-                returnV.Description = calledDoc.FunctionReturnDescription ?? ""
-                let returnP = new AD.Parameter()
-                returnP.Groups[0] = [returnV]
-                returnType = getParamString([returnP],"\n\n**Returns Value:**\n\n","")
+            let rawDescription: string | undefined;
+            if (entry.description !== undefined) {
+                rawDescription = entry.description;
+            } else {
+                // if there is a higher up definition that does have a description, use that
+                let betterEntry = envFrame.getVariableEntry(entry.id, atPos, {requireDescription: true});
+                if (betterEntry) rawDescription = betterEntry.description;
             }
-            
-            documentation = `${getParamString(calledDoc.FunctionSignature,"\n\n**Parameters:**\n\n","\n\n**No Parameters**")}${returnType}`
-            if (calledDoc.FunctionDescription) {
-                documentation = calledDoc.FunctionDescription + "\n\n" + documentation
+
+            let description = rawDescription ? "\n"+rawDescription : ""
+            let documentation: MarkupContent = {
+                kind: 'markdown', 
+                value: `\`\`\`tc\n${scopeStr} ${stringifiedName}: ${type}\n\`\`\`${description}`
+            };
+
+            if (!multipleVars && stringifiedName == name) {
+                items.push({
+                    label: name,
+                    documentation: documentation,
+                    kind: CompletionItemKind.Variable,
+                });
+            } else if (options.replaceString && options.doc) {
+                items.push({
+                    label: name,
+                    documentation: documentation,
+                    kind: CompletionItemKind.Variable,
+                    textEdit: {
+                        range: {
+                            start: options.doc.indexToLinePosition(options.replaceString.startPos), 
+                            end: options.doc.indexToLinePosition(options.replaceString.endPos),
+                            // start: param.position,
+                            // end: param.position,
+                        },
+                        newText: stringifiedName,
+                    },
+                    filterText: stringifiedName,
+                })
+            } else {
+                items.push({
+                    label: multipleVars ? `${name} (${scopeStr})` : name,
+                    documentation: documentation,
+                    insertText: `${options.explicitScope ? '' : scopeStr+" "}${stringifiedName}`,
+                    filterText: name,
+                    kind: CompletionItemKind.Variable,
+                });
             }
         }
-        
-        if (documentation === "") { return item }
+    }
+    return items;
+}
 
-        item.documentation = {
-            kind: "markdown",
-            value: documentation
+const typeNameCompletions: CompletionItem[] = Object.entries(Type).map(([k, v]) => {
+    if (!(v instanceof Type || v.constructsType)) return null;
+    if (!Type.assignableTypes.has(k)) return null;
+    return k
+}).filter(v => v != null).map(n => ({
+    label: n,
+    kind: CompletionItemKind.TypeParameter
+}))
+
+const keywordCompletions: CompletionItem[] = [
+    "lscancel", "playerevent", "entityevent", "gameevent", "function", "process", "declare",
+    "call", "start",
+    "return", "break", "continue",
+    "global", "saved", "local", "line",
+    "for", "repeat", "if", "else", "while", "do",
+    "perselected",
+    "as", "to", "in", "on",
+    "select", "filter",
+].map(kw => ({
+    label: kw,
+    kind: CompletionItemKind.Keyword
+}));
+
+const particleFieldCompletions: {[field: string]: CompletionItem} = Object.fromEntries(
+    Object.keys(PARTICLE_FIELD_DEFAULTS).map(
+        (field): [string, CompletionItem] => [field, {
+            label: field,
+            kind: CompletionItemKind.Enum,
+            sortText: "\u0000"+field,
+        }]
+    )
+);
+
+const globalScopeInjectionCompletions: CompletionItem[] = Object.entries(GLOBAL_SCOPE_INJECTIONS).map(
+    ([name, def]) => generateDefinitionCompletion(name, def)
+);
+
+const createSelectionCompletions: CompletionItem[] = Object.entries(SELECT_ACTIONS).map(
+    ([name, def]) => generateDefinitionCompletion(name, def)
+);
+const filterSelectionCompletions: CompletionItem[] = Object.entries(FILTER_ACTIONS).map(
+    ([name, def]) => generateDefinitionCompletion(name, def)
+);
+
+function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFrame: EnvironmentFrame, index: number): [callNode: CallExpression | CallOrStartExpression, definition: FunctionDefinition] | [null, null] {
+    // find the function call this node is a part of, if there is one
+    let callNode: ASTNode = node;
+    let listFound = false;
+    while (callNode.parent != null) {
+        if (callNode instanceof ListExpression) listFound = true;
+        // checking index < n.endPos is required otherwise placing the caret after
+        // the argument list's closer would be counted as inside the list
+        if (
+            listFound 
+            && (callNode instanceof CallExpression || callNode instanceof CallOrStartExpression) 
+            && index < callNode.endPos
+        ) {
+            break;
         }
-        return item
-    })
+        callNode = callNode.parent;
+    }
+    
+    
+    if (callNode instanceof CallOrStartExpression) {
+        let isProcess = callNode.keyword.type == TokenType.START;
+        let definition = typeProcessor.globalFrame[isProcess ? "processes" : "functions"].get(callNode.callee.value)?.[0];
+        return definition ? [callNode, definition] : [null, null];
+    } else if (callNode instanceof CallExpression) {
+        let closestForLoop = callNode.getClosestAncestor(ForStatement);
+        let calleeType = typeProcessor.evaluateExpression(callNode.callee, envFrame);
+        let definition: FunctionDefinition | null = null;
 
-    connection.onRequest("textDocument/completion", async (param: CompletionParams) => {
-        if (!param.textDocument.uri.endsWith(".tc")) {return}
-        let script = documentTracker.GetFileText(param.textDocument.uri)
-
-        let lineIndexes = GetLineIndexes(script)
-        let context: CodeContext = Tokenize(script,{"mode": "getContext","contextTestPosition": lineIndexes[param.position.line]+param.position.character + 1,"startFromLine": param.position.line, "fromLanguageServer": true}) as CodeContext
-
-        let includeGeneralKeywords = true
-        let items: (CompletionItem | CompletionItem[])[] = []
-        
-        if (context instanceof DomainAccessContext) {
-            includeGeneralKeywords = false
-            items.push(domainMemberCompletionEntries[context.domainId]![context.type])
+        // special for loop actions
+        if (
+            closestForLoop 
+            && closestForLoop?.iteratorExpression 
+            && (callNode == closestForLoop.iteratorExpression || callNode.isChildOf(closestForLoop.iteratorExpression))
+            && isForLoopActionCall(callNode)
+        ) {
+            definition = REPEAT_ACTIONS[callNode.callee.token.value]!.def;
         } 
-        else if (context instanceof EventContext) {
-            includeGeneralKeywords = false
-            if (context.mode == "player" || context.mode == "entity" || context.mode == "game") {
-                items.push(eventNameCompletionEntries[context.mode])
-            }
+        // normal functions
+        else if (calleeType.name == "func") {
+            definition = (calleeType.data as FuncTypeData).definition
+        } else if (calleeType.name == "namespace") {
+            definition = (calleeType.data as NamespaceTypeData).namespace.nameFunction ?? null;
         }
-        else if (context instanceof SelectionContext) {
-            includeGeneralKeywords = false
-            items.push(selectionActionCompletionEntries[context.type])
-        }
-        else if (context instanceof ConditionContext) {
-            if (context.genericTargets === true) {
-                items.push(genericDomainKeywords)
-            }
-        }
-        else if (context instanceof TypeContext) {
-            includeGeneralKeywords = false
-            for (const item of typeKeywords) {
-                if (context.excludeVar && item.label == "var") {
-                    continue
+        if (!definition) return [null, null];
+        return [callNode, definition];
+    } else {
+        return [null, null]
+    }
+}
+
+export class LanguageServer {
+    connection: rpc.MessageConnection;
+    workspaces: Map<URI, WorkspaceManager> = new Map();
+    configuration: ServerTCConfiguration;
+
+    constructor() {
+        //==========[ setup ]=========\\
+
+        let conn = rpc.createMessageConnection(
+            new rpc.StreamMessageReader(process.stdin),
+            new rpc.StreamMessageWriter(process.stdout)
+        );
+        this.connection = conn;
+        conn.listen()
+        
+        setSlogCallback(this.log);
+        setSnotifCallback(this.showText);
+        this.configuration = configuration;
+        
+        //==========[ request handling ]=========\\
+
+        conn.onRequest("initialize", (param: InitializeParams) => {
+            let response: InitializeResult = {
+                capabilities: {
+                    textDocumentSync: TextDocumentSyncKind.Full,
+                    //workspace folders
+                    workspace: {
+                        workspaceFolders: {
+                            supported: true,
+                            changeNotifications: false
+                        }
+                    },
+                    hoverProvider: true,
+                    definitionProvider: true,
+                    //completion
+                    completionProvider: {
+                        resolveProvider: true,
+                        triggerCharacters: [".","?",'"',"'"],
+                        completionItem: {
+                            labelDetailsSupport: true
+                        }
+                    },
+                    //function signature
+                    signatureHelpProvider: {
+                        triggerCharacters: [",","("],
+                    },
                 }
-                items.push(item)
             }
-            if (context.parent instanceof ParameterContext) {
-                items.push(paramModifierKeywords)
+
+            if (param.workspaceFolders != null) {
+                for (const w of param.workspaceFolders) {
+                    this.workspaces.set(w.uri, new WorkspaceManager(w.uri, this))
+                }
             }
-        } 
-        else if (context instanceof ForLoopContext) {
-            if (context.mode == undefined && context.variables.length > 0) {
-                items.push(forLoopModeKeywords)
-            } else if (context.mode == "on") {
-                includeGeneralKeywords = false
-                items.push(forOnActionCompletionEntries)
+
+            return response
+        })
+
+        conn.onRequest("textDocument/definition",(param: DefinitionParams) => {
+            if (!param.textDocument.uri.endsWith(".tc")) return
+            let doc = this.getScriptFromUri(param.textDocument.uri);
+            if (doc == undefined) return;
+            let index = doc?.linePositionToIndex(param.position);
+            if (index == undefined) return;
+            let node = doc.getAstNodeAtIndex(index);
+            if (node == null) return; // todo: this is bad
+
+            let result: Location | null = null;
+
+            let resolved: Namespace | VariableEntry | Definition | null = null;
+            let getVarEntryOf: VariableId | undefined;
+            if (node instanceof Token && node.type == TokenType.IDENTIFIER && node.parent instanceof AtomicExpression) {
+                resolved = doc.workspace.typeProcessor.resolveIdentifier(node);
+                // if this declaration doesn't have an ast node, find one that does
+                if (isVariableEntry(resolved) && !resolved.astNode) getVarEntryOf = resolved.id;
             }
-        }
-        else if (context instanceof RepeatContext) {
-            items.push(toKeyword)
-        }
-        else if (context instanceof NumberContext || context instanceof ParameterContext) {
-            includeGeneralKeywords = false
-        }
-        else if (context instanceof VariableContext) {
-            includeGeneralKeywords = false
-            items.push(getVariableCompletions(param.textDocument.uri,context)!)
-        }
-        else if (context instanceof TagsContext) {
-            includeGeneralKeywords = false
-            let action: AD.Action | undefined = undefined
-            if (context.parent instanceof DomainAccessContext) {
-                let domain = Domains.DomainList[context.parent.domainId]
-                if (domain && context.parent.name) {
-                    action = domain[context.parent.type == ContextDomainAccessType.Action ? "Actions" : "Conditions"][context.parent.name] as AD.Action
-                }
-            } else if (context.parent instanceof UserCallContext) {
-                if (context.parent.mode == "process") {
-                    action = AD.DFActionMap.start_process?.dynamic!
-                }
-            } else if (context.parent instanceof StandaloneFunctionContext) {
-                if (context.parent.name == "wait") {
-                    action = AD.DFActionMap.control?.Wait!
-                } else if (context.parent.name in CONTROL_PRINT_DEBUG_STYLES) {
-                    action = AD.DFActionMap.control?.PrintDebug!
-                } else if (context.parent.name == "endallthreads") {
-                    action = AD.DFActionMap.control?.EndAllThreads!
-                }
-            } else if (context.parent instanceof ForLoopContext) {
-                if (context.parent.mode == "on") {
-                    action = AD.TCActionMap.repeat![context.parent.action!]
-                }
-            } else if (context.parent instanceof SelectionContext) {
-                action = AD.TCActionMap.select_obj![context.parent.action!];
+            else if (node instanceof Token && node.parent instanceof VariableExpression && node.keyInParent == 'name') {
+                getVarEntryOf = node.parent.getVarId();
             }
-            if (action) {
-                // tag names
-                if (context.in == ContextDictionaryLocation.Key) {
-                    for (const tag of Object.values(action.Tags)) {
-                        items.push({
-                            label: tag?.Name!,
-                            data: {isString: true},
-                            sortText: "\u0000" + tag?.Name,
-                            documentation: {
-                                kind: "markdown",
-                                value: `**Default value:** \`${tag?.Default}\``
+            else if (node instanceof Token && node.parent instanceof CallOrStartExpression && node.keyInParent == "callee") {
+                let type = node.parent.keyword.type == TokenType.CALL ? "functions" : "processes"
+                resolved = doc.workspace.typeProcessor.globalFrame[type].get(node.value)?.[0] ?? null;
+            }
+            if (getVarEntryOf) {
+                resolved = doc.workspace.typeProcessor.getNodeFrame(node).getVariableEntry(getVarEntryOf, node.startPos, {requireASTNode: true});
+            }
+            if (!resolved) return;
+
+            if (
+                (isFunctionDefinition(resolved) || isVariableEntry(resolved)) 
+                && resolved 
+                && resolved.astNode
+            ) {
+                let declarationDoc = this.getScriptFromUri(resolved.astNode.getRoot().filePath)
+                if (!declarationDoc) return null;
+                result = {
+                    uri: declarationDoc.uri,
+                    range: {
+                        start: declarationDoc.indexToLinePosition(resolved.astNode.startPos),
+                        end: declarationDoc.indexToLinePosition(resolved.astNode.endPos),
+                    }
+                }
+            }
+
+            return result;
+        })
+
+        conn.onRequest("textDocument/hover", (param: HoverParams) => {
+            if (!param.textDocument.uri.endsWith(".tc")) return
+            let doc = this.getScriptFromUri(param.textDocument.uri);
+            if (doc == undefined) return;
+            let index = doc?.linePositionToIndex(param.position);
+            if (index == undefined) return;
+            let node = doc.getAstNodeAtIndex(index);
+            if (node == null) return; // todo: this is bad
+            let envFrameNode = node;
+
+            // TODO: abstract documentation generation into its own function
+            // and just hook into that
+
+            // show variable type on hover
+            if (node instanceof Token && node.type == TokenType.IDENTIFIER) {
+                let queryVarId: string | VariableId = node.value;
+                let queryPosition = node.endPos;
+                if (node.parent instanceof VariableExpression) {
+                    // if the scope is specified here, use that when looking up the var
+                    queryVarId = node.parent.getVarId();
+
+                    let closestGroup = node.getClosestAncestor(GroupExpression);
+                    let closestList = node.getClosestAncestor(ListExpression);
+
+                    // if this variable is being assigned to something (type or value), query after the assignment has been completed
+                    if (node.parent.parent instanceof AssignmentStatement || node.parent.parent instanceof ExpressionStatement){ 
+                        queryPosition = node.parent.parent.endPos+1;
+                    }
+                    // repeat (var to ...)
+                    else if (closestGroup && closestGroup.keyInParent == "countExpression" && closestGroup.parent instanceof RepeatStatement && closestGroup.parent.chunk) {
+                        envFrameNode = closestGroup.parent.chunk
+                        queryPosition = closestGroup.parent.chunk.startPos+1;
+                    }
+                    // for (var of ...)
+                    else if (closestList && closestList.keyInParent == "variableList" && closestList.parent instanceof ForStatement && closestList.parent.chunk) {
+                        envFrameNode = closestList.parent.chunk;
+                        queryPosition = closestList.parent.chunk.startPos+1;
+                    }
+                }
+
+                let envFrame = doc.workspace.typeProcessor.getNodeFrame(envFrameNode);
+                let varEntry = envFrame.getVariableEntry(queryVarId, queryPosition);
+                
+                if (!varEntry) return;
+
+                let name = node.value;
+                let scopeStr = VariableScope[varEntry.id.scope].toLowerCase();
+                let stringifiedName = name;
+                if (!isIdentifier(stringifiedName)) {
+                    stringifiedName = valueToTCString(name, '"');
+                }
+                let documentation: MarkupContent = {
+                    kind: 'markdown', 
+                    value: `\`\`\`tc\n${scopeStr} ${stringifiedName}: ${varEntry.type ?? "any"}\n\`\`\``
+                };
+                return {contents: documentation, range: {
+                    start: doc.indexToLinePosition(node.startPos),
+                    end: doc.indexToLinePosition(node.endPos),
+                }} as Hover
+            }
+        })
+
+
+        // TODO: handle empties
+        conn.onRequest("textDocument/signatureHelp",(param: SignatureHelpParams) => {
+            if (!param.textDocument.uri.endsWith(".tc")) return
+            let doc = this.getScriptFromUri(param.textDocument.uri);
+            if (doc == undefined) return;
+            let index = doc?.linePositionToIndex(param.position);
+            if (index == undefined) return
+            let node = doc.getAstNodeAtIndex(index);
+            if (node == null) return; // todo: this is bad
+            let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
+
+
+            let [callNode, definition] = getNearestCallNode(node, doc.workspace.typeProcessor, envFrame, index);
+            if (callNode == null || definition == null) return;
+
+            let [calleeValue, calleeCode] = doc.compiler.compileExpression(callNode.callee, {});
+
+            let args = callNode.args.elements;
+            let argTypes = args.map(a => doc.workspace.typeProcessor.evaluateExpression(a, envFrame));
+            if (callNode.args.hasTrailingDelimiter) argTypes.push(Type.any);
+
+            let activeArgIndex = 0;
+            for (let i = 0; i < args.length; i++) {
+                let argUpperBound = (
+                    (i == args.length-1 && !callNode.args.hasTrailingDelimiter)
+                    ? callNode.args.closer.startPos+1
+                    : callNode.args.elementStartPositions[i+1]
+                );
+                if (index < argUpperBound) break;
+                activeArgIndex++;
+            }
+
+            // build the signature infos
+            let signatureInfos: SignatureInformation[] = []
+            let bestFitIndex = 0;
+            let bestFitStrength = 0;
+
+            // handle signatures that are modified by method calls
+            let signaturesToUse = definition.signatures;
+            if (calleeValue instanceof FunctionValue && calleeValue.methodCallOf != undefined) 
+                signaturesToUse = methodizeParameterSignatures(definition.signatures, calleeValue.methodCallOf.getType(doc.workspace.typeProcessor));
+
+            for (let sigIndex = 0; sigIndex < signaturesToUse.length; sigIndex++) {
+                const signature = signaturesToUse[sigIndex];
+                let info = {
+                    parameters: [],
+                    label: ""
+                } as SignatureInformation
+
+                let paramStrings: string[] = []
+
+                for (const param of signature.params) {
+                    let paramString: string
+                    paramString = `${param.plural ? "..." : ""}${param.name}${param.optional ? "*" : ""}: ${param.type.name}`
+                    info.parameters!.push({label: paramString, documentation: param.description})
+                    paramStrings.push(paramString)
+                }
+
+                let tagAmount = Object.values(definition.action?.tags ?? {}).length;
+                let tagString = tagAmount > 0 ? ` + ${tagAmount} tag${tagAmount > 1 ? "s" : ""}` : "";
+                info.label = `${definition.name}(${paramStrings.join(", ")})${tagString}`
+                
+                info.parameters?.push({label: tagString});
+
+                let argsToParams = matchArgsToParams(args,argTypes, signature);
+                info.activeParameter = argsToParams[activeArgIndex] ?? argTypes.length;
+
+                // highlight tags string if this arg is a tag
+                if (info.activeParameter == -1) {
+                    info.activeParameter = info.parameters!.length-1;
+                }
+                // always highlight the last parameter if it's something plural (e.g. the texts in SendMessage)
+                else if (signature.params.length > 0 && info.activeParameter >= signature.params.length && signature.params[signature.params.length-1].plural) {
+                    info.activeParameter = signature.params.length-1;
+                }
+                // if the argument is beyond the parameter list, by default it will land at the extra param for tags
+                // therefore it needs to be bumped up one to display properly
+                else if (info.activeParameter == signature.params.length) {
+                    info.activeParameter++;
+                }
+
+                // score how many arguments are correct to figure out which signature should be shown
+                let strength = 0;
+                for (let argIndex = 0; argIndex < argsToParams.length; argIndex++) {
+                    let paramIndex = argsToParams[argIndex];
+                    if (paramIndex == -1) continue;
+                    if (argTypes[argIndex].matches(signature.params[paramIndex].type)) {
+                        // prioritize filling required parameters over later on optional parameters of the same type
+                        if (signature.params[paramIndex].optional) {
+                            strength += 1;
+                        } else {
+                            strength += 2;
+                        }
+                    }
+                }
+                if (strength > bestFitStrength) {
+                    bestFitIndex = sigIndex;
+                    bestFitStrength = strength;
+                }
+
+                signatureInfos.push(info)
+            }
+
+            return {
+                signatures: signatureInfos,
+                activeSignature: bestFitIndex,
+            } as SignatureHelp;
+        }) 
+
+        conn.onRequest("completionItem/resolve", (item: CompletionItem) => {
+            let data = item.data as CompletionItemData;
+            if (!data) { return item; }
+
+            let documentation = "";
+            if (data.type == CompletionItemType.TAG_NAME) {
+                let options = Object.entries(data.tag.options).map(([name, data]) => `\`${name}\`${data.description.length > 0 ? " - "+data.description.replaceAll("<","\\<") : ""}`).join("\n\n")
+                documentation = `${data.tag.name}\n\n**Options:** \n\n${options}\n\n**Default option:** \`${data.tag.defaultOption}\``;
+            }
+            else if (data.type == CompletionItemType.TAG_OPTION) {
+                documentation = data.tag.options?.[data.option].description.replaceAll("<","\\<");
+            }
+            item.documentation = {
+                kind: "markdown",
+                value: documentation
+            };
+            return item;
+        })
+
+        conn.onRequest("textDocument/completion", async (param: CompletionParams) => {
+            if (!param.textDocument.uri.endsWith(".tc")) return
+            let doc = this.getScriptFromUri(param.textDocument.uri);
+            if (doc == undefined) return;
+            let index = doc?.linePositionToIndex(param.position);
+            if (index == undefined) return
+
+            let items: CompletionItem[] = [];
+
+            let node = doc.getAstNodeAtIndex(index);
+            if (node == null) return; // todo: this is bad
+            let envFrame = doc.workspace.typeProcessor.getNodeFrame(node);
+
+            slog("\nNode trace:");
+            slog(visualizeNodeAncestors(node));
+
+            let includeGenerics = true;
+
+            //=--------------------------=\\
+            //=- context specific stuff -=\\
+            //=--------------------------=\\
+
+            let [callNode, definition] = getNearestCallNode(node, doc.workspace.typeProcessor, envFrame, index);
+            if (node.parent instanceof AccessExpression && (node.keyInParent == "accessorToken" || node.keyInParent == "propertyName")) {
+                let accessExpression = node.parent as AccessExpression;
+                let accesseeType = doc.workspace.typeProcessor.evaluateExpression(accessExpression.accessee, envFrame);
+                items = generateTypePropertyCompletions(accesseeType);
+
+                // also include field items that just turn into the proper bracketed access expressions
+                if (accesseeType.matches(Type.dict)) {
+                    items.push(...generateTypeMemberCompletions(accesseeType).map(item => {
+                        item.textEdit = {
+                            range: {
+                                start: doc.indexToLinePosition(accessExpression.accessorToken.startPos),
+                                end: doc.indexToLinePosition(node.endPos),
+                            },
+                            newText: `[${valueToTCString(item.label)}]`
+                        }
+                        item.filterText = "." + item.label;
+                        item.commitCharacters = [".","["," "];
+                        return item;
+                    }))
+                }
+
+                includeGenerics = false;
+            }
+            else if (node.parent instanceof BracketedAccessExpression || (node.parent instanceof AtomicExpression && node.parent.parent instanceof BracketedAccessExpression)) {
+                let accessExpression = (node.parent instanceof BracketedAccessExpression ? node.parent : node.parent.parent) as BracketedAccessExpression;
+                let accesseeType = doc.workspace.typeProcessor.evaluateExpression(accessExpression.accessee, envFrame);
+                items = generateTypeMemberCompletions(accesseeType).map(
+                    item => {
+                        item = stringizeCompletionItem(item, node, doc)
+                        item.sortText = "\u0000"+item.label;
+                        return item;
+                    }
+                );
+            }
+            // event names
+            else if (
+                (node instanceof EventStatement && index > node.type.endPos && index < node.chunk.startPos)
+                || (node.parent instanceof EventStatement && node.keyInParent == "eventName")
+            ) {
+                let s = node instanceof EventStatement ? node : node.parent as EventStatement;
+                let headerType: HeaderType = DFCodeblockName[TokenType[s.type.type]];
+
+                for (const [tcEvent, dfEvent] of Object.entries(tcEventToDf.get(headerType) ?? {})) {
+                    let eventAction = AD.actions.get(headerType)![dfEvent];
+                    let item: CompletionItem = {
+                        label: tcEvent,
+                        kind: CompletionItemKind.Event,
+                        documentation: {
+                            kind: "markdown",
+                            value: getEventDocumentation(eventAction, configuration.dfRank)
+                        }
+                    };
+                    if (!AD.rankCheck(configuration.dfRank, eventAction.requiresRank)) {
+                        if (configuration.rankBehavior == "crossOutInaccessible") {
+                            item.tags = [CompletionItemTag.Deprecated];
+                            item.sortText = "\uFFFF" + item.label;
+                        } else {
+                            continue;
+                        }
+                    }
+                    items.push(item);
+                }
+
+                includeGenerics = false;
+            }
+            // variable names when a scope is provided
+            else if (node instanceof VariableExpression || (node instanceof Token && node.parent instanceof VariableExpression && node.keyInParent == "name")) {
+                let variableExpression = (node instanceof VariableExpression ? node : node.parent) as VariableExpression;
+                includeGenerics = false;
+                items.push(...generateVariableCompletions(envFrame, node.startPos, {
+                    explicitScope: VariableScope[TokenType[variableExpression.scope.type]],
+                    replaceString: node instanceof Token && node.type == TokenType.STRING_LITERAL ? node : undefined,
+                    doc: doc,
+                    excludeName: node instanceof Token ? node.value : undefined,
+                }));
+            }
+            // types if ur inside a type expression
+            else if (
+                node instanceof TypeAssignmentExpression 
+                || node instanceof MultiTypeAssignmentExpression
+                || (node instanceof Token && node.type == TokenType.COLON && node.keyInParent == "colon")
+                || node.getClosestAncestor(TypeExpression) != null
+                || node.getClosestAncestor(MultiTypeAssignmentExpression) != null
+            ) {
+                includeGenerics = false;
+                items.push(...typeNameCompletions);
+            }
+            // function names in a call/start expression
+            else if (node instanceof CallOrStartExpression || (node instanceof Token && node.parent instanceof CallOrStartExpression && node.keyInParent == "callee")) {
+                includeGenerics = false;
+                let callExpression = (node instanceof CallOrStartExpression ? node : node.parent) as CallOrStartExpression;
+                let isProcess = callExpression.keyword.type == TokenType.START;
+                items.push(...doc.workspace.typeProcessor.globalFrame[isProcess ? "processes" : "functions"].values().map(
+                    v => {
+                        let item = generateDefinitionCompletion(v[0].name, v[0]);
+                        item = stringizeCompletionItem(item, node, doc, true);
+                        return item;
+                    }
+                ))
+            }
+
+            // action names in a select/filter statement
+            else if (
+                (node instanceof SelectionExpression && node.keyword.endPos < index && index <= node.endPos) || 
+                (node instanceof Token && node.parent instanceof SelectionExpression && node.keyInParent == "name")
+            ) {
+                includeGenerics = false;
+                let callExpression = (node instanceof SelectionExpression ? node : node.parent) as SelectionExpression;
+                let isFilter = callExpression.keyword.type == TokenType.FILTER;
+                items = isFilter ? filterSelectionCompletions : createSelectionCompletions;
+            }
+            // hide generics when typing parameters in a function definition
+            // or when typing a function's name
+            else if (
+                // parameters
+                (node instanceof ListExpression && node.parent instanceof FunctionStatement && node.keyInParent == "params")
+                || (node instanceof Token && node.parent instanceof ParameterExpression && node.keyInParent == "name")
+                || (node instanceof Token && node.parent instanceof ListExpression && node.parent.parent instanceof FunctionStatement)
+                // function name
+                || (node instanceof Token && node.parent instanceof FunctionStatement && node.keyInParent == "name")
+            ) {
+                includeGenerics = false;
+            }
+            else if (includeGenerics && callNode && definition && node.getClosestAncestor(ListExpression) == callNode.args) {
+                let closestBinary = node.getClosestAncestor(BinaryExpression);
+                // action tags
+                if (definition.action ?? definition.compile == COMPILE_START_PROCESS) {
+                    let action = definition.action ?? AD.actions.get(DFCodeblockName.START_PROCESS)!.dynamic!;
+                    // tag value
+                    if (
+                        binaryIsNamedArgument(closestBinary, callNode)
+                        && (node.isChildOf(closestBinary.right) || node == closestBinary.operator)
+                    ) {
+                        let tagName = closestBinary.left.token.value;
+                        let tag = action.tcTagMap[tagName];
+                        if (tag) {
+                            for (const [optName, optData] of Object.entries(tag.options)) {
+                                let item: CompletionItem = {
+                                    label: optName,
+                                    kind: CompletionItemKind.EnumMember,
+                                    sortText: "\u0000"+optName,
+                                    data: {
+                                        type: CompletionItemType.TAG_OPTION,
+                                        tag: tag,
+                                        option: optName,
+                                    } as CompletionItemData
+                                };
+                                stringizeCompletionItem(item, node, doc);
+                                items.push(item);
                             }
+                            includeGenerics = false;
+                            if (!(node instanceof Token && node.type == TokenType.STRING_LITERAL)) {
+                                items.push(...generateVariableCompletions(envFrame, node.startPos));
+                            }
+                        }
+                    }
+                    // tag name
+                    else if (includeGenerics && !(node instanceof Token && node.parent instanceof AtomicExpression && node.type != TokenType.IDENTIFIER)) {
+                        const existingTags = getExistingNamedArgs(callNode.args);
+
+                        for (const tag of Object.values(action.tags)) {
+                            let tcName = AD.getTCTagName(tag.name);
+                            if (existingTags.includes(tcName)) continue;
+
+                            items.push({
+                                label: tcName,
+                                insertText: tcName,
+                                kind: CompletionItemKind.Enum,
+                                commitCharacters: ["="],
+                                data: {
+                                    type: CompletionItemType.TAG_NAME,
+                                    tag: tag,
+                                } as CompletionItemData,
+                                sortText: "\u0000"+tcName
+                            });
+                        }
+                    }
+                }
+                // note names in pitch param
+                else if (posIndexIsInListElement(callNode.args, index, 1) && definition == SND_CONSTRUCTOR || definition == CSND_CONSTRUCTOR) {
+                    let relevantArg = callNode.args.elements[1]?.getRealExpression();
+                    // only show if you're in a string to avoid unnecessarily cluttering completion list
+                    if (relevantArg instanceof AtomicExpression && relevantArg.token.type == TokenType.STRING_LITERAL) {
+                        items.push(...MCNote.getAllNotes().map(note => stringizeCompletionItem({
+                            label: note,
+                            filterText: note,
+                            kind: CompletionItemKind.Text,
+                            sortText: ""+MCNote.getPitchFromNote(note)!
+                        }, relevantArg.token, doc)));
+                    }
+                }
+                // sound names and variants
+                else if (definition == SND_CONSTRUCTOR) {
+                    // names
+                    if (posIndexIsInListElement(callNode.args, index, 0)) {
+                        items.push(...Object.keys(AD.sounds).map(name => 
+                            stringizeCompletionItem({
+                                label: name,
+                                kind: CompletionItemKind.Text,
+                                sortText: "\u0000"+name,
+                            }, node, doc)
+                        ));
+                    }
+                    // variants
+                    else if (posIndexIsInListElement(callNode.args, index, 3)) {
+                        let [nameValue, _] = doc.compiler.compileExpression(callNode.args.elements[0], {});
+                        if (nameValue instanceof StringValue && nameValue.isCompileTimeConstant()) {
+                            let soundName = nameValue.value;
+                            let soundDef = AD.sounds[nameValue.value];
+                            if (soundDef) {
+                                items.push(...soundDef.variants.map(name => 
+                                    stringizeCompletionItem({
+                                        label: name,
+                                        kind: CompletionItemKind.Text,
+                                        sortText: "\u0000"+name,
+                                    }, node, doc)
+                                ));
+                            }
+                        }
+                    }
+                }
+                // potion ids
+                else if (definition == POT_CONSTRUCTOR) {
+                    // names
+                    if (posIndexIsInListElement(callNode.args, index, 0)) {
+                        items.push(...Object.keys(AD.potions).map(name => 
+                            stringizeCompletionItem({
+                                label: name,
+                                kind: CompletionItemKind.Text,
+                                sortText: "\u0000"+name,
+                            }, node, doc)
+                        ));
+                    }
+                }
+                // particle stuff
+                else if (definition == PAR_CONSTRUCTOR) {
+                    let parNameArg = callNode.args.elements[0]?.getRealExpression();
+                    
+                    // TODO: actually compile this expression
+                    let parName: string | undefined;
+                    if (parNameArg && parNameArg instanceof AtomicExpression && parNameArg.token.type == TokenType.STRING_LITERAL) {
+                        parName = parNameArg.token.value;
+                    }
+
+                    // particle name
+                    if (posIndexIsInListElement(callNode.args, index, 0)) {
+                        items.push(...Object.values(AD.particles).map(par => 
+                            stringizeCompletionItem({
+                                label: par.name,
+                                kind: CompletionItemKind.Text,
+                                sortText: "\u0000"+par.name,
+                            }, node, doc)
+                        ));
+                    }
+                    // field values 
+                    else if (
+                        binaryIsNamedArgument(closestBinary, callNode)
+                        && (node.isChildOf(closestBinary.right) || node == closestBinary.operator)
+                    ) {
+                        let fieldName = closestBinary.left.token.value;
+                        if (fieldName == "material") {
+                            let validIds: Set<string> = PAR_MATERIAL_FIELD_TYPES[parName ?? ''] ?? BLOCK_OR_ITEM_IDS; // least sinful use of ?? operator
+                            items.push(...validIds.values().map(
+                                (id) => stringizeCompletionItem({
+                                    label: id,
+                                    kind: CompletionItemKind.Text,
+                                    sortText: "\u0000"+id,
+                                }, node, doc)
+                            ))
+                        }
+                    } 
+                    // field names
+                    else if ( 
+                        !(node instanceof Token && node.parent instanceof AtomicExpression && node.type != TokenType.IDENTIFIER)
+                    ) {
+                        let allowedFields = getAllowedParticleFields(AD.particles[parName ?? ""]);
+                        let existingArgs = getExistingNamedArgs(callNode.args);
+                        for (const field of allowedFields) {
+                            if (!existingArgs.includes(field)) {
+                                items.push(particleFieldCompletions[field])
+                            }
+                        }
+                    }
+                }
+                // item ids
+                else if (definition == ITEM_CONSTRUCTOR) {
+                    // names
+                    if (posIndexIsInListElement(callNode.args, index, 0)) {
+                        items.push(...VALID_ITEM_IDS.values().map(name => 
+                            stringizeCompletionItem({
+                                label: name,
+                                kind: CompletionItemKind.Text,
+                                sortText: "\u0000"+name,
+                            }, node, doc)
+                        ));
+                    }
+                }
+                else if (definition == LITEM_CONSTRUCTOR) {
+                    // library id
+                    if (posIndexIsInListElement(callNode.args, index, 0)) {
+                        doc.workspace.forEachItemLibrary(lib => {
+                            if (!lib.parsedContents) return;
+                            items.push(stringizeCompletionItem({
+                                label: lib.parsedContents.id,
+                                kind: CompletionItemKind.Text,
+                                sortText: "\u0000"+name,
+                            }, node, doc));
                         })
                     }
-                }
-                //tag values
-                else if (context.keyName) {
-                    let tag = action.Tags[context.keyName]
-                    if (tag) {
-                        let i = -1
-                        for (const option of tag.Options) {
-                            i++
-                            items.push({
-                                label: option!,
-                                data: {isString: true},
-                                sortText: "\u0000" + option,
-                                documentation: tag.OptionDescriptions[i]
-                            })
-                        }
-                    }
-                    if (!context.isVariable) {
-                        items.push(variableScopeKeywords,getVariableCompletions(param.textDocument.uri,context)!)
-                    }
-                }
-            }
-        }
-        else if (context instanceof ListContext) {
-            if (context.parent instanceof ConstructorContext) {
-                let constructor = context.parent.name
-                let values: string[] = []
-                if (constructor == "pot") {
-                    if (context.elementIndex == 0) { values = [...AD.Potions.values()] }
-                } else if (constructor == "par") {
-                    if (context.elementIndex == 0) { values = Object.keys(AD.Particles) }
-                } else if (constructor == "snd") {
-                    if      (context.elementIndex == 0) { values = [...AD.Sounds.keys()] }
-                    else if (context.elementIndex == 3) { 
-                        //try to get sound id from first list arg
-                        if (context.prevoiusElements.length >= 1 && context.prevoiusElements[0]?.Expression[0] instanceof StringToken) {
-                            let soundID = context.prevoiusElements[0]?.Expression[0].String
+                    else if (posIndexIsInListElement(callNode.args, index, 1)) {
+                        let libraryNameArg = callNode.args.elements[0];
+                        if (libraryNameArg instanceof GroupExpression) libraryNameArg = libraryNameArg.getRealExpression();
 
-                            values = AD.SoundVariants[AD.SoundInternalIds[soundID!]!] ?? []
-                        }
-                    }
-                } else if (constructor == "litem") {
-                    let document = documentTracker.Documents[param.textDocument.uri] as TrackedScript
-                    let ownerFolder = document?.OwnedBy
-                    if (document && ownerFolder) {
-                        if (context.elementIndex == 0) { 
-                            values = Object.keys(ownerFolder.Libraries)
-                        } else if (context.elementIndex == 1) {
-                            //try to get lib id from first list arg
-                            if (context.prevoiusElements.length >= 1 && context.prevoiusElements[0]?.Expression[0] instanceof StringToken) {
-                                let libraryId = context.prevoiusElements[0]?.Expression[0].String
-                                let libraries = ownerFolder.Libraries[libraryId]?.values() 
-                                if (libraries) {
-                                    values = ([...libraries][0] as TrackedItemLibrary).ItemIds
+                        if (libraryNameArg && libraryNameArg instanceof AtomicExpression && libraryNameArg.token.type == TokenType.STRING_LITERAL) {
+                            let library = doc.workspace.allItemLibraryDatas()[libraryNameArg.token.value];
+                            if (library) {
+                                for (const id of Object.keys(library.items)) {
+                                    items.push(stringizeCompletionItem({
+                                        label: id,
+                                        kind: CompletionItemKind.Text,
+                                        sortText: "\u0000"+name,
+                                    }, node, doc));
                                 }
                             }
                         }
                     }
-                } else if (constructor == "item") {
-                    if (context.elementIndex == 0) {
-                        values = [...AD.ItemMaterialIds.values()]
-                    }
-                }
-                items.push(values.map(item => {
-                    return {
-                        label: item,
-                        kind: CompletionItemKind.Text,
-                        data: {isString: true},
-                        sortText: "\u0000\u0000\u0000\u0000\u0000"+item
-                    }
-                }))
-            }
-        }
-        else if (context instanceof UserCallContext) {
-            includeGeneralKeywords = false
-            items.push(getFunctionCompletions(param.textDocument.uri,context))
-        }
-        else if (context instanceof DictionaryContext) {
-            // particle fields
-            if (context.parent instanceof ListContext && context.parent.parent instanceof ConstructorContext) {
-                let listContext = context.parent
-                let constructorContext = listContext.parent as ConstructorContext
-
-                if (constructorContext.name == "par" && listContext.elementIndex == 1) {
-                    //try to get particle id from first list arg
-                    let particleID: string | undefined
-                    if (listContext.prevoiusElements.length >= 1 && listContext.prevoiusElements[0]?.Expression[0] instanceof StringToken) {
-                        particleID = listContext.prevoiusElements[0]?.Expression[0].String
-                    }
-
-                    let particleData = AD.Particles[particleID ?? ""]
-                    let fields: string[] = particleData?.Fields ?? AD.AllParticleFields
-
-                    for (const field of fields) {
-                        items.push({
-                            label: field,
-                            kind: CompletionItemKind.Text,
-                            data: {isString: true},
-                            sortText: "\u0000\u0000\u0000\u0000\u0000"+field
-                        })
-                    }
                 }
             }
-        }
 
-        if (includeGeneralKeywords) {
-            items.push(generalKeywords, variableScopeKeywords, domainKeywords, getVariableCompletions(param.textDocument.uri,context)!, getFunctionCompletions(param.textDocument.uri,context))
-        }
-        
-        scuffedContextDebugPrint(context)
-        
-        items = items.flat()
+            if (node instanceof Token && (node.type == TokenType.STRING_LITERAL || node.type == TokenType.STYLED_LITERAL || node.type == TokenType.NUMERIC_LITERAL || node.type == TokenType.NUMEXPR_LITERAL)) {
+                includeGenerics = false;
+            }
 
-        //modify string completion items to work different whether the cursor is in a string or not
-        if (context.stringInfo) {
-            let range: Range
-            let startPos: Position = indexToLinePosition(script,context.stringInfo.startIndex) 
-            //dont bother getting end index if its not necessary
-            let endPos: Position | undefined = !context.stringInfo.unclosed ? indexToLinePosition(script,context.stringInfo.endIndex+1) : undefined
-
-            items = (items as CompletionItem[]).filter(item => {
-                if (item.data?.isString) {
-                    item.filterText = context.stringInfo?.openingChar + item.label + context.stringInfo?.openingChar
-                    item.textEdit = {
-                        range: 
-                            context.stringInfo?.unclosed ? {start: startPos, end: {line: startPos.line, character: param.position.character}}
-                            : {start: startPos, end: endPos!}    
-                        ,
-                        newText: context.stringInfo?.openingChar + item.label + context.stringInfo?.openingChar
-                    }
+            //=-----------------=\\
+            //=- generic stuff -=\\
+            //=-----------------=\\
+            if (includeGenerics) {
+                // namespaces
+                for (const [id, namespace] of Object.entries(Namespace.registry)) {
+                    let isTypeNamespace = (id in TYPE_NAMESPACES && id != "var");
+                    items.push({
+                        label: id,
+                        kind: isTypeNamespace ? CompletionItemKind.Class : CompletionItemKind.Module,
+                        commitCharacters: ["."],
+                        documentation: isTypeNamespace ? {
+                            kind: "markdown",
+                            value: (TYPE_DESCRIPTIONS[id] ?? "") + `\n\nAccess this as a namespace (e.g. \`${id}.${Object.keys(namespace.members)[0]}\`) for related functions.`
+                        } : undefined
+                    });
                 }
-                return (item.data && item.data.isString) 
-            })
-        } else {
-            for (const item of (items as CompletionItem[])) {
-                if (item.data?.isString) {
-                    item.insertText = `${param.context?.triggerCharacter == "?" ? " " : ""}"${item.label}"`
-                    item.filterText = `${param.context?.triggerCharacter == "?" ? " " : ""}${item.filterText ?? item.label}`
+                // keywords
+                items.push(...keywordCompletions);
+
+                items.push(...globalScopeInjectionCompletions);
+                
+                // variables and functions
+                items.push(...generateVariableCompletions(envFrame, node.startPos));
+                items.push(...doc.workspace.typeProcessor.globalFrame.functions.values().flatMap(
+                    funcs => funcs.map(f => generateDefinitionCompletion(f.name, f))
+                ));
+
+                // for loop actions
+                let closestForLoop = node.getClosestAncestor(ForStatement);
+                if (
+                    closestForLoop
+                    && (
+                        node == closestForLoop.iteratorExpression
+                        || (node instanceof Token && node.parent == closestForLoop.iteratorExpression)
+                        || (node instanceof Token && node.parent instanceof AtomicExpression && node.parent.parent == closestForLoop.iteratorExpression)
+                    )
+                ) {
+                    items.push(...Object.entries(REPEAT_ACTIONS).map(
+                        ([name, data]) => {
+                            let item = generateDefinitionCompletion(name, data.def);
+                            item.sortText = "\u0001"+item.label;
+                            return item;
+                        }
+                    ));
+                }
+            }
+
+            // items = [];
+            // doc.workspace.forEachItemLibrary(l => {
+            //     if (l.parsedContents == null) return;
+            //     for (const i of Object.keys(l.parsedContents.items)) {
+            //         items.push({
+            //             label: `${l.parsedContents.id} ${i}`
+            //         })
+            //     }
+            // })
+
+            slog ("Returned",items.length,"items")
+            let response: CompletionList = {
+                isIncomplete: true,
+                items: items as CompletionItem[]
+            }
+
+            return response
+        })
+
+        //==========[ special requests ]=========\\
+        conn.onRequest("terracotta/convertValues", (param: string[]) => {
+            let output: {dfType: string, value: string}[] = [];
+
+            for (const rawValue of param) {
+                let parsedValue = JSON.parse(rawValue);
+                let converted = convertDFValue(parsedValue);
+                if (converted != null) {
+                    output.push({dfType: parsedValue.id, value: converted});
+                }
+            }
+
+            return {values: output};
+        })
+
+        //==========[ document handling ]=========\\
+        conn.onNotification("textDocument/didOpen",(param: DidOpenTextDocumentParams) => {
+            let doc = this.getDocFromUri(param.textDocument.uri);
+            if (!doc) return;
+            doc.isOpen = true;
+            doc.update([{text: param.textDocument.text}], param.textDocument.version);
+        })
+
+        conn.onNotification("textDocument/didChange", (param: DidChangeTextDocumentParams) => {
+            let doc = this.getDocFromUri(param.textDocument.uri);
+            if (!doc) return;
+            doc.update(param.contentChanges, param.textDocument.version);
+        })
+
+        conn.onNotification("textDocument/didClose", (param: DidCloseTextDocumentParams) => {
+            let doc = this.getDocFromUri(param.textDocument.uri);
+            if (!doc) return;
+            doc.isOpen = false;
+        })
+
+        //==========[ notification handling ]=========\\
+
+        conn.onNotification("initialized",(param) => {
+            this.showText("Terracotta language server successfully started!")
+            this.log("Terracotta language server successfully started!")
+            conn.sendNotification("loaded",{});
+        })
+
+        conn.onNotification("terracotta/updateConfiguration", (param: ServerTCConfiguration) => {
+            for (const [k, v] of Object.entries(param)) {
+                configuration[k] = v
+            }
+            this.reanalyzeAllFiles();
+        })
+
+        conn.onNotification("terracotta/exit", param => {
+            process.exit(0)
+        })
+    }
+    
+    /** Reanalyzes every script in every workspace */
+    reanalyzeAllFiles() {
+        for (const workspace of this.workspaces.values()) {
+            workspace.forEachScript(s => s.reparse());
+        }
+    }
+
+    showText = (message: string, messageType: MessageType = MessageType.Info) => {
+        this.connection.sendNotification("window/showMessage",{message: message.toString(),type: messageType})
+    }
+
+    log = (...message: string[]) => {
+        this.connection.sendNotification("window/logMessage",{message: message.join(" "), type: MessageType.Log})
+    }
+
+    // todo: make this less bad
+    getDocFromUri(uri: URI): TrackedDocument | null {
+        for (const w of this.workspaces.values()) {
+            for (const doc of w.documents.values()) {
+                if (doc.uri == uri) {
+                    return doc;
                 }
             }
         }
+        return null;
+    }
 
-        slog ("Returned",items.length,"items")
-        let response: CompletionList = {
-            isIncomplete: true,
-            items: items as CompletionItem[]
+    /** 
+     * if the uri to a workspace is passed in, it will return that workspace
+     * if the uri to a file inside a workspace is passed in, it will return the farthest down workspace that contains that file
+     */
+    getWorkspaceFromUri(uri: URI): WorkspaceManager | null {
+        let closestWorkspace: WorkspaceManager | null = null;
+        let closestLength: number = 0;
+        for (const workspace of this.workspaces.values()) {
+            if (uri == workspace.uri) return workspace;
+            if (
+                uri.startsWith(workspace.uri) 
+                && uri.charAt(workspace.uri.length) == "/"
+                && workspace.uri.length > closestLength
+            ) {
+                closestWorkspace = workspace;
+                closestLength = workspace.uri.length;
+            }
         }
+        return closestWorkspace
+    }
 
-        return response
-    })
+    getScriptFromUri(uri: URI): TrackedScript | null {
+        let doc = this.getDocFromUri(uri);
+        if (doc instanceof TrackedScript) return doc;
+        return null;
+    }
 
-    //==========[ notification handling ]=========\\
-
-    connection.onNotification("initialized",(param) => {
-        showText("Terracotta language server successfully started!")
-        log("Terracotta language server successfully started!")
-        connection.sendNotification("loaded",{});
-    })
-
-    connection.onNotification("terracotta/updateConfiguration", (param: ServerTCConfiguration) => {
-        for (const [k, v] of Object.entries(param)) {
-            configuration[k] = v
-        }
-        if ("dfRank" in param || "rankBehavior" in param) {
-            generateDomainMemberCompletions(configuration)
-        }
-    })
-
-    connection.onNotification("terracotta/exit", param => {
-        process.exit(0)
-    })
+    getLibraryFromUri(uri: URI): TrackedItemLibrary | null {
+        let doc = this.getDocFromUri(uri);
+        if (doc instanceof TrackedItemLibrary) return doc;
+        return null;
+    }
 }

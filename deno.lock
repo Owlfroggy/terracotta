@@ -8,7 +8,6 @@
     "npm:@types/node@^22.19.3": "22.19.3",
     "npm:copy-paste@^1.5.3": "1.5.3",
     "npm:fflate@~0.8.2": "0.8.2",
-    "npm:nbtify@^2.2.0": "2.2.0",
     "npm:vscode-jsonrpc@^8.2.1": "8.2.1",
     "npm:vscode-languageserver@^9.0.1": "9.0.1"
   },
@@ -103,11 +102,12 @@
       "dependencies": [
         "npm:@pkgjs/parseargs@0.11",
         "npm:@types/node@^22.19.3",
+        "npm:chokidar@5",
         "npm:copy-paste@^1.5.3",
         "npm:fflate@~0.8.2",
-        "npm:nbtify@^2.2.0",
         "npm:vscode-jsonrpc@^8.2.1",
-        "npm:vscode-languageserver@^9.0.1"
+        "npm:vscode-languageserver@^9.0.1",
+        "npm:vscode-uri@^3.1.0"
       ]
     }
   }

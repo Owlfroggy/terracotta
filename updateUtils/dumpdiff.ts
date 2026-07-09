@@ -2,7 +2,6 @@
 import { parseArgs } from "node:util";
 import process from "node:process"
 import { readFile } from "node:fs/promises";
-import { Dict } from "../src/util/dict.ts";
 
 const { values, positionals } = parseArgs({args: process.argv, allowPositionals: true})
 
@@ -18,7 +17,7 @@ const oldDump = JSON.parse((await readFile(positionals[2]!)).toString())
 const newDump = JSON.parse((await readFile(positionals[3]!)).toString())
 
 // actions \\
-let seen: Dict<any> = {}
+let seen: {[key: string]: any} = {}
 
 oldDump.actions.forEach(action => {
     if (!seen[action.codeblockName]) { seen[action.codeblockName] = {}; }
@@ -29,7 +28,7 @@ console.log("== NEW ACTIONS ==")
 newDump.actions.forEach(action => {
     if (!seen[action.codeblockName]) { seen[action.codeblockName] = {}; }
     if (!seen[action.codeblockName][action.name]) {
-        console.log(`${action.codeblockName}:${action.name}`)
+        console.log(`${action.codeblockName}:${action.name}${action.legacyReplacement ? "  (is somehow already legacy step up ur update speed omg)" : ""}`)
     }
 })
 

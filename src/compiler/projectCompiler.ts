@@ -1,376 +1,117 @@
-import { fileURLToPath, pathToFileURL } from "node:url"
-import * as Tokenizer from "../tokenizer/tokenizer.ts"
-import * as ErrorHandler from "../util/errorHandler.ts"
-import * as LineCompiler from "./codelineCompiler.ts"
-import * as fs from "node:fs/promises"
-import * as CodeblockNinja from "./codeblockNinja.ts"
-import * as NBT from "nbtify"
-import { COLOR } from "../util/characterUtils.ts"
-import { URL } from "node:url"
-import { Dict } from "../util/dict.ts"
-import { walk } from "@std/fs"
-import { getAllFilesInFolder } from "../util/utils.ts";
-import { DFRank } from "../util/actionDump.ts";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
+import { Lexer } from "../parser/lexer.ts";
+import { Statement } from "../ast/statement.ts";
+import { Parser } from "../parser/parser.ts";
+import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
+import { ErrorType, TCError, TCManualError, TCStandaloneError } from "../error/error.ts";
+import { CodeCompiler } from "./codeCompiler.ts";
+import { DFCodeblockName, DFRank } from "../df/constants.ts";
+import { ItemLibrary } from "./itemLibrary.ts";
+import { RootNode } from "../ast/astNode.ts";
+import { isSNBTValid } from "../util/snbtUtils.ts";
 
-export type CompiledTemplate = string | Dict<any>
+export type CompiledTemplate = string
 
+// TODO: update this
 export interface CompiledProjectTemplates {
-    /** what the CompiledTemplate data will actually be */
-    mode: "gzip" | "json"
+    errors: TCError[];
     /** Key: event df name */
-    playerEvents: Dict<CompiledTemplate>
+    playerEvents: {[key: string]: CompiledTemplate}
     /** Key: event df name */
-    entityEvents: Dict<CompiledTemplate>
+    entityEvents: {[key: string]: CompiledTemplate}
     /** Key: event df name */
-    gameEvents: Dict<CompiledTemplate>
+    gameEvents: {[key: string]: CompiledTemplate}
     /** Key: function name */
-    functions: Dict<CompiledTemplate>
+    functions: {[key: string]: CompiledTemplate}
     /** Key: function name */
-    processes: Dict<CompiledTemplate>
+    processes: {[key: string]: CompiledTemplate}
 }
 
-export interface FileCompileResults {
-    error?: Error | ErrorHandler.TCError,
-    templates?: {
-        type: string,
-        name: string,
-        template: string
-    }[]
-}
+export async function compileProject(projectPath: string, plotSize: number, rank: DFRank): Promise<CompiledProjectTemplates> {
+    let roots: RootNode[] = [];
+    let statements: Statement[] = [];
+    let itemLibraries: {[id: string]: ItemLibrary} = {};
 
-export interface ProjectCompileData {
-    maxCodeLineSize: number,
-    rank: DFRank
-}
+    let errors: TCError[] = [];
 
-export interface ItemLibrary {
-    compilationMode: "item" | "variable"
-    id: string,
-    items: Dict<{
-        data: string,
-        version: number,
-        material: string,
-        componentsString: string
-    }>,
-    lastEditedWithExtensionVerison: number
-}
+    let files = await fs.readdir(projectPath, {recursive: true, withFileTypes: true})
+    let lexer = new Lexer();
+    let parser = new Parser([]);
+        
+    for (const file of files) {
+        if (!file.isFile()) continue;
+        if (!(file.name.endsWith(".tc") || file.name.endsWith(".tcil"))) continue;
+        let fullPath = path.join(file.parentPath, file.name);
+        let fileContents = (await fs.readFile(fullPath)).toString();
 
-export interface CodeInjections {
-    /** Blocks to place before script code */
-    before: LineCompiler.CodeBlock[][],
-    /** Blocks to place after script code */
-    after: LineCompiler.CodeBlock[][]
-}
-
-export interface CompilationEnvironment {
-    rank: DFRank
-    itemLibraries: Dict<ItemLibrary>
-    /**To access the injections for a given line, do codeInjections[header][linename]["before"|"after"] */
-    codeInjections: {
-        playerEvents: Dict<CodeInjections>,
-        entityEvents: Dict<CodeInjections>,
-        gameEvents: Dict<CodeInjections>,
-        functions: Dict<CodeInjections>,
-        processes: Dict<CodeInjections>,
-    }
-    funcReturnTypes: Dict<string>
-    skipConstructorValidation?: boolean
-}
-
-
-//maps a codeblock type to its category in project compile results
-const categoryMap = {
-    "PLAYER_EVENT": "playerEvents",
-    "ENTITY_EVENT": "entityEvents",
-    "GAME_EVENT": "gameEvents",
-    "FUNCTION": "functions",
-    "PROCESS": "processes"
-}
-
-function getInjections(environment: CompilationEnvironment,header: "playerEvents" | "entityEvents" | "functions" | "processes" | "gameEvents",name: string) {
-    let injections = environment.codeInjections[header][name]
-    if (injections) {
-        return injections
-    } else {
-        injections = {before: [], after: []}
-        environment.codeInjections[header][name] = injections
-        return injections
-    }
-}
-
-export function CompileFile(fileContents: Tokenizer.TokenizerResults | ItemLibrary, maxLineLength: number, mode: "gzip" | "json" = "gzip", environment: CompilationEnvironment): FileCompileResults {
-    let compiledResults: LineCompiler.CompileResults
-
-    //for compiling .tc files
-    if (fileContents instanceof Tokenizer.TokenizerResults) {
-        //compile
-        try {
-            compiledResults = LineCompiler.CompileLines(fileContents.Lines,environment)
-        } catch (e: any) {
-            return {error: e}
+        if (file.name.endsWith(".tc")) {
+            lexer.tokenize(fileContents, fullPath);
+            errors.push(...lexer.errors);
+    
+            
+            parser.tokens = lexer.tokens;
+            let root = parser.parse();
+            root.scriptContents = fileContents;
+            root.filePath = fullPath;
+            errors.push(...parser.errors);
+            statements.push(...root.statements);
+            roots.push(root);
         }
-    }
-    //for compiling library files
-    else {
-        try {
-            compiledResults = LineCompiler.CompileLibrary(fileContents)
-        } catch (e: any) {
-            return {error: e}
+        else if (file.name.endsWith(".tcil")) {
+            try {
+                // TODO: validate the json structure
+                // TODO: move this validation to a place where the language server can do it
+                let lib: ItemLibrary = JSON.parse(fileContents);
+                if (lib.id in itemLibraries) {
+                    errors.push(new TCManualError(0, 0, fileContents, fullPath, ErrorType.ITEM_LIBRARY, `Multiple item libraries with id '${lib.id}'`))
+                } else {
+                    itemLibraries[lib.id] = lib;
+                    // validate item data
+                    for (let [id, item] of Object.entries(lib.items)) {
+                        let result = isSNBTValid(item.data);
+                        if (result != true) {
+                            // TODO: when we get proper json structure validation, report this error with actual position data
+                            errors.push(new TCStandaloneError(
+                                ErrorType.ITEM_LIBRARY,
+                                `Error in item library '${lib.id}': item '${id}' has invalid NBT data. \n > ${result}`
+                            ));
+                        }
+                    }
+                }
+            } catch (error) {
+                let errorString = `${error}`;
+                let pos = 0;
+                let posMatch = [...errorString.matchAll(/at position (\d+) \(line \d+ column \d+\)$/g)];
+                if (posMatch.length > 0) {
+                    pos = parseInt(posMatch[0][1]);
+                }
+                errors.push(new TCManualError(pos, pos+1, fileContents, fullPath, ErrorType.ITEM_LIBRARY, `Internal error compiling item library at ${file.name}: ${error}`))
+            }
         }
     }
 
-    if (!compiledResults.type || !compiledResults.name) {return {}}
+    let typeProcessor = new TypeProcessor();
+    typeProcessor.collectionStage(roots);
+    typeProcessor.evaluationStage()
+    errors.push(...typeProcessor.errors);
 
-    //slice
-    let slicedResults: LineCompiler.CodeBlock[][]
-    try {
-        slicedResults = CodeblockNinja.SliceCodeLine(compiledResults.code,maxLineLength)
-    } catch (e: any) {
-        return {error: e}
-    }
-
+    let codeCompiler = new CodeCompiler(statements, {
+        types: typeProcessor, 
+        rank: rank,
+        getItemLibraries: () => itemLibraries,
+        optimizationsEnabled: true
+    });
+    for (const lib of Object.values(itemLibraries)) codeCompiler.compileItemLibrary(lib);
+    let templates = codeCompiler.compile({outputFormat: "GZIP", splitToLength: plotSize});
+    errors.push(...codeCompiler.errors);
 
     return {
-        templates: slicedResults.map(line => {
-            let template: string = LineCompiler.JSONize(line)
-            if (mode == "gzip") {
-                template = LineCompiler.GZIP(template) 
-            }
-
-            return {
-                template: template,
-                type: line[0].Block,
-                name: line[0] instanceof LineCompiler.EventBlock ? line[0].Event : (line[0] as LineCompiler.FunctionBlock || LineCompiler.ProcessBlock).Name
-            }
-        })
+        errors: errors,
+        playerEvents: templates.get(DFCodeblockName.PLAYER_EVENT)!,
+        entityEvents: templates.get(DFCodeblockName.ENTITY_EVENT)!,
+        gameEvents: templates.get(DFCodeblockName.GAME_EVENT)!,
+        functions: templates.get(DFCodeblockName.FUNCTION)!,
+        processes: templates.get(DFCodeblockName.PROCESS)!,
     }
-}
-
-
-export async function CompileProject(path: string, data: ProjectCompileData): Promise<CompiledProjectTemplates> {
-    if (!path.endsWith("/")) {path += "/"}
-    let folderUrl = pathToFileURL(path)
-    
-    //error checking
-    try {
-        if (!(await fs.stat(folderUrl)).isDirectory()) { 
-            process.stderr.write("\nError: Provided path is not a folder\n") 
-            process.exit(1)
-        }
-    } catch (e) {
-        process.stderr.write("\nError: Provided path does not exist\n") 
-        process.exit(1)
-    }
-
-    let results: CompiledProjectTemplates = {
-        mode: "gzip",
-        playerEvents: {},
-        entityEvents: {},
-        gameEvents: {},
-        functions: {},
-        processes: {}
-    }
-    let failed = false
-    
-    let itemLibraries: Dict<ItemLibrary> = {} //key is library id
-    let environment: CompilationEnvironment = {
-        rank: data.rank,
-        itemLibraries: itemLibraries,
-        codeInjections: {
-            playerEvents: {},
-            entityEvents: {},
-            gameEvents: {},
-            functions: {},
-            processes: {},
-        },
-        funcReturnTypes: {}
-    }
-
-    const files = await getAllFilesInFolder(folderUrl)
-
-    //util functions
-    function failAndPrintError(error: string) {
-        process.stderr.write(error+"\n");
-        failed = true
-    }
-
-    //scan for relevent file extensions
-    let scriptFiles: string[] = []
-    let itemLibraryFiles: string[] = []
-
-    for (const filePath of files) {
-        if (filePath.endsWith(".tc")) {
-            scriptFiles.push(filePath)
-        } else if (filePath.endsWith(".tcil")){ 
-            itemLibraryFiles.push(filePath)
-        }
-    }
-
-    //read and validate library files
-    await Promise.all(itemLibraryFiles.map(async (file) => {
-        //read file
-        let fileContents: string
-        try { fileContents = (await fs.readFile(file)).toString() } 
-        catch (e) { process.stderr.write(`Error while reading file '${file}': ${e} (this file will be skipped)\n`); return }
-
-        //parse json
-        let library: ItemLibrary
-        try { library = JSON.parse(fileContents) } 
-        catch (e) { 
-            failAndPrintError(`Error: Library at ${file} is not valid json (${e})\n`)
-            return
-        }
-
-        //make sure all required fields exist
-        for (const field of ["id","items","compilationMode"]) {
-            if (!(field in library)) {
-                failAndPrintError(`Error: Library at ${file} is missing the '${field}' field\n`)
-                return
-            }
-        }
-
-        //error for duplicate ids
-        if (library.id in itemLibraries) {
-            failAndPrintError(`Error: Duplicate library ${library.id}`)
-            return
-        }
-
-        itemLibraries[library.id] = library
-
-        //validate items
-        for (const [itemId, item] of Object.entries(library.items)) {
-            if (!item) {continue}
-            let parsed: NBT.CompoundTag
-            try {parsed = NBT.parse(item.data)}
-            catch (e) {
-                failAndPrintError(`Error: Item '${itemId}' in library '${library.id}' has invalid NBT: ${e}`)
-                continue
-            }
-            if (!parsed?.id) {
-                failAndPrintError(`Error: Item '${itemId}' in library '${library.id}' has no id in its NBT`)
-                continue
-            }
-            if (parsed?.components && NBT.getTagType(parsed.components) !== NBT.TAG.COMPOUND) {
-                failAndPrintError(`Error: Item '${itemId}' in library '${library.id}' has a 'tag' field which is not a compound tag`)
-                continue
-            }
-            item.material = parsed.id as string
-            item.componentsString = parsed?.components ? NBT.stringify(parsed.components as NBT.RootTagLike) : "{}"
-        }
-
-        //compile this library's setup template
-        let compileResults = CompileFile(library,data.maxCodeLineSize,"gzip",environment)
-        if (compileResults.error) {
-            failAndPrintError(`Error compiling library at ${file}: ${compileResults.error}`)
-            return
-        }
-
-        //add all templates produced by the file to final result
-        for (const result of compileResults.templates!) {
-            if (results[categoryMap[result.type]][result.name] !== undefined) {
-                failAndPrintError(`Error: Duplicate ${result.type} '${result.name}'\n`)
-                return
-            }
-
-            results[categoryMap[result.type]][result.name] = result.template
-        }
-    }))
-
-    //if item libraries exist, create the code to load their items on plot startup
-    if (itemLibraryFiles.length > 0) {
-        let injections = getInjections(environment,"playerEvents","Join").before
-        let trackerVar = new LineCompiler.VariableItem([],"unsaved","@__TC_INTERNAL_ITEMSLOADED")
-
-        let codeLine: LineCompiler.CodeBlock[] = [
-            new LineCompiler.IfActionBlock("if_var","VarExists",[trackerVar],[],null,true),
-            new LineCompiler.BracketBlock("open","if"),
-                new LineCompiler.ActionBlock("set_var","=",[trackerVar,new LineCompiler.NumberItem([],"1")]),
-                
-                //sorted so that the output is deterministic
-                ...Object.keys(itemLibraries).sort().map(libraryId => {
-                    return new LineCompiler.ActionBlock("call_func",`@__TC_IL_${itemLibraries[libraryId]?.id}`)
-                }),
-            new LineCompiler.BracketBlock("close","if")
-        ]
-        injections.push(codeLine)
-    }
-
-    let tcTokenizerResults: Dict<Tokenizer.TokenizerResults> = {}
-    let tcFileContents: Dict<string> = {}
-
-    //tokenize and preprocess .tc scripts
-    await Promise.all(scriptFiles.map(async (file) => {
-        try {
-            // read file
-            let fileContents: string
-            try { fileContents = (await fs.readFile(file)).toString() } 
-            catch (e) { process.stderr.write(`Error while reading file '${file}': ${e} (this file will be skipped)\n`); return }
-            fileContents = fileContents.replaceAll(/\r\n/g, "\n")
-            tcFileContents[file] = fileContents
-            
-            //tokenize
-            let tokenResults: Tokenizer.TokenizerResults
-            try {
-                tokenResults = Tokenizer.Tokenize(fileContents, { "mode": "getTokens" }) as Tokenizer.TokenizerResults
-            } catch (e: any) {
-                if (failed) {process.stderr.write("\n\n")}
-                ErrorHandler.PrintError(e,fileContents,file.slice(path.length))
-                failed = true
-                return
-            }
-            tcTokenizerResults[file] = tokenResults
-
-            // preprocess
-            try {
-                LineCompiler.PreProcess(tokenResults.Lines,environment)
-            } catch (e: any) {
-                if (failed) {process.stderr.write("\n\n")}
-                ErrorHandler.PrintError(e,fileContents,file.slice(path.length))
-                failed = true
-                return
-            }
-        } catch (e) {
-            process.stderr.write(`\n${COLOR.White}${"#".repeat(50)}\n${COLOR.Red}There was an internal error while compiling ${file}.\nPlease file a bug report containing the the below output and, if possible, the script that caused this error.\n${COLOR.White}${"#".repeat(50)}${COLOR.Reset}\n`)
-            console.error(e)
-            process.exit(1)
-        }
-    }));
-
-    //compile .tc scripts
-    if (!failed) {
-        await Promise.all(scriptFiles.map(async (file) => {
-            try {
-                if (!tcFileContents[file]) { return }
-                if (!tcTokenizerResults[file]) { return }
-                let compileResults = CompileFile(tcTokenizerResults[file],data.maxCodeLineSize,"gzip",environment)
-                //if this tc script has an error, print it and move on
-                if (compileResults.error) {
-                    if (failed) {process.stderr.write("\n\n")}
-                    ErrorHandler.PrintError(compileResults.error,tcFileContents[file],file.slice(path.length))
-                    failed = true
-                    return
-                }
-    
-                //add all templates produced by the file to final result
-                for (const result of compileResults.templates!) {
-                    if (results[categoryMap[result.type]][result.name] !== undefined) {
-                        failAndPrintError(`Error: Duplicate ${result.type} '${result.name}'\n`)
-                        return
-                    }
-        
-                    results[categoryMap[result.type]][result.name] = result.template
-                }
-            } catch (e) {
-                process.stderr.write(`\n${COLOR.White}${"#".repeat(50)}\n${COLOR.Red}There was an internal error while compiling ${file}.\nPlease file a bug report containing the the below output and, if possible, the script that caused this error.\n${COLOR.White}${"#".repeat(50)}${COLOR.Reset}\n`)
-                console.error(e)
-                process.exit(1)
-            }
-        }));
-    }
-
-    if (failed) {
-        process.exit(1)
-    }
-
-    return results
 }
