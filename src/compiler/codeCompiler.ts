@@ -265,10 +265,10 @@ export class CodeCompiler {
                             
                             if (plural) {
                                 this.reportError(param.defaultValue, `Plural parameters cannot specify default values`);
+                            } else {
+                                optional = true;
                             }
-                            if (!optional) {
-                                this.reportError(param.defaultValue, `Default value can only be specified for optional parameters. Try adding a star '*' after this parameter's name.`);
-                            }
+                            
                             if (tcType && (tcType.matches(Type.list) || tcType.matches(Type.dict) || tcType.matches(Type.var))) {
                                 this.reportError(param.defaultValue, `Parameters of type '${tcType?.name}' cannot be assigned default values`);
                             } else if (tcType && !tcType.matches(Type.any) && !(item.getType(this.env.types).strictlyMatches(tcType))) {
