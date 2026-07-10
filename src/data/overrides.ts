@@ -1,6 +1,6 @@
 import { Expression } from "../ast/expression.ts";
 import { ParameterSignature } from "../compiler/namespace/definition.ts";
-import { ListTypeData, Type } from "../typeProcessor/type.ts";
+import { getWidestType, ListTypeData, Type } from "../typeProcessor/type.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { getTagsAndArgTypes } from "../util/utils.ts";
 
@@ -596,6 +596,8 @@ export const OVERRIDES: {
                     return Type.num;
                 }
             },
+            // TODO: make these create actions better
+            "CreateList": Type.list(Type.any),
             "CreateDict": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
                 let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
                 if (argTypes.length >= 2 && argTypes[1].matches(Type.list)) {
@@ -631,6 +633,9 @@ export const OVERRIDES: {
             "SegmentString": Type.list(Type.str),
             "SplitString": Type.list(Type.str),
             "StringToBytes": Type.list(Type.num),
+
+            "-=": Type.void,
+            "+=": Type.void,
 
             "StyledText": Type.txt,
 

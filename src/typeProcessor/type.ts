@@ -351,7 +351,7 @@ export class Type {
 
 // TODO: when we get unions, make this work better
 // TODO: make this handle subtypes better (e.g. list[str], list[num] should genericize to list[any] instead of just any)
-function getWidestType(...types: Type[]): Type {
+export function getWidestType(...types: Type[]): Type {
     let widestType = Type.void;
     for (let t of types) {
         if (t.matches(Type.void)) continue;
