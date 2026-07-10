@@ -617,6 +617,7 @@ export const OVERRIDES: {
             "PopListValue": firstListGenericType,
             "GetListValue": firstListGenericType,
 
+            "WebResponse": Type.dict(Type.void, {statusText: Type.str, body: Type.str, json: Type.any}),
 
             "String": Type.str,
             "TranslateColors": Type.str,

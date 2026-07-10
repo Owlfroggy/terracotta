@@ -129,7 +129,11 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                 //if being assigned to a variable, exclude first var param from signature
                 if (
                     values[0].type == DFValueType.VARIABLE 
-                    && (values[0].description == "Variable to set" || values[0].description.substring(0, 16) == "Gets the current")
+                    && (
+                        values[0].description == "Variable to set" 
+                        || values[0].description.substring(0, 16) == "Gets the current"
+                        || values[0].description.startsWith("Variable to store")
+                    )
                 ) {
                     varRemoved = true;
                     values.shift();
