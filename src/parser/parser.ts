@@ -497,11 +497,9 @@ export class Parser {
         let type = this.parseTypeAssignmentExpression(true);
         let equals: Token | null = null;
         let defaultValue: Expression | null = null;
-        if (type != null) {
-            if (this.currentToken().type == TokenType.EQUALS) {
-                equals = this.consume();
-                defaultValue = this.parseExpression(BindingPower.DEFAULT);
-            }
+        if (this.currentToken().type == TokenType.EQUALS) {
+            equals = this.consume();
+            defaultValue = this.parseExpression(BindingPower.DEFAULT);
         }
         return new ParameterExpression(name, ellipses, optionalMarker, type, equals, defaultValue);
     }
