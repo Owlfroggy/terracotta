@@ -12,6 +12,7 @@ import { printError } from "./error/errorHandler.ts";
 import { LanguageServer } from "./languageServer/languageServer.ts";
 import { DFRank } from "./df/constants.ts";
 import { PCodeParser } from "./pcode/pcodeParser.ts";
+import { normalizeLineEndings } from "./util/utils.ts";
 
 registerBuiltinNamespaces()
 
@@ -89,7 +90,7 @@ async function Main() {
         let output: string = ""
 
         if (values.file) {
-            let fileContents = (await fs.readFile(values.file)).toString();
+            let fileContents = normalizeLineEndings((await fs.readFile(values.file)).toString());
 
             const lexer = new Lexer();
             lexer.tokenize(fileContents, values.file)

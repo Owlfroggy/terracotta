@@ -223,3 +223,7 @@ export function getAllowedParticleFields(parDef: AD.Particle | undefined): strin
 export function isIdentifier(str: string) {
     return /^[A-Za-z0-9_]+$/.test(str);
 }
+
+export function normalizeLineEndings(str: string) {
+    return str.replace(/\r\n|\r/g, '\n');
+}

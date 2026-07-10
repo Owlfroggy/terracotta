@@ -10,6 +10,7 @@ import { DFCodeblockName, DFRank } from "../df/constants.ts";
 import { ItemLibrary } from "./itemLibrary.ts";
 import { RootNode } from "../ast/astNode.ts";
 import { isSNBTValid } from "../util/snbtUtils.ts";
+import { normalizeLineEndings } from "../util/utils.ts";
 
 export type CompiledTemplate = string
 
@@ -43,7 +44,7 @@ export async function compileProject(projectPath: string, plotSize: number, rank
         if (!file.isFile()) continue;
         if (!(file.name.endsWith(".tc") || file.name.endsWith(".tcil"))) continue;
         let fullPath = path.join(file.parentPath, file.name);
-        let fileContents = (await fs.readFile(fullPath)).toString();
+        let fileContents = normalizeLineEndings((await fs.readFile(fullPath)).toString());
 
         if (file.name.endsWith(".tc")) {
             lexer.tokenize(fileContents, fullPath);

@@ -7,6 +7,7 @@ import { WorkspaceManager } from "./workspaceManager.ts";
 import { inspect } from "node:util";
 import { slog, snotif } from "./logging.ts";
 import { CodeCompiler } from "../compiler/codeCompiler.ts";
+import { normalizeLineEndings } from "../util/utils.ts";
 
 export abstract class TrackedDocument {
     contents: string;
@@ -96,7 +97,7 @@ export abstract class TrackedDocument {
      * NOTE: classes implementing TrackedDocument MUST call `this.markAsInitialized();` at the end of this method
      */
     async initialize() {
-        this.contents = (await fs.readFile(URL.parse(this.uri)!)).toString().replaceAll(/\r\n/g, "\n");
+        this.contents = normalizeLineEndings((await fs.readFile(URL.parse(this.uri)!)).toString());
         this.refreshLineIndexes();
     }
 }
