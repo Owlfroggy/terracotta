@@ -45,7 +45,7 @@ export interface FunctionDefinition {
      * */
     returnVarsAtEnd?: boolean,
     defaultReturnType: Type,
-    getReturnType: (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => Type,
+    getReturnType: (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => Type,
 
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,

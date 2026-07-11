@@ -146,15 +146,11 @@ export function allAreCompTimeConstant(args: CodeValue[]) {
  * 
  * Tags will only have an entry in the dict if they are set to a constant value.
  */
-export function getTagsAndArgTypes(args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type): [argTypes: Type[], tagConstants: {[name: string]: string}] {
+export function getTagsAndArgTypes(args: Expression[], types: TypeProcessor, methodCallOf?: Type): [argTypes: Type[], tagConstants: {[name: string]: string}] {
     let argTypes: Type[] = [];
     let tagConstants: {[name: string]: string} = {};
 
-    if (methodCallOf) argTypes.push(
-        methodCallOf instanceof Type
-        ? methodCallOf
-        : types.evaluateExpression(methodCallOf, types.getNodeFrame(methodCallOf))
-    );
+    if (methodCallOf && !methodCallOf.matches(Type.namespace)) argTypes.push(methodCallOf);
 
     for (const arg of args) {
         if (

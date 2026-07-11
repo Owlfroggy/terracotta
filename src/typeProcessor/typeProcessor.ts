@@ -862,9 +862,9 @@ export class TypeProcessor {
             } else {
                 return Type.unknown;
             }
-            let methodCallOf: Expression | undefined;
+            let methodCallOf: Type | undefined;
             if (expression.callee instanceof AccessExpression) {
-                methodCallOf = expression.callee.accessee;
+                methodCallOf = this.evaluateExpression(expression.callee.accessee);
             }
             return def.getReturnType(expression.args.elements, this, methodCallOf) ?? Type.unknown;
         }
