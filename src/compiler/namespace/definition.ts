@@ -39,8 +39,14 @@ export interface FunctionDefinition {
     name: string,
     description?: string,
     signatures: ParameterSignature[],
+    
+    /** 
+     * If set to true, return value vars should be added to the end of the args list as opposed to the start
+     * */
+    returnVarsAtEnd?: boolean,
     defaultReturnType: Type,
     getReturnType: (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => Type,
+
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,
     compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression, extraInfo?: FunctionCallExtraInfo): [CodeValue, CodeBlock[]];

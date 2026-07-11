@@ -90,6 +90,7 @@ export class FunctionValue extends InternalValue {
 export class MultiValue extends InternalValue {
     constructor(
         public values: CodeValue[],
+        public overflowType: Type,
         astNode?: ASTNode,
     ) { super(astNode); }
 }

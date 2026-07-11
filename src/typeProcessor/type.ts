@@ -35,6 +35,8 @@ export type DictTypeData = {
 
 export type MultiValueTypeData = {
     types: Type[],
+    /** Set this to void for no overflow type */
+    overflowType: Type,
 }
 
 type ExtraData = FuncTypeData | NamespaceTypeData | ListTypeData | DictTypeData | MultiValueTypeData | VarTypeData | null;
@@ -257,14 +259,14 @@ export class Type {
 
     public static multivalue = this.makeTypeConstructor(
         'multivalue', 0,
-        (types: Type[]) => {
+        (types: Type[], overflowType: Type) => {
             let stringify = () => {
                 return types.join(", ");
             }
             let strictMatchCallback = (other: Type) => {
                 return false;
             }
-            return new Type('multivalue', {strictMatchCallback, stringify, data: {types}});
+            return new Type('multivalue', {strictMatchCallback, stringify, data: {types, overflowType}});
         }
     );
 

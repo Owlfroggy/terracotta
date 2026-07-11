@@ -6,35 +6,19 @@ import { validateArguments } from "../../util/argValidation.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
 import { CodeValue, EmptyValue, MultiValue, TangibleValue, VariableValue } from "../codeValue.ts";
-import { compileTags } from "./builtins.ts";
-import { FunctionDefinition } from "./definition.ts";
+import { compileTags, handleSingleBlockReturnVars } from "./builtins.ts";
+import { FunctionCallExtraInfo, FunctionDefinition } from "./definition.ts";
 
-export function COMPILE_CALL_FUNCTION(this: FunctionDefinition, args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression): [CodeValue, CodeBlock[]] {
+export function COMPILE_CALL_FUNCTION(this: FunctionDefinition, args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression, extraInfo: FunctionCallExtraInfo): [CodeValue, CodeBlock[]] {
     // TODO: handle user-defined methods
     validateArguments(args, callNode, this.signatures, ctx);
 
-    let returnValue: CodeValue;
-    let returnType = this.getReturnType(callNode.args.elements, ctx.types);
-    let returnVars: VariableValue[] = [];
-    if (returnType.matches(Type.void)) {
-        returnValue = new EmptyValue(callNode);
-    } else if (returnType.matches(Type.multivalue)) {
-        let returnTypeData = returnType.data as MultiValueTypeData
-        let multiValue = new MultiValue([], callNode);
-        for (let i = 0; i < returnTypeData.types.length; i++) {
-            let tempVar = ctx.tvp.newTempVar(returnTypeData.types[i])
-            multiValue.values.push(tempVar);
-            returnVars.push(tempVar);
-        }
-        returnValue = multiValue;
-    } else {
-        let tempVar = ctx.tvp.newTempVar(returnType)
-        returnValue = tempVar;
-        returnVars.push(tempVar);
-    }
+    let finalArgs = args.filter(arg => arg instanceof TangibleValue)
+    let [returnValue] = handleSingleBlockReturnVars(this, ctx, extraInfo, callNode, finalArgs);
+
     return [returnValue, [new ActionBlock(DFCodeblockName.CALL_FUNCTION,{
         action: this.name,
-        args: [...returnVars, ...args.filter(arg => arg instanceof TangibleValue)],
+        args: finalArgs,
     })]]
 }
 

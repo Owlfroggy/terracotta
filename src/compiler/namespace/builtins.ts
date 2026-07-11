@@ -1,19 +1,50 @@
 import { DFCodeblockName, dfTypeToTC, DFValueType, GameValueTargetType, TargetType } from "../../df/constants.ts";
 import * as AD from "../../df/actiondump.ts";
-import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, NumberValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
+import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, MultiValue, NumberValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../codeBlock.ts";
-import { Type, TYPE_NAMESPACES } from "../../typeProcessor/type.ts";
-import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
+import { MultiValueTypeData, Type, TYPE_NAMESPACES } from "../../typeProcessor/type.ts";
+import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE, FunctionCallExtraInfo } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { CREATE_SELECTION_ACTION_LIST, FILTER_SELECTION_ACTION_LIST, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
 import { expressionizeIfBlock, toNameCase, upperFirst } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
 import { validateArguments } from "../../util/argValidation.ts";
-import { AtomicExpression } from "../../ast/expression.ts";
+import { AtomicExpression, CallExpression, CallOrStartExpression } from "../../ast/expression.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
 import { methodizeParameterSignatures } from "./utils.ts";
 import { getImprovedErrorNode } from "../../error/errorUtils.ts";
+
+export function handleSingleBlockReturnVars(def: FunctionDefinition, ctx: EvaluationContext, extraInfo: FunctionCallExtraInfo, callNode: CallExpression | CallOrStartExpression, argListToModify: CodeValue[]): [CodeValue] {
+    let returnValue: CodeValue;
+    let returnType = def.getReturnType(callNode.args.elements, ctx.types, extraInfo.methodCallOf?.getType(ctx.types) );  
+    let returnVars: VariableValue[] = [];
+    if (returnType.matches(Type.void)) {
+        returnValue = new EmptyValue(callNode);
+    } else {
+        if (returnType.matches(Type.multivalue)) {
+            let returnTypeData = returnType.data as MultiValueTypeData
+            let multiValue = new MultiValue([], returnTypeData.overflowType);//, callNode);
+            for (let i = 0; i < returnTypeData.types.length; i++) {
+                let tempVar = ctx.tvp.newTempVar(returnTypeData.types[i])
+                multiValue.values.push(tempVar);
+                returnVars.push(tempVar);
+            }
+            returnValue = multiValue;
+        } else {
+            let tempVar = ctx.tvp.newTempVar(returnType)
+            returnValue = tempVar;
+            returnVars.push(tempVar);
+        }
+
+        if (def.returnVarsAtEnd) {
+            argListToModify.push(...returnVars)
+        } else {
+            argListToModify.unshift(...returnVars);
+        }
+    } 
+    return [returnValue]
+}
 
 export function compileTags(actionDef: AD.Action, namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext): ActionTagValue[] {
     let tags: ActionTagValue[] = [];
@@ -72,7 +103,7 @@ export function generateGameValueHook(valueName: string, dfName: string, target:
 }
 
 
-export function generateActionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, target: TargetType = TargetType.UNSET): FunctionDefinition {
+export function generateActionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, target: TargetType = TargetType.UNSET, insertReturnVars: boolean = true): FunctionDefinition {
     let actionDef = AD.actions.get(codeblock)?.[actionDFName]!;
 
     // TODO: support multiple return values
@@ -175,8 +206,9 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         definitionType: DefinitionType.FUNCTION,
         name: functionName,
         signatures,
-        defaultReturnType: tcReturnType,
         action: actionDef,
+        returnVarsAtEnd: OVERRIDES.returnValueAtEndActions[codeblock]?.has(actionDFName),
+        defaultReturnType: tcReturnType,
         getReturnType,
         compile(this: FunctionDefinition, args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] {
             // rank check
@@ -205,14 +237,8 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                 target: target
             });
 
-            let returnValue: CodeValue;
-
-            if (!tcReturnType.matches(Type.void)) {
-                returnValue = ctx.tvp.newTempVar(this.getReturnType(callNode.args.elements, ctx.types, extraInfo.methodCallOf?.getType(ctx.types)) ?? Type.any);
-                code.args.unshift(returnValue as VariableValue);
-            } else {
-                returnValue = new EmptyValue()
-            }
+            
+            let [returnValue] = handleSingleBlockReturnVars(this, ctx, extraInfo, callNode, insertReturnVars ? code.args : [])
 
             return [returnValue, [code]];
         },
@@ -242,7 +268,7 @@ export function generateTagSpecifiedActionHook(
         signatures,
         defaultReturnType: tcReturnType,
         getReturnType: USE_DEFAULT_RETURN_TYPE,
-        compile: (args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] => {
+        compile(this: FunctionDefinition, args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] {
             let tags: ActionTagValue[] = [];
 
             for (const [name, option] of Object.entries(tagOptions)) {
@@ -266,14 +292,7 @@ export function generateTagSpecifiedActionHook(
                 target: target
             });
 
-            let returnValue: CodeValue;
-            
-            if (!tcReturnType.matches(Type.void)) {
-                returnValue = ctx.tvp.newTempVar(tcReturnType);
-                code.args.unshift(returnValue as VariableValue);
-            } else {
-                returnValue = new EmptyValue()
-            }
+            let [returnValue] = handleSingleBlockReturnVars(this, ctx, extraInfo, callNode, code.args)
 
             return [returnValue, [code]];
         },

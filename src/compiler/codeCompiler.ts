@@ -1171,7 +1171,7 @@ export class CodeCompiler {
 
             let [rawValue, valueCode] = this.compileExpression(s.rightValue, exprContext);
             if (rawValue instanceof MultiValue) {
-                values = rawValue.values;
+                values = [...rawValue.values];
             } else {                
                 values = [rawValue];
             }
@@ -1203,8 +1203,14 @@ export class CodeCompiler {
             for (let i = 0; i < s.leftValues.length; i++) {
                 let assigneeExpr = s.leftValues[i];
                 if (i >= values.length) {
-                    this.reportError(assigneeExpr, `Tried to set ${i+1} or more variables, but only ${values.length} value(s) were provided.`);
-                    continue;
+                    if (rawValue instanceof MultiValue && rawValue.overflowType != Type.void) {
+                        let newVal = tvp.newTempVar((rawValue as MultiValue).overflowType)
+                        values[i] = newVal;
+                        (valueCode[valueCode.length-1] as ActionBlock).args.push(newVal); // TODO: this is awful
+                    } else {
+                        this.reportError(assigneeExpr, `Tried to set ${i+1} or more variables, but only ${values.length} value(s) were provided.`);
+                        continue;
+                    }
                 }
 
                 // compile variable

@@ -69,7 +69,7 @@ export class EnvironmentFrame {
     processes: Map<string, FunctionDefinition[]> = new Map();
 
     children: Map<RootNode | ChunkExpression, EnvironmentFrame> = new Map();
-    
+
     constructor(
         public astNode: RootNode | ChunkExpression | null,
         public parent: EnvironmentFrame | null,
@@ -503,7 +503,7 @@ export class TypeProcessor {
                 if (statement.returnType.types.length == 1) {
                     returnType = this.evaluateExplicitType(statement.returnType.types[0], {reportErrors: true});
                 } else {
-                    returnType = Type.multivalue(statement.returnType.types.map(t => this.evaluateExplicitType(t, {reportErrors: true})));
+                    returnType = Type.multivalue(statement.returnType.types.map(t => this.evaluateExplicitType(t, {reportErrors: true})), Type.void);
                 }
             }
 
@@ -750,11 +750,11 @@ export class TypeProcessor {
                         }
                     } else if (entry.assignmentVarPos != undefined) {
                         if (exprType.matches(Type.multivalue)) {
-                            let valueTypes = (exprType.data as MultiValueTypeData).types;
-                            if (entry.assignmentVarPos < valueTypes.length) {
-                                entry.type = valueTypes[entry.assignmentVarPos];
+                            let multiValueData = (exprType.data as MultiValueTypeData);
+                            if (entry.assignmentVarPos < multiValueData.types.length) {
+                                entry.type = multiValueData.types[entry.assignmentVarPos];
                             } else {
-                                entry.type = Type.unknown;
+                                entry.type = multiValueData.overflowType;
                             }
                         }
                         else if (entry.assignmentVarPos == 0) {

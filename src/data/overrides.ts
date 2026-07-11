@@ -16,7 +16,8 @@ export const OVERRIDES: {
     actionNames: {[codeblock: string]: {[dfName: string]: string}},
     tagNames: {[dfName: string]: string},
     gameValueNames: {[dfName: string]: string},
-    returnTypes: {[codeblock: string]: {[actionDFName: string]: Type | ((args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => Type) }}
+    returnTypes: {[codeblock: string]: {[actionDFName: string]: Type | ((args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => Type) }},
+    returnValueAtEndActions: {[codeblock: string]: Set<string>},
     gameValueReturnTypes: {[dfName: string]: Type},
     actionSignatures: {[codeblock: string]: {[actionDFName: string]: ParameterSignature[]}},
     autocompleteSortPrefixes: {[codeblock: string]: {[actionDFName: string]: string}}
@@ -616,6 +617,15 @@ export const OVERRIDES: {
                 let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
                 return argTypes[0] ?? Type.dict(Type.any);
             },
+            "DestructureList": (args: Expression[], types: TypeProcessor, methodCallOf?: Expression | Type) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
+                if (argTypes.length >= 1 && argTypes[0].matches(Type.list)){ 
+                    let listData = (argTypes[0].data as ListTypeData);
+                    // if (methodCallOf instanceof Expression) console.log("GETTING TYPE WOAH", types.evaluateExpression(methodCallOf));
+                    return Type.multivalue(listData.indexTypes, listData.genericType);
+                }
+                return Type.multivalue([], Type.void);
+            },
             "PopListValue": firstListGenericType,
             "GetListValue": firstListGenericType,
 
@@ -738,6 +748,9 @@ export const OVERRIDES: {
             "GetContainerItems": Type.list(Type.item),
         },
     },
+    returnValueAtEndActions: {
+        "SET VARIABLE": new Set(["DestructureList"])
+    },
     gameValueReturnTypes: {
         "Event Affected Blocks": Type.list(Type.loc),
         "Event Command Arguments": Type.list(Type.str),
@@ -809,6 +822,9 @@ export const OVERRIDES: {
                 {name: "List to change", type: Type.list(Type.any), optional: false, plural: false} ,
                 {name: "Index", type: Type.num, optional: false, plural: false},
                 {name: "Value to insert", type: Type.any, optional: false, plural: false}
+            ]}, ],
+            "DestructureList": [ {params: [ 
+                {name: "List to destructure", type: Type.list(Type.any), optional: false, plural: false} ,
             ]}, ],
 
             // dict
