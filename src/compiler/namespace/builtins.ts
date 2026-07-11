@@ -302,7 +302,7 @@ export function generateTagSpecifiedActionHook(
 }
 
 export function generateConditionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, target: TargetType = TargetType.UNSET): ConditionDefinition {
-    let def = generateActionHook(functionName, codeblock, actionDFName, target) as ConditionDefinition;
+    let def = generateActionHook(functionName, codeblock, actionDFName, target, false) as ConditionDefinition;
     def.compileIf = def.compile;
     def.compile = (args, namedArgs, ctx, callNode, extraInfo) => {
         let [item, code] = def.compileIf(args, namedArgs, ctx, callNode, extraInfo);
