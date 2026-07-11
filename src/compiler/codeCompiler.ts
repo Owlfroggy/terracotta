@@ -621,28 +621,24 @@ export class CodeCompiler {
         }
         else if (e instanceof CallOrStartExpression) {
             let [pcErrors, pcode] = this.pcodeParser.parse(e.callee.value);
+            for (let err of pcErrors) {
+                this.errors.push(new TCNodePCodeError(e.callee,err,ErrorType.COMPILER));
+            }
+            
             let isProcess = e.keyword.type == TokenType.START;
 
             // TODO: if all functions matching the provided pcode have the same signature, use that
             
-            let definition = this.env.types.globalFrame![isProcess ? "processes" : "functions"].get(e.callee.value)?.[0];
             let isConstant = pcode.length == 1 && pcode[0] instanceof SegmentPCode;
+            let definition = this.env.types.getUserFuncDef(isProcess, e.callee.value, !isConstant);
             if (definition) {
                 return this.compileCallExpression(e, definition, context);
             } else {
-                if (isConstant) {
-                    this.reportError(
-                        e.callee,
-                        `Invalid ${isProcess ? "process" : "function"} name '${e.callee.value}'`
-                    );
-                    return [new MissingValue(e), []];
-                } else {
-                    let [args, namedArgs, argCode] = this.compileArgsList(e.args, context);
-                    let blockType = isProcess ? DFCodeblockName.START_PROCESS : DFCodeblockName.CALL_FUNCTION;
-                    return [new EmptyValue(e), [...argCode, new ActionBlock(blockType, {
-                        action: e.callee.value,
-                    })]]
-                }
+                this.reportError(
+                    e.callee,
+                    `Invalid ${isProcess ? "process" : "function"} name '${e.callee.value}'`
+                );
+                return [new MissingValue(e), []];
             }
         }
         else if (e instanceof BracketedAccessExpression) {

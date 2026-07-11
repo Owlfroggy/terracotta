@@ -279,6 +279,13 @@ export class TypeProcessor {
     globalFrame: EnvironmentFrame = new EnvironmentFrame(null,null);
     framesByASTNode: Map<ASTNode, EnvironmentFrame> = new Map();
 
+    /** Boolean layer of this map: true = is process, false = is function*/
+    // TODO: this probably slowly leaks memory in the language server
+    fallbackCallOrStartDefs: Map<boolean, Map<string, FunctionDefinition>> = new Map([
+        [true, new Map()],
+        [false, new Map()],
+    ]);
+
     reportError(node: ASTNode, error: string) {
        this.errors.push(new TCNodeError(
             node,
@@ -1014,6 +1021,41 @@ export class TypeProcessor {
             return this.globalFrame;
         } else {
             return this.getNodeFrame(node.parent);
+        }
+    }
+
+    /** Will generate it if it does not exist */
+    private getFallbackCallOrStartDef(isProcess: boolean, name: string): FunctionDefinition {
+        let def = this.fallbackCallOrStartDefs.get(isProcess)?.get(name);
+        if (def) {
+            return def;
+        } else {
+            def = {
+                definitionType: DefinitionType.FUNCTION,
+                name: name,
+                // TODO: allow declaring functions/parameter signatures with wildcards and hook into those declarations to find signatures
+                signatures: [{params: [
+                    {name: "arguments", type: Type.any, optional: true, plural: true}
+                ]}],
+                defaultReturnType: Type.void,
+                getReturnType: USE_DEFAULT_RETURN_TYPE,
+                compile: isProcess ? COMPILE_START_PROCESS : COMPILE_CALL_FUNCTION,
+            };
+            this.fallbackCallOrStartDefs.get(isProcess)?.set(name, def);
+            return def;
+        }
+    }
+
+    getUserFuncDef(isProcess: boolean, name: string, allowFallback: boolean): FunctionDefinition | undefined {
+        let normalDef = this.globalFrame[isProcess ? "processes" : "functions"].get(name)?.[0];
+        if (normalDef) {
+            return normalDef;
+        } else {
+            if (allowFallback) {
+                return this.getFallbackCallOrStartDef(isProcess, name)
+            } else {
+                return undefined;
+            }
         }
     }
 }

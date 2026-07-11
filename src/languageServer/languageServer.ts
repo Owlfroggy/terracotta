@@ -375,7 +375,7 @@ function getNearestCallNode(node: ASTNode, typeProcessor: TypeProcessor, envFram
     
     if (callNode instanceof CallOrStartExpression) {
         let isProcess = callNode.keyword.type == TokenType.START;
-        let definition = typeProcessor.globalFrame[isProcess ? "processes" : "functions"].get(callNode.callee.value)?.[0];
+        let definition = typeProcessor.getUserFuncDef(isProcess, callNode.callee.value, true);
         return definition ? [callNode, definition] : [null, null];
     } else if (callNode instanceof CallExpression) {
         let closestForLoop = callNode.getClosestAncestor(ForStatement);
@@ -634,7 +634,8 @@ export class LanguageServer {
 
                 let tagAmount = Object.values(definition.action?.tags ?? {}).length;
                 let tagString = tagAmount > 0 ? ` + ${tagAmount} tag${tagAmount > 1 ? "s" : ""}` : "";
-                info.label = `${definition.name}(${paramStrings.join(", ")})${tagString}`
+                let name = isIdentifier(definition.name) ? definition.name : valueToTCString(definition.name,'"');
+                info.label = `${name}(${paramStrings.join(", ")})${tagString}`
                 
                 info.parameters?.push({label: tagString});
 

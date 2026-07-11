@@ -232,6 +232,7 @@ export class PCodeParser {
 
     parse(expr: string): [PCodeError[], PCode[]] {
         this.expr = expr;
+        this.errors.length = 0;
         return [this.errors, this.parseRange(0, expr.length)]
     }
 }
