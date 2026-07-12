@@ -1,6 +1,7 @@
 import { ErrorType, TCError, TCManualError } from "../error/error.ts";
 import { Token, TokenType } from "../ast/token.ts";
 
+const ESCAPE_SEQUENCES = /\\u(?:[A-Fa-f0-9]{4})?|\\x(?:[A-Fa-f0-9]{2})?|\\n|\\'|\\"|\\./g
 export class Lexer {
     tokens: Token[] = [];
     errors: TCError[] = [];
@@ -108,37 +109,31 @@ export class Lexer {
                 }
             };
 
-            // \uFFFF
-            escapeSequence(/\\u(?:[A-Fa-f0-9]{4})?/g, (matchValue) => {
-                if (matchValue.length != 6) {
-                    return ['', `'\\u' escape sequence must be followed by four hexadecimal digits`];
-                } else {
-                    return [String.fromCodePoint(parseInt(matchValue.substring(2),16))];
+            escapeSequence(ESCAPE_SEQUENCES, (matchValue) => {
+                // \uFFFF
+                if (matchValue.startsWith("\\u")) {
+                    if (matchValue.length != 6) {
+                        return ['', `'\\u' escape sequence must be followed by four hexadecimal digits`];
+                    } else {
+                        return [String.fromCodePoint(parseInt(matchValue.substring(2),16))];
+                    }
+                }
+                // \xFF
+                if (matchValue.startsWith("\\x")) {
+                    if (matchValue.length != 4) {
+                        return ['', `'\\x' escape sequence must be followed by two hexadecimal digits`];
+                    } else {
+                        return [String.fromCodePoint(parseInt(matchValue.substring(2),16))];
+                    }
+                }
+                switch (matchValue) {
+                    case '\\n': return ["\n"];
+                    case "\\'": return ["\'"];
+                    case '\\"': return ["\""];
+                    case '\\\\': return ["\\"];
+                    default: return ["",`Invalid escape sequence '${matchValue}'`];
                 }
             })
-
-            // \xFF
-            escapeSequence(/\\x(?:[A-Fa-f0-9]{2})?/g, (matchValue) => {
-                if (matchValue.length != 4) {
-                    return ['', `'\\x' escape sequence must be followed by two hexadecimal digits`];
-                } else {
-                    return [String.fromCodePoint(parseInt(matchValue.substring(2),16))];
-                }
-            });
-
-            // basic escape sequences
-            escapeSequence(/\\n/g, _ => ["\n"]);
-            escapeSequence(/\\'/g, _ => ["\'"]);
-            escapeSequence(/\\"/g, _ => ["\""]);
-
-            // (\\ -> \), or errors for invalid escape sequences (final catch-all)
-            escapeSequence(/\\./g, (matchValue) => {
-                if (matchValue == "\\\\") {
-                    return ["\\"];
-                } else {
-                    return ["",`Invalid escape sequence '${matchValue}'`];
-                }
-            });
 
             // apply all the substitutions that have been queued up
             substitutions.sort((a, b) => b[0] - a[0]);
