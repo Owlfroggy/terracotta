@@ -31,6 +31,8 @@ export function OPT_condenseSingleWhileCondition(line: CodeBlock[], optimizer: C
     // set as while and copy action 
     repeatBlock.action = "While";
     repeatBlock.subAction = getDifferentiatedActionName(ifBlock.block, ifBlock.action);
+    // copy tags
+    repeatBlock.tags = ifBlock.tags;
     // invert condition back to its original form
     repeatBlock.not = !ifBlock.not;
 

@@ -36,6 +36,8 @@ export function OPT_condenseSingleSelectFilter(line: CodeBlock[], optimizer: Cod
     }
     // copy action to filter block
     filterBlock.subAction = getDifferentiatedActionName(ifBlock.block, ifBlock.action);
+    // copy tags to filter block
+    filterBlock.tags = ifBlock.tags;
     // remove now-redundant condition code
     optimizer.spliceBlocks(line, initializerIndex, spliceEndIndex-initializerIndex+1);
 
