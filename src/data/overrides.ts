@@ -781,6 +781,16 @@ export const OVERRIDES: {
             "ActionBar": [
                 {params: [ {name: "Message to send", type: Type.any, optional: true, plural: true} ]}
             ],
+            "ReplaceItems": [
+                {params: [
+                    {name: "Items", type: Type.item, optional: false, plural: true, description: 
+                        "The last item in this list will be used to replace any of the other items in this list.\n\n"
+                        +"The below example will replace all Emeralds and all Diamonds with Paper\n"
+                        +"```tc\nplayer.replaceItems(\n\titem('emerald'),\n\titem('diamond'),\n\titem('paper')\n);\n```"
+                    },
+                    {name: "Amount to replace", type: Type.num, optional: true, plural: false},
+                ]}
+            ]
         },
         "SET VARIABLE": {
             // num
