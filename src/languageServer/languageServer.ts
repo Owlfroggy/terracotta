@@ -628,7 +628,7 @@ export class LanguageServer {
                 for (const param of signature.params) {
                     let paramString: string
                     paramString = `${param.plural ? "..." : ""}${param.name}${param.optional ? "*" : ""}: ${param.type.name}`
-                    info.parameters!.push({label: paramString, documentation: param.description})
+                    info.parameters!.push({label: paramString, documentation: param.description ? {kind: "markdown", value: param.description} : undefined})
                     paramStrings.push(paramString)
                 }
 
