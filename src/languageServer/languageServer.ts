@@ -854,12 +854,29 @@ export class LanguageServer {
                 // action tags
                 if (definition.action ?? definition.compile == COMPILE_START_PROCESS) {
                     let action = definition.action ?? AD.actions.get(DFCodeblockName.START_PROCESS)!.dynamic!;
+                    let tagBinary: BinaryExpression & {left: AtomicExpression};
                     // tag value
                     if (
-                        binaryIsNamedArgument(closestBinary, callNode)
-                        && (node.isChildOf(closestBinary.right) || node == closestBinary.operator)
+                        closestBinary
+                        && (
+                            (
+                                binaryIsNamedArgument(closestBinary, callNode)
+                                && (tagBinary = closestBinary)
+                            )
+                            || (
+                                closestBinary.operator.type == TokenType.COALESCE
+                                && closestBinary.parent instanceof BinaryExpression
+                                && binaryIsNamedArgument(closestBinary.parent, callNode)
+                                && (tagBinary = closestBinary.parent)
+                            )
+                        )
+                        && (
+                            node.isChildOf(closestBinary.right) 
+                            || node == closestBinary.operator
+                            || node == closestBinary && index >= closestBinary.operator.startPos
+                        )
                     ) {
-                        let tagName = closestBinary.left.token.value;
+                        let tagName = tagBinary.left.token.value;
                         let tag = action.tcTagMap[tagName];
                         if (tag) {
                             for (const [optName, optData] of Object.entries(tag.options)) {
@@ -875,10 +892,6 @@ export class LanguageServer {
                                 };
                                 stringizeCompletionItem(item, node, doc);
                                 items.push(item);
-                            }
-                            includeGenerics = false;
-                            if (!(node instanceof Token && node.type == TokenType.STRING_LITERAL)) {
-                                items.push(...generateVariableCompletions(envFrame, node.startPos));
                             }
                         }
                     }

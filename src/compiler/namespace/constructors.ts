@@ -461,7 +461,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
                 }
                 continue;
             }
-            fieldArgs[name] = argValue;
+            fieldArgs[name] = argValue[0];
         }
         // assign default values to any fields not specified
         for (const field of allowedFields) {

@@ -1,4 +1,4 @@
-import { AtomicExpression, CallExpression } from "../../ast/expression.ts";
+import { AtomicExpression, CallExpression, Expression } from "../../ast/expression.ts";
 import { actions } from "../../df/actiondump.ts";
 import { DFCodeblockName } from "../../df/constants.ts";
 import { MultiValueTypeData, Type } from "../../typeProcessor/type.ts";
@@ -9,7 +9,7 @@ import { CodeValue, EmptyValue, MultiValue, TangibleValue, VariableValue } from 
 import { compileTags, handleSingleBlockReturnVars } from "./builtins.ts";
 import { FunctionCallExtraInfo, FunctionDefinition } from "./definition.ts";
 
-export function COMPILE_CALL_FUNCTION(this: FunctionDefinition, args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression, extraInfo: FunctionCallExtraInfo): [CodeValue, CodeBlock[]] {
+export function COMPILE_CALL_FUNCTION(this: FunctionDefinition, args: CodeValue[], namedArgs: Map<AtomicExpression, [CodeValue, Expression]>, ctx: EvaluationContext, callNode: CallExpression, extraInfo: FunctionCallExtraInfo): [CodeValue, CodeBlock[]] {
     // TODO: handle user-defined methods
     validateArguments(args, callNode, this.signatures, ctx);
 
@@ -23,11 +23,13 @@ export function COMPILE_CALL_FUNCTION(this: FunctionDefinition, args: CodeValue[
 }
 
 // TODO: start process tags
-export function COMPILE_START_PROCESS(this: FunctionDefinition, args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression): [CodeValue, CodeBlock[]] {
+export function COMPILE_START_PROCESS(this: FunctionDefinition, args: CodeValue[], namedArgs: Map<AtomicExpression, [CodeValue, Expression]>, ctx: EvaluationContext, callNode: CallExpression): [CodeValue, CodeBlock[]] {
     validateArguments(args, callNode, this.signatures, ctx, {allowNamedArgs: true});
-    return [new EmptyValue(), [new ActionBlock(DFCodeblockName.START_PROCESS,{
+    let [tags, code] = compileTags(actions.get(DFCodeblockName.START_PROCESS)!.dynamic, namedArgs, ctx);
+    code.push(new ActionBlock(DFCodeblockName.START_PROCESS,{
         action: this.name,
         args: args.filter(arg => arg instanceof TangibleValue),
-        tags: compileTags(actions.get(DFCodeblockName.START_PROCESS)!.dynamic, namedArgs, ctx),
-    })]]
+        tags,
+    }));
+    return [new EmptyValue(), code];
 }

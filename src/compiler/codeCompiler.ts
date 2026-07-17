@@ -43,8 +43,9 @@ export type EvaluationContext = {
     types: TypeProcessor,
     rank: DFRank,
     compiler: CodeCompiler,
+    perSelectedMode: boolean,
     getItemLibraries: () => {[id: string]: ItemLibrary},
-    reportError: (node: ASTNode, message: string) => void,
+    reportError: (node: ASTNode, message: string, gateValue?: CodeValue) => void,
 }
 
 type StatementContext = {
@@ -108,12 +109,13 @@ export class CodeCompiler {
         public env: CompliationEnvironment,
     ) {}
 
-    getEvaluationContext(perSelectedMode?: boolean): EvaluationContext {
+    getEvaluationContext(perSelectedMode: boolean = false): EvaluationContext {
         return {
             tvp: perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider,
             types: this.env.types,
             rank: this.env.rank,
             compiler: this,
+            perSelectedMode,
             getItemLibraries: this.env.getItemLibraries,
             reportError: this.reportError,
         }
@@ -388,9 +390,9 @@ export class CodeCompiler {
         return declarationsToCompile;
     }
 
-    compileArgsList(argsList: ListExpression, context: ExpressionContext): [args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, argCode: CodeBlock[]] {
+    compileArgsList(argsList: ListExpression, context: ExpressionContext, compileNamedArgs: boolean = true): [args: CodeValue[], namedArgs: Map<AtomicExpression, [CodeValue, Expression]>, argCode: CodeBlock[]] {
         let args: CodeValue[] = [];
-        let namedArgs: Map<AtomicExpression, CodeValue> = new Map();
+        let namedArgs: Map<AtomicExpression, [CodeValue, Expression]> = new Map();
         let argCode: CodeBlock[] = [];
         let seenNames: {[name: string]: true} = {};
         for (const argNode of argsList.elements) {
@@ -414,9 +416,13 @@ export class CodeCompiler {
 
                 seenNames[name.token.value] = true;
 
-                let [value, code] = this.compileExpression(argNode.right, context);
-                namedArgs.set(name, value);
-                argCode.push(...code);
+                if (compileNamedArgs) {
+                    let [value, code] = this.compileExpression(argNode.right, context);
+                    namedArgs.set(name, [value, argNode.right]);
+                    argCode.push(...code);
+                } else {
+                    namedArgs.set(name, [new EmptyValue(argNode.right), argNode.right]);
+                }
             } 
             //normal arg
             else {
@@ -455,7 +461,7 @@ export class CodeCompiler {
     }
 
     compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition, context: ExpressionContext, extraInfo: FunctionCallExtraInfo = {}): [CodeValue, CodeBlock[]] {
-        let [args, namedArgs, argCode] = this.compileArgsList(e.args, context);
+        let [args, namedArgs, argCode] = this.compileArgsList(e.args, context, !definition.manuallyCompilesNamedArgs);
         let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(context.perSelectedMode), e, extraInfo);
         value.astNode = e;
         return [value, [...argCode, ...code]];

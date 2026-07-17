@@ -82,6 +82,8 @@ export class Parser {
             [TokenType.BOOL_AND,        {bp: BindingPower.BOOL_AND, processor: this.parseBinaryExpression}],
             [TokenType.BOOL_OR,         {bp: BindingPower.BOOL_OR,  processor: this.parseBinaryExpression}],
 
+            [TokenType.COALESCE,        {bp: BindingPower.BOOL_OR,  processor: this.parseBinaryExpression}],
+            
             [TokenType.AS,              {bp: BindingPower.TYPECAST, processor: this.parseTypecastExpression}],
 
             [TokenType.TO,              {bp: BindingPower.LOOP_KW,  processor: this.parseBinaryExpression}],

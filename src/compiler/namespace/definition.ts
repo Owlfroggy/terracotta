@@ -46,10 +46,18 @@ export interface FunctionDefinition {
     returnVarsAtEnd?: boolean,
     defaultReturnType: Type,
     getReturnType: (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => Type,
+    
+    /** 
+     * If true, indicates that this named args should NOT be compiled into code values prior to 
+     * calling def.compile() as this function handles that itself
+     * 
+     * If true, EmptyValue should be passed in for every CodeValue entry in the namedArgs map
+     * */
+    manuallyCompilesNamedArgs?: boolean,
+    compile(args: CodeValue[], namedArgs: Map<AtomicExpression, [CodeValue, Expression]>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression, extraInfo?: FunctionCallExtraInfo): [CodeValue, CodeBlock[]];
 
     /** Is only used for language server purposes, the compiler should never touch this */
     action?: Action,
-    compile(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression, extraInfo?: FunctionCallExtraInfo): [CodeValue, CodeBlock[]];
 
     // language server specific stuff
     astNode?: FunctionStatement,
@@ -64,7 +72,7 @@ export interface ConditionDefinition extends FunctionDefinition {
     /** Will always be Type.num */
     defaultReturnType: Type,
     /** Should always return an EmptyValue */
-    compileIf(args: CodeValue[], namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression, extraInfo?: FunctionCallExtraInfo): [CodeValue, CodeBlock[]];
+    compileIf(args: CodeValue[], namedArgs: Map<AtomicExpression, [CodeValue, Expression]>, ctx: EvaluationContext, callNode: CallExpression | CallOrStartExpression, extraInfo?: FunctionCallExtraInfo): [CodeValue, CodeBlock[]];
 }
 
 export interface ValueDefinition {

@@ -1,6 +1,6 @@
 import { DFCodeblockName, dfTypeToTC, DFValueType, GameValueTargetType, TargetType } from "../../df/constants.ts";
 import * as AD from "../../df/actiondump.ts";
-import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, MultiValue, NumberValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
+import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, MissingValue, MultiValue, NamespaceValue, NumberValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../codeBlock.ts";
 import { MultiValueTypeData, Type, TYPE_NAMESPACES } from "../../typeProcessor/type.ts";
 import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE, FunctionCallExtraInfo } from "./definition.ts";
@@ -10,10 +10,11 @@ import { ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SN
 import { expressionizeIfBlock, toNameCase, upperFirst } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
 import { validateArguments } from "../../util/argValidation.ts";
-import { AtomicExpression, CallExpression, CallOrStartExpression } from "../../ast/expression.ts";
+import { AtomicExpression, BinaryExpression, CallExpression, CallOrStartExpression, Expression } from "../../ast/expression.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
 import { methodizeParameterSignatures } from "./utils.ts";
 import { getImprovedErrorNode } from "../../error/errorUtils.ts";
+import { TokenType } from "../../ast/token.ts";
 
 export function handleSingleBlockReturnVars(def: FunctionDefinition, ctx: EvaluationContext, extraInfo: FunctionCallExtraInfo, callNode: CallExpression | CallOrStartExpression, argListToModify: CodeValue[]): [CodeValue] {
     let returnValue: CodeValue;
@@ -46,44 +47,75 @@ export function handleSingleBlockReturnVars(def: FunctionDefinition, ctx: Evalua
     return [returnValue]
 }
 
-export function compileTags(actionDef: AD.Action, namedArgs: Map<AtomicExpression, CodeValue>, ctx: EvaluationContext): ActionTagValue[] {
+export function compileTags(actionDef: AD.Action, namedArgs: Map<AtomicExpression, [CodeValue, Expression]>, ctx: EvaluationContext): [ActionTagValue[], CodeBlock[]] {
     let tags: ActionTagValue[] = [];
+    let code: CodeBlock[] = [];
     // tag parsing
-    for (const [nameExpr, arg] of namedArgs.entries()) {
+    for (let [nameExpr, [_, expr]] of namedArgs.entries()) {
         let tagDef = actionDef.tcTagMap[nameExpr.token.value];
+        let exprContext = {perSelectedMode: ctx.perSelectedMode};
         if (!tagDef) {
             ctx.reportError(
                 nameExpr,
                 `Invalid tag name '${nameExpr.token.value}'`
             );
+            // compile expr anyway so errors are reported
+            ctx.compiler.compileExpression(expr, exprContext);
             continue;
         }
 
+        let defaultOption = tagDef.defaultOption;
+        let defaultOptionExpr: Expression | undefined;
+        let argExpr: Expression;
+
+        expr = expr.getRealExpression();
+        if (expr instanceof BinaryExpression && expr.operator.type == TokenType.COALESCE) {
+            argExpr = expr.left;
+            defaultOptionExpr = expr.right;
+            let [defaultValue, defaultValueCode] = ctx.compiler.compileExpression(expr.right, exprContext);
+            if (defaultValueCode.length > 0 || !defaultValue.isCompileTimeConstant()) {
+                ctx.reportError(expr.right,`Default tag option must be a constant`, defaultValue);
+            } else if (!(defaultValue instanceof StringValue)) {
+                ctx.reportError(expr.right, `Default tag option must be a string`, defaultValue);
+            } else if (!(defaultValue.value in tagDef.options)) {
+                ctx.reportError(expr.right, `'${defaultValue.value}' is not a valid default option for this tag`, defaultValue);
+            } else {
+                defaultOption = defaultValue.value;
+            }
+        } else {
+            argExpr = expr;
+        }
+
+        let [arg, argCode] = ctx.compiler.compileExpression(argExpr, exprContext);
+        code.push(...argCode);
+
         let valType = arg.getType(ctx.types);
-        if (!(valType == Type.str || valType == Type.any)) {
+        if (!(valType == Type.str || valType == Type.any) || arg instanceof MissingValue || arg instanceof MultiValue) {
             ctx.reportError(
-                arg.astNode ?? nameExpr,
-                `Expected string (str) for tag value, got '${valType.name}'`
+                argExpr,
+                `Expected type 'str' for tag option, got type '${valType.name}'`,
+                arg
             );
             continue;
         }
 
         if (arg instanceof StringValue) {
+            if (defaultOptionExpr) {
+                ctx.reportError(defaultOptionExpr, `Only non-constant tags can specify a default option`);
+            }
             if (!(arg.value in tagDef.options)) {
-                ctx.reportError(
-                    arg.astNode ?? nameExpr,
-                    `'${arg.value}' is not a valid option for this tag`
-                );
+                ctx.reportError(argExpr, `'${arg.value}' is not a valid option for this tag`);
                 continue;
             }
-
             tags.push(new ActionTagValue(tagDef, arg.value));
         } else if (arg instanceof VariableValue) {
-            // todo: specifiable default vaulues)
-            tags.push(new ActionTagValue(tagDef, tagDef.defaultOption, arg))
+            tags.push(new ActionTagValue(tagDef, defaultOption, arg))
+        } else {
+            // i dont think you can ever reach this state but i wanna have an error here just in case
+            ctx.reportError(argExpr, "Just put the strings in the tag bro omg");
         }
     }
-    return tags;
+    return [tags, code];
 }
 
 export function generateGameValueHook(valueName: string, dfName: string, target: TargetType): ValueDefinition {
@@ -104,7 +136,8 @@ export function generateGameValueHook(valueName: string, dfName: string, target:
 
 
 export function generateActionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, target: TargetType = TargetType.UNSET, insertReturnVars: boolean = true): FunctionDefinition {
-    let actionDef = AD.actions.get(codeblock)?.[actionDFName]!;
+    let actionDef = AD.actions.get(codeblock)?.[actionDFName];
+    if (!actionDef) throw new Error(`Initialization Error: Attempted to generate action hook for '${codeblock} ${actionDFName}' but no definition exists in the action dump.`)
 
     // TODO: support multiple return values
     let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
@@ -203,6 +236,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         returnVarsAtEnd: OVERRIDES.returnValueAtEndActions[codeblock]?.has(actionDFName),
         defaultReturnType: tcReturnType,
         getReturnType,
+        manuallyCompilesNamedArgs: true,
         compile(this: FunctionDefinition, args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] {
             // rank check
             if (!AD.rankCheck(ctx.rank, actionDef.requiresRank)) {
@@ -212,7 +246,8 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
                 );
             }
 
-            let tags = actionDef ? compileTags(actionDef, namedArgs, ctx) : [];
+
+            let [tags, code] = compileTags(actionDef, namedArgs, ctx);
 
             // arg validation
             let signaturesToCheck = signatures;
@@ -223,17 +258,18 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             // cloning the list here is intentional so that whatever passed in args doesnt get its list mutated
             if (extraInfo.methodCallOf) args = [extraInfo.methodCallOf, ...args];
 
-            let code = new ActionBlock(codeblock,{
+            let actionBlock = new ActionBlock(codeblock,{
                 action: actionDFName, 
                 args: args.filter(v => v instanceof TangibleValue), 
                 tags: tags, 
                 target: target
             });
+            code.push(actionBlock);
 
             
-            let [returnValue] = handleSingleBlockReturnVars(this, ctx, extraInfo, callNode, insertReturnVars ? code.args : [])
+            let [returnValue] = handleSingleBlockReturnVars(this, ctx, extraInfo, callNode, insertReturnVars ? actionBlock.args : [])
 
-            return [returnValue, [code]];
+            return [returnValue, code];
         },
 
         autocompleteSortPrefix: OVERRIDES.autocompleteSortPrefixes[codeblock]?.[actionDFName],
