@@ -4,12 +4,12 @@ import { CodeBlockMatcher, MATCH_FAILED } from "./matcher.ts";
 import { OPT_condenseSingleCondition } from "./passes/condenseSingleCondition.ts";
 import { OPT_condenseSetChain } from "./passes/condenseSetChain.ts";
 import { CodeValue, NumberValue, TangibleValue, VariableValue } from "../codeValue.ts";
-import { Action } from "../../df/actiondump.ts";
-import { DFValueType } from "../../df/constants.ts";
+import { Action, actions, isParamGroupValueSetter } from "../../df/actiondump.ts";
+import { DFCodeblockName, DFValueType } from "../../df/constants.ts";
 import { OPT_operationToPCode } from "./passes/operationToPCode.ts";
 import { PCode, VarPCode } from "../../pcode/pcode.ts";
 import { profile, profileEnd } from "node:console";
-import { Type } from "../../typeProcessor/type.ts";
+import { MultiValueTypeData, Type } from "../../typeProcessor/type.ts";
 import { OPT_condenseSingleWhileCondition } from "./passes/condenseSingleWhileCondition.ts";
 import { OPT_condenseSingleDoWhileCondition } from "./passes/condenseSingleDoWhileCondition.ts";
 import { OPT_condenseSingleSelectFilter } from "./passes/condenseSingleSelectFilter.ts";
@@ -251,12 +251,30 @@ export class CodeOptimizer {
         return false;
     }
 
-    actionIsSetter(actionDef: Action): boolean {
-        if (!actionDef) return false;
-        if (actionDef.parameters.length == 0) return false;
-        let firstParam = actionDef.parameters[0].groups[0][0];
-        if (!(firstParam.type == DFValueType.VARIABLE && firstParam.description == "Variable to set")) return false;
-        return true;
+    slotIsSetter(block: ActionBlock, slot: number): boolean {
+        if (block.block == DFCodeblockName.CALL_FUNCTION) {
+            let funcDef = this.typeProcessor.getUserFuncDef(false, block.action, true)!;
+            let returnType = funcDef.defaultReturnType // TODO: make this not use defaultReturnType
+            if (returnType.matches(Type.void)) {
+                return false;
+            } else if (returnType.matches(Type.multivalue)) {
+                return slot < (returnType.data as MultiValueTypeData).types.length;
+            } else {
+                return slot == 0;
+            }
+        } else {
+            let actionDef = actions.get(block.block)?.[block.action];
+            // handle destructure as a special case since its so special
+            if (actionDef == actions.get(DFCodeblockName.SET_VARIABLE)!.DestructureList) {
+                return slot > 0;
+            } else if (actionDef) {
+                if (actionDef.parameters.length <= slot) return false;
+                let param = actionDef.parameters[slot].groups[0][0];
+                return isParamGroupValueSetter(param);
+            } else {
+                return false;
+            }
+        }
     }
     
     /**
