@@ -31,12 +31,15 @@ export function OPT_operationToPCode(line: CodeBlock[], optimizer: CodeOptimizer
 
     let pcodeOpr = numOprMap.get(setBlock.action);
     if (pcodeOpr == undefined) return false;
+
     if (setBlock.action == "%" && !(
         setBlock.tags.length == 0
         || setBlock.tags[0].option == "Remainder"
-    )) {
-        return false;
-    }
+    )) return false;
+    if (setBlock.action == "/" && !(
+        setBlock.tags.length == 0
+        || setBlock.tags[0].option == "Default"
+    )) return false;
 
     // make sure all arguments are condensible
     for (const arg of setBlock.args) {
