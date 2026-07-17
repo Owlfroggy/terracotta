@@ -197,6 +197,14 @@ export function getDifferentiatedActionName(block: DFCodeblockName, dfActionName
     return action.differentiatedName;
 }
 
+export function isParamGroupValueSetter(value: ParameterGroupValue) {
+    return value.type == DFValueType.VARIABLE && (
+        value.description == "Variable to set" 
+        || value.description.substring(0, 16) == "Gets the current"
+        || value.description.startsWith("Variable to store")
+    )
+}
+
 //==========[ private functions ]=========\\
 
 function parseArgumentValueThingies(args: any[]): Parameter[] {

@@ -158,14 +158,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             let optionalModified = false;
             for (const values of groups) {
                 //if being assigned to a variable, exclude first var param from signature
-                if (
-                    values[0].type == DFValueType.VARIABLE 
-                    && (
-                        values[0].description == "Variable to set" 
-                        || values[0].description.substring(0, 16) == "Gets the current"
-                        || values[0].description.startsWith("Variable to store")
-                    )
-                ) {
+                if (AD.isParamGroupValueSetter(values[0])) {
                     varRemoved = true;
                     values.shift();
                     if (values.length == 0) {
