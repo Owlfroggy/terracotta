@@ -24,11 +24,7 @@ export function OPT_operationToPCode(line: CodeBlock[], optimizer: CodeOptimizer
         ]
     });
 
-
-    // make sure this is a setter action that can be pcodeified
-    let actionDef = AD.actions.get(setBlock.block)![setBlock.action];
-    if (!optimizer.actionIsSetter(actionDef)) return false;
-
+    // make sure this is an action that can be pcodeified
     let pcodeOpr = numOprMap.get(setBlock.action);
     if (pcodeOpr == undefined) return false;
 
