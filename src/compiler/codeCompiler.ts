@@ -26,6 +26,7 @@ import { GLOBAL_SCOPE_INJECTIONS } from "./namespace/globalScopeInjections.ts";
 import { MAX_FUNCTION_PARAMS, SliceCodeLine, SPLIT_FAILED_ERROR_MESSAGE } from "./lineSplitter.ts";
 import { ItemLibrary } from "./itemLibrary.ts";
 import { isSNBTValid } from "../util/snbtUtils.ts";
+import { INVERTIBLE_SELECT_ACTIONS } from "../data/constants.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -1058,6 +1059,8 @@ export class CodeCompiler {
                 }
                 let definition = definitionBank[selExpr.name.value];
 
+                let invert = e.callee.nameInverterToken != null;
+
                 // condition actions
                 if (definition.action?.hasSubActions) {
                     let selAction = definition.action!;
@@ -1070,7 +1073,8 @@ export class CodeCompiler {
                     }
                     let conditionExpr = e.args.elements[0];
                     let oprTree = BooleanOperation.generateIfPossible(conditionExpr);
-                    if (e.callee.inverterToken) oprTree = new BooleanOperation(TokenType.BANG, oprTree);
+                    if (e.callee.inverterToken) invert = !invert;
+                    if (invert) oprTree = new BooleanOperation(TokenType.BANG, oprTree);
                     if (oprTree instanceof BooleanOperation) oprTree = BooleanOperation.simplify(oprTree);
                     
                     let code: CodeBlock[] = [];
@@ -1139,6 +1143,15 @@ export class CodeCompiler {
                 // normal actions
                 else {
                     let [_, code] = this.compileCallExpression(e, definition, exprContext);
+                    if (e.callee.inverterToken != null) {
+                        this.reportError(e.callee.inverterToken,"Inverter (!) must be placed before the action name for this action")
+                    }
+                    if (invert) {
+                        if (!definition.action || !(INVERTIBLE_SELECT_ACTIONS.includes(definition.action.name))) {
+                            this.reportError(e.callee.nameInverterToken ?? e.callee,`Selection action '${definition.name}' cannot be inverted`);
+                        }
+                        (code[code.length-1] as ActionBlock).not = true;
+                    }
                     return code;
                 }
             // syntactic sugar for argless selection expresions

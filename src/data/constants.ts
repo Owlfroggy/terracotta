@@ -70,6 +70,8 @@ export const FORCED_EVENT_ACTIONS = ["AttackIsCrit","EventChunkNew","CmdArgEqual
 export const CREATE_SELECTION_ACTION_LIST = ["RandomPlayer","LastEntity","EntityName","PlayerName","AllEntities","Reset","EventTarget","EntitiesCond","AllPlayers","Invert","PlayersCond","EntityUUID"]
 export const FILTER_SELECTION_ACTION_LIST = ["FilterRandom","FilterDistance","FilterRay","FilterCondition","FilterSort"]
 
+// select/filter actions which should be invertible by putting a ! in front of the action name
+export const INVERTIBLE_SELECT_ACTIONS = ["PlayerName","EntityName","PlayersCond","EntitiesCond","EntityUUID","FilterCondition"];
 
 /** 
  * also serves as a registry of valid particle field names.

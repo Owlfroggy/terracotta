@@ -591,6 +591,12 @@ export class Parser {
 
     parseSelectionExpression = (): SelectionExpression => {
         let keyword = this.consume();
+
+        let nameInverterToken: Token | null = null;
+        if (this.currentToken().type == TokenType.BANG) {
+            nameInverterToken = this.consume();
+        }
+
         let [name, nameFound] = this.expectOrMissing(TokenType.IDENTIFIER, true);
 
         let inverterToken: Token | null = null;
@@ -598,7 +604,7 @@ export class Parser {
             inverterToken = this.consume();
         }
 
-        return new SelectionExpression(keyword, name, inverterToken);
+        return new SelectionExpression(keyword, nameInverterToken, name, inverterToken);
     }
 
     parseChunkExpression = (openerType: TokenType, closerType: TokenType): ChunkExpression | null => {

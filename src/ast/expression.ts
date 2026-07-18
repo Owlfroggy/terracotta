@@ -216,6 +216,7 @@ export class PerSelectedExpression extends Expression {
 export class SelectionExpression extends Expression {
     constructor (
         public keyword: Token,
+        public nameInverterToken: Token | null,
         public name: Token,
         public inverterToken: Token | null,
     ) {super(keyword.startPos, inverterToken?.endPos ?? name.endPos);}

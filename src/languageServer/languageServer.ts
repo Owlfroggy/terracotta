@@ -830,7 +830,7 @@ export class LanguageServer {
             // action names in a select/filter statement
             else if (
                 (node instanceof SelectionExpression && node.keyword.endPos < index && index <= node.endPos) || 
-                (node instanceof Token && node.parent instanceof SelectionExpression && node.keyInParent == "name")
+                (node instanceof Token && node.parent instanceof SelectionExpression && (node.keyInParent == "name" || node.keyInParent == "nameInverterToken"))
             ) {
                 includeGenerics = false;
                 let callExpression = (node instanceof SelectionExpression ? node : node.parent) as SelectionExpression;
