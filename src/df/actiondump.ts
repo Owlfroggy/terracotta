@@ -128,6 +128,7 @@ export class GameValue {
         public additionalInfo: string[],
         public worksWith: string[],
         public worldPlotExclusive: boolean,
+        public category: string,
     ) {}
 }
 
@@ -368,6 +369,7 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
         gameValueJson.icon.additionalInfo.map(entry => entry.map(line => deColorizeString(line)).join(" ")),
         gameValueJson.icon.worksWith,
         gameValueJson.icon.worldExclusive,
+        gameValueJson.category,
     );
 }
 

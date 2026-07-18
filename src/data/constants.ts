@@ -59,6 +59,11 @@ export const TYPE_DOMAIN_CONDITIONS = {
     snd: [],
 }
 
+// actions which should be forced into the event namespace as opposed to the game namespace
+// covers both actions, if conditions and game values
+export const FORCED_EVENT_ACTIONS = ["AttackIsCrit","EventChunkNew","CmdArgEquals","CommandEquals"];
+
+
 //controls which select actions go with the select/filter keywords
 //! IF A SELECTION ACTION ISN'T PRESENT IN THESE TABLES IT WON'T BE ACCESSIBLE AT ALL !
 //df name

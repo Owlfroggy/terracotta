@@ -5,7 +5,7 @@ import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } f
 import { MultiValueTypeData, Type, TYPE_NAMESPACES } from "../../typeProcessor/type.ts";
 import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE, FunctionCallExtraInfo } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
-import { CREATE_SELECTION_ACTION_LIST, FILTER_SELECTION_ACTION_LIST, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
+import { CREATE_SELECTION_ACTION_LIST, FILTER_SELECTION_ACTION_LIST, FORCED_EVENT_ACTIONS, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
 import { expressionizeIfBlock, toNameCase, upperFirst } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
@@ -15,6 +15,15 @@ import { EvaluationContext } from "../codeCompiler.ts";
 import { methodizeParameterSignatures } from "./utils.ts";
 import { getImprovedErrorNode } from "../../error/errorUtils.ts";
 import { TokenType } from "../../ast/token.ts";
+
+function isGVEventValue(gameValue?: AD.GameValue) {
+    if (!gameValue) return false;
+    return gameValue.category == "Event Values";
+}
+function isActionEventAction(action?: AD.Action) {
+    if (!action) return false;
+    return action.iconName.includes("Event") || FORCED_EVENT_ACTIONS.includes(action.name);
+}
 
 export function handleSingleBlockReturnVars(def: FunctionDefinition, ctx: EvaluationContext, extraInfo: FunctionCallExtraInfo, callNode: CallExpression | CallOrStartExpression, argListToModify: CodeValue[]): [CodeValue] {
     let returnValue: CodeValue;
@@ -412,17 +421,17 @@ export function registerBuiltinNamespaces() {
 
     // game action namespace
     new Namespace("game", Object.fromEntries([
-        ...gameActionEntries.filter(([k,v]) => !v.action?.iconName.includes("Event")),
-        ...ifGameEntries.filter(([k,v]) => !v.action?.iconName.includes("Event")),
+        ...gameActionEntries.filter(([k,v]) => !isActionEventAction(v.action)),
+        ...ifGameEntries.filter(([k,v]) => !isActionEventAction(v.action)),
         ...Object.entries(typeActionMembers('game')),
-        ...untargetedGameValueEntries.filter(([k,v]) => !v.gameValue?.name.includes("Event"))
+        ...untargetedGameValueEntries.filter(([k,v]) => !isGVEventValue(v.gameValue))
     ]));
     
     // event namespace
     new Namespace("event", Object.fromEntries([
-        ...gameActionEntries.filter(([k,v]) => v.action?.iconName.includes("Event")),
-        ...ifGameEntries.filter(([k,v]) => v.action?.iconName.includes("Event")),
-        ...untargetedGameValueEntries.filter(([k,v]) => v.gameValue?.name.includes("Event"))
+        ...gameActionEntries.filter(([k,v]) => isActionEventAction(v.action)),
+        ...ifGameEntries.filter(([k,v]) => isActionEventAction(v.action)),
+        ...untargetedGameValueEntries.filter(([k,v]) => isGVEventValue(v.gameValue))
     ]));
 }
 
