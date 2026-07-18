@@ -14,6 +14,8 @@ import { DFRank } from "./df/constants.ts";
 import { PCodeParser } from "./pcode/pcodeParser.ts";
 import { normalizeLineEndings } from "./util/utils.ts";
 
+export const VERSION = "1.0.0-beta.3";
+
 registerBuiltinNamespaces()
 
 // todo: figure out why this needs to be here and fix it
@@ -59,6 +61,8 @@ async function Main() {
         includemeta: { type: "boolean" },
 
         debugprint: {type: "boolean"},
+
+        version: {type: "boolean"},
     } as const; //const as const!! i love javascript!!!!!!!!!!!!!!!
 
     
@@ -179,6 +183,8 @@ async function Main() {
     } 
     else if (command == "server") {
         new LanguageServer()
+    } else if (command == "version" || values.version) {
+        console.log(VERSION);
     } else {
         console.log("Helper text wip (if terracotta is out of beta and this is still here go yell at owlfroggy)")
     }
