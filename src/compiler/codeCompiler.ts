@@ -14,7 +14,7 @@ import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
 import { DefinitionType, FunctionCallExtraInfo, FunctionDefinition, isFunctionDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
-import { DFCodeblockName, DFRank, dfTypeToTC, DFValueType, TC_HEADER, tcTypeToDFParamType } from "../df/constants.ts";
+import { DFCodeblockName, DFRank, dfTypeToTC, DFValueType, DICT_LENGTH_LIMIT, LIST_LENGTH_LIMIT, STRING_LENGTH_LIMIT, TC_HEADER, tcTypeToDFParamType } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
 import { count } from "node:console";
 import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "./namespace/builtins.ts";
@@ -807,6 +807,9 @@ export class CodeCompiler {
                 contents.push(value);
             }
 
+            if (contents.length > LIST_LENGTH_LIMIT)
+                this.reportError(e, `List length (${contents.length}) exceeds DiamondFire's list length limit of ${LIST_LENGTH_LIMIT}`);
+
             return [tempVar, [...code, ...this.compileListContents(tempVar, contents)]];
         }
         else if (e instanceof DictionaryExpression) {
@@ -817,7 +820,6 @@ export class CodeCompiler {
             let keysContents: TangibleValue[] = [];
             let valuesContents: TangibleValue[] = [];
 
-            let contents: TangibleValue[] = [];
             for (const entry of e.entries) {
                 // variable key
                 if (entry.key instanceof GroupExpression) {
@@ -845,6 +847,9 @@ export class CodeCompiler {
                 code.push(...valueCode);
                 valuesContents.push(value);
             }
+
+            if (keysContents.length > DICT_LENGTH_LIMIT)
+                this.reportError(e, `Dictionary length (${keysContents.length}) exceeds DiamondFire's dictionary length limit of ${DICT_LENGTH_LIMIT}`);
 
             let keysCode = this.compileListContents(keysTempVar, keysContents);
             let valuesCode = this.compileListContents(valuesTempVar, valuesContents);
@@ -879,6 +884,8 @@ export class CodeCompiler {
                     return [new NumberValue(tcParseNumber(e.value).toString(),e), []];
                 }
                 case TokenType.NUMEXPR_LITERAL: {
+                    if (e.value.length > STRING_LENGTH_LIMIT)
+                        this.reportError(e, `Numeric literal length (${e.value.length}) exceeds DiamondFire's string length limit of ${STRING_LENGTH_LIMIT}`);
                     let [errors, parsed] = this.pcodeParser.parse(e.value);
                     if (errors.length > 0) {
                         for (let err of errors) {
@@ -890,9 +897,13 @@ export class CodeCompiler {
                     }
                 }
                 case TokenType.STRING_LITERAL: {
+                    if (e.value.length > STRING_LENGTH_LIMIT)
+                        this.reportError(e, `String length (${e.value.length}) exceeds DiamondFire's string length limit of ${STRING_LENGTH_LIMIT}`);
                     return [new StringValue(e.value,e), []];
                 }
                 case TokenType.STYLED_LITERAL: {
+                    if (e.value.length > STRING_LENGTH_LIMIT)
+                        this.reportError(e, `Styled text length (${e.value.length}) exceeds DiamondFire's string length limit of ${STRING_LENGTH_LIMIT}`);
                     return [new StyledTextValue(e.value,e), []];
                 }
                 default: {

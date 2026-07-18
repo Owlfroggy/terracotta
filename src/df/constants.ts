@@ -2,6 +2,10 @@ import { Type } from "../typeProcessor/type.ts";
 
 export const TC_HEADER = "@__TC_"
 
+export const DICT_LENGTH_LIMIT = 5_000;
+export const LIST_LENGTH_LIMIT = 10_000;
+export const STRING_LENGTH_LIMIT = 10_000;
+
 export enum DFRank {
     OVERLORD = "Overlord",
     MYTHIC = "Mythic",
