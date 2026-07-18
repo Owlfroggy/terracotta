@@ -373,7 +373,7 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
 
 // particle pass \\
 for (const particleJson of ACTION_DUMP_JSON.particles) {
-    let name = deColorizeString(particleJson.icon.name)
+    let name = deColorizeString(particleJson.icon.name);
     let fields = [...particleJson.fields,"Amount","Spread"];
 
     // motion variation has literally 0 effect on particles that just
@@ -384,7 +384,7 @@ for (const particleJson of ACTION_DUMP_JSON.particles) {
         fields.splice(motionVariationIndex, 1);
     }
 
-    particles[name] = new Particle(
+    particles[name.toLowerCase()] = new Particle(
         name,
         fields
     );
@@ -393,7 +393,7 @@ for (const particleJson of ACTION_DUMP_JSON.particles) {
 // sound pass \\
 for (const soundJson of ACTION_DUMP_JSON.sounds) {
     let name = deColorizeString(soundJson.icon.name);
-    sounds[name] = new Sound(
+    sounds[name.toLowerCase()] = new Sound(
         name,
         soundJson.variants ? soundJson.variants.map(v => v.id) : [],
     );
@@ -402,7 +402,7 @@ for (const soundJson of ACTION_DUMP_JSON.sounds) {
 // potion pass \\
 for (const potJson of ACTION_DUMP_JSON.potions) {
     let name = deColorizeString(potJson.icon.name);
-    potions[name] = new Potion(
+    potions[name.toLowerCase()] = new Potion(
         name,
         potJson.icon.description.map(line => deColorizeString(line)).join(" "),
     );

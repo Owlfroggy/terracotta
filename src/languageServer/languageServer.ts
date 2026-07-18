@@ -934,11 +934,11 @@ export class LanguageServer {
                 else if (definition == SND_CONSTRUCTOR) {
                     // names
                     if (posIndexIsInListElement(callNode.args, index, 0)) {
-                        items.push(...Object.keys(AD.sounds).map(name => 
+                        items.push(...Object.values(AD.sounds).map(sound => 
                             stringizeCompletionItem({
-                                label: name,
+                                label: sound.name,
                                 kind: CompletionItemKind.Text,
-                                sortText: "\u0000"+name,
+                                sortText: "\u0000"+sound.name,
                             }, node, doc)
                         ));
                     }
@@ -964,11 +964,11 @@ export class LanguageServer {
                 else if (definition == POT_CONSTRUCTOR) {
                     // names
                     if (posIndexIsInListElement(callNode.args, index, 0)) {
-                        items.push(...Object.keys(AD.potions).map(name => 
+                        items.push(...Object.values(AD.potions).map(pot => 
                             stringizeCompletionItem({
-                                label: name,
+                                label: pot.name,
                                 kind: CompletionItemKind.Text,
-                                sortText: "\u0000"+name,
+                                sortText: "\u0000"+pot.name,
                             }, node, doc)
                         ));
                     }
@@ -1014,7 +1014,7 @@ export class LanguageServer {
                     else if ( 
                         !(node instanceof Token && node.parent instanceof AtomicExpression && node.type != TokenType.IDENTIFIER)
                     ) {
-                        let allowedFields = getAllowedParticleFields(AD.particles[parName ?? ""]);
+                        let allowedFields = getAllowedParticleFields(AD.particles[parName?.toLowerCase() ?? ""]);
                         let existingArgs = getExistingNamedArgs(callNode.args);
                         for (const field of allowedFields) {
                             if (!existingArgs.includes(field)) {

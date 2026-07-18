@@ -211,7 +211,7 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
         // validation
         let failed = false;
         if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
-            if (args[0].value in AD.sounds) {
+            if (args[0].value.toLowerCase() in AD.sounds) {
                 // variant validation
                 let soundDef = AD.sounds[args[0].value];
                 if (soundDef && args.length>3 && args[3] instanceof StringValue && args[3].isCompileTimeConstant() && !soundDef.variants.includes(args[3].value)) {
@@ -341,7 +341,7 @@ export const POT_CONSTRUCTOR: FunctionDefinition = {
         // validation
         let failed = false;
         if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
-            if (!(args[0].value in AD.potions)) {
+            if (!(args[0].value.toLowerCase() in AD.potions)) {
                 ctx.reportError(
                     args[0].astNode ?? callNode,
                     `Invalid effect id '${args[0].value}'`
@@ -423,7 +423,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         }
         // constant value
         else if (args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
-            parDef = AD.particles[args[0].value];
+            parDef = AD.particles[args[0].value.toLowerCase()];
             if (!parDef) {
                 ctx.reportError(
                     args[0].astNode ?? callNode.callee,

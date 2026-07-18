@@ -1,4 +1,5 @@
 import { ParticleExtraData } from "../compiler/codeValue.ts";
+import { particles, potions, sounds } from "../df/actiondump.ts";
 import { MCNote } from "../util/note.ts";
 import { isIdentifier, valueToTCString } from "../util/utils.ts";
 
@@ -96,7 +97,7 @@ export function convertDFValue(value: DFValueData): string | null {
                 key = key.substring("minecraft:".length);
             args.push(valueToTCString(key));
         } else {
-            args.push(valueToTCString(value.data.sound));
+            args.push(valueToTCString(sounds[value.data.sound.toLowerCase()]?.name ?? value.data.sound));
         }
 
         let pitchArg: string = convertNumber(value.data.pitch,15);
@@ -178,15 +179,16 @@ export function convertDFValue(value: DFValueData): string | null {
 
 
         let fieldsEntries = Object.entries(fields);
+        let name = particles[value.data.particle.toLowerCase()]?.name ?? value.data.particle;
         if (fieldsEntries.length > 0) {
-            return `par(${valueToTCString(value.data.particle)}, ${fieldsEntries.map(([k, v]) => `${k}=${v}`).join(", ")})`;
+            return `par(${valueToTCString(name)}, ${fieldsEntries.map(([k, v]) => `${k}=${v}`).join(", ")})`;
         } else {
-            return `par(${valueToTCString(value.data.particle)})`;
+            return `par(${valueToTCString(name)})`;
         }
     }
     else if (value.id == "pot") {
         let args: string[] = [
-            valueToTCString(value.data.pot),
+            valueToTCString(potions[value.data.pot.toLowerCase()]?.name ?? value.data.pot),
         ];
         if (value.data.amp != 0 || value.data.dur != 1000000) {
             args.push(convertNumber(value.data.amp+1));
