@@ -14,7 +14,7 @@ import { DFRank } from "./df/constants.ts";
 import { PCodeParser } from "./pcode/pcodeParser.ts";
 import { normalizeLineEndings } from "./util/utils.ts";
 
-export const VERSION = "1.0.0-beta.3";
+export const VERSION = "1.0.0-beta.4";
 
 registerBuiltinNamespaces()
 
