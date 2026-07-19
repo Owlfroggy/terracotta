@@ -939,7 +939,7 @@ export class CodeCompiler {
         throw new Error(`no idea how to compile this: ${e.constructor.name}`);
     }
 
-    compileIfStatement(condition: Expression, innerCode: CodeBlock[], invertEntireCondition: boolean, exprContext: ExpressionContext): CodeBlock[] {
+    compileIfStatement(condition: Expression, innerCode: CodeBlock[], invertEntireCondition: boolean, exprContext: ExpressionContext, hasElseAttached: boolean = false): CodeBlock[] {
         let tvp = exprContext.perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider;
         let operationTree: BooleanOperation | undefined;
         let realCondition = condition.getRealExpression();
@@ -954,7 +954,7 @@ export class CodeCompiler {
         let simplifiedBooleanExpression: BooleanOperation | Expression;
         if (operationTree) {
             simplifiedBooleanExpression = BooleanOperation.simplify(operationTree);
-            if (simplifiedBooleanExpression instanceof BooleanOperation && BooleanOperation.isSinglePath(simplifiedBooleanExpression)) {
+            if (!hasElseAttached && simplifiedBooleanExpression instanceof BooleanOperation && BooleanOperation.isSinglePath(simplifiedBooleanExpression)) {
                 directInsertBoolOpMode = true;
             }
         } else {
@@ -1343,7 +1343,7 @@ export class CodeCompiler {
             };
 
             let innerIfCode = s.chunk.statements.map(child => this.compileStatement(child,context)).flat()
-            let code: CodeBlock[] = this.compileIfStatement(s.condition, innerIfCode, s.inverterToken != null, exprContext);
+            let code: CodeBlock[] = this.compileIfStatement(s.condition, innerIfCode, s.inverterToken != null, exprContext, s.elseContents != null);
 
             if (s.elseContents) {
                 let elseContentsCode: CodeBlock[] = [];
