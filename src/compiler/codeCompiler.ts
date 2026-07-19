@@ -1088,7 +1088,7 @@ export class CodeCompiler {
             }
 
             // shadowing error
-            if (e instanceof VariableExpression && e.assignedType) this.shadowingCheck(e);
+            if (e instanceof VariableExpression) this.shadowingCheck(e);
             
             // other argless control blocks
             // selection statements
