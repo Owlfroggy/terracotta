@@ -162,7 +162,7 @@ export class Parser {
     }
 
     /**
-     * @param identCastKeywords If this is true and only TokenType.IDENTIFIER is accepted,
+     * @param identCastKeywords If this is true and TokenType.IDENTIFIER is accepted,
      * keyword tokens will be converted to identifier tokens instead of rejected
      */
     expect(type: TokenType | TokenType[], advance: boolean = true, identCastKeywords: boolean = false): [Token, boolean] {
@@ -488,7 +488,7 @@ export class Parser {
             ellipses = this.consume();
         }
 
-        let [name, nameFound] = this.expect([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
+        let [name, nameFound] = this.expect([TokenType.IDENTIFIER, TokenType.STRING_LITERAL], true, true);
         if (!nameFound) return null;
 
         let optionalMarker: Token | null = null;
@@ -759,7 +759,7 @@ export class Parser {
     parseFunctionStatement = (): FunctionStatement | null => {
         let keyword = this.consume();
         
-        let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL]);
+        let [name, nameFound] = this.expectOrMissing([TokenType.IDENTIFIER, TokenType.STRING_LITERAL], true);
 
         let params = this.parseTypedListExpression(TokenType.OPEN_PAREN, TokenType.CLOSE_PAREN, TokenType.COMMA, this.parseParameterExpression, true);
 
