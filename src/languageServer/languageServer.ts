@@ -23,7 +23,7 @@ import { brotliDecompress } from "node:zlib";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
 import { CSND_CONSTRUCTOR, ITEM_CONSTRUCTOR, LITEM_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR } from "../compiler/namespace/constructors.ts";
 import { FunctionValue, StringValue } from "../compiler/codeValue.ts";
-import { BLOCK_OR_ITEM_IDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, TYPE_DESCRIPTIONS, VALID_ITEM_IDS } from "../data/constants.ts";
+import { BLOCK_OR_ITEM_IDS, KEYWORDS, PAR_MATERIAL_FIELD_TYPES, PARTICLE_FIELD_DEFAULTS, TYPE_DESCRIPTIONS, VALID_ITEM_IDS } from "../data/constants.ts";
 import { setSlogCallback, setSnotifCallback, slog } from "./logging.ts";
 import { matchArgsToParams } from "../util/argValidation.ts";
 import { COMPILE_START_PROCESS } from "../compiler/namespace/compileCallFunction.ts";
@@ -319,16 +319,7 @@ const typeNameCompletions: CompletionItem[] = Object.entries(Type).map(([k, v]) 
     kind: CompletionItemKind.TypeParameter
 }))
 
-const keywordCompletions: CompletionItem[] = [
-    "lscancel", "playerevent", "entityevent", "gameevent", "function", "process", "declare",
-    "call", "start",
-    "return", "break", "continue",
-    "global", "saved", "local", "line",
-    "for", "repeat", "if", "else", "while", "do",
-    "perselected",
-    "as", "to", "in", "on",
-    "select", "filter",
-].map(kw => ({
+const keywordCompletions: CompletionItem[] = KEYWORDS.map(kw => ({
     label: kw,
     kind: CompletionItemKind.Keyword
 }));

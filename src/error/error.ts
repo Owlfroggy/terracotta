@@ -19,6 +19,7 @@ export enum ErrorPositionMode {
 
 export abstract class TCError {
     public shouldDisplay: boolean = true;
+    public isWarning: boolean = false;
 
     /** inclusive */
     abstract getStartPos(): number

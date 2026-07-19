@@ -16,7 +16,7 @@ import { DefinitionType, FunctionCallExtraInfo, FunctionDefinition, isFunctionDe
 import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName, DFRank, dfTypeToTC, DFValueType, DICT_LENGTH_LIMIT, LIST_LENGTH_LIMIT, STRING_LENGTH_LIMIT, TC_HEADER, tcTypeToDFParamType } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
-import { count } from "node:console";
+import { count, warn } from "node:console";
 import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "./namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
 import { PCodeParser } from "../pcode/pcodeParser.ts";
@@ -26,7 +26,7 @@ import { GLOBAL_SCOPE_INJECTIONS } from "./namespace/globalScopeInjections.ts";
 import { MAX_FUNCTION_PARAMS, SliceCodeLine, SPLIT_FAILED_ERROR_MESSAGE } from "./lineSplitter.ts";
 import { ItemLibrary } from "./itemLibrary.ts";
 import { isSNBTValid } from "../util/snbtUtils.ts";
-import { INVERTIBLE_SELECT_ACTIONS } from "../data/constants.ts";
+import { INVERTIBLE_SELECT_ACTIONS, KEYWORDS } from "../data/constants.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -169,6 +169,30 @@ export class CodeCompiler {
         return new VariableValue(varName, VariableScope.GLOBAL, Type.item);
     }
 
+    shadowingCheck(node: VariableExpression | Token, thingString: string = "Variable") {
+        let name = node instanceof VariableExpression ? node.name : node;
+        if (name.type == TokenType.IDENTIFIER) {
+            if (KEYWORDS.includes(name.value)) {
+                this.reportError(
+                    name, 
+                    `${thingString} name '${name.value}' conflicts with a built-in keyword of the same name. This can cause glitchy or undefined behavior and is generally not advisable.`
+                    +`\nBehavior regarding conflicts like this may change in future updates without warning.`
+                    +`\n\nWrap the ${thingString.toLowerCase()}'s name in quotes if this is intentional.`,
+                );
+            }
+            
+            if (name.value in Namespace.registry) {
+                this.reportError(
+                    name, 
+                    `${thingString} name '${name.value}' shadows a built-in namespace of the same name. The normal, original behavior of '${name.value}' will be inaccessible anywhere this ${thingString.toLowerCase()} is in scope.`
+                    +`\nBehavior regarding shadowing like this may change in future updates without warning.`
+                    +`\n\nWrap the ${thingString.toLowerCase()}'s name in quotes if this is intentional.`,
+                );
+                return;
+            }
+        }
+    }
+
     /** Returns an array of statements which need to be compiled */
     processLineDeclarations(statements: Statement[]): [lineEntry: CodeLineEntry, statement: Statement][] {
         let declarationsToCompile: [CodeLineEntry, Statement][] = [];
@@ -224,12 +248,16 @@ export class CodeCompiler {
             else if (s instanceof FunctionStatement) {
                 let headerType: HeaderType = DFCodeblockName[TokenType[s.keyword.type]];
                 // TODO: warning for trying to include pcodes in name
+
+                this.shadowingCheck(s.name, "Function");
                 
                 let parameters: ParameterValue[] = [];
                 if (s.params) {
                     let seenNames: Set<string> = new Set();
                     let hasSeenPluralAny = false;
                     for (const param of s.params.elements) {
+                        this.shadowingCheck(param.name,"Parameter");
+
                         if (seenNames.has(param.name.value)) {
                             this.reportError(
                                 param,
@@ -1058,6 +1086,9 @@ export class CodeCompiler {
                     })];
                 }
             }
+
+            // shadowing error
+            if (e instanceof VariableExpression && e.assignedType) this.shadowingCheck(e);
             
             // other argless control blocks
             // selection statements
@@ -1246,6 +1277,8 @@ export class CodeCompiler {
                 // compile variable
                 assigneeExpr = assigneeExpr.getRealExpression();
                 let [variable, _] = this.compileExpression(assigneeExpr, exprContext)
+
+                if (assigneeExpr instanceof VariableExpression) this.shadowingCheck(assigneeExpr);
 
                 // incrementor operators
                 if (s.operator.type != TokenType.EQUALS) {

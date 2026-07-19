@@ -73,6 +73,19 @@ export const FILTER_SELECTION_ACTION_LIST = ["FilterRandom","FilterDistance","Fi
 // select/filter actions which should be invertible by putting a ! in front of the action name
 export const INVERTIBLE_SELECT_ACTIONS = ["PlayerName","EntityName","PlayersCond","EntitiesCond","EntityUUID","FilterCondition"];
 
+// strings in here will cause variables with that name to throw an error about shadowing
+// strings in here will also show up as keyword autocomplete items
+export const KEYWORDS = [
+    "lscancel", "playerevent", "entityevent", "gameevent", "function", "process", "declare",
+    "call", "start",
+    "return", "break", "continue",
+    "global", "saved", "local", "line",
+    "for", "repeat", "if", "else", "while", "do",
+    "perselected",
+    "as", "to", "in", "on",
+    "select", "filter",
+];
+
 /** 
  * also serves as a registry of valid particle field names.
  * for that reason, all particle fields must be present here
