@@ -4,7 +4,7 @@ import { Namespace } from "../compiler/namespace/namespace.ts";
 import { DF_NBT, dfTypeToTC, tcTypeToDF } from "../df/constants.ts";
 import { VERSION } from "../main.ts";
 import { Type, TypeExtraData } from "../typeProcessor/type.ts";
-import { CREATE_SELECTION_ACTION_LIST, DF_PAR_FIELD_TO_TC, FILTER_SELECTION_ACTION_LIST, INVERTIBLE_SELECT_ACTIONS, PARTICLE_FIELD_DEFAULTS, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS, VALID_BLOCK_IDS, VALID_ITEM_IDS } from "./constants.ts";
+import { CREATE_SELECTION_ACTION_LIST, DF_PAR_FIELD_TO_TC, FILTER_SELECTION_ACTION_LIST, INVERTIBLE_SELECT_ACTIONS, KEYWORDS, PARTICLE_FIELD_DEFAULTS, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS, VALID_BLOCK_IDS, VALID_ITEM_IDS } from "./constants.ts";
 import { OVERRIDES } from "./overrides.ts";
 
 enum SerializedObjectClass {
@@ -92,6 +92,8 @@ export function generateDataDump() {
         create_selection_actions: serialize(CREATE_SELECTION_ACTION_LIST),
         filter_selection_actions: serialize(FILTER_SELECTION_ACTION_LIST),
         invertible_selection_actions: serialize(INVERTIBLE_SELECT_ACTIONS),
+        keywords: serialize(KEYWORDS),
+        namespace_names: serialize(Object.keys(Namespace.registry)),
         par_field_defaults: serialize(PARTICLE_FIELD_DEFAULTS),
         df_par_field_to_tc: serialize(DF_PAR_FIELD_TO_TC),
         df_type_to_tc: serialize(Object.fromEntries(dfTypeToTC.entries())),
