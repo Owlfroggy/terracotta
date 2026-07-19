@@ -13,6 +13,7 @@ import { LanguageServer } from "./languageServer/languageServer.ts";
 import { DFRank } from "./df/constants.ts";
 import { PCodeParser } from "./pcode/pcodeParser.ts";
 import { normalizeLineEndings } from "./util/utils.ts";
+import { generateDataDump } from "./data/datadumper.ts";
 
 export const VERSION = "1.0.0-beta.4";
 
@@ -183,6 +184,22 @@ async function Main() {
     } 
     else if (command == "server") {
         new LanguageServer()
+    } else if (command == "dumpdata") {
+        let output = JSON.stringify(generateDataDump());
+        if (values.copy) {
+            ncp.copy(output, (err) => {
+                if (err) {
+                    process.stdout.write(`Failed to copy output to clipboard: ${err}\n`);
+                    process.exit(1);
+                } else {
+                    process.stdout.write("Copied output to clipboard\n");
+                    process.exit(0);
+                }
+            });
+        } else {
+            process.stdout.write(output);
+            process.exit(0);
+        }
     } else if (command == "version" || values.version) {
         console.log(VERSION);
     } else {

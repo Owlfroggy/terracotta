@@ -39,7 +39,7 @@ export type MultiValueTypeData = {
     overflowType: Type,
 }
 
-type ExtraData = FuncTypeData | NamespaceTypeData | ListTypeData | DictTypeData | MultiValueTypeData | VarTypeData | null;
+export type TypeExtraData = FuncTypeData | NamespaceTypeData | ListTypeData | DictTypeData | MultiValueTypeData | VarTypeData | null;
 
 export type TypeConstructor<F extends ((...args: any[]) => Type)> = F & {
     constructsType: string
@@ -297,7 +297,7 @@ export class Type {
         return TYPE_NAMESPACES[this.name]?.members[p] ?? null
     }
 
-    public readonly data: ExtraData
+    public readonly data: TypeExtraData
 
     constructor(
         public readonly name: string,
@@ -310,7 +310,7 @@ export class Type {
             strictMatchCallback?: (other: Type) => boolean,
             assignabilityCallback?: (to: Type) => boolean,
             stringify?: () => string,
-            data?: ExtraData
+            data?: TypeExtraData
         } = {}
     ) {
         if (getMemberType) this.getMemberType = getMemberType;

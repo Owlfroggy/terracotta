@@ -1,7 +1,7 @@
 import { ASTNode } from "../ast/astNode.ts";
 import { Tag } from "../df/actiondump.ts";
 import * as AD from "../df/actiondump.ts";
-import { dfTypeToTC, DFValueType, getCodeblockIdentifier, TargetType } from "../df/constants.ts";
+import { DF_NBT, dfTypeToTC, DFValueType, getCodeblockIdentifier, TargetType } from "../df/constants.ts";
 import { PCode } from "../pcode/pcode.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
@@ -382,7 +382,7 @@ export class ItemValue extends TangibleValue {
         public count: number,
         public nbt?: string | undefined,
         astNode?: ASTNode,
-        public dfNbt: number = 4671,
+        public dfNbt: number = DF_NBT,
     ) {
         super(astNode);
         if (!id.startsWith("minecraft:")) id = "minecraft:" + id;
