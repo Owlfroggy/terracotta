@@ -286,6 +286,8 @@ export class TypeProcessor {
         [false, new Map()],
     ]);
 
+    expressionTypeCache: Map<Expression, Map<EnvironmentFrame, Type>> = new Map();
+
     reportError(node: ASTNode, error: string) {
        this.errors.push(new TCNodeError(
             node,
@@ -703,6 +705,8 @@ export class TypeProcessor {
     }
 
     evaluationStage(frame: EnvironmentFrame = this.globalFrame) {
+        this.expressionTypeCache.clear();
+
         let newSolves = -1;
         let hitWall = false;
         // keep going until no more progress is being made, then solve everything in one final pass using available information
@@ -786,7 +790,7 @@ export class TypeProcessor {
         }
     }
 
-    evaluateExpression(expression: Expression, frame: EnvironmentFrame = this.globalFrame): Type {
+    private evaluateExpressionLogic(expression: Expression, frame: EnvironmentFrame = this.globalFrame): Type {
         expression = expression.getRealExpression();
         if (expression instanceof AtomicExpression) {
             let token = expression.token;
@@ -891,6 +895,14 @@ export class TypeProcessor {
         } else {
             return Type.unknown;
         }
+    }
+
+    evaluateExpression(expression: Expression, frame: EnvironmentFrame = this.globalFrame): Type {
+        let cachedType = this.expressionTypeCache.get(expression)?.get(frame);
+        if (cachedType) return cachedType;
+        let type = this.evaluateExpressionLogic(expression, frame);
+        this.expressionTypeCache.getOrInsert(expression,new Map()).set(frame, type);
+        return type;
     }
 
     evaluateExplicitType(expression: TypeExpression, {allowEllipses, allowVarType, reportErrors}: {allowEllipses?: boolean, allowVarType?: boolean, reportErrors?: boolean} = {}): Type {
