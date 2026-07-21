@@ -55,6 +55,7 @@ export function OPT_condenseSingleDoWhileCondition(line: CodeBlock[], optimizer:
     // set as while and copy action 
     repeatBlock.action = "DoWhile";
     repeatBlock.subAction = getDifferentiatedActionName(ifBlock.block, ifBlock.action);
+    repeatBlock.subActionBlockType = ifBlock.block;
     // copy tags
     repeatBlock.tags = ifBlock.tags;
     // invert condition back to its original form

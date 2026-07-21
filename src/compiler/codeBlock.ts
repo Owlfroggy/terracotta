@@ -70,8 +70,18 @@ export class ActionBlock extends CodeBlock {
         }
 
         // fill in missing tags
+        let tagSourceAction = (
+            useDynamicAction ? "dynamic"
+            : (this instanceof SubActionBlock && this.subAction != undefined) ? this.subAction
+            : this.action
+        );
+        let tagSourceBlock = (
+            (this instanceof SubActionBlock && this.subActionBlockType) ? this.subActionBlockType
+            : this.block
+        );
+        
         let tags = [...this.tags];
-        let actionEntry = AD.actions.get(this.block)?.[useDynamicAction ? "dynamic" : this.action];
+        let actionEntry = AD.actions.get(tagSourceBlock)?.[tagSourceAction];
         if (actionEntry) {
             let seenTags: AD.Tag[] = this.tags.map(v => v.definition);
             for (let tagDef of Object.values(actionEntry.tags)) {
@@ -126,12 +136,15 @@ export class EventBlock extends ActionBlock {
 export class SubActionBlock extends ActionBlock {
     public not: boolean;
     public subAction: string | null;
+    public subActionBlockType: DFCodeblockName | null;
 
     constructor(
         block: DFCodeblockName, 
-        {action, subAction = null, args = [], tags = [], target = TargetType.UNSET, not = false, astNode = null} : {
+        {action, subAction = null, subActionBlockType = null, args = [], tags = [], target = TargetType.UNSET, not = false, astNode = null} : {
             action: string,
             subAction?: string | null
+            /** Does not end up in the compiled template; only used for inserting default tags */
+            subActionBlockType?: DFCodeblockName | null
             args?: TangibleValue[],
             tags?: [],
             target?: TargetType
@@ -142,6 +155,7 @@ export class SubActionBlock extends ActionBlock {
         super(block, {action, args, tags, target, astNode});
         this.not = not;
         this.subAction = subAction;
+        this.subActionBlockType = subActionBlockType;
     }
 
     templateForm() {
