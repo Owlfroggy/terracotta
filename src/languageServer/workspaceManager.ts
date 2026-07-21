@@ -11,7 +11,7 @@ import { inspect } from "node:util";
 import { slog, snotif } from "./logging.ts";
 import { TrackedScript } from "./trackedScript.ts";
 import { TrackedItemLibrary } from "./trackedItemLibrary.ts";
-import chokidar, { watch } from 'chokidar';
+import { walk } from "jsr:@std/fs/walk";
 import { fileURLToPath } from "node:url"
 import { ItemLibrary } from "../compiler/itemLibrary.ts";
 import { RootNode } from "../ast/astNode.ts";
@@ -21,6 +21,8 @@ export class WorkspaceManager {
 
     combinedAST: {[uri: string]: RootNode[]} = {};
     typeProcessor: TypeProcessor = new TypeProcessor();
+
+    isInitialized: boolean = false;
 
     constructor(
         public uri: URI,
@@ -128,52 +130,75 @@ export class WorkspaceManager {
         let doc = this.documents.get(uri);
         if (!doc) return;
 
-        if (doc instanceof TrackedScript) {
-            delete this.combinedAST[doc.uri];
-        }
+        doc.cleanup();
 
         this.documents.delete(uri)
     }
 
     async initialize() {
-        // set up filesystem watcher
-        const watcher = chokidar.watch(fileURLToPath(this.uri), {
-            ignored: (path, stats) => !!stats?.isFile() && !(path.endsWith(".tc") || path.endsWith(".tcil")),
-        });
+        let workspacePath = fileURLToPath(this.uri);
 
-        let docLoadPromises: Promise<void>[] = [];
+        // load existing files
+        let docInitializePromises: Promise<void>[] = [];
+        for await (const entry of walk(workspacePath,{exts: ["tc","tcil"], includeDirs: false})) {
+            let doc = this.registerDoc(pathToUri(entry.path));
+            if (!doc) return;
+            docInitializePromises.push(doc.onInitializedPromise)
+        }
 
-        watcher
-        .on("ready", async () => {
-            // when all initial docs have been loaded and parsed,
-            // parse them all again now that the type env is completed
+        // wait for files to finish reading their contents and parsing
+        await Promise.all(docInitializePromises);
+        this.isInitialized = true;
 
-            // if this isn't done, erroneous errors will be reported since
-            // the first-pass parse was working on incomplete type information
+        // analyze files
+        this.reanalyzeTypes();
+        for (let [uri, doc] of this.documents) {
+            if (doc instanceof TrackedScript) {
+                doc.reparse();
+            }
+        }
 
-            await Promise.all(docLoadPromises);
-            this.reanalyzeTypes();
-            for (let [uri, doc] of this.documents) {
-                if (doc instanceof TrackedScript) {
-                    doc.reparse();
+
+        // watch for changes
+        const watcher = Deno.watchFs(workspacePath, {recursive: true});
+        for await (const event of watcher) {
+            switch (event.kind) {
+                case "create": {
+                    for (const p of event.paths)
+                        this.registerDoc(pathToUri(p))
+                    break;
+                }
+                case "modify": {
+                    for (const p of event.paths) {
+                        let uri = pathToUri(p);
+                        let doc = this.documents.get(uri);
+                        // ignore events if the doc is open since the lsp is handling the editing
+                        if (!doc || doc.isOpen) continue;
+                        let contents = await fs.readFile(new URL(doc.uri));
+                        doc.update([{text: contents.toString()}], -1);
+                    }
+                    break;
+                }
+                case "rename": {
+                    // w code right here
+                    if (event.paths.length == 2) {
+                        this.unregisterDoc(pathToUri(event.paths[0]));
+                        this.registerDoc(pathToUri(event.paths[1]));
+                    } else {
+                        if (event.paths[0].startsWith(workspacePath)) {
+                            this.registerDoc(pathToUri(event.paths[0]));
+                        } else {
+                            this.unregisterDoc(pathToUri(event.paths[0]));
+                        }
+                    }
+                    break;
+                }
+                case "remove": {
+                    for (const p of event.paths)
+                        this.unregisterDoc(pathToUri(p));
+                    break;
                 }
             }
-        })
-        .on("add", path => {
-            let doc = this.registerDoc(pathToUri(path));
-            if (doc && !watcher._readyEmitted && !doc.isInitialized) {
-                docLoadPromises.push(doc.onInitializedPromise);
-            }
-        })
-        .on("change", async path => {
-            let uri = pathToUri(path);
-            let doc = this.documents.get(uri);
-            if (!doc || doc.isOpen) return;
-            let contents = await fs.readFile(new URL(doc.uri))
-            doc.update([{text: contents.toString()}], -1)
-        })
-        .on("unlink", path => {
-            this.unregisterDoc(pathToUri(path));
-        })
+        }
     }
 }

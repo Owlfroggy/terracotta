@@ -55,36 +55,41 @@ export class TrackedScript extends TrackedDocument {
             this.ast.scriptContents = "";
             this.ast.filePath = this.uri;
     
-            // recompute types before compiling
             this.workspace.combinedAST[this.uri] = [this.ast];
-            this.workspace.reanalyzeTypes();
-    
-            // recompile
-            let compiler = new CodeCompiler(this.ast.statements, {
-                types: this.workspace.typeProcessor, 
-                rank: this.workspace.server.configuration.dfRank,
-                getItemLibraries: this.workspace.allItemLibraryDatas,
-                optimizationsEnabled: false
-            });
-            this.compiler = compiler;
-            try {
-                compiler.compile({outputFormat: 'GZIP'});
-            } catch (e) {
-                snotif(`Internal compiler error: ${inspect(e)}`)
-            }
             
-            this.diagnostics.length = 0;
-            for (const error of [...this.lexer.errors, ...this.parser.errors, ...this.compiler.errors]) {
-                this.diagnostics.push({
-                    message: error.message,
-                    range: {
-                        start: this.indexToLinePosition(error.getStartPos()),
-                        end: this.indexToLinePosition(error.getEndPos()),
-                    },
-                })
-            }
+            // if the language server is still collecting documents, doing this now would be a waste since the
+            // language server will manually force recompilations of every doc once the environment is fully known
+            if (this.workspace.isInitialized) {
+                // recompute types before compiling
+                this.workspace.reanalyzeTypes();
     
-            this.workspace.pushDiagnostics([this.uri]);
+                // recompile
+                let compiler = new CodeCompiler(this.ast.statements, {
+                    types: this.workspace.typeProcessor, 
+                    rank: this.workspace.server.configuration.dfRank,
+                    getItemLibraries: this.workspace.allItemLibraryDatas,
+                    optimizationsEnabled: false
+                });
+                this.compiler = compiler;
+                try {
+                    compiler.compile({outputFormat: 'GZIP'});
+                } catch (e) {
+                    snotif(`Internal compiler error: ${inspect(e)}`)
+                }
+                
+                this.diagnostics.length = 0;
+                for (const error of [...this.lexer.errors, ...this.parser.errors, ...this.compiler.errors]) {
+                    this.diagnostics.push({
+                        message: error.message,
+                        range: {
+                            start: this.indexToLinePosition(error.getStartPos()),
+                            end: this.indexToLinePosition(error.getEndPos()),
+                        },
+                    })
+                }
+        
+                this.workspace.pushDiagnostics([this.uri]);
+            }
         } catch (e) {
             slog(`Internal error while reprocessing doc ${this.uri}: ${inspect(e)}`);
         }
@@ -95,6 +100,12 @@ export class TrackedScript extends TrackedDocument {
     update(changes: (TextDocumentContentChangeEvent | {text: string})[], version: number) {
         super.update(changes, version);
         this.reparse();
+    }
+
+    cleanup(): void {
+        this.diagnostics.length = 0;
+        this.workspace.pushDiagnostics([this.uri]);
+        delete this.workspace.combinedAST[this.uri];
     }
 
     async initialize() {

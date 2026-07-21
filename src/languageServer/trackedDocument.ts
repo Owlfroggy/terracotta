@@ -94,6 +94,11 @@ export abstract class TrackedDocument {
     }
 
     /**
+     * This function will be called whenever the document is removed from a WorkspaceManager
+     */
+    cleanup() {}
+
+    /**
      * NOTE: classes implementing TrackedDocument MUST call `this.markAsInitialized();` at the end of this method
      */
     async initialize() {
