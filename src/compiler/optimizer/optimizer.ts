@@ -242,7 +242,8 @@ export class CodeOptimizer {
         if (value instanceof VariableValue) {
             if (value.scope != VariableScope.LINE) return false;
             if (typeof value.name != "string") return false;
-            if (value.getType(this.typeProcessor).matches(Type.vec)) return false;
+            let valType = value.getType(this.typeProcessor);
+            if (!(valType.matches(Type.num) || valType.matches(Type.str))) return false;
             return true;
         }
         else if (value instanceof NumberValue) {
