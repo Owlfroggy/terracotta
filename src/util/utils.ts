@@ -79,6 +79,7 @@ export function valueToTCString(value: string, quoteChar: string = '"'): string 
  * will return NaN for invalid numbers
  * */
 export function tcParseNumber(val: string): number {
+    val = val.replaceAll("_","");
     if (val.startsWith("0x") || val.startsWith("0X")) {
         return parseInt(val.substring(2), 16);
     } else if (val.startsWith("0b") || val.startsWith("0B")) {
