@@ -4,7 +4,7 @@ import { DFCodeblockName } from "../df/constants.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { ActionBlock, CodeBlock } from "./codeBlock.ts";
 import { EvaluationContext } from "./codeCompiler.ts";
-import { ActionTagValue, CodeValue, MissingValue, NumberValue, TangibleValue } from "./codeValue.ts";
+import { ActionTagValue, CodeValue, MissingValue, NumberValue, TangibleValue, VariableValue, VectorValue } from "./codeValue.ts";
 import { expressionizeIfBlock } from "../util/utils.ts";
 
 type BinaryOperationHandler = (left: TangibleValue, right: TangibleValue, ctx: EvaluationContext) => [TangibleValue, CodeBlock[]];
@@ -351,7 +351,7 @@ Operations.registerBinary(Type.vec, TokenType.STAR, Type.num, Type.vec, true,
     singleActionHandler(Type.vec, "MultiplyVector"));
 
 Operations.registerBinary(Type.vec, TokenType.SLASH, Type.num, Type.vec, true, (left, right, ctx) => {
-    let numResult = ctx.tvp.newTempVar(Type.num);
+    let divisor: VectorValue | VariableValue;
     let vecResult = ctx.tvp.newTempVar(Type.vec);
 
     let num: TangibleValue;
@@ -363,19 +363,34 @@ Operations.registerBinary(Type.vec, TokenType.SLASH, Type.num, Type.vec, true, (
         num = right;
         vec = left;
     }
-    // otherwise, do the normal operation. if the user wants precision, they can veccast it themselves
-    
 
-    return [vecResult, [
-        new ActionBlock(DFCodeblockName.SET_VARIABLE, {
-            action: "/",
-            args: [numResult, new NumberValue("1"), num]
-        }),
+    let code: CodeBlock[] = [];
+
+    if (num instanceof NumberValue && num.isCompileTimeConstant()) {
+        let v = (1/num.toNumber()).toString();
+        divisor = new VectorValue(v,v,v);
+    } else {
+        divisor = ctx.tvp.newTempVar(Type.vec);
+        code.push(
+            new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+                action: "Vector",
+                args: [divisor, num, num, num]
+            }),
+            new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+                action: "/",
+                args: [divisor, new VectorValue("1","1","1"), divisor]
+            })
+        );
+    }
+
+    code.push(
         new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-            action: "MultiplyVector",
-            args: [vecResult, vec, numResult],
+            action: "x",
+            args: [vecResult, vec, divisor],
         })
-    ]];
+    );
+
+    return [vecResult, code];
 });
 
 //=- loc -=\\
