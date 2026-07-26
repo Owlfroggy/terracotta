@@ -156,18 +156,17 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
             } 
             
             else if (arg instanceof NumberValue || arg instanceof StringValue || arg instanceof StyledTextValue) {
-                // if (Array.isArray(arg)) {
-                //     function recurse(token: PCode) {
-                //         if (token instanceof VarPCode) {
-                //             addVariableName(token.name);
-                //         }
-                //         else if (token instanceof MathPCode) {
-                //             token.expr.forEach(recurse);
-                //         }
-                //     }
-                //     arg.forEach(recurse);
-                // }
                 GetAllVariables(arg.value).forEach(addVariableName);
+            }
+        })
+
+        block.tags.forEach(tag => {
+            let v = tag.variable;
+            if (!v) return;
+            if (v.scope == VariableScope.LINE) {
+                addVariableName(v.name);
+            } else {
+                GetAllVariables(v.name).forEach(addVariableName);
             }
         })
 
