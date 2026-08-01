@@ -831,7 +831,6 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
             }
         }
         if (useVarCompilation) {
-            let code: CodeBlock[] = [];
             let outputVarName = `${TC_HEADER}LI_`;
     
             function addVarToName(v: VariableValue | StringValue) {
