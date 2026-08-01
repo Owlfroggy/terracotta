@@ -159,7 +159,7 @@ export class NumberValue extends TangibleValue {
 
 export class StringValue extends TangibleValue {
     constructor(
-        public value: string,
+        public value: string | PCode[],
         astNode?: ASTNode
     ) { super(astNode); }
 
@@ -179,9 +179,10 @@ export class StringValue extends TangibleValue {
     isCompileTimeConstant(): this is {value: string} {
         return typeof this.value == "string";
     }
+    
 
     toString(): string {
-        return `str('${this.value}')`;
+        return typeof this.value == "string" ? this.value : this.value.join("");
     }
 }
 

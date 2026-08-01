@@ -834,9 +834,13 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
             let code: CodeBlock[] = [];
             let outputVarName = `${TC_HEADER}LI_`;
     
-            function addVarToName(v: VariableValue) {
+            function addVarToName(v: VariableValue | StringValue) {
                 let nameToAdd: string;
-                if (v.scope == VariableScope.LINE) {
+                if (v instanceof StringValue) {
+                    outputVarName += v.value;
+                    return;
+                }
+                else if (v.scope == VariableScope.LINE) {
                     nameToAdd = typeof v.name == "string" ? v.name : v.name.join("");
                 } 
                 // if this variable isn't line scoped, it must be extracted to a line
@@ -855,13 +859,13 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
             if (constantLibrary != undefined) {
                 outputVarName += constantLibrary.id;
             } else {
-                addVarToName(args[0] as VariableValue);
+                addVarToName(args[0] as StringValue | VariableValue);
             }
             outputVarName += "\uFFFF";
             if (constantItemId != undefined) {
                 outputVarName += constantItemId;
             } else {
-                addVarToName(args[1] as VariableValue);
+                addVarToName(args[1] as StringValue | VariableValue);
             }
 
             outVal = new VariableValue(outputVarName, VariableScope.GLOBAL, Type.item, callNode);

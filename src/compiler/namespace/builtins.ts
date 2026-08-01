@@ -86,10 +86,10 @@ export function compileTags(actionDef: AD.Action, namedArgs: Map<AtomicExpressio
                 ctx.reportError(expr.right,`Default tag option must be a constant`, defaultValue);
             } else if (!(defaultValue instanceof StringValue)) {
                 ctx.reportError(expr.right, `Default tag option must be a string`, defaultValue);
-            } else if (!(defaultValue.value in tagDef.options)) {
+            } else if (!(defaultValue.value.toString() in tagDef.options)) {
                 ctx.reportError(expr.right, `'${defaultValue.value}' is not a valid default option for this tag`, defaultValue);
             } else {
-                defaultOption = defaultValue.value;
+                defaultOption = defaultValue.value.toString();
             }
         } else {
             argExpr = expr;
@@ -112,11 +112,12 @@ export function compileTags(actionDef: AD.Action, namedArgs: Map<AtomicExpressio
             if (defaultOptionExpr) {
                 ctx.reportError(defaultOptionExpr, `Only non-constant tags can specify a default option`);
             }
-            if (!(arg.value in tagDef.options)) {
+            let val = arg.toString();
+            if (!(val in tagDef.options)) {
                 ctx.reportError(argExpr, `'${arg.value}' is not a valid option for this tag`);
                 continue;
             }
-            tags.push(new ActionTagValue(tagDef, arg.value));
+            tags.push(new ActionTagValue(tagDef, val));
         } else if (arg instanceof VariableValue) {
             tags.push(new ActionTagValue(tagDef, defaultOption, arg))
         } else {

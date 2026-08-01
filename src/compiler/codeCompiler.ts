@@ -701,7 +701,7 @@ export class CodeCompiler {
                     }
                 }
                 else if (accessor instanceof StringValue) {
-                    accessorValue = accessor.value;
+                    accessorValue = accessor.value.toString();
                 }
             }
 
@@ -927,7 +927,18 @@ export class CodeCompiler {
                 case TokenType.STRING_LITERAL: {
                     if (e.value.length > STRING_LENGTH_LIMIT)
                         this.reportError(e, `String length (${e.value.length}) exceeds DiamondFire's string length limit of ${STRING_LENGTH_LIMIT}`);
-                    return [new StringValue(e.value,e), []];
+                    
+                    let [errors, parsed] = this.pcodeParser.parse(e.value);
+                    if (errors.length > 0) {
+                        for (let err of errors) {
+                            this.errors.push(new TCNodePCodeError(e,err,ErrorType.COMPILER));
+                        }
+                        return [new MissingValue(e), []];
+                    } else if (parsed.length == 1 && parsed[0] instanceof SegmentPCode) {
+                        return [new StringValue(e.value), []];
+                    } else {
+                        return [new StringValue(parsed,e), []];
+                    }
                 }
                 case TokenType.STYLED_LITERAL: {
                     if (e.value.length > STRING_LENGTH_LIMIT)
