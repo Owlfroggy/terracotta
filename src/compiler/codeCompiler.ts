@@ -491,6 +491,14 @@ export class CodeCompiler {
 
     compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition, context: ExpressionContext, extraInfo: FunctionCallExtraInfo = {}): [CodeValue, CodeBlock[]] {
         let [args, namedArgs, argCode] = this.compileArgsList(e.args, context, !definition.manuallyCompilesNamedArgs);
+
+        if (definition.action) {
+            let tagCount = Object.keys(definition.action.tags).length;
+            if (args.length + tagCount > 27) {
+                this.reportError(e.args, `This call cannot pass more than ${27-tagCount} arguments, ${args.length} were provided.`);
+            }
+        }
+
         let [value, code] = definition.compile(args,namedArgs, this.getEvaluationContext(context.perSelectedMode), e, extraInfo);
         value.astNode = e;
         return [value, [...argCode, ...code]];

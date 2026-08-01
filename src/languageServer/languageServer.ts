@@ -117,7 +117,7 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
         if (allowCallOrStartInersion && !isIdentifier(name)) {
             item.insertText = `call ${valueToTCString(name)}`;
         }
-        if (def.action) {
+        if (def.action && def.action.name != "dynamic") {
             documentation = getActionDocumentation(def.action, configuration.dfRank);
             if (!AD.rankCheck(configuration.dfRank, def.action.requiresRank)) {
                 if (!item.tags) item.tags = [];

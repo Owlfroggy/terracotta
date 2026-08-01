@@ -515,6 +515,7 @@ export class TypeProcessor {
                 let map = this.globalFrame[isProcess ? "processes" : "functions"];
                 map.getOrInsert(statement.name.value, []).push({
                     definitionType: DefinitionType.FUNCTION,
+                    action: isProcess ? actions.get(DFCodeblockName.START_PROCESS)?.dynamic : actions.get(DFCodeblockName.CALL_FUNCTION)?.dynamic,
                     name: statement.name.value,
                     description: commentsToDocumentation(statement.attachedComments),
                     signatures: [{params: signatureParams}],
@@ -1045,6 +1046,7 @@ export class TypeProcessor {
             def = {
                 definitionType: DefinitionType.FUNCTION,
                 name: name,
+                action: isProcess ? actions.get(DFCodeblockName.START_PROCESS)?.dynamic : actions.get(DFCodeblockName.CALL_FUNCTION)?.dynamic,
                 // TODO: allow declaring functions/parameter signatures with wildcards and hook into those declarations to find signatures
                 signatures: [{params: [
                     {name: "arguments", type: Type.any, optional: true, plural: true}
