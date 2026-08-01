@@ -13,7 +13,7 @@ import { VariableValue } from "../../codeValue.ts";
  */
 export function OPT_condenseSetChain(line: CodeBlock[], optimizer: CodeOptimizer): boolean {
     let [actualSetBlockIndex, actualSetBlock] = optimizer.matcher.codeblock<ActionBlock>({
-        block: [DFCodeblockName.SET_VARIABLE, DFCodeblockName.CALL_FUNCTION],
+        block: [DFCodeblockName.SET_VARIABLE, DFCodeblockName.CALL_FUNCTION, DFCodeblockName.ENTITY_ACTION],
     });
 
     let didModify = false;
