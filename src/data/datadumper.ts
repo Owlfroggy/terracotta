@@ -1,7 +1,8 @@
 import { NumberValue, StringValue, VectorValue } from "../compiler/codeValue.ts";
 import { FunctionDefinition, isFunctionDefinition, isValueDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
-import { DF_NBT, dfTypeToTC, tcTypeToDF } from "../df/constants.ts";
+import { actions, gameValues, getTCActionName, getTCGameValueName } from "../df/actiondump.ts";
+import { DF_NBT, dfTypeToTC, GameValueTargetType, tcTypeToDF } from "../df/constants.ts";
 import { VERSION } from "../main.ts";
 import { Type, TypeExtraData } from "../typeProcessor/type.ts";
 import { CREATE_SELECTION_ACTION_LIST, DF_PAR_FIELD_TO_TC, FILTER_SELECTION_ACTION_LIST, INVERTIBLE_SELECT_ACTIONS, KEYWORDS, PARTICLE_FIELD_DEFAULTS, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS, VALID_BLOCK_IDS, VALID_ITEM_IDS } from "./constants.ts";
@@ -100,5 +101,19 @@ export function generateDataDump() {
         tc_type_to_df: serialize(tcTypeToDF),
         valid_item_ids: serialize(VALID_ITEM_IDS),
         valid_block_ids: serialize(VALID_BLOCK_IDS),
+        actions: serialize(Object.fromEntries(
+            actions.entries().map(([codeblock, blockActions]) => [codeblock, Object.fromEntries(
+                Object.values(blockActions).map(action => [action.name, {
+                    legacy: action.isLegacy,
+                    tc_name: getTCActionName(codeblock, action.name)
+                }])
+            )])
+        )),
+        game_values: serialize(Object.fromEntries(
+            Object.values(gameValues).map(value => [value.name, {
+                tc_name: getTCGameValueName(value.name),
+                target_type: GameValueTargetType[value.targetType],
+            }])
+        ))
     }
 }
