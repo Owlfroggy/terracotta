@@ -708,6 +708,7 @@ export const OVERRIDES: {
             "SetItemColor": Type.item,
             "AddItemAttribute": Type.item,
             "SetMapTexture": Type.item,
+            " GetItemEnchants ": Type.dict(Type.num),
             
             "GetAllItems": Type.list(Type.str),
             "GetBlockShape": Type.list(Type.list(Type.void, [Type.loc, Type.loc])),
