@@ -867,6 +867,18 @@ export const OVERRIDES: {
                     {name: "Particle material id", type: Type.str, optional: false, plural: false}
                 ]},
             ]
+        },
+        "GAME ACTION": {
+            "FallingBlock": [
+                {params: [ 
+                    {name: "Block Location", type: Type.loc, optional: false, plural: false},
+                    {name: "Block Material", type: Type.item, optional: false, plural: false},
+                    {name: "Block Tag(s)", type: Type.str, optional: true, plural: true}
+                ]},
+                {params: [ 
+                    {name: "Block Location", type: Type.loc, optional: false, plural: false, description: "Converts the block at the location to a falling block"},
+                ]},
+            ]
         }
     },
     autocompleteSortPrefixes: {
