@@ -1299,37 +1299,111 @@ export class CodeCompiler {
 
                 if (assigneeExpr instanceof VariableExpression) this.shadowingCheck(assigneeExpr);
 
-                // incrementor operators
-                if (s.operator.type != TokenType.EQUALS) {
-                    let [newValue, newCode] = Operations.evaluateBinaryValue(variable, s.operator, values[i], this.getEvaluationContext())
-                    values[i] = newValue;
-                    code.push(...newCode);
-                }
+                if (assigneeExpr instanceof BracketedAccessExpression) {
+                    let baseExpression: Expression;
+                    let path: {accesseeType: Type, accessMode: "property" | "member", key: CodeValue}[] = [];
+                    const generatePath = (expr: Expression, typeOverride?: Type) => {
+                        expr = expr.getRealExpression();
+                        if (expr instanceof TypecastExpression) {
+                            generatePath(expr.left, this.env.types.evaluateExplicitType(expr.type))
+                        } else if (expr instanceof BracketedAccessExpression) {
+                            let [key, keyCode] = this.compileExpression(expr.propertyName, exprContext);
+                            code.push(...keyCode);
+                            path.unshift({
+                                accesseeType: typeOverride ?? this.env.types.evaluateExpression(expr.accessee),
+                                accessMode: "member",
+                                key
+                            });
+                            generatePath(expr.accessee);
+                        } else {
+                            baseExpression = expr;
+                        }
+                    }
+                    generatePath(assigneeExpr);
 
-                // type validation
-                let expectedType: Type = Type.any;
-                if (assigneeExpr instanceof VariableExpression && assigneeExpr.assignedType) {
-                    expectedType = this.env.types.evaluateExplicitType(assigneeExpr.assignedType.type)
+                    const walkPath = (currentAccessee: CodeValue, pathIndex: number) => {
+                        // TODO: GET RID OF THIS!!!!!!!!!!!!!!!!
+                        // TODO: GET RID OF THIS!!!!!!!!!!!!!!!!
+                        // TODO: GET RID OF THIS!!!!!!!!!!!!!!!!
+                        // TODO: GET RID OF THIS!!!!!!!!!!!!!!!!
+                        if (!(currentAccessee instanceof TangibleValue)) {
+                            throw new Error("stop");
+                        }
+                        if (!(path[pathIndex].key instanceof TangibleValue)) {
+                            throw new Error("stop");
+                        }
+
+                        // base case: actually modify the value
+                        let accesseeType = path[pathIndex].accesseeType;
+                        if (pathIndex >= path.length-1) {
+                            code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                                action: "SetListValue",
+                                args: [currentAccessee,path[pathIndex].key,values[i] as TangibleValue]
+                            }));
+                        } 
+                        // recursively generate accessor code
+                        else {
+                            let child = tvp.newTempVar(accesseeType);
+                            code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                                action: "GetListValue",
+                                args: [child,currentAccessee,path[pathIndex].key]
+                            }));
+                            walkPath(child, pathIndex+1);
+                            code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                                action: "SetListValue",
+                                args: [currentAccessee,path[pathIndex].key,child]
+                            }));
+                        }
+                    }
+                    let [baseValue, baseCode] = this.compileExpression(baseExpression!, exprContext);
+                    code.push(...baseCode);
+                    walkPath(baseValue, 0);
+
+                    // function recurse(currentAccessee, path, index, valueToStore) {
+                    //     if (index >= path.length-1) {
+                    //         // modifyFinalCallback()
+                    //         currentAccessee[path[index]] = valueToStore;
+                    //         // base case
+                    //     } else {
+                    //         line child = currentAccessee[path[index]];
+                    //         recurse(child, path, index+1);
+                    //         currentAccessee[path[index]] = child;
+                    //     }
+                    // }
                 } else {
-                    expectedType = variable.getType(this.env.types);
-                }
-                let resultType = values[i].getType(this.env.types);
-                if (!resultType.isAssignableTo(expectedType)) {
-                    this.reportError(values[i].astNode ?? assigneeExpr, `Type '${resultType}' is not assignable to variable of type '${expectedType}'`);
-                }
+                    // incrementor operators
+                    if (s.operator.type != TokenType.EQUALS) {
+                        let [newValue, newCode] = Operations.evaluateBinaryValue(variable, s.operator, values[i], this.getEvaluationContext())
+                        values[i] = newValue;
+                        code.push(...newCode);
+                    }
     
-                if (!(
-                    (assigneeExpr instanceof VariableExpression)
-                    || (assigneeExpr instanceof AtomicExpression && variable instanceof VariableValue)
-                )) {
-                    this.reportError(assigneeExpr, `Left-hand side of an assignment statement must be a variable`, variable)
-                    continue;
+                    // type validation
+                    let expectedType: Type = Type.any;
+                    if (assigneeExpr instanceof VariableExpression && assigneeExpr.assignedType) {
+                        expectedType = this.env.types.evaluateExplicitType(assigneeExpr.assignedType.type)
+                    } else {
+                        expectedType = variable.getType(this.env.types);
+                    }
+                    let resultType = values[i].getType(this.env.types);
+                    if (!resultType.isAssignableTo(expectedType)) {
+                        this.reportError(values[i].astNode ?? assigneeExpr, `Type '${resultType}' is not assignable to variable of type '${expectedType}'`);
+                    }
+        
+                    if (!(
+                        (assigneeExpr instanceof VariableExpression)
+                        || (assigneeExpr instanceof AtomicExpression && variable instanceof VariableValue)
+                    )) {
+                        this.reportError(assigneeExpr, `Left-hand side of an assignment statement must be a variable`, variable)
+                        continue;
+                    }
+    
+                    code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                        action: "=",
+                        args: [variable as VariableValue,values[i] as TangibleValue]
+                    }));
                 }
 
-                code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                    action: "=",
-                    args: [variable as VariableValue,values[i] as TangibleValue]
-                }));
             }
             return code;
         }
