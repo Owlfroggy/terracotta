@@ -626,6 +626,11 @@ export const OVERRIDES: {
                 }
                 return Type.multivalue([], Type.void);
             },
+            "RandomValue": (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
+                if (argTypes.length == 0) return Type.void;
+                return getWidestType(...argTypes);
+            },
             "PopListValue": firstListGenericType,
             "GetListValue": firstListGenericType,
 
