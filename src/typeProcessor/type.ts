@@ -352,7 +352,6 @@ export class Type {
 }
 
 // TODO: when we get unions, make this work better
-// TODO: make this handle subtypes better (e.g. list[str], list[num] should genericize to list[any] instead of just any)
 export function getWidestType(...types: Type[]): Type {
     let widestType = Type.void;
     for (let t of types) {
@@ -367,7 +366,26 @@ export function getWidestType(...types: Type[]): Type {
             // if t isn't assignable to the old widest but the old widest 
             // is assignable to t, that means t is the new widest type
             widestType = t;
-        } 
+        }
+        else if (t.matches(Type.list) && widestType.matches(Type.list)) {
+            // handle generic types of lists better
+            let tData = t.data as ListTypeData;
+            let wData = widestType.data as ListTypeData;
+            widestType = Type.list(getWidestType(
+                ...tData.indexTypes, tData.genericType, 
+                ...wData.indexTypes, wData.genericType
+            ));
+        }
+        else if (t.matches(Type.dict) && widestType.matches(Type.dict)) {
+            // handle generic types of dicts better
+            // TODO: if dicts declare the same keys but those keys have different types, keep the known structure
+            let tData = t.data as DictTypeData;
+            let wData = widestType.data as DictTypeData;
+            widestType = Type.dict(getWidestType(
+                ...Object.values(tData.keyTypes), tData.genericType, 
+                ...Object.values(wData.keyTypes), wData.genericType
+            ));
+        }
         else {
             // if the types are incompatible, just fall back to any and call it a day
             widestType = Type.any;
