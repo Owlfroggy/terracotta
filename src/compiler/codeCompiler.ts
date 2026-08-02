@@ -595,22 +595,18 @@ export class CodeCompiler {
         ]
     }
 
-    compileSingleAccessGet(
+    validateSingleAccess(
         accessee: CodeValue, 
         accessor: CodeValue, 
         expression: AccessExpression | BracketedAccessExpression, 
         mode: "member" | "property", 
-        context: ExpressionContext
-    ): [CodeValue, CodeBlock[]] {
-        let tvp = context.perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider;
-        let code: CodeBlock[] = [];
-
+    ): accessor is TangibleValue {
         if (!(accessor instanceof TangibleValue)) {
             this.reportError(
                 expression.propertyName,
                 `Type '${accessor.getType(this.env.types)}' cannot be used as an indexer`
             );
-            return [new MissingValue(expression), code];
+            return false;
         }
 
         let accesseeType = accessee.getType(this.env.types);
@@ -628,14 +624,13 @@ export class CodeCompiler {
             }
         }
 
-        // list accessing
         if (accesseeType.matches(Type.list)) {
             if (!accessorType.matches(Type.num)) {
                 this.reportError(
                     expression.propertyName,
                     `Type '${accessorType.name}' cannot be used to index into lists`
                 );
-                return [new MissingValue(expression), code];
+                return false;
             }
             if (typeof accessorValue == "number") {
                 if (parseFloat((accessor as NumberValue).value as string) != accessorValue) {
@@ -643,18 +638,52 @@ export class CodeCompiler {
                         expression.propertyName,
                         `List index must be a whole number`
                     );
-                    return [new MissingValue(expression), code];
+                    return false;
                 }
                 if (accessorValue <= 0) {
                     this.reportError(
                         expression.propertyName,
                         `List index must be >= 1${accessorValue == 0 ? " (lists start at index 1 in DiamondFire)" : ""}`
                     )
-                    return [new MissingValue(expression), code];
+                    return false;
                 }
             }
+        } else if (accesseeType.matches(Type.dict)) {
+            if (!accessorType.matches(Type.str)) {
+                this.reportError(
+                    expression.propertyName,
+                    `Type '${accessorType.name}' cannot be used to index into dictionaries, only strings are allowed as keys`
+                );
+                return false;
+            }
+        } else {
+            this.reportError(
+                expression.propertyName,
+                `Member access not allowed on type '${accessee.getType(this.env.types).name}'`,
+                accessee
+            );
+            return false;
+        }
 
-            let tempVar = tvp.newTempVar(accesseeType.getMemberType(accessorValue));
+        return true;
+    }
+
+    /** Assumes the access has already been validated via `validateSingleAccess()` */
+    compileSingleAccessGet(
+        accessee: CodeValue, 
+        accessor: TangibleValue, 
+        expression: AccessExpression | BracketedAccessExpression, 
+        mode: "member" | "property", 
+        context: ExpressionContext
+    ): [CodeValue, CodeBlock[]] {
+        let tvp = context.perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider;
+        let code: CodeBlock[] = [];
+
+        let accesseeType = accessee.getType(this.env.types);
+
+        // list accessing
+        if (accesseeType.matches(Type.list)) {
+            let tempVar = tvp.newTempVar(this.env.types.evaluateExpression(expression));
 
             let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
                 action: "GetListValue",
@@ -665,14 +694,7 @@ export class CodeCompiler {
         }
         // dict accessing
         else if (accesseeType.matches(Type.dict)) {
-            if (!accessorType.matches(Type.str)) {
-                this.reportError(
-                    expression.propertyName,
-                    `Type '${accessorType.name}' cannot be used to index into dictionaries, only strings are allowed as keys`
-                );
-                return [new MissingValue(expression), code];
-            }
-            let tempVar = tvp.newTempVar(accesseeType.getMemberType(accessorValue));
+            let tempVar = tvp.newTempVar(this.env.types.evaluateExpression(expression));
 
             let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
                 action: "GetDictValue",
@@ -683,16 +705,11 @@ export class CodeCompiler {
         }
         // error
         else {
-            this.reportError(
-                expression.propertyName,
-                `Member access not allowed on type '${accessee.getType(this.env.types).name}'`,
-                accessee
-            );
             return [new MissingValue(expression), code];
         }
     }
 
-    /** does NOT do validation */
+    /** Assumes the access has already been validated via `validateSingleAccess()` */
     compileSingleAccessSet(accessee: TangibleValue, accessor: TangibleValue, value: TangibleValue, mode: "member" | "property"): CodeBlock[] {
         let accesseeType = accessee.getType(this.env.types);
         if (accesseeType.matches(Type.list)) {
@@ -802,6 +819,8 @@ export class CodeCompiler {
         else if (e instanceof BracketedAccessExpression) {
             let [accessee, accesseeCode] = this.compileExpression(e.accessee, context);
             let [accessor, accessorCode] = this.compileExpression(e.propertyName, context);
+            if (!this.validateSingleAccess(accessee, accessor, e, "member")) 
+                return [new MissingValue(e), []];
             let [val, accessCode] = this.compileSingleAccessGet(accessee, accessor, e, "member", context);
             return [val, [...accesseeCode, ...accessorCode, ...accessCode]];
         }
@@ -1308,7 +1327,6 @@ export class CodeCompiler {
 
             let code: CodeBlock[] = [...valueCode];
 
-            // TODO: support property access
             for (let i = 0; i < s.leftValues.length; i++) {
                 let assigneeExpr = s.leftValues[i];
                 if (i >= values.length) {
@@ -1325,7 +1343,7 @@ export class CodeCompiler {
                 if (assigneeExpr instanceof VariableExpression) this.shadowingCheck(assigneeExpr);
 
                 // generate path
-                let baseExpression: Expression;
+                let baseExpression: Expression | undefined;
                 let path: {accesseeType: Type, accessMode: "property" | "member", accessor: TangibleValue, expr: AccessExpression | BracketedAccessExpression}[] = [];
                 const generatePath = (expr: Expression, typeOverride?: Type) => {
                     expr = expr.getRealExpression();
@@ -1347,6 +1365,7 @@ export class CodeCompiler {
                     }
                 }
                 generatePath(assigneeExpr);
+                if (baseExpression == undefined) return [];
 
                 // compile path
                 const walkPath = (currentAccessee: CodeValue, pathIndex: number) => {
@@ -1354,13 +1373,19 @@ export class CodeCompiler {
                         this.reportError(
                             path[pathIndex]?.expr.accessee ?? currentAccessee.astNode ?? assigneeExpr,
                             `This value cannot be assigned to`,
+                            currentAccessee
                         );
                         return;
                     }
 
+                    let accessor = path[pathIndex]?.accessor;
+                    if (path.length != 0 && !this.validateSingleAccess(currentAccessee, accessor, path[pathIndex].expr, "member")) 
+                        return [];
+
+
                     // recursively generate accessor code
                     if (pathIndex < path.length-1) {
-                        let [child, getterCode] = this.compileSingleAccessGet(currentAccessee,path[pathIndex].accessor,path[pathIndex].expr,path[pathIndex].accessMode,exprContext)
+                        let [child, getterCode] = this.compileSingleAccessGet(currentAccessee,accessor,path[pathIndex].expr,path[pathIndex].accessMode,exprContext)
                         if (!(child instanceof TangibleValue)) {
                             this.reportError(
                                 path[pathIndex]?.expr.accessee ?? child.astNode ?? assigneeExpr,
@@ -1371,7 +1396,7 @@ export class CodeCompiler {
                         }
                         code.push(...getterCode);
                         walkPath(child, pathIndex+1);
-                        code.push(...this.compileSingleAccessSet(currentAccessee,path[pathIndex].accessor,child,path[pathIndex].accessMode))
+                        code.push(...this.compileSingleAccessSet(currentAccessee,accessor,child,path[pathIndex].accessMode))
                     } 
                     // base case: actually modify the value
                     else {
@@ -1387,7 +1412,7 @@ export class CodeCompiler {
                             if (path.length == 0) {
                                 incrementBase = currentAccessee;
                             } else {
-                                let [child, getterCode] = this.compileSingleAccessGet(currentAccessee,path[pathIndex].accessor,path[pathIndex].expr,path[pathIndex].accessMode,exprContext)
+                                let [child, getterCode] = this.compileSingleAccessGet(currentAccessee,accessor,path[pathIndex].expr,path[pathIndex].accessMode,exprContext)
                                 if (!(child instanceof TangibleValue)) {
                                     this.reportError(
                                         path[pathIndex]?.expr.accessee ?? child.astNode ?? assigneeExpr,
@@ -1440,11 +1465,11 @@ export class CodeCompiler {
                         }
                         // otherwise do the type-specific behavior
                         else {
-                            code.push(...this.compileSingleAccessSet(currentAccessee,path[pathIndex].accessor,val,path[pathIndex].accessMode))
+                            code.push(...this.compileSingleAccessSet(currentAccessee,accessor,val,path[pathIndex].accessMode))
                         }
                     }
                 }
-                let [baseValue, baseCode] = this.compileExpression(baseExpression!, exprContext);
+                let [baseValue, baseCode] = this.compileExpression(baseExpression, exprContext);
                 code.push(...baseCode);
                 walkPath(baseValue, 0);
             }
