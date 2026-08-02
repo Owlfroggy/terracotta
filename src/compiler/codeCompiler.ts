@@ -8,7 +8,7 @@ import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError, TCNodePCodeError, TCStandaloneError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, PerSelectedExpression, SelectionExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { CodeValue, EmptyValue, FunctionValue, ItemValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, LibraryItemValue, StringValue, StyledTextValue, TangibleValue, VariableValue } from "./codeValue.ts";
+import { CodeValue, EmptyValue, FunctionValue, ItemValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, LibraryItemValue, StringValue, StyledTextValue, TangibleValue, VariableValue, GameValueValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
@@ -595,6 +595,121 @@ export class CodeCompiler {
         ]
     }
 
+    compileSingleAccessGet(
+        accessee: CodeValue, 
+        accessor: CodeValue, 
+        expression: AccessExpression | BracketedAccessExpression, 
+        mode: "member" | "property", 
+        context: ExpressionContext
+    ): [CodeValue, CodeBlock[]] {
+        let tvp = context.perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider;
+        let code: CodeBlock[] = [];
+
+        if (!(accessor instanceof TangibleValue)) {
+            this.reportError(
+                expression.propertyName,
+                `Type '${accessor.getType(this.env.types)}' cannot be used as an indexer`
+            );
+            return [new MissingValue(expression), code];
+        }
+
+        let accesseeType = accessee.getType(this.env.types);
+        let accessorType = accessor.getType(this.env.types);
+        let accessorValue: number | string | undefined = undefined;
+        if (accessor.isCompileTimeConstant()) {
+            if (accessor instanceof NumberValue) {
+                let v = tcParseNumber(accessor.value as string);
+                if (!isNaN(v)) {
+                    accessorValue = v;
+                }
+            }
+            else if (accessor instanceof StringValue) {
+                accessorValue = accessor.value.toString();
+            }
+        }
+
+        // list accessing
+        if (accesseeType.matches(Type.list)) {
+            if (!accessorType.matches(Type.num)) {
+                this.reportError(
+                    expression.propertyName,
+                    `Type '${accessorType.name}' cannot be used to index into lists`
+                );
+                return [new MissingValue(expression), code];
+            }
+            if (typeof accessorValue == "number") {
+                if (parseFloat((accessor as NumberValue).value as string) != accessorValue) {
+                    this.reportError(
+                        expression.propertyName,
+                        `List index must be a whole number`
+                    );
+                    return [new MissingValue(expression), code];
+                }
+                if (accessorValue <= 0) {
+                    this.reportError(
+                        expression.propertyName,
+                        `List index must be >= 1${accessorValue == 0 ? " (lists start at index 1 in DiamondFire)" : ""}`
+                    )
+                    return [new MissingValue(expression), code];
+                }
+            }
+
+            let tempVar = tvp.newTempVar(accesseeType.getMemberType(accessorValue));
+
+            let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                action: "GetListValue",
+                args: [tempVar, accessee as TangibleValue, accessor]
+            })
+
+            return [tempVar, [...code, codeBlock]];
+        }
+        // dict accessing
+        else if (accesseeType.matches(Type.dict)) {
+            if (!accessorType.matches(Type.str)) {
+                this.reportError(
+                    expression.propertyName,
+                    `Type '${accessorType.name}' cannot be used to index into dictionaries, only strings are allowed as keys`
+                );
+                return [new MissingValue(expression), code];
+            }
+            let tempVar = tvp.newTempVar(accesseeType.getMemberType(accessorValue));
+
+            let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                action: "GetDictValue",
+                args: [tempVar, accessee as TangibleValue, accessor]
+            })
+
+            return [tempVar, [...code, codeBlock]];
+        }
+        // error
+        else {
+            this.reportError(
+                expression.propertyName,
+                `Member access not allowed on type '${accessee.getType(this.env.types).name}'`,
+                accessee
+            );
+            return [new MissingValue(expression), code];
+        }
+    }
+
+    /** does NOT do validation */
+    compileSingleAccessSet(accessee: TangibleValue, accessor: TangibleValue, value: TangibleValue, mode: "member" | "property"): CodeBlock[] {
+        let accesseeType = accessee.getType(this.env.types);
+        if (accesseeType.matches(Type.list)) {
+            return [new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                action: "SetListValue",
+                args: [accessee,accessor,value]
+            })];
+        } else if (accesseeType.matches(Type.dict)) {
+            return [new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                action: "SetDictValue",
+                args: [accessee,accessor,value]
+            })];
+        } else {
+            return [];
+        }
+    }
+
     compileExpression(e: Expression | Token, context: ExpressionContext): [CodeValue, CodeBlock[]] {
         let tvp = context.perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider;
         // TODO: structure this and the compileStatement thing more like how the parser does stuff
@@ -685,96 +800,10 @@ export class CodeCompiler {
             }
         }
         else if (e instanceof BracketedAccessExpression) {
-            let [accessee, preCode] = this.compileExpression(e.accessee, context);
-
+            let [accessee, accesseeCode] = this.compileExpression(e.accessee, context);
             let [accessor, accessorCode] = this.compileExpression(e.propertyName, context);
-            preCode.push(...accessorCode);
-
-            if (!(accessor instanceof TangibleValue)) {
-                this.reportError(
-                    e.propertyName,
-                    `Type '${accessor.getType(this.env.types)}' cannot be used as an indexer`
-                );
-                return [new MissingValue(e), preCode];
-            }
-
-            let accesseeType = accessee.getType(this.env.types);
-            let accessorType = accessor.getType(this.env.types);
-            let accessorValue: number | string | undefined = undefined;
-            if (accessor.isCompileTimeConstant()) {
-                if (accessor instanceof NumberValue) {
-                    let v = tcParseNumber(accessor.value as string);
-                    if (!isNaN(v)) {
-                        accessorValue = v;
-                    }
-                }
-                else if (accessor instanceof StringValue) {
-                    accessorValue = accessor.value.toString();
-                }
-            }
-
-            // list accessing
-            if (accesseeType.matches(Type.list)) {
-                if (!accessorType.matches(Type.num)) {
-                    this.reportError(
-                        e.propertyName,
-                        `Type '${accessorType.name}' cannot be used to index into lists`
-                    );
-                    return [new MissingValue(e), preCode];
-                }
-                if (typeof accessorValue == "number") {
-                    if (parseFloat((accessor as NumberValue).value as string) != accessorValue) {
-                        this.reportError(
-                            e.propertyName,
-                            `List index must be a whole number`
-                        );
-                        return [new MissingValue(e), preCode];
-                    }
-                    if (accessorValue <= 0) {
-                        this.reportError(
-                            e.propertyName,
-                            `List index must be >= 1${accessorValue == 0 ? " (lists start at index 1 in DiamondFire)" : ""}`
-                        )
-                        return [new MissingValue(e), preCode];
-                    }
-                }
-
-                let tempVar = tvp.newTempVar(accesseeType.getMemberType(accessorValue));
-
-                let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                    action: "GetListValue",
-                    args: [tempVar, accessee as TangibleValue, accessor]
-                })
-
-                return [tempVar, [...preCode, codeBlock]];
-            }
-            // dict accessing
-            else if (accesseeType.matches(Type.dict)) {
-                if (!accessorType.matches(Type.str)) {
-                    this.reportError(
-                        e.propertyName,
-                        `Type '${accessorType.name}' cannot be used to index into dictionaries, only strings are allowed as keys`
-                    );
-                    return [new MissingValue(e), preCode];
-                }
-                let tempVar = tvp.newTempVar(accesseeType.getMemberType(accessorValue));
-
-                let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                    action: "GetDictValue",
-                    args: [tempVar, accessee as TangibleValue, accessor]
-                })
-
-                return [tempVar, [...preCode, codeBlock]];
-            }
-            // error
-            else {
-                this.reportError(
-                    e.propertyName,
-                    `Member access not allowed on type '${accessee.getType(this.env.types).name}'`,
-                    accessee
-                );
-                return [new MissingValue(e), preCode];
-            }
+            let [val, accessCode] = this.compileSingleAccessGet(accessee, accessor, e, "member", context);
+            return [val, [...accesseeCode, ...accessorCode, ...accessCode]];
         }
         else if (e instanceof AccessExpression) {
             let [accessee, preCode] = this.compileExpression(e.accessee, context);
@@ -1293,117 +1322,131 @@ export class CodeCompiler {
                     }
                 }
 
-                // compile variable
-                assigneeExpr = assigneeExpr.getRealExpression();
-                let [variable, _] = this.compileExpression(assigneeExpr, exprContext)
-
                 if (assigneeExpr instanceof VariableExpression) this.shadowingCheck(assigneeExpr);
 
-                if (assigneeExpr instanceof BracketedAccessExpression) {
-                    let baseExpression: Expression;
-                    let path: {accesseeType: Type, accessMode: "property" | "member", key: CodeValue}[] = [];
-                    const generatePath = (expr: Expression, typeOverride?: Type) => {
-                        expr = expr.getRealExpression();
-                        if (expr instanceof TypecastExpression) {
-                            generatePath(expr.left, this.env.types.evaluateExplicitType(expr.type))
-                        } else if (expr instanceof BracketedAccessExpression) {
-                            let [key, keyCode] = this.compileExpression(expr.propertyName, exprContext);
-                            code.push(...keyCode);
-                            path.unshift({
-                                accesseeType: typeOverride ?? this.env.types.evaluateExpression(expr.accessee),
-                                accessMode: "member",
-                                key
-                            });
-                            generatePath(expr.accessee);
-                        } else {
-                            baseExpression = expr;
-                        }
-                    }
-                    generatePath(assigneeExpr);
-
-                    const walkPath = (currentAccessee: CodeValue, pathIndex: number) => {
-                        // TODO: GET RID OF THIS!!!!!!!!!!!!!!!!
-                        // TODO: GET RID OF THIS!!!!!!!!!!!!!!!!
-                        // TODO: GET RID OF THIS!!!!!!!!!!!!!!!!
-                        // TODO: GET RID OF THIS!!!!!!!!!!!!!!!!
-                        if (!(currentAccessee instanceof TangibleValue)) {
-                            throw new Error("stop");
-                        }
-                        if (!(path[pathIndex].key instanceof TangibleValue)) {
-                            throw new Error("stop");
-                        }
-
-                        // base case: actually modify the value
-                        let accesseeType = path[pathIndex].accesseeType;
-                        if (pathIndex >= path.length-1) {
-                            code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                                action: "SetListValue",
-                                args: [currentAccessee,path[pathIndex].key,values[i] as TangibleValue]
-                            }));
-                        } 
-                        // recursively generate accessor code
-                        else {
-                            let child = tvp.newTempVar(accesseeType);
-                            code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                                action: "GetListValue",
-                                args: [child,currentAccessee,path[pathIndex].key]
-                            }));
-                            walkPath(child, pathIndex+1);
-                            code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                                action: "SetListValue",
-                                args: [currentAccessee,path[pathIndex].key,child]
-                            }));
-                        }
-                    }
-                    let [baseValue, baseCode] = this.compileExpression(baseExpression!, exprContext);
-                    code.push(...baseCode);
-                    walkPath(baseValue, 0);
-
-                    // function recurse(currentAccessee, path, index, valueToStore) {
-                    //     if (index >= path.length-1) {
-                    //         // modifyFinalCallback()
-                    //         currentAccessee[path[index]] = valueToStore;
-                    //         // base case
-                    //     } else {
-                    //         line child = currentAccessee[path[index]];
-                    //         recurse(child, path, index+1);
-                    //         currentAccessee[path[index]] = child;
-                    //     }
-                    // }
-                } else {
-                    // incrementor operators
-                    if (s.operator.type != TokenType.EQUALS) {
-                        let [newValue, newCode] = Operations.evaluateBinaryValue(variable, s.operator, values[i], this.getEvaluationContext())
-                        values[i] = newValue;
-                        code.push(...newCode);
-                    }
-    
-                    // type validation
-                    let expectedType: Type = Type.any;
-                    if (assigneeExpr instanceof VariableExpression && assigneeExpr.assignedType) {
-                        expectedType = this.env.types.evaluateExplicitType(assigneeExpr.assignedType.type)
+                // generate path
+                let baseExpression: Expression;
+                let path: {accesseeType: Type, accessMode: "property" | "member", accessor: TangibleValue, expr: AccessExpression | BracketedAccessExpression}[] = [];
+                const generatePath = (expr: Expression, typeOverride?: Type) => {
+                    expr = expr.getRealExpression();
+                    if (expr instanceof TypecastExpression) {
+                        generatePath(expr.left, this.env.types.evaluateExplicitType(expr.type))
+                    } else if (expr instanceof BracketedAccessExpression) {
+                        let [accessor, keyCode] = this.compileExpression(expr.propertyName, exprContext);
+                        if (!(accessor instanceof TangibleValue)) return;
+                        code.push(...keyCode);
+                        path.unshift({
+                            accesseeType: typeOverride ?? this.env.types.evaluateExpression(expr.accessee),
+                            accessMode: "member",
+                            accessor,
+                            expr,
+                        });
+                        generatePath(expr.accessee);
                     } else {
-                        expectedType = variable.getType(this.env.types);
+                        baseExpression = expr;
                     }
-                    let resultType = values[i].getType(this.env.types);
-                    if (!resultType.isAssignableTo(expectedType)) {
-                        this.reportError(values[i].astNode ?? assigneeExpr, `Type '${resultType}' is not assignable to variable of type '${expectedType}'`);
-                    }
-        
-                    if (!(
-                        (assigneeExpr instanceof VariableExpression)
-                        || (assigneeExpr instanceof AtomicExpression && variable instanceof VariableValue)
-                    )) {
-                        this.reportError(assigneeExpr, `Left-hand side of an assignment statement must be a variable`, variable)
-                        continue;
-                    }
-    
-                    code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                        action: "=",
-                        args: [variable as VariableValue,values[i] as TangibleValue]
-                    }));
                 }
+                generatePath(assigneeExpr);
 
+                // compile path
+                const walkPath = (currentAccessee: CodeValue, pathIndex: number) => {
+                    if (!(currentAccessee instanceof TangibleValue)) {
+                        this.reportError(
+                            path[pathIndex]?.expr.accessee ?? currentAccessee.astNode ?? assigneeExpr,
+                            `This value cannot be assigned to`,
+                        );
+                        return;
+                    }
+
+                    // recursively generate accessor code
+                    if (pathIndex < path.length-1) {
+                        let [child, getterCode] = this.compileSingleAccessGet(currentAccessee,path[pathIndex].accessor,path[pathIndex].expr,path[pathIndex].accessMode,exprContext)
+                        if (!(child instanceof TangibleValue)) {
+                            this.reportError(
+                                path[pathIndex]?.expr.accessee ?? child.astNode ?? assigneeExpr,
+                                `This value cannot be assigned to`,
+                                child
+                            );
+                            return;
+                        }
+                        code.push(...getterCode);
+                        walkPath(child, pathIndex+1);
+                        code.push(...this.compileSingleAccessSet(currentAccessee,path[pathIndex].accessor,child,path[pathIndex].accessMode))
+                    } 
+                    // base case: actually modify the value
+                    else {
+                        if (!(values[i] instanceof TangibleValue)) {
+                            this.reportError(values[i].astNode ?? s.rightValue[i], "This value cannot be stored in variables");
+                            return;
+                        }
+                        let val = values[i] as TangibleValue;
+
+                        // incrementor operators
+                        if (s.operator.type != TokenType.EQUALS) {
+                            let incrementBase: TangibleValue;
+                            if (path.length == 0) {
+                                incrementBase = currentAccessee;
+                            } else {
+                                let [child, getterCode] = this.compileSingleAccessGet(currentAccessee,path[pathIndex].accessor,path[pathIndex].expr,path[pathIndex].accessMode,exprContext)
+                                if (!(child instanceof TangibleValue)) {
+                                    this.reportError(
+                                        path[pathIndex]?.expr.accessee ?? child.astNode ?? assigneeExpr,
+                                        `This value cannot be assigned to`,
+                                        child
+                                    );
+                                    return;
+                                }
+                                code.push(...getterCode);
+                                incrementBase = child;
+                            }
+                            let [newValue, newCode] = Operations.evaluateBinaryValue(incrementBase, s.operator, val, this.getEvaluationContext())
+                            if (!(newValue instanceof TangibleValue)) return;
+                            val = newValue;
+                            code.push(...newCode);
+                        }
+        
+                        // type validation
+                        let expectedType: Type = Type.any;
+                        if (assigneeExpr instanceof VariableExpression && assigneeExpr.assignedType) {
+                            expectedType = this.env.types.evaluateExplicitType(assigneeExpr.assignedType.type)
+                        } else {
+                            expectedType = this.env.types.evaluateExpression(assigneeExpr);
+                        }
+                        let resultType = val.getType(this.env.types);
+                        if (!resultType.isAssignableTo(expectedType)) {
+                            this.reportError(val.astNode ?? assigneeExpr, `Type '${resultType}' is not assignable to variable of type '${expectedType}'`);
+                        }
+
+                        // if this is setting a variable without a path, set directly
+                        if (path.length == 0) {
+                            if (!(
+                                (assigneeExpr instanceof VariableExpression)
+                                || (assigneeExpr instanceof AtomicExpression && currentAccessee instanceof VariableValue)
+                            )) {
+                                this.reportError(
+                                    assigneeExpr, 
+                                    currentAccessee instanceof GameValueValue ?
+                                        `Game values cannot be assigned to. Use an action instead.`
+                                        : `Left-hand side of an assignment statement must be a variable or an access expression`,
+                                    currentAccessee
+                                )
+                                return;
+                            }
+                            
+                            code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                                action: "=",
+                                args: [currentAccessee,val]
+                            }));
+                        }
+                        // otherwise do the type-specific behavior
+                        else {
+                            code.push(...this.compileSingleAccessSet(currentAccessee,path[pathIndex].accessor,val,path[pathIndex].accessMode))
+                        }
+                    }
+                }
+                let [baseValue, baseCode] = this.compileExpression(baseExpression!, exprContext);
+                code.push(...baseCode);
+                walkPath(baseValue, 0);
             }
             return code;
         }
