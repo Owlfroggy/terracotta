@@ -505,7 +505,8 @@ export const OVERRIDES: {
         "Compare Mode": "mode",
         "Event Target": "target",
         "Movement Key": "key",
-        "Redstone Power Mode": "mode"
+        "Redstone Power Mode": "mode",
+        "Close Player Inventory": "closePlayerInv",
     },
     gameValueNames: {
         "X-Coordinate": "x",
