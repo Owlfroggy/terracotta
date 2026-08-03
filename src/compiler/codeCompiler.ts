@@ -1434,12 +1434,14 @@ export class CodeCompiler {
                         let expectedType: Type = Type.any;
                         if (assigneeExpr instanceof VariableExpression && assigneeExpr.assignedType) {
                             expectedType = this.env.types.evaluateExplicitType(assigneeExpr.assignedType.type)
+                        } else if (path.length == 0 && currentAccessee instanceof VariableValue) {
+                            expectedType = currentAccessee.getType(this.env.types);
                         } else {
                             expectedType = this.env.types.evaluateExpression(assigneeExpr);
                         }
                         let resultType = val.getType(this.env.types);
                         if (!resultType.isAssignableTo(expectedType)) {
-                            this.reportError(val.astNode ?? assigneeExpr, `Type '${resultType}' is not assignable to variable of type '${expectedType}'`);
+                            this.reportError(val.astNode ?? assigneeExpr, `Type '${resultType}' is not assignable to type '${expectedType}'`);
                         }
 
                         // if this is setting a variable without a path, set directly
