@@ -171,7 +171,7 @@ export class StringValue extends TangibleValue {
         return {
             "id": "txt",
             "data": {
-                "name": this.value
+                "name": this.toString()
             }
         };
     }
