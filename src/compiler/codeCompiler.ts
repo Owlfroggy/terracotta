@@ -27,6 +27,7 @@ import { MAX_FUNCTION_PARAMS, SliceCodeLine, SPLIT_FAILED_ERROR_MESSAGE } from "
 import { ItemLibrary } from "./itemLibrary.ts";
 import { isSNBTValid } from "../util/snbtUtils.ts";
 import { INVERTIBLE_SELECT_ACTIONS, KEYWORDS } from "../data/constants.ts";
+import { getImprovedErrorNode } from "../error/errorUtils.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -490,6 +491,18 @@ export class CodeCompiler {
     }
 
     compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition, context: ExpressionContext, extraInfo: FunctionCallExtraInfo = {}): [CodeValue, CodeBlock[]] {
+        if (
+            (extraInfo.methodCallOf instanceof VariableValue && extraInfo.methodCallOf.isTempVar)
+            || !(extraInfo.methodCallOf instanceof VariableValue)
+        ) {
+            for (const sig of definition.signatures) {
+                if (sig.params.length > 0 && sig.params[0].type.matches(Type.var)) {
+                    this.reportError(getImprovedErrorNode(e),"Methods which expect a reference cannot be called on this value");
+                    break;
+                }
+            }
+        }
+
         let [args, namedArgs, argCode] = this.compileArgsList(e.args, context, !definition.manuallyCompilesNamedArgs);
 
         if (definition.action) {

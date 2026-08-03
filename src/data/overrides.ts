@@ -820,23 +820,23 @@ export const OVERRIDES: {
 
             // list
             "AppendValue": [ {params: [ 
-                {name: "List to append to", type: Type.list(Type.any), optional: false, plural: false} ,
+                {name: "List to append to", type: Type.var(Type.list(Type.any)), optional: false, plural: false} ,
                 {name: "Value(s) to append", type: Type.any, optional: false, plural: true}
             ]}, ],
             "AppendList": [ {params: [ 
-                {name: "List to append to", type: Type.list(Type.any), optional: false, plural: false} ,
+                {name: "List to append to", type: Type.var(Type.list(Type.any)), optional: false, plural: false} ,
                 {name: "Lists(s) to append", type: Type.list(Type.any), optional: false, plural: true}
             ]}, ],
             "RemoveListIndex": [ {params: [ 
-                {name: "List to change", type: Type.list(Type.any), optional: false, plural: false} ,
+                {name: "List to change", type: Type.var(Type.list(Type.any)), optional: false, plural: false} ,
                 {name: "Index to remove", type: Type.num, optional: false, plural: true}
             ]}, ],
             "RemoveListValue": [ {params: [ 
-                {name: "List to change", type: Type.list(Type.any), optional: false, plural: false} ,
+                {name: "List to change", type: Type.var(Type.list(Type.any)), optional: false, plural: false} ,
                 {name: "Value(s) to remove", type: Type.any, optional: false, plural: true}
             ]}, ],
             "InsertListValue": [ {params: [ 
-                {name: "List to change", type: Type.list(Type.any), optional: false, plural: false} ,
+                {name: "List to change", type: Type.var(Type.list(Type.any)), optional: false, plural: false} ,
                 {name: "Index", type: Type.num, optional: false, plural: false},
                 {name: "Value to insert", type: Type.any, optional: false, plural: false}
             ]}, ],
@@ -846,19 +846,19 @@ export const OVERRIDES: {
 
             // dict
             "AppendDict": [ {params: [ 
-                {name: "Dictionary to add to", type: Type.dict(Type.any), optional: false, plural: false} ,
+                {name: "Dictionary to add to", type: Type.var(Type.dict(Type.any)), optional: false, plural: false} ,
                 {name: "Dictionary to append", type: Type.dict(Type.any), optional: false, plural: false} ,
             ]}, ],
             "ClearDict": [ {params: [ 
-                {name: "Dictionary to clear", type: Type.dict(Type.any), optional: false, plural: false} ,
+                {name: "Dictionary to clear", type: Type.var(Type.dict(Type.any)), optional: false, plural: false} ,
             ]}, ],
             "RemoveDictEntry": [ {params: [ 
-                {name: "Dictionary to change", type: Type.dict(Type.any), optional: false, plural: false} ,
+                {name: "Dictionary to change", type: Type.var(Type.dict(Type.any)), optional: false, plural: false} ,
                 {name: "Key to remove", type: Type.str, optional: false, plural: false} ,
                 {name: "Expected value(s)", type: Type.any, optional: true, plural: true} ,
             ]}, ],
             "SetDictValue": [ {params: [ 
-                {name: "Dictionary to change", type: Type.dict(Type.any), optional: false, plural: false} ,
+                {name: "Dictionary to change", type: Type.var(Type.dict(Type.any)), optional: false, plural: false} ,
                 {name: "Key", type: Type.str, optional: false, plural: false} ,
                 {name: "Value", type: Type.any, optional: false, plural: false} ,
             ]}, ],
