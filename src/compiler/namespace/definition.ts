@@ -95,6 +95,9 @@ export interface PropertyDefinition {
     valueExclusive?: boolean,
     compileGet(ctx: EvaluationContext, propertyOf: CodeValue): [CodeValue, CodeBlock[]],
     compileSet(newValue: TangibleValue, ctx: EvaluationContext, propertyOf: CodeValue): CodeBlock[],
+
+    // language server specific stuff
+    autocompleteSortPrefix?: string
 }
 
 export function isFunctionDefinition(obj): obj is FunctionDefinition {

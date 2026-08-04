@@ -576,7 +576,7 @@ export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition
     ),
 }
 
-function generateCompPropertyDef(type: Type, getterActionName: string, setterActionName: string, tagName: string, tagValue: string): PropertyDefinition {
+function generateCompPropertyDef(type: Type, getterActionName: string, setterActionName: string, tagName: string, tagValue: string, sortPrefix: string = "\u0000"): PropertyDefinition {
     let getterActionDef = AD.actions.get(DFCodeblockName.SET_VARIABLE)![getterActionName];
     let getterTag = new ActionTagValue(getterActionDef.tags[tagName],tagValue);
     
@@ -586,6 +586,7 @@ function generateCompPropertyDef(type: Type, getterActionName: string, setterAct
         definitionType: DefinitionType.PROPERTY,
         type: Type.num,
         valueExclusive: true,
+        autocompleteSortPrefix: sortPrefix,
         compileGet(ctx, propertyOf): [CodeValue, CodeBlock[]] {
             let temp = ctx.tvp.newTempVar(type);
             return [temp, [new ActionBlock(DFCodeblockName.SET_VARIABLE,{
@@ -610,6 +611,14 @@ export const VEC_NAMESPACE_INJECTIONS: {[tcName: string]: Definition} = {
     z: generateCompPropertyDef(Type.num,"GetVectorComp","SetVectorComp","Component","Z"),
 }
 
+export const LOC_NAMESPACE_INJECTIONS: {[tcName: string]: Definition} = {
+    x: generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","X"),
+    y: generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Y"),
+    z: generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Z"),
+    pitch: generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Pitch","\u0001"),
+    yaw: generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Yaw","\u0001"),
+}
+
 function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition} {
     let members = {};
     for (const actionName of TYPE_DOMAIN_ACTIONS[typeName]) {
@@ -628,7 +637,7 @@ TYPE_NAMESPACES.num = new Namespace('num', {...typeActionMembers('num'), ...NUM_
 TYPE_NAMESPACES.str = new Namespace('str', typeActionMembers('str'));
 TYPE_NAMESPACES.txt = new Namespace('txt', typeActionMembers('txt'));
 TYPE_NAMESPACES.vec = new Namespace('vec', {...typeActionMembers('vec'), ...VEC_NAMESPACE_INJECTIONS}, VEC_CONSTRUCTOR,);
-TYPE_NAMESPACES.loc = new Namespace('loc', typeActionMembers('loc'), LOC_CONSTRUCTOR);
+TYPE_NAMESPACES.loc = new Namespace('loc', {...typeActionMembers('loc'), ...LOC_NAMESPACE_INJECTIONS}, LOC_CONSTRUCTOR);
 TYPE_NAMESPACES.snd = new Namespace('snd', typeActionMembers('snd'), SND_CONSTRUCTOR);
 TYPE_NAMESPACES.pot = new Namespace('pot', typeActionMembers('pot'), POT_CONSTRUCTOR);
 TYPE_NAMESPACES.par = new Namespace('par', typeActionMembers('par'), PAR_CONSTRUCTOR);

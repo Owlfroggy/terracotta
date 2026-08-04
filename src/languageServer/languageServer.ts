@@ -173,8 +173,9 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
         item = {
             label: name,
             kind: CompletionItemKind.Field,
-            sortText: "\u0005"+name,
+            sortText: name,
         };
+        if (def.autocompleteSortPrefix) item.sortText = def.autocompleteSortPrefix + name;
         documentation = `\`\`\`tc\n${name}: ${def.type.toString()}\n\`\`\` \nThis property can be accessed and assigned to.`;
     }
     item.documentation = {
