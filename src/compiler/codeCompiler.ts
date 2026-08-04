@@ -493,11 +493,11 @@ export class CodeCompiler {
     compileCallExpression(e: CallExpression | CallOrStartExpression, definition: FunctionDefinition, context: ExpressionContext, extraInfo: FunctionCallExtraInfo = {}): [CodeValue, CodeBlock[]] {
         if (
             (extraInfo.methodCallOf instanceof VariableValue && extraInfo.methodCallOf.isTempVar)
-            || !(extraInfo.methodCallOf instanceof VariableValue)
+            || (extraInfo.methodCallOf instanceof GameValueValue)
         ) {
             for (const sig of definition.signatures) {
                 if (sig.params.length > 0 && sig.params[0].type.matches(Type.var)) {
-                    this.reportError(getImprovedErrorNode(e),"Methods which expect a reference cannot be called on this value");
+                    this.reportError(getImprovedErrorNode(e),"Methods which expect a reference cannot be called here");
                     break;
                 }
             }
