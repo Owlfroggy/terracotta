@@ -344,7 +344,7 @@ export const OVERRIDES: {
             "EntityName": "entitiesByName",
             "PlayerName": "playersByName",
             "AllEntities": "allEntities",
-            "Reset": "nothing",
+            "Reset": "reset",
             "EventTarget": "eventTarget",
             "EntitiesCond": "entitiesByCondition",
             "AllPlayers": "allPlayers",
