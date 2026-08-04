@@ -12,7 +12,7 @@ import { CodeValue, EmptyValue, FunctionValue, ItemValue, MissingValue, MultiVal
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
-import { DefinitionType, FunctionCallExtraInfo, FunctionDefinition, isFunctionDefinition } from "./namespace/definition.ts";
+import { DefinitionType, FunctionCallExtraInfo, FunctionDefinition, isFunctionDefinition, isPropertyDefinition, isValueDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName, DFRank, dfTypeToTC, DFValueType, DICT_LENGTH_LIMIT, LIST_LENGTH_LIMIT, STRING_LENGTH_LIMIT, TC_HEADER, tcTypeToDFParamType } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
@@ -610,75 +610,103 @@ export class CodeCompiler {
 
     validateSingleAccess(
         accessee: CodeValue, 
-        accessor: CodeValue, 
+        accessor: CodeValue | string, 
         expression: AccessExpression | BracketedAccessExpression, 
         mode: "member" | "property", 
-    ): accessor is TangibleValue {
-        if (!(accessor instanceof TangibleValue)) {
-            this.reportError(
-                expression.propertyName,
-                `Type '${accessor.getType(this.env.types)}' cannot be used as an indexer`
-            );
-            return false;
-        }
-
-        let accesseeType = accessee.getType(this.env.types);
-        let accessorType = accessor.getType(this.env.types);
-        let accessorValue: number | string | undefined = undefined;
-        if (accessor.isCompileTimeConstant()) {
-            if (accessor instanceof NumberValue) {
-                let v = tcParseNumber(accessor.value as string);
-                if (!isNaN(v)) {
-                    accessorValue = v;
-                }
-            }
-            else if (accessor instanceof StringValue) {
-                accessorValue = accessor.value.toString();
-            }
-        }
-
-        if (accesseeType.matches(Type.list)) {
-            if (!accessorType.matches(Type.num)) {
+    ) {
+        if (mode == "member" && accessor instanceof CodeValue) {
+            if (!(accessor instanceof TangibleValue)) {
                 this.reportError(
                     expression.propertyName,
-                    `Type '${accessorType.name}' cannot be used to index into lists`
+                    `Type '${accessor.getType(this.env.types)}' cannot be used as an indexer`
                 );
                 return false;
             }
-            if (typeof accessorValue == "number") {
-                if (parseFloat((accessor as NumberValue).value as string) != accessorValue) {
+    
+            let accesseeType = accessee.getType(this.env.types);
+            let accessorType = accessor.getType(this.env.types);
+            let accessorValue: number | string | undefined = undefined;
+            if (accessor.isCompileTimeConstant()) {
+                if (accessor instanceof NumberValue) {
+                    let v = tcParseNumber(accessor.value as string);
+                    if (!isNaN(v)) {
+                        accessorValue = v;
+                    }
+                }
+                else if (accessor instanceof StringValue) {
+                    accessorValue = accessor.value.toString();
+                }
+            }
+    
+            if (accesseeType.matches(Type.list)) {
+                if (!accessorType.matches(Type.num)) {
                     this.reportError(
                         expression.propertyName,
-                        `List index must be a whole number`
+                        `Type '${accessorType.name}' cannot be used to index into lists`
                     );
                     return false;
                 }
-                if (accessorValue <= 0) {
+                if (typeof accessorValue == "number") {
+                    if (parseFloat((accessor as NumberValue).value as string) != accessorValue) {
+                        this.reportError(
+                            expression.propertyName,
+                            `List index must be a whole number`
+                        );
+                        return false;
+                    }
+                    if (accessorValue <= 0) {
+                        this.reportError(
+                            expression.propertyName,
+                            `List index must be >= 1${accessorValue == 0 ? " (lists start at index 1 in DiamondFire)" : ""}`
+                        )
+                        return false;
+                    }
+                }
+            } else if (accesseeType.matches(Type.dict)) {
+                if (!accessorType.matches(Type.str)) {
                     this.reportError(
                         expression.propertyName,
-                        `List index must be >= 1${accessorValue == 0 ? " (lists start at index 1 in DiamondFire)" : ""}`
-                    )
+                        `Type '${accessorType.name}' cannot be used to index into dictionaries, only strings are allowed as keys`
+                    );
                     return false;
                 }
-            }
-        } else if (accesseeType.matches(Type.dict)) {
-            if (!accessorType.matches(Type.str)) {
+            } else {
                 this.reportError(
                     expression.propertyName,
-                    `Type '${accessorType.name}' cannot be used to index into dictionaries, only strings are allowed as keys`
+                    `Member access not allowed on type '${accessee.getType(this.env.types).name}'`,
+                    accessee
                 );
                 return false;
             }
-        } else {
-            this.reportError(
-                expression.propertyName,
-                `Member access not allowed on type '${accessee.getType(this.env.types).name}'`,
-                accessee
-            );
-            return false;
+    
+            return true;
         }
+        else if (mode == "member" && typeof accessor == "string") {
+            let accesseeType = accessee.getType(this.env.types);
+            let definition = accesseeType.getPropertyDefinition(accessor);
+            if (definition == undefined) {
+                // todo: special error messages for if the namespace is a player action or game action or whatever
+                let name: string
+                if (accessee instanceof NamespaceValue) {
+                    name = `'${accessee.namespace.identifier}'`;
+                } else {
+                    name = accesseeType.name
+                }
+                this.reportError(
+                    expression.propertyName,
+                    `'${accessor}' is not a property of ${name}`,
+                    accessee
+                )
+                return false;
+            }
 
-        return true;
+            return true;
+        }
+        this.reportError(
+            expression, 
+            `(internal compiler error) Invalid state passed to validateSingleAccess: Requested mode '${mode}' but provided a ${accessor?.constructor.name} as an accessor`
+        );
+        return false;
     }
 
     /** Assumes the access has already been validated via `validateSingleAccess()` */
@@ -718,51 +746,52 @@ export class CodeCompiler {
     
                 return [tempVar, [...code, codeBlock]];
             }
-        } else if (typeof accessor == "string") {
+        } else if (mode == "property" && typeof accessor == "string") {
             let accesseeType = accessee.getType(this.env.types);
 
             let definition = accesseeType.getPropertyDefinition(accessor);
-            if (definition == undefined) {
-                // todo: special error messages for if the namespace is a player action or game action or whatever
-                let name: string
-                if (accessee instanceof NamespaceValue) {
-                    name = `'${accessee.namespace.identifier}'`;
-                } else {
-                    name = accesseeType.name
-                }
-                this.reportError(
-                    expression.propertyName,
-                    `'${accessor}' is not a property of ${name}`,
-                    accessee
-                )
-                return [new MissingValue(expression), code];
-            }
-            else if (definition.definitionType == DefinitionType.FUNCTION) {
+            if (isFunctionDefinition(definition)) {
                 return [new FunctionValue(definition, accessee instanceof TangibleValue ? accessee : undefined, expression), code];
             }
-            else if (definition.definitionType == DefinitionType.VALUE) {
+            else if (isValueDefinition(definition)) {
                 return definition.compile(this.getEvaluationContext(context.perSelectedMode));
+            }
+            else if (isPropertyDefinition(definition)) {
+                return definition.compileGet(this.getEvaluationContext(context.perSelectedMode), accessee);
             }
         }
         return [new MissingValue(expression), code];        
     }
 
     /** Assumes the access has already been validated via `validateSingleAccess()` */
-    compileSingleAccessSet(accessee: TangibleValue, accessor: TangibleValue, value: TangibleValue, mode: "member" | "property"): CodeBlock[] {
+    compileSingleAccessSet(
+        accessee: TangibleValue, 
+        /** Pass in a TangibleValue for member access and a string for property access */
+        accessor: TangibleValue | string, 
+        value: TangibleValue, 
+        mode: "member" | "property",
+        context: ExpressionContext
+    ): CodeBlock[] {
         let accesseeType = accessee.getType(this.env.types);
-        if (accesseeType.matches(Type.list)) {
-            return [new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                action: "SetListValue",
-                args: [accessee,accessor,value]
-            })];
-        } else if (accesseeType.matches(Type.dict)) {
-            return [new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                action: "SetDictValue",
-                args: [accessee,accessor,value]
-            })];
-        } else {
-            return [];
+        if (mode == "member" && accessor instanceof TangibleValue) {
+            if (accesseeType.matches(Type.list)) {
+                return [new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetListValue",
+                    args: [accessee,accessor,value]
+                })];
+            } else if (accesseeType.matches(Type.dict)) {
+                return [new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "SetDictValue",
+                    args: [accessee,accessor,value]
+                })];
+            }
+        } else if (mode == "property" && typeof accessor == "string") {
+            let definition = accesseeType.getPropertyDefinition(accessor);
+            if (isPropertyDefinition(definition)) {
+                return definition.compileSet(value, this.getEvaluationContext(context.perSelectedMode), accessee)
+            }
         }
+        return [];
     }
 
     compileExpression(e: Expression | Token, context: ExpressionContext): [CodeValue, CodeBlock[]] {
@@ -859,12 +888,16 @@ export class CodeCompiler {
             let [accessor, accessorCode] = this.compileExpression(e.propertyName, context);
             if (!this.validateSingleAccess(accessee, accessor, e, "member")) 
                 return [new MissingValue(e), []];
-            let [val, accessCode] = this.compileSingleAccessGet(accessee, accessor, e, "member", context);
+            let [val, accessCode] = this.compileSingleAccessGet(accessee, accessor as TangibleValue, e, "member", context);
             return [val, [...accesseeCode, ...accessorCode, ...accessCode]];
         }
         else if (e instanceof AccessExpression) {
             let [accessee, accessorCode] = this.compileExpression(e.accessee, context);
             let propertyName = e.propertyName.value;
+
+            if (!this.validateSingleAccess(accessee, propertyName, e, "member")) 
+                return [new MissingValue(e), []];
+
             let [val, accessCode] = this.compileSingleAccessGet(accessee, propertyName, e, "property", context);
 
             return [val, [...accessorCode, ...accessCode]];
@@ -1356,7 +1389,7 @@ export class CodeCompiler {
 
                 // generate path
                 let baseExpression: Expression | undefined;
-                let path: {accesseeType: Type, accessMode: "property" | "member", accessor: TangibleValue, expr: AccessExpression | BracketedAccessExpression}[] = [];
+                let path: {accesseeType: Type, accessMode: "property" | "member", accessor: TangibleValue | string, expr: AccessExpression | BracketedAccessExpression}[] = [];
                 const generatePath = (expr: Expression, typeOverride?: Type) => {
                     expr = expr.getRealExpression();
                     if (expr instanceof TypecastExpression) {
@@ -1371,6 +1404,14 @@ export class CodeCompiler {
                             accessor,
                             expr,
                         });
+                        generatePath(expr.accessee);
+                    } else if (expr instanceof AccessExpression) {
+                        path.unshift({
+                            accesseeType: typeOverride ?? this.env.types.evaluateExpression(expr.accessee),
+                            accessMode: "property",
+                            accessor: expr.propertyName.value,
+                            expr
+                        })
                         generatePath(expr.accessee);
                     } else {
                         baseExpression = expr;
@@ -1408,7 +1449,7 @@ export class CodeCompiler {
                         }
                         code.push(...getterCode);
                         walkPath(child, pathIndex+1);
-                        code.push(...this.compileSingleAccessSet(currentAccessee,accessor,child,path[pathIndex].accessMode))
+                        code.push(...this.compileSingleAccessSet(currentAccessee,accessor,child,path[pathIndex].accessMode,exprContext))
                     } 
                     // base case: actually modify the value
                     else {
@@ -1479,7 +1520,7 @@ export class CodeCompiler {
                         }
                         // otherwise do the type-specific behavior
                         else {
-                            code.push(...this.compileSingleAccessSet(currentAccessee,accessor,val,path[pathIndex].accessMode))
+                            code.push(...this.compileSingleAccessSet(currentAccessee,accessor,val,path[pathIndex].accessMode,exprContext))
                         }
                     }
                 }

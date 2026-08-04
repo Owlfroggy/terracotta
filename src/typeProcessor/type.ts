@@ -1,4 +1,4 @@
-import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition } from "../compiler/namespace/definition.ts";
+import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, isPropertyDefinition } from "../compiler/namespace/definition.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { canFuncBeMethod, getNamespaceMemberType } from "../compiler/namespace/utils.ts";
 
@@ -249,9 +249,12 @@ export class Type {
         (namespace: Namespace) => {
             let getPropertyType = (m: string) => getNamespaceMemberType(namespace, m)
             let getPropertyDefinition = (m: string) => {
-                return namespace.members[m];
+                let def = namespace.members[m];
+                if (isPropertyDefinition(def) && def.valueExclusive) return null;
+                return def;
             }
-            let properties = Object.keys(namespace.members);
+            let properties = Object.keys(namespace.members)
+                .filter(k => !(isPropertyDefinition(namespace.members[k]) && namespace.members[k].valueExclusive) );
             let getProperties = () => properties;
             return new Type('namespace',{getPropertyType, getPropertyDefinition, getProperties, data: {namespace}})
         }
@@ -276,12 +279,16 @@ export class Type {
     public readonly getMembers: () => (string[] | null) = () => null;
     
     // default behavior: grab methodable functions from this type's namespace, if applicable
+    // also grab property definitions that apply to values
     public readonly getProperties = (): (string[] | null) => {
         const namespace = TYPE_NAMESPACES[this.name];
         if (!namespace) return null;
         let props: string[] = [];
         for (const [name, member] of Object.entries(namespace.members)) {
-            if (isFunctionDefinition(member) && canFuncBeMethod(member, this)) {
+            if (
+                (isFunctionDefinition(member) && canFuncBeMethod(member, this))
+                || (isPropertyDefinition(member) && member.valueExclusive)
+            ) {
                 props.push(name);
             }
         }

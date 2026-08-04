@@ -159,7 +159,7 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
             if (def.description) documentation = def.description + "\n" + documentation;
         }
     }
-    else {
+    else if (def.definitionType == DefinitionType.VALUE) {
         item = {
             label: name,
             kind: CompletionItemKind.Field,
@@ -168,6 +168,14 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
         if (def.gameValue) {
             documentation = getValueDocumentation(def.gameValue);
         }
+    }
+    else /*if (def.definitionType == DefinitionType.PROPERTY)*/ {
+        item = {
+            label: name,
+            kind: CompletionItemKind.Field,
+            sortText: "\u0005"+name,
+        };
+        documentation = `\`\`\`tc\n${name}: ${def.type.toString()}\n\`\`\` \nThis property can be accessed and assigned to.`;
     }
     item.documentation = {
         kind: "markdown",

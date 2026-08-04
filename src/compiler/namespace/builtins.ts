@@ -3,7 +3,7 @@ import * as AD from "../../df/actiondump.ts";
 import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, MissingValue, MultiValue, NamespaceValue, NumberValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../codeBlock.ts";
 import { MultiValueTypeData, Type, TYPE_NAMESPACES } from "../../typeProcessor/type.ts";
-import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE, FunctionCallExtraInfo } from "./definition.ts";
+import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE, FunctionCallExtraInfo, Definition, PropertyDefinition } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { CREATE_SELECTION_ACTION_LIST, FILTER_SELECTION_ACTION_LIST, FORCED_EVENT_ACTIONS, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
@@ -576,6 +576,40 @@ export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition
     ),
 }
 
+function generateCompPropertyDef(type: Type, getterActionName: string, setterActionName: string, tagName: string, tagValue: string): PropertyDefinition {
+    let getterActionDef = AD.actions.get(DFCodeblockName.SET_VARIABLE)![getterActionName];
+    let getterTag = new ActionTagValue(getterActionDef.tags[tagName],tagValue);
+    
+    let setterActionDef = AD.actions.get(DFCodeblockName.SET_VARIABLE)![setterActionName];
+    let setterTag = new ActionTagValue(setterActionDef.tags[tagName],tagValue);
+    return {
+        definitionType: DefinitionType.PROPERTY,
+        type: Type.num,
+        valueExclusive: true,
+        compileGet(ctx, propertyOf): [CodeValue, CodeBlock[]] {
+            let temp = ctx.tvp.newTempVar(type);
+            return [temp, [new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                action: getterActionName,
+                args: [temp, propertyOf as TangibleValue],
+                tags: [getterTag]
+            })]]
+        },
+        compileSet(value, ctx, propertyOf): CodeBlock[] {
+            return [new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                action: setterActionName,
+                args: [propertyOf as TangibleValue, value],
+                tags: [setterTag]
+            })]
+        },
+    }
+}
+
+export const VEC_NAMESPACE_INJECTIONS: {[tcName: string]: Definition} = {
+    x: generateCompPropertyDef(Type.num,"GetVectorComp","SetVectorComp","Component","X"),
+    y: generateCompPropertyDef(Type.num,"GetVectorComp","SetVectorComp","Component","Y"),
+    z: generateCompPropertyDef(Type.num,"GetVectorComp","SetVectorComp","Component","Z"),
+}
+
 function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition} {
     let members = {};
     for (const actionName of TYPE_DOMAIN_ACTIONS[typeName]) {
@@ -593,7 +627,7 @@ TYPE_NAMESPACES.var = new Namespace('var', typeActionMembers('var'));
 TYPE_NAMESPACES.num = new Namespace('num', {...typeActionMembers('num'), ...NUM_NAMESPACE_INJECTIONS});
 TYPE_NAMESPACES.str = new Namespace('str', typeActionMembers('str'));
 TYPE_NAMESPACES.txt = new Namespace('txt', typeActionMembers('txt'));
-TYPE_NAMESPACES.vec = new Namespace('vec', typeActionMembers('vec'), VEC_CONSTRUCTOR);
+TYPE_NAMESPACES.vec = new Namespace('vec', {...typeActionMembers('vec'), ...VEC_NAMESPACE_INJECTIONS}, VEC_CONSTRUCTOR,);
 TYPE_NAMESPACES.loc = new Namespace('loc', typeActionMembers('loc'), LOC_CONSTRUCTOR);
 TYPE_NAMESPACES.snd = new Namespace('snd', typeActionMembers('snd'), SND_CONSTRUCTOR);
 TYPE_NAMESPACES.pot = new Namespace('pot', typeActionMembers('pot'), POT_CONSTRUCTOR);

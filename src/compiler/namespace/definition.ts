@@ -11,9 +11,10 @@ import { CodeValue, TangibleValue } from "../codeValue.ts";
 export enum DefinitionType {
     FUNCTION,
     VALUE,
+    PROPERTY,
 }
 
-export type Definition = FunctionDefinition | ValueDefinition;
+export type Definition = FunctionDefinition | ValueDefinition | PropertyDefinition;
 
 export interface ParameterSignatureEntry {
     type: Type,
@@ -83,6 +84,19 @@ export interface ValueDefinition {
     compile(ctx: EvaluationContext): [CodeValue, CodeBlock[]];
 }
 
+export interface PropertyDefinition {
+    definitionType: DefinitionType.PROPERTY,
+    type: Type,
+    /** 
+     * If true, this property is only available on values whose type 
+     * matches with this namespace; the property will NOT be available
+     * on the namespace itself.
+     * */
+    valueExclusive?: boolean,
+    compileGet(ctx: EvaluationContext, propertyOf: CodeValue): [CodeValue, CodeBlock[]],
+    compileSet(newValue: TangibleValue, ctx: EvaluationContext, propertyOf: CodeValue): CodeBlock[],
+}
+
 export function isFunctionDefinition(obj): obj is FunctionDefinition {
     return (
         obj instanceof Object
@@ -94,6 +108,13 @@ export function isValueDefinition(obj): obj is ValueDefinition {
     return (
         obj instanceof Object
         && obj.definitionType == DefinitionType.VALUE
+    );
+}
+
+export function isPropertyDefinition(obj): obj is PropertyDefinition {
+    return (
+        obj instanceof Object
+        && obj.definitionType == DefinitionType.PROPERTY
     );
 }
 
