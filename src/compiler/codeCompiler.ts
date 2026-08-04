@@ -684,42 +684,67 @@ export class CodeCompiler {
     /** Assumes the access has already been validated via `validateSingleAccess()` */
     compileSingleAccessGet(
         accessee: CodeValue, 
-        accessor: TangibleValue, 
+        /** Pass in a TangibleValue for member access and a string for property access */
+        accessor: TangibleValue | string, 
         expression: AccessExpression | BracketedAccessExpression, 
         mode: "member" | "property", 
         context: ExpressionContext
     ): [CodeValue, CodeBlock[]] {
-        let tvp = context.perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider;
         let code: CodeBlock[] = [];
+        if (mode == "member" && accessor instanceof TangibleValue) {
+            let tvp = context.perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider;
+    
+            let accesseeType = accessee.getType(this.env.types);
+    
+            // list accessing
+            if (accesseeType.matches(Type.list)) {
+                let tempVar = tvp.newTempVar(this.env.types.evaluateExpression(expression));
+    
+                let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "GetListValue",
+                    args: [tempVar, accessee as TangibleValue, accessor]
+                })
+    
+                return [tempVar, [...code, codeBlock]];
+            }
+            // dict accessing
+            else if (accesseeType.matches(Type.dict)) {
+                let tempVar = tvp.newTempVar(this.env.types.evaluateExpression(expression));
+    
+                let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                    action: "GetDictValue",
+                    args: [tempVar, accessee as TangibleValue, accessor]
+                })
+    
+                return [tempVar, [...code, codeBlock]];
+            }
+        } else if (typeof accessor == "string") {
+            let accesseeType = accessee.getType(this.env.types);
 
-        let accesseeType = accessee.getType(this.env.types);
-
-        // list accessing
-        if (accesseeType.matches(Type.list)) {
-            let tempVar = tvp.newTempVar(this.env.types.evaluateExpression(expression));
-
-            let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                action: "GetListValue",
-                args: [tempVar, accessee as TangibleValue, accessor]
-            })
-
-            return [tempVar, [...code, codeBlock]];
+            let definition = accesseeType.getPropertyDefinition(accessor);
+            if (definition == undefined) {
+                // todo: special error messages for if the namespace is a player action or game action or whatever
+                let name: string
+                if (accessee instanceof NamespaceValue) {
+                    name = `'${accessee.namespace.identifier}'`;
+                } else {
+                    name = accesseeType.name
+                }
+                this.reportError(
+                    expression.propertyName,
+                    `'${accessor}' is not a property of ${name}`,
+                    accessee
+                )
+                return [new MissingValue(expression), code];
+            }
+            else if (definition.definitionType == DefinitionType.FUNCTION) {
+                return [new FunctionValue(definition, accessee instanceof TangibleValue ? accessee : undefined, expression), code];
+            }
+            else if (definition.definitionType == DefinitionType.VALUE) {
+                return definition.compile(this.getEvaluationContext(context.perSelectedMode));
+            }
         }
-        // dict accessing
-        else if (accesseeType.matches(Type.dict)) {
-            let tempVar = tvp.newTempVar(this.env.types.evaluateExpression(expression));
-
-            let codeBlock = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                action: "GetDictValue",
-                args: [tempVar, accessee as TangibleValue, accessor]
-            })
-
-            return [tempVar, [...code, codeBlock]];
-        }
-        // error
-        else {
-            return [new MissingValue(expression), code];
-        }
+        return [new MissingValue(expression), code];        
     }
 
     /** Assumes the access has already been validated via `validateSingleAccess()` */
@@ -838,37 +863,11 @@ export class CodeCompiler {
             return [val, [...accesseeCode, ...accessorCode, ...accessCode]];
         }
         else if (e instanceof AccessExpression) {
-            let [accessee, preCode] = this.compileExpression(e.accessee, context);
-            let accesseeType = accessee.getType(this.env.types);
-
+            let [accessee, accessorCode] = this.compileExpression(e.accessee, context);
             let propertyName = e.propertyName.value;
+            let [val, accessCode] = this.compileSingleAccessGet(accessee, propertyName, e, "property", context);
 
-            let definition = accesseeType.getPropertyDefinition(propertyName);
-            if (definition == undefined) {
-                // todo: special error messages for if the namespace is a player action or game action or whatever
-                let name: string
-                if (accessee instanceof NamespaceValue) {
-                    name = `'${accessee.namespace.identifier}'`;
-                } else {
-                    name = accesseeType.name
-                }
-                this.reportError(
-                    e.propertyName,
-                    `'${propertyName}' is not a property of ${name}`,
-                    accessee
-                )
-                return [new MissingValue(e), preCode];
-            }
-            else if (definition.definitionType == DefinitionType.FUNCTION) {
-                return [new FunctionValue(definition, accessee instanceof TangibleValue ? accessee : undefined, e), preCode];
-            }
-            else if (definition.definitionType == DefinitionType.VALUE) {
-                return definition.compile(this.getEvaluationContext(context.perSelectedMode));
-            }
-            else {
-                return [new MissingValue(e), preCode];
-            }
-
+            return [val, [...accessorCode, ...accessCode]];
         }
         else if (e instanceof VariableExpression) {
             // throw error for type annotation in bad place
