@@ -15,7 +15,7 @@ import { PCodeParser } from "./pcode/pcodeParser.ts";
 import { normalizeLineEndings } from "./util/utils.ts";
 import { generateDataDump } from "./data/datadumper.ts";
 
-export const VERSION = "1.0.0-beta.4";
+export const VERSION = "1.0.0-beta.5";
 
 registerBuiltinNamespaces()
 
