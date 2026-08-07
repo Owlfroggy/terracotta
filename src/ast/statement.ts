@@ -31,8 +31,16 @@ export class ExpressionStatement extends Statement {
 export class DeclareStatement extends Statement {
     constructor(
         public keyword: Token,
-        public subStatement: ExpressionStatement | AssignmentStatement
+        public subStatement: ExpressionStatement | AssignmentStatement | IncrementStatement
     ) {super(keyword.startPos, subStatement.endPos);}
+}
+
+export class IncrementStatement extends Statement {
+    constructor(
+        public target: Expression,
+        /** either a PLUS_PLUS or MINUS_MINUS token */
+        public operator: Token,
+    ) {super(target.startPos, operator.endPos);}
 }
 
 export class AssignmentStatement extends Statement {

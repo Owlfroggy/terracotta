@@ -1,6 +1,6 @@
 import { ASTNode, RootNode } from "../ast/astNode.ts";
 import { BinaryExpression, Expression, AtomicExpression, GroupExpression, MissingExpression, ListExpression, CallExpression, AccessExpression, ChunkExpression, VariableExpression, CallOrStartExpression, TypeExpression, TypeAssignmentExpression, ParameterExpression, MultiTypeAssignmentExpression, DictionaryEntryExpression, DictionaryExpression, UnaryPrefixExpression, BracketedAccessExpression, TypecastExpression, DictionaryTypeExpression, DictionaryTypeEntryExpression, PerSelectedExpression, SelectionExpression } from "../ast/expression.ts";
-import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, DoStatement, AssignmentStatement, PerSelectedStatement, DeclareStatement } from "../ast/statement.ts";
+import { EventStatement, ExpressionStatement, RepeatStatement, ReturnStatement, SingleKeywordStatement, Statement, FunctionStatement, IfStatement, WhileStatement, ForStatement, DoStatement, AssignmentStatement, PerSelectedStatement, DeclareStatement, IncrementStatement } from "../ast/statement.ts";
 import { Token, TokenType, BindingPower } from "../ast/token.ts";
 import { ErrorPositionMode, ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { dirWithoutRelations } from "../util/debug.ts";
@@ -709,12 +709,19 @@ export class Parser {
         return new DeclareStatement(keyword, subStatement);
     }
 
-    parseExpressionStatement = (): ExpressionStatement | AssignmentStatement => {
+    parseExpressionStatement = (): ExpressionStatement | AssignmentStatement | IncrementStatement => {
         let allExpressions: Expression[] = [];
         let separators: Token[] = [];
 
         while (true) {
             let expression = this.parseExpression(BindingPower.DEFAULT);
+            if (
+                allExpressions.length == 0
+                && (this.currentToken().type == TokenType.PLUS_PLUS || this.currentToken().type == TokenType.MINUS_MINUS)
+            ) {
+                let operator = this.consume();
+                return new IncrementStatement(expression, operator);
+            }
             // handle assignment operator
             if (expression instanceof BinaryExpression && ASSIGNMENT_OPERATORS.includes(expression.operator.type)) {
                 allExpressions.push(expression.left);
