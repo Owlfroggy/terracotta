@@ -225,6 +225,9 @@ export class Lexer {
             this.makeRegexPattern(TokenType.IDENTIFIER,         /[A-Za-z_]+[A-Za-z0-9_]*/y),
             
             // operations
+            this.makeSymbolPattern(TokenType.PLUS_PLUS,         "++"),
+            this.makeSymbolPattern(TokenType.MINUS_MINUS,       "--"),
+
             this.makeSymbolPattern(TokenType.DOUBLE_EQUALS,     "=="),
             this.makeSymbolPattern(TokenType.BANG_EQUALS,       "!="),
 

@@ -100,6 +100,9 @@ export enum TokenType {
     PERCENT,
     POW,
 
+    PLUS_PLUS,
+    MINUS_MINUS,
+
     BW_OR_EQUALS,
     BW_AND_EQUALS,
     BW_NOT_EQUALS,

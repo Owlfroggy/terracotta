@@ -1,5 +1,5 @@
 import { ASTNode, RootNode } from "../ast/astNode.ts";
-import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, PerSelectedStatement, SingleKeywordStatement, Statement, WhileStatement, DeclareStatement } from "../ast/statement.ts";
+import { AssignmentStatement, DoStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, IfStatement, RepeatStatement, ReturnStatement, PerSelectedStatement, SingleKeywordStatement, Statement, WhileStatement, DeclareStatement, IncrementStatement } from "../ast/statement.ts";
 import { Token, TokenType } from "../ast/token.ts";
 import { isVariableEntry, TypeProcessor, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { getOrCreateDictLayer, getOrCreateMapLayer, ps, tcParseNumber, toNameCase, upperFirst } from "../util/utils.ts";
@@ -1529,6 +1529,39 @@ export class CodeCompiler {
                 walkPath(baseValue, 0);
             }
             return code;
+        }
+        else if (s instanceof IncrementStatement) {
+            let target = s.target.getRealExpression();
+            if (target instanceof VariableExpression) this.shadowingCheck(target);
+
+            let [value, valueCode] = this.compileExpression(target, exprContext);
+
+            if (!(value instanceof VariableValue)) {
+                this.reportError(
+                    s.target,
+                    `The '${s.operator.value}' operator can only be applied to a variable`,
+                    value
+                );
+                return [];
+            }
+
+            // make sure a number can live in this variable
+            let varType = value.getType(this.env.types);
+            if (!Type.num.isAssignableTo(varType)) {
+                this.reportError(
+                    s.target,
+                    `The '${s.operator.value}' operator can only be applied to number variables, not '${varType}'`
+                );
+            }
+
+            let action = s.operator.type == TokenType.PLUS_PLUS ? "+=" : "-=";
+            return [
+                ...valueCode,
+                new ActionBlock(DFCodeblockName.SET_VARIABLE, {
+                    action,
+                    args: [value],
+                }),
+            ];
         }
         else if (s instanceof SingleKeywordStatement) {
             let action: string | null = null;
