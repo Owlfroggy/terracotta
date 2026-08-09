@@ -12,6 +12,14 @@ const firstListGenericType = (args: Expression[], types: TypeProcessor, methodCa
     return Type.unknown;
 };
 
+const tagDifferentiatedMaterial = (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => {
+    let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
+    if (argTypes.length > 0 && argTypes[0].matches(Type.list)) {
+        return (argTypes[0].data as ListTypeData).genericType;
+    }
+    return Type.unknown;
+};
+
 export const OVERRIDES: {
     actionNames: {[codeblock: string]: {[dfName: string]: string}},
     tagNames: {[dfName: string]: string},
@@ -541,6 +549,20 @@ export const OVERRIDES: {
                 else
                     return Type.str;
             },
+            "GetBlockByMCTag": (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => {
+                let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
+                if (tags.returnValue == "Item")
+                    return Type.list(Type.item);
+                else
+                    return Type.list(Type.str);
+            },
+            "GetItemByMCTag": (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => {
+                let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
+                if (tags.returnValue == "Item")
+                    return Type.list(Type.item);
+                else
+                    return Type.list(Type.str);
+            },
             "CellularNoise": (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => {
                 let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
                 if (tags.returnType == "Origin")
@@ -597,6 +619,13 @@ export const OVERRIDES: {
                 } else {
                     return Type.num;
                 }
+            },
+            " GetBookText ": (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
+                if (argTypes.length < 2)
+                    return Type.list(Type.txt);
+                else
+                    return Type.txt;
             },
             // TODO: make these create actions better
             "CreateList": Type.list(Type.any),
@@ -715,6 +744,14 @@ export const OVERRIDES: {
             "AddItemAttribute": Type.item,
             "SetMapTexture": Type.item,
             " GetItemEnchants ": Type.dict(Type.num),
+            " GetItemLore ": Type.list(Type.txt),
+            "GetBundleItems": Type.list(Type.item),
+            "GetCrossbowProj": Type.list(Type.item),
+            "GetModelDataNums": Type.list(Type.num),
+            "GetModelDataStrs": Type.list(Type.str),
+            "GetCanPlaceOn": Type.list(Type.item),
+            "GetItemEffects": Type.list(Type.pot),
+
             
             "GetAllItems": Type.list(Type.str),
             "GetBlockShape": Type.list(Type.list(Type.void, [Type.loc, Type.loc])),
