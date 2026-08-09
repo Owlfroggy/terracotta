@@ -43,6 +43,11 @@ export const INCREMENTOR_OPERATIONS: Map<TokenType, TokenType> = new Map([
     [TokenType.PBW_URSHIFT_EQUALS, TokenType.PBW_URSHIFT],
 ]);  
 
+export const SUFFIX_INCREMENTOR_OPERATIONS: Map<TokenType, TokenType> = new Map([
+    [TokenType.PLUS_PLUS, TokenType.PLUS],
+    [TokenType.MINUS_MINUS, TokenType.MINUS],
+]);  
+
 export class Operations {
     static binaryOperations: Map<Type,Map<TokenType,Map<Type,BinaryOperationDefinition>>> = new Map();
     static unaryOperations: Map<TokenType, Map<Type, UnaryOperationDefinition>> = new Map();
@@ -81,9 +86,13 @@ export class Operations {
         }
     }
 
-    static evaluateBinaryValue(left: CodeValue, op: Token, right: CodeValue, ctx: EvaluationContext): [CodeValue, CodeBlock[]] {
+    static evaluateBinaryValue(left: CodeValue, op: Token, right: CodeValue, ctx: EvaluationContext, suffixIncrementMode: boolean = false): [CodeValue, CodeBlock[]] {
         let opSymbol = op.value;
-        let opType = INCREMENTOR_OPERATIONS.has(op.type) ? INCREMENTOR_OPERATIONS.get(op.type)! : op.type;
+        let opType = (
+            (suffixIncrementMode && SUFFIX_INCREMENTOR_OPERATIONS.has(op.type)) ? SUFFIX_INCREMENTOR_OPERATIONS.get(op.type)!
+            : INCREMENTOR_OPERATIONS.has(op.type) ? INCREMENTOR_OPERATIONS.get(op.type)!
+            : op.type
+        );
         // make sure left and right are both tangible
         for (const v of [left, right]) {
             if (!(v instanceof TangibleValue)) {
@@ -101,10 +110,12 @@ export class Operations {
         let rightType = right.getType(ctx.types);
         let def = this.getBinaryDefinition(leftType, opType, rightType);
 
-        if (!def) {
+        if (!def || (suffixIncrementMode && !leftType.matches(Type.num))) {
             ctx.reportError(
                 op.parent ?? op,
-                `Incompatible types, operation '${opSymbol}' is not supported for case: ${leftType.name} ${opSymbol} ${rightType.name}`
+                suffixIncrementMode
+                ? `Operation '${opSymbol}' can only be applied to numbers; type here is '${leftType.name}'`
+                : `Incompatible types, operation '${opSymbol}' is not supported for case: ${leftType.name} ${opSymbol} ${rightType.name}`
             );
             return [new MissingValue(op.parent ?? op), []];
         }

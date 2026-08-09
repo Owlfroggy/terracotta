@@ -1339,41 +1339,54 @@ export class CodeCompiler {
                 return code;
             }
         }
-        else if (s instanceof AssignmentStatement && s.isErrorFree()) {
+        else if ((s instanceof AssignmentStatement && s.isErrorFree()) || s instanceof IncrementStatement) {
+            let rawValue: CodeValue;
             let values: CodeValue[];
+            let assigneeExpressions: Expression[];
 
-            let [rawValue, valueCode] = this.compileExpression(s.rightValue, exprContext);
-            if (rawValue instanceof MultiValue) {
-                values = [...rawValue.values];
-            } else {                
+            // assignment statement: proceed as normal
+            let valueCode: CodeBlock[];
+            if (s instanceof AssignmentStatement) {
+                [rawValue, valueCode] = this.compileExpression(s.rightValue, exprContext);
+                if (rawValue instanceof MultiValue) {
+                    values = [...rawValue.values];
+                } else {                
+                    values = [rawValue];
+                }
+                for (let v of values) {
+                    let vType = v.getType(this.env.types);
+                    if (!Type.assignableTypes.has(vType.name)){
+                        this.reportError(
+                            s.rightValue,
+                            `Type '${vType.name}' cannot be stored in variables`
+                        );
+                        return [];
+                    }
+        
+                    if (!(v instanceof TangibleValue)) {
+                        this.reportError(
+                            v.astNode ?? s.rightValue,
+                            `${v.constructor.name} cannot be stored in variables`,
+                            v
+                        );
+                        
+                        return [];
+                    }
+                }
+                assigneeExpressions = s.leftValues;
+            } 
+            // increment statement: treat this the same as `value += 1`;
+            else {
+                assigneeExpressions = [s.target];
+                rawValue = new NumberValue("1");
                 values = [rawValue];
+                valueCode = [];
             }
-            for (let v of values) {
-                let vType = v.getType(this.env.types);
-                if (!Type.assignableTypes.has(vType.name)){
-                    this.reportError(
-                        s.rightValue,
-                        `Type '${vType.name}' cannot be stored in variables`
-                    );
-                    return [];
-                }
-    
-                if (!(v instanceof TangibleValue)) {
-                    this.reportError(
-                        v.astNode ?? s.rightValue,
-                        `${v.constructor.name} cannot be stored in variables`,
-                        v
-                    );
-                    
-                    return [];
-                }
-            }
-
 
             let code: CodeBlock[] = [...valueCode];
 
-            for (let i = 0; i < s.leftValues.length; i++) {
-                let assigneeExpr = s.leftValues[i];
+            for (let i = 0; i < assigneeExpressions.length; i++) {
+                let assigneeExpr = assigneeExpressions[i];
                 if (i >= values.length) {
                     if (rawValue instanceof MultiValue && rawValue.overflowType != Type.void) {
                         let newVal = tvp.newTempVar((rawValue as MultiValue).overflowType)
@@ -1454,7 +1467,10 @@ export class CodeCompiler {
                     // base case: actually modify the value
                     else {
                         if (!(values[i] instanceof TangibleValue)) {
-                            this.reportError(values[i].astNode ?? s.rightValue[i], "This value cannot be stored in variables");
+                            this.reportError(
+                                values[i].astNode ?? (s instanceof AssignmentStatement ? s.rightValue[i] : s), 
+                                "This value cannot be stored in variables"
+                            );
                             return;
                         }
                         let val = values[i] as TangibleValue;
@@ -1477,7 +1493,7 @@ export class CodeCompiler {
                                 code.push(...getterCode);
                                 incrementBase = child;
                             }
-                            let [newValue, newCode] = Operations.evaluateBinaryValue(incrementBase, s.operator, val, this.getEvaluationContext())
+                            let [newValue, newCode] = Operations.evaluateBinaryValue(incrementBase, s.operator, val, this.getEvaluationContext(), s instanceof IncrementStatement)
                             if (!(newValue instanceof TangibleValue)) return;
                             val = newValue;
                             code.push(...newCode);
@@ -1529,39 +1545,6 @@ export class CodeCompiler {
                 walkPath(baseValue, 0);
             }
             return code;
-        }
-        else if (s instanceof IncrementStatement) {
-            let target = s.target.getRealExpression();
-            if (target instanceof VariableExpression) this.shadowingCheck(target);
-
-            let [value, valueCode] = this.compileExpression(target, exprContext);
-
-            if (!(value instanceof VariableValue)) {
-                this.reportError(
-                    s.target,
-                    `The '${s.operator.value}' operator can only be applied to a variable`,
-                    value
-                );
-                return [];
-            }
-
-            // make sure a number can live in this variable
-            let varType = value.getType(this.env.types);
-            if (!Type.num.isAssignableTo(varType)) {
-                this.reportError(
-                    s.target,
-                    `The '${s.operator.value}' operator can only be applied to number variables, not '${varType}'`
-                );
-            }
-
-            let action = s.operator.type == TokenType.PLUS_PLUS ? "+=" : "-=";
-            return [
-                ...valueCode,
-                new ActionBlock(DFCodeblockName.SET_VARIABLE, {
-                    action,
-                    args: [value],
-                }),
-            ];
         }
         else if (s instanceof SingleKeywordStatement) {
             let action: string | null = null;
