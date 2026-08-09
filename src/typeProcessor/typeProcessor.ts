@@ -616,7 +616,6 @@ export class TypeProcessor {
             // variable assignments
             if (statement instanceof AssignmentStatement
                 && statement.isErrorFree()
-                && statement.operator.type == TokenType.EQUALS
             ) {
                 for (let i = 0; i < statement.leftValues.length; i++) {
                     let variableExpr = statement.leftValues[i];
