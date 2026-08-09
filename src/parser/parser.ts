@@ -621,6 +621,7 @@ export class Parser {
         while (this.currentToken().type != closerType && this.currentToken().type != TokenType.EOF) {
             let comments = this.consumeComments();
             let currentTokenType = this.currentToken().type;            
+            if (currentTokenType == closerType || currentTokenType == TokenType.EOF) break;
 
             let useSpecialStatement = this.tokenStatementProcessors.has(currentTokenType);
             let statement: Statement | null = null;
