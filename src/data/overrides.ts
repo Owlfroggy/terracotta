@@ -788,6 +788,7 @@ export const OVERRIDES: {
             "RGBColor": Type.str,
             "HSBColor": Type.str,
             "HSLColor": Type.str,
+            "JsonToValue": Type.any,
 
             "GetContainerItems": Type.list(Type.item),
         },
