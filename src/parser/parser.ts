@@ -6,7 +6,10 @@ import { ErrorPositionMode, ErrorType, TCError, TCNodeError } from "../error/err
 import { dirWithoutRelations } from "../util/debug.ts";
 
 export const VARIABLE_SCOPE_KEYWORDS = [TokenType.GLOBAL,TokenType.SAVED,TokenType.LOCAL,TokenType.LOCAL];
-export const ASSIGNMENT_OPERATORS = [TokenType.EQUALS, TokenType.PLUS_EQUALS, TokenType.MINUS_EQUALS, TokenType.STAR_EQUALS, TokenType.SLASH_EQUALS];
+export const ASSIGNMENT_OPERATORS = [
+    TokenType.EQUALS, TokenType.PLUS_EQUALS, TokenType.MINUS_EQUALS, TokenType.STAR_EQUALS, TokenType.SLASH_EQUALS, TokenType.POW_EQUALS, TokenType.PERCENT_EQUALS, TokenType.PERC_PERC_EQUALS,
+    TokenType.BW_OR_EQUALS, TokenType.PBW_OR_EQUALS, TokenType.BW_AND_EQUALS, TokenType.PBW_AND_EQUALS, TokenType.BW_XOR_EQUALS, TokenType.PBW_XOR_EQUALS, TokenType.BW_LSHIFT_EQUALS, TokenType.PBW_LSHIFT_EQUALS, TokenType.BW_RSHIFT_EQUALS, TokenType.PBW_RSHIFT_EQUALS, TokenType.BW_URSHIFT_EQUALS, TokenType.PBW_URSHIFT_EQUALS, 
+];
 
 export type NUDProcessingProperties = {
     /** binding power */
@@ -63,6 +66,7 @@ export class Parser {
             [TokenType.STAR_EQUALS,     {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
             [TokenType.SLASH_EQUALS,    {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
             [TokenType.PERCENT_EQUALS,  {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
+            [TokenType.PERC_PERC_EQUALS,{bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
             [TokenType.POW_EQUALS,      {bp: BindingPower.ASSIGN,   processor: this.parseBinaryExpression}],
 
             [TokenType.DOUBLE_EQUALS,   {bp: BindingPower.EQUALITY, processor: this.parseBinaryExpression}],
@@ -77,6 +81,7 @@ export class Parser {
             [TokenType.STAR,            {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
             [TokenType.SLASH,           {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
             [TokenType.PERCENT,         {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
+            [TokenType.PERC_PERC,       {bp: BindingPower.MULT,     processor: this.parseBinaryExpression}],
             [TokenType.POW,             {bp: BindingPower.EXPO,     processor: this.parseBinaryExpression}],
             
             [TokenType.BOOL_AND,        {bp: BindingPower.BOOL_AND, processor: this.parseBinaryExpression}],

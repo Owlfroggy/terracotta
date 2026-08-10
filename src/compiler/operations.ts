@@ -26,7 +26,7 @@ export const INCREMENTOR_OPERATIONS: Map<TokenType, TokenType> = new Map([
     [TokenType.STAR_EQUALS, TokenType.STAR],
     [TokenType.SLASH_EQUALS, TokenType.SLASH],
     [TokenType.PERCENT_EQUALS, TokenType.PERCENT],
-    [TokenType.POW_EQUALS, TokenType.POW],
+    [TokenType.PERC_PERC_EQUALS, TokenType.PERC_PERC],
     [TokenType.POW_EQUALS, TokenType.POW],
 
     [TokenType.BW_OR_EQUALS, TokenType.BW_OR],
@@ -312,6 +312,11 @@ Operations.registerBinary(Type.num, TokenType.SLASH, Type.num, Type.num, false,
 
 Operations.registerBinary(Type.num, TokenType.PERCENT, Type.num, Type.num, false, 
     singleActionHandler(Type.num, "%"));
+
+Operations.registerBinary(Type.num, TokenType.PERC_PERC, Type.num, Type.num, false, 
+    singleActionHandler(Type.num, "%", [
+        new ActionTagValue(actions.get(DFCodeblockName.SET_VARIABLE)!["%"].tags["Remainder Mode"], "Modulo")
+    ]));
 
 Operations.registerBinary(Type.num, TokenType.POW, Type.num, Type.num, false, 
     singleActionHandler(Type.num, "Exponent"));
