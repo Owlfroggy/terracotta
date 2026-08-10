@@ -20,7 +20,7 @@ export class PCodeParser {
             [/%entry\(/y, this.parseEntry],
             [/%math\(/y, this.parseMath],
             [new RegExp(`%(${Object.values(PCodeTarget).join("|")})`,'y'), this.parseTarget],
-            [/.+?(?=%|$)/y, this.parseSegment],
+            [/.+?(?=%|$)/ys, this.parseSegment],
         ];
     }
 
