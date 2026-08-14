@@ -2,7 +2,7 @@ import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, BinaryExpression, CallExpression, CallOrStartExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
 import { EvaluationContext } from "../compiler/codeCompiler.ts";
-import { CodeValue, MissingValue, TangibleValue, VariableValue } from "../compiler/codeValue.ts";
+import { BucketVariableValue, CodeValue, MissingValue, TangibleValue, VariableValue } from "../compiler/codeValue.ts";
 import { ParameterSignature, ParameterSignatureEntry } from "../compiler/namespace/definition.ts";
 import { getImprovedErrorNode } from "../error/errorUtils.ts";
 import { Type } from "../typeProcessor/type.ts";
@@ -127,7 +127,7 @@ export function validateArguments(args: CodeValue[], callNode: CallExpression | 
             else if (!(argValue instanceof TangibleValue)) {
                 errors.push([argExpressions[argIndex],`${argValue.constructor.name} cannot be passed to functions`]);
             }
-            else if (param.type.matches(Type.var) && !(argValue instanceof VariableValue && !argValue.isTempVar)) {
+            else if (param.type.matches(Type.var) && !((argValue instanceof VariableValue && !argValue.isTempVar) || argValue instanceof BucketVariableValue)) {
                 errors.push([argExpressions[argIndex],`Expected a standalone variable for parameter '${param.name}'`]);
             }
             else if (

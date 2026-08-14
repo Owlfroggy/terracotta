@@ -8,7 +8,7 @@ import * as fflate from "fflate";
 import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError, TCNodePCodeError, TCStandaloneError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, PerSelectedExpression, SelectionExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
-import { CodeValue, EmptyValue, FunctionValue, ItemValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, LibraryItemValue, StringValue, StyledTextValue, TangibleValue, VariableValue, GameValueValue } from "./codeValue.ts";
+import { CodeValue, EmptyValue, FunctionValue, ItemValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, LibraryItemValue, StringValue, StyledTextValue, TangibleValue, VariableValue, GameValueValue, BucketVariableValue } from "./codeValue.ts";
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
@@ -1518,6 +1518,7 @@ export class CodeCompiler {
                             if (!(
                                 (assigneeExpr instanceof VariableExpression)
                                 || (assigneeExpr instanceof AtomicExpression && currentAccessee instanceof VariableValue)
+                                || currentAccessee instanceof BucketVariableValue
                             )) {
                                 this.reportError(
                                     assigneeExpr, 
