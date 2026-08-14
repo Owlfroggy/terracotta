@@ -28,6 +28,7 @@ export const TYPE_DOMAIN_ACTIONS = {
         //stuff in misc category
         "BlockHardness","BlockResistance",
     ],
+    bvar: ["LoadedBuckets", "LoadBucket", "SaveBucket", "SaveUnloadBucket", "GetBucketVar", "PurgeBucket", "GetBucketVars"],
     num: ["+", "-", "x", "/", "%", "+=", "-=", "Exponent", "Root", "Logarithm", "ParseNumber", "AbsoluteValue", "ClampNumber", "WrapNum", "Average", "RandomNumber", " RoundNumber ", "MinNumber", "MaxNumber", "NormalRandom", "Sine", "Cosine", "Tangent", "Noise", "GradientNoise", "CellularNoise", "ValueNoise", "Bitwise", "BounceNum", "ArcTangent2", "Interpolate", ],
     str: ["String", "ReplaceString", "RemoveString", "TrimString", "SplitString", "SetCase", "StringLength", "RepeatString", "FormatTime", "TranslateColors", "Base64Decode", "Base64Encode", "GzipDecompress", "GzipCompress", "SanitizeTags", "BytesToString", "StringToBytes", "AllRegexGroups", "GetRegexGroup", "NamedRegexGrps", "IndexOfSubstring", "SegmentString", "AllRegexMatches"],
     txt: ["StyledText", "ClearFormatting", "GetMiniMessageExpr", "ParseMiniMessage", "TrimStyledText", "ContentLength"],
@@ -46,6 +47,7 @@ export const TYPE_DOMAIN_ACTIONS = {
 export const TYPE_DOMAIN_CONDITIONS = {
     var: ["=", "!=", " InRange ", "VarExists", "VarIsType", "ValueIsEmpty"],
     game: [],
+    bvar: [],
     num: [">=", ">", "<=", "<"],
     str: ["StringMatches", "Contains", "StartsWith", "EndsWith", "IsFiltered"],
     txt: [],

@@ -1086,6 +1086,10 @@ export class LanguageServer {
                         documentation: isTypeNamespace ? {
                             kind: "markdown",
                             value: (TYPE_DESCRIPTIONS[id] ?? "") + `\n\nAccess this as a namespace (e.g. \`${id}.${Object.keys(namespace.members)[0]}\`) for related functions.`
+                        } : 
+                        namespace.nameFunction ? {
+                            kind: "markdown",
+                            value: namespace.nameFunction.description ?? ""
                         } : undefined
                     });
                 }

@@ -481,6 +481,34 @@ export class VariableValue extends TangibleValue {
     }
 }
 
+export class BucketVariableValue extends TangibleValue {
+    constructor(
+        public bucket: string,
+        public name: string,
+        /** leave undefined to use default namespace */
+        public namespaceAlias?: string,
+        astNode?: ASTNode
+    ) { super(astNode); }
+
+    getType(typeProcessor: TypeProcessor): Type {
+        return Type.any;
+    }
+
+    templateForm() {
+        return {
+            "id": "bucket_var",
+            "data": {
+                "name": this.name,
+                "key": this.bucket,
+                "namespace_type": this.namespaceAlias != undefined ? "ALIAS" : "DEFAULT",
+                "namespace_alias": this.namespaceAlias != undefined ? this.namespaceAlias : ""
+            }
+        };
+    }
+
+    isCompileTimeConstant() { return false; }
+}
+
 export class GameValueValue extends TangibleValue {
     constructor(
         public value: string,

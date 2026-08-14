@@ -302,6 +302,14 @@ export const OVERRIDES: {
             "SetCustomSound": "setCustomKey",
             "SetSoundVariant": "setVariant",
             "GetSoundPitch": "getPitch",
+
+            "GetBucketVar": "getVariable",
+            "GetBucketVars": "getVariables",
+            "LoadBucket": "load",
+            "PurgeBucket": "purge",
+            "LoadedBuckets": "getLoaded",
+            "SaveBucket": "save",
+            "SaveUnloadBucket": "saveAndUnload",
         },
         "IF PLAYER": {},
         "IF ENTITY": {
@@ -665,6 +673,8 @@ export const OVERRIDES: {
             "GetListValue": firstListGenericType,
 
             "WebResponse": Type.dict(Type.void, {statusText: Type.str, body: Type.str, json: Type.any}),
+            
+            "LoadedBuckets": Type.list(Type.str),
 
             "String": Type.str,
             "TranslateColors": Type.str,

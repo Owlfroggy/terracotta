@@ -6,7 +6,7 @@ import { MultiValueTypeData, Type, TYPE_NAMESPACES } from "../../typeProcessor/t
 import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE, FunctionCallExtraInfo, Definition, PropertyDefinition } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { CREATE_SELECTION_ACTION_LIST, FILTER_SELECTION_ACTION_LIST, FORCED_EVENT_ACTIONS, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
-import { ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
+import { BVAR_CONSTRUCTOR, ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
 import { expressionizeIfBlock, toNameCase, upperFirst } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
 import { validateArguments } from "../../util/argValidation.ts";
@@ -644,6 +644,8 @@ TYPE_NAMESPACES.par = new Namespace('par', typeActionMembers('par'), PAR_CONSTRU
 TYPE_NAMESPACES.item = new Namespace('item', typeActionMembers('item'), ITEM_CONSTRUCTOR);
 TYPE_NAMESPACES.list = new Namespace('list', typeActionMembers('list'));
 TYPE_NAMESPACES.dict = new Namespace('dict', typeActionMembers('dict'));
+
+export const BUCKET_VAR_NAMESPACE = new Namespace('bvar', typeActionMembers('bvar'), BVAR_CONSTRUCTOR);
 
 export const REPEAT_ACTIONS: {[tcName: string]: {def: FunctionDefinition, returnType: Type}} = {
     range:      {def: generateActionHook('range', DFCodeblockName.REPEAT, " Range "),   returnType: Type.num},

@@ -2,7 +2,7 @@ import { DFCodeblockName, TC_HEADER} from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
 import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, parseTcNumber } from "../../util/utils.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
-import { CodeValue, ItemValue, LibraryItemValue, LocationValue, MissingValue, NumberValue, ParticleValue, PotionValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
+import { BucketVariableValue, CodeValue, ItemValue, LibraryItemValue, LocationValue, MissingValue, NumberValue, ParticleValue, PotionValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
 import { DefinitionType, FunctionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 import * as AD from "../../df/actiondump.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
@@ -43,6 +43,35 @@ function evaluateConstOrBlockTemplates(
         }
     }
     return [latestValue, code]
+}
+
+function getValueInlineString(v: CodeValue, code: CodeBlock[], relevantASTNode: ASTNode, ctx: EvaluationContext): string {
+    let nameToAdd: string;
+    if (v instanceof StringValue) {
+        return v.toString();
+    }
+    else if (!(v instanceof VariableValue)) {
+        ctx.reportError(
+            relevantASTNode,
+            `Expected a string value or a variable, got ${v.constructor.name}`,
+            v
+        );
+        return ""
+    }
+    else if (v.scope == VariableScope.LINE) {
+        nameToAdd = typeof v.name == "string" ? v.name : v.name.join("");
+    } 
+    // if this variable isn't line scoped, it must be extracted to a line
+    // scoped var because of %var's ambiguous scoping
+    else {
+        let temp = ctx.tvp.newTempVar(Type.str);
+        code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+            action: "=",
+            args: [temp, v]
+        }))
+        nameToAdd = temp.name;
+    }
+    return `%var(${nameToAdd})`;
 }
 
 /**
@@ -833,38 +862,16 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
         if (useVarCompilation) {
             let outputVarName = `${TC_HEADER}LI_`;
     
-            function addVarToName(v: VariableValue | StringValue) {
-                let nameToAdd: string;
-                if (v instanceof StringValue) {
-                    outputVarName += v.value;
-                    return;
-                }
-                else if (v.scope == VariableScope.LINE) {
-                    nameToAdd = typeof v.name == "string" ? v.name : v.name.join("");
-                } 
-                // if this variable isn't line scoped, it must be extracted to a line
-                // scoped var because of %var's ambiguous scoping
-                else {
-                    let temp = ctx.tvp.newTempVar(Type.str);
-                    code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                        action: "=",
-                        args: [temp, v]
-                    }))
-                    nameToAdd = temp.name;
-                }
-                outputVarName += `%var(${nameToAdd})`;
-            }
-    
             if (constantLibrary != undefined) {
                 outputVarName += constantLibrary.id;
             } else {
-                addVarToName(args[0] as StringValue | VariableValue);
+                outputVarName += getValueInlineString(args[0], code, args[0].astNode ?? callNode, ctx);
             }
             outputVarName += "\uFFFF";
             if (constantItemId != undefined) {
                 outputVarName += constantItemId;
             } else {
-                addVarToName(args[1] as StringValue | VariableValue);
+                outputVarName += getValueInlineString(args[1], code, args[1].astNode ?? callNode, ctx);
             }
 
             outVal = new VariableValue(outputVarName, VariableScope.GLOBAL, Type.item, callNode);
@@ -889,5 +896,35 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
         }
 
         return [outVal!, code];
+    },
+}
+
+export const BVAR_CONSTRUCTOR: FunctionDefinition = {
+    definitionType: DefinitionType.FUNCTION,
+    name: "bvar",
+    description: "Calling as a function returns the equivalent of a Bucket Variable code value.\n\nThese values can be assigned to variables.\n\`\`\`tc\n// this assignment works!\nbvar('%uuid data', 'coins') = 10\n\`\`\`\n\nAccess this as a namespace for related functions.",
+    defaultReturnType: Type.any,
+    signatures: [
+        {
+            params: [
+                {name: "bucket", type: Type.str, optional: false, plural: false},
+                {name: "variableName", type: Type.str, optional: false, plural: false},
+                {name: "namespaceAlias", type: Type.str, optional: true, plural: false},
+            ],
+            disallowSkips: true
+        }
+    ],
+    getReturnType: USE_DEFAULT_RETURN_TYPE,
+    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+        if (validateArguments(args, callNode, this.signatures, ctx) == null) 
+            return [new MissingValue(callNode), []];
+
+        let code = [];
+
+        return [new BucketVariableValue(
+            getValueInlineString(args[0], code, args[0].astNode ?? callNode, ctx),
+            getValueInlineString(args[1], code, args[1].astNode ?? callNode, ctx),
+            args.length > 2 ? getValueInlineString(args[2], code, args[2].astNode ?? callNode, ctx) : undefined
+        ), code];
     },
 }
