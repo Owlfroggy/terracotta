@@ -919,8 +919,12 @@ export const BVAR_CONSTRUCTOR: FunctionDefinition = {
         if (validateArguments(args, callNode, this.signatures, ctx) == null) 
             return [new MissingValue(callNode), []];
 
-        let code = [];
+        if (args[2] && !args[2].isCompileTimeConstant()) {
+            ctx.reportError(args[2].astNode ?? callNode, "Bucket variable namespace cannot be dynamic",args[2]);
+            return [new MissingValue(callNode), []];
+        }
 
+        let code = [];
         return [new BucketVariableValue(
             getValueInlineString(args[0], code, args[0].astNode ?? callNode, ctx),
             getValueInlineString(args[1], code, args[1].astNode ?? callNode, ctx),
