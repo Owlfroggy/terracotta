@@ -615,6 +615,36 @@ export class CodeCompiler {
         mode: "member" | "property", 
     ) {
         if (mode == "member" && accessor instanceof CodeValue) {
+            if (accessee instanceof MultiValue) {
+                if (!(accessor instanceof NumberValue && accessor.isCompileTimeConstant())) {
+                    this.reportError(
+                        expression.propertyName,
+                        `Multi-value return types must be indexed with a compile-time constant number.`,
+                        accessor,
+                    );
+                    return false;
+                }
+                let n = (accessor as NumberValue).toNumber();
+                if (isNaN(n)) {
+                    this.reportError(expression.propertyName,"Index must be a valid number")
+                    return false;
+                }
+                if (n <= 0) {
+                    this.reportError(expression.propertyName,"Index must be greater than 0");
+                }
+                if (n > accessee.values.length) {
+                    if (accessee.overflowType.matches(Type.void)) {
+                        this.reportError(expression.propertyName,`Index cannot be greater than the number of values (${accessee.values.length})`);
+                    } else if (accessee.values.length == 0) {
+                        this.reportError(expression.propertyName,`Return types with an unknown number of values cannot be indexed into`);
+                    } else {
+                        this.reportError(expression.propertyName,`When indexing into a return type with multiple values, only values which are guaranteed to exist can be accessed.`);
+                    }
+                    return false;
+                }
+                return true;
+            }
+
             if (!(accessor instanceof TangibleValue)) {
                 this.reportError(
                     expression.propertyName,
@@ -720,6 +750,11 @@ export class CodeCompiler {
     ): [CodeValue, CodeBlock[]] {
         let code: CodeBlock[] = [];
         if (mode == "member" && accessor instanceof TangibleValue) {
+            // multivalue indexing
+            if (accessee instanceof MultiValue) {
+                return [accessee.values[(accessor as NumberValue).toNumber() - 1], []];
+            }
+
             let tvp = context.perSelectedMode ? this.perSelectedTempVarProvider : this.tempVarProvider;
     
             let accesseeType = accessee.getType(this.env.types);

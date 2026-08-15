@@ -269,7 +269,11 @@ export class Type {
             let strictMatchCallback = (other: Type) => {
                 return false;
             }
-            return new Type('multivalue', {strictMatchCallback, stringify, data: {types, overflowType}});
+            let getMemberType = (member?: string | number) => {
+                if (typeof member == "string" || member == undefined) return Type.void;
+                return types[member-1] ?? Type.void;
+            }
+            return new Type('multivalue', {strictMatchCallback, stringify, getMemberType, data: {types, overflowType}});
         }
     );
 
