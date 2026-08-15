@@ -557,6 +557,13 @@ export const OVERRIDES: {
                 else
                     return Type.str;
             },
+            "GetItemType": (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => {
+                let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
+                if (tags.returnValue == "Item")
+                    return Type.item;
+                else
+                    return Type.str;
+            },
             "GetBlockByMCTag": (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => {
                 let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
                 if (tags.returnValue == "Item")
@@ -802,6 +809,7 @@ export const OVERRIDES: {
             "JsonToValue": Type.any,
 
             "GetContainerItems": Type.list(Type.item),
+            "ContainerLock": Type.str,
         },
     },
     returnValueAtEndActions: {
