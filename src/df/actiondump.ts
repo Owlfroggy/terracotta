@@ -145,6 +145,8 @@ export const potions: {[potionName: string]: Potion} = {};
 
 export const sounds: {[soundName: string]: Sound} = {}
 
+export const differentiatedActionBlockMap: {[actionName: string]: {block: DFCodeblockName, action: string}} = {};
+
 //key: codeblock name (e.g. "PLAYER ACTION")
 //value: codeblock identifier (e.g. "player_action")
 const nameToIdentifierMap: Map<DFCodeblockName, string> = new Map();
@@ -324,6 +326,7 @@ for (const actionJson of ACTION_DUMP_JSON.actions) {
             alias[0] == "E" && codeblockName == DFCodeblockName.IF_ENTITY
         ) {
             differentiatedActionName = alias;
+            differentiatedActionBlockMap[alias] = {block: codeblockName, action: actionName};
             break;
         }
     }

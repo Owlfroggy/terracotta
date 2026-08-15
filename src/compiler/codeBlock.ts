@@ -70,11 +70,21 @@ export class ActionBlock extends CodeBlock {
         }
 
         // fill in missing tags
-        let tagSourceAction = (
-            useDynamicAction ? "dynamic"
-            : (this instanceof SubActionBlock && this.subAction != undefined) ? this.subAction
-            : this.action
-        );
+        let tagSourceAction: string;
+
+        if (useDynamicAction) {
+            tagSourceAction = "dynamic"
+        } else if (this instanceof SubActionBlock && this.subAction != undefined) {
+            let diffEntry = AD.differentiatedActionBlockMap[this.subAction];
+            if (diffEntry) {
+                tagSourceAction = AD.actions.get(diffEntry.block)![diffEntry.action].name
+            } else {
+                tagSourceAction = this.subAction;
+            }
+        } else {
+            tagSourceAction = this.action;
+        }
+
         let tagSourceBlock = (
             (this instanceof SubActionBlock && this.subActionBlockType) ? this.subActionBlockType
             : this.block
