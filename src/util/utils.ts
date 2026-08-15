@@ -164,7 +164,7 @@ export function getTagsAndArgTypes(args: Expression[], types: TypeProcessor, met
         ) {
             tagConstants[arg.left.token.value] = arg.right.token.value;
         } else {
-            argTypes.push(types.evaluateExpression(arg, types.getNodeFrame(arg)));
+            argTypes.push(types.evaluateExpression(arg));
         }
     }
 

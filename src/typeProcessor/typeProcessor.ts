@@ -790,7 +790,7 @@ export class TypeProcessor {
         }
     }
 
-    private evaluateExpressionLogic(expression: Expression, frame: EnvironmentFrame = this.globalFrame): Type {
+    private evaluateExpressionLogic(expression: Expression, frame: EnvironmentFrame): Type {
         expression = expression.getRealExpression();
         if (expression instanceof AtomicExpression) {
             let token = expression.token;
@@ -897,7 +897,7 @@ export class TypeProcessor {
         }
     }
 
-    evaluateExpression(expression: Expression, frame: EnvironmentFrame = this.globalFrame): Type {
+    evaluateExpression(expression: Expression, frame: EnvironmentFrame = this.getNodeFrame(expression)): Type {
         let cachedType = this.expressionTypeCache.get(expression)?.get(frame);
         if (cachedType) return cachedType;
         let type = this.evaluateExpressionLogic(expression, frame);
