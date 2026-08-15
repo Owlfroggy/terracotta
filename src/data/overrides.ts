@@ -675,6 +675,7 @@ export const OVERRIDES: {
             "WebResponse": Type.dict(Type.void, {statusText: Type.str, body: Type.str, json: Type.any}),
             
             "LoadedBuckets": Type.list(Type.str),
+            "GetBucketVars": Type.multivalue([Type.list(Type.any), Type.str], Type.void),
 
             "String": Type.str,
             "TranslateColors": Type.str,
