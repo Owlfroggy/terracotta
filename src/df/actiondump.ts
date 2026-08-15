@@ -201,6 +201,7 @@ export function getDifferentiatedActionName(block: DFCodeblockName, dfActionName
 export function isParamGroupValueSetter(value: ParameterGroupValue) {
     return value.type == DFValueType.VARIABLE && (
         value.description == "Variable to set" 
+        || value.description == "Fetch result"
         || value.description.substring(0, 16) == "Gets the current"
         || ((value.description.startsWith("Save") || value.description.startsWith("Load")) && value.description.endsWith("result"))
         || value.description.startsWith("Variable to store")

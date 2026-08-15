@@ -150,8 +150,20 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
     if (!actionDef) throw new Error(`Initialization Error: Attempted to generate action hook for '${codeblock} ${actionDFName}' but no definition exists in the action dump.`)
 
     // TODO: support multiple return values
-    let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
-    let tcReturnType = dfReturnType ? dfTypeToTC.get(dfReturnType)! : Type.void;
+    let allReturnTypes: Type[] = [];
+    for (let value of actionDef.returnTypes) {
+        if (value.groups.length > 1 || value.groups[0]?.length > 1) {
+            allReturnTypes.push(Type.any);
+        } else {
+            allReturnTypes.push(dfTypeToTC.get(value.groups[0]?.[0]?.type) ?? Type.void);
+        }
+    }
+
+    let tcReturnType = (
+        allReturnTypes.length == 0 ? Type.void
+        : allReturnTypes.length == 1 ? allReturnTypes[0]
+        : Type.multivalue(allReturnTypes, Type.void)
+    );
 
     let getReturnType = USE_DEFAULT_RETURN_TYPE;
     let returnTypeOverride = OVERRIDES.returnTypes[codeblock]?.[actionDFName]
@@ -199,15 +211,16 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             }).filter(group => group.length > 0);
     
             let optionalModified = false;
-            for (const values of groups) {
-                //if being assigned to a variable, exclude first var param from signature
-                if (AD.isParamGroupValueSetter(values[0])) {
+            groupIterator: for (const values of groups) {
+                while (AD.isParamGroupValueSetter(values[0])) {
                     varRemoved = true;
                     values.shift();
+                    
                     if (values.length == 0) {
-                        continue;
+                        continue groupIterator;
                     }
                 }
+                
                 // if the next parameter was marked as optional expecting the now removed
                 // variable to fill in for it, change it to be required
                 let forceRequired = false;
