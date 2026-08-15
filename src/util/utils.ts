@@ -189,12 +189,6 @@ export function integerizeHexColor(color: string): number | string {
     return int
 }
 
-
-export function parseTcNumber(tcNum: string): number {
-    // todo: make this actually good
-    return parseFloat(tcNum);
-}
-
 /** 
  * Returns the allowed TC particle field names for this particle
  * 

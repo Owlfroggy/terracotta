@@ -5,7 +5,7 @@ import { DF_NBT, dfTypeToTC, DFValueType, getCodeblockIdentifier, TargetType } f
 import { PCode } from "../pcode/pcode.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
-import { parseTcNumber } from "../util/utils.ts";
+import { tcParseNumber } from "../util/utils.ts";
 import * as NBT from "nbtify";
 import { FunctionDefinition } from "./namespace/definition.ts";
 import { Namespace } from "./namespace/namespace.ts";
@@ -133,7 +133,7 @@ export class NumberValue extends TangibleValue {
      */
     toNumber(): number {
         if (typeof this.value == "string") {
-            return parseTcNumber(this.value);
+            return tcParseNumber(this.value);
         } else {
             throw new Error(`Cannot get numeric value of '${this.value}'`)
         }

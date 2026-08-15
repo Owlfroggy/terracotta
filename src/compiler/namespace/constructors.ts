@@ -1,6 +1,6 @@
 import { DFCodeblockName, TC_HEADER} from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
-import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, parseTcNumber } from "../../util/utils.ts";
+import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, tcParseNumber } from "../../util/utils.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
 import { BucketVariableValue, CodeValue, ItemValue, LibraryItemValue, LocationValue, MissingValue, NumberValue, ParticleValue, PotionValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
 import { DefinitionType, FunctionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
@@ -594,9 +594,9 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         let includeMotionVariation = allowedFields.includes("motionVariation");
         if (validateType(motion, Type.vec) && (!includeMotionVariation || validateType(motionVariation, Type.num))) {
             if (motion instanceof VectorValue && motion.isCompileTimeConstant() && (!includeMotionVariation || (motionVariation instanceof NumberValue && motionVariation.isCompileTimeConstant()))) {
-                starterValue.data.x = parseTcNumber(motion.x);
-                starterValue.data.y = parseTcNumber(motion.y);
-                starterValue.data.z = parseTcNumber(motion.z);
+                starterValue.data.x = tcParseNumber(motion.x);
+                starterValue.data.y = tcParseNumber(motion.y);
+                starterValue.data.z = tcParseNumber(motion.z);
                 if (includeMotionVariation) starterValue.data.motionVariation = (motionVariation as NumberValue).toNumber();
             }
             else {
@@ -882,7 +882,7 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
             let numIsConstant = args[2] instanceof NumberValue && args[2] instanceof NumberValue && args[2].isCompileTimeConstant();
             // if the count can be inlined directly into the item, do that
             if (numIsConstant && outVal! instanceof LibraryItemValue) {
-                outVal!.countOverride = parseTcNumber((args[2] as NumberValue).value as string);
+                outVal!.countOverride = tcParseNumber((args[2] as NumberValue).value as string);
             } 
             // otherwise, generate a codeblock
             else {
