@@ -341,6 +341,22 @@ for (const [tokenTypes, tagOption] of [
         singleActionHandler(Type.num, "Bitwise", [opTag, preciseTag]));
 }
 
+// bitwise not
+for (const [tokenType, tags] of [
+    [TokenType.BW_NOT, []],
+    [TokenType.PBW_NOT, [preciseTag]],
+] as [TokenType, ActionTagValue[]][]) {
+    Operations.registerUnary(tokenType, Type.num, Type.num, (val, ctx) => {
+        let v = ctx.tvp.newTempVar(Type.num);
+        let block = new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+            action: "Bitwise",
+            args: [v, val],
+            tags: [new ActionTagValue(bwTagDef, "~"), ...tags]
+        });
+        return [v, [block]];
+    })
+}
+
 //=- str -=\\
 
 Operations.registerBinary(Type.str, TokenType.PLUS, Type.num, Type.str, true, 
