@@ -1,8 +1,8 @@
 import { DFCodeblockName, TC_HEADER} from "../../df/constants.ts";
 import { Type } from "../../typeProcessor/type.ts";
-import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, tcParseNumber } from "../../util/utils.ts";
+import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, numberIsHighPrecision, tcParseNumber } from "../../util/utils.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
-import { BucketVariableValue, CodeValue, ItemValue, LibraryItemValue, LocationValue, MissingValue, NumberValue, ParticleValue, PotionValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
+import { ActionTagValue, BucketVariableValue, CodeValue, ItemValue, LibraryItemValue, LocationValue, MissingValue, NumberValue, ParticleValue, PotionValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
 import { DefinitionType, FunctionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 import * as AD from "../../df/actiondump.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
@@ -154,14 +154,56 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
         }
         // non-constant vector
         else {
+            // for a number to be high-precision, it is also necessarily constant
+            let highPrecisionComponents: boolean[] = [];
+
+            for (let component of [x,y,z]) {
+                if (!(component instanceof NumberValue)) {
+                    highPrecisionComponents.push(false);
+                    continue;
+                }
+                highPrecisionComponents.push(numberIsHighPrecision(component.value));
+            }
+
+            // if there are no high precision components, the vector creation codeblock can be used
             let tempVar = ctx.tvp.newTempVar(Type.vec);
-            return [tempVar, [
-                new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                    action: "Vector",
-                    args: [tempVar, x, y, z] as TangibleValue[], // todo: this is awful and will likely cause crashes
-                    astNode: callNode,
-                })
-            ]];
+            tempVar.astNode = callNode;
+            if (highPrecisionComponents.length == 0) {
+                return [tempVar, [
+                    new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                        action: "Vector",
+                        args: [tempVar, x, y, z] as TangibleValue[], // todo: this is awful and will likely cause crashes
+                        astNode: callNode,
+                    })
+                ]];
+            }
+            // if there's a mix, create high precision comps with a vector constant
+            // and then add the dynamic components back to that vector constant
+            else {
+                let constantVec = new VectorValue(
+                    x.isCompileTimeConstant() ? (x as NumberValue).value as string : "0",
+                    y.isCompileTimeConstant() ? (y as NumberValue).value as string : "0",
+                    z.isCompileTimeConstant() ? (z as NumberValue).value as string : "0",
+                )
+                let currentValue: TangibleValue = constantVec;
+                let tagDef = AD.actions.get(DFCodeblockName.SET_VARIABLE)!.SetVectorComp.tags.Component;
+                let code: CodeBlock[] = [];
+                for (let [i, c, v] of [
+                    [0, "X", x], [1, "Y", y], [2, "Z", z], 
+                ] as [number, string, TangibleValue][]) { // todo: (TangibleValue) is awful and will likely cause crashes
+                    if (v.isCompileTimeConstant()) continue;
+                    code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                        action: "SetVectorComp",
+                        args: [tempVar, currentValue, v],
+                        tags: [new ActionTagValue(tagDef, c)],
+                    }));
+                    currentValue = tempVar;
+                }
+                
+                return [tempVar, code];
+            }
+            // if all components are high precision, the constant vector case
+            // will take care of this
         }
     },
 }

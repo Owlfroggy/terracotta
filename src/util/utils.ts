@@ -88,6 +88,18 @@ export function tcParseNumber(val: string): number {
     return parseFloat(val);
 }
 
+/**
+ * Returns true if the stringified number passed in is a compile
+ * time constant with greater than 3 decimal points of precision
+ */
+export function numberIsHighPrecision(numberValue: string | PCode[]): boolean {
+    if (Array.isArray(numberValue)) return false;
+    let parsed = tcParseNumber(numberValue);
+    if (isNaN(parsed)) return false;
+    let matchResult = numberValue.match(/\.(?:[0_]*\d){3}[0_]*([^0_])/)?.[1]?.length;
+    return matchResult != undefined && matchResult > 0;
+}
+
 /** 
  * stands for 'plural s' (i think)
  * @returns '' if count == 1, else returns 's' 
