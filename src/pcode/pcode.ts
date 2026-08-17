@@ -143,6 +143,17 @@ export class IndexPCode extends PCode {
     }
 }
 
+export class BvarPCode extends PCode {
+    constructor(
+        public args: PCode[][],
+        startPos?: number, endPos?: number
+    ) { super(startPos, endPos); }
+
+    toString() {
+        return `%bvar(${this.args.map(a=>a.join("")).join(",")})`
+    }
+}
+
 export class EntryPCode extends PCode {
     constructor(
         /** this has a max length of 2 bc of the weird parsing rules */

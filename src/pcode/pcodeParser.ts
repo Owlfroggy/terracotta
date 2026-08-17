@@ -1,5 +1,5 @@
 import { PCodeError } from "../error/error.ts";
-import { PCode, PCodeTarget, SegmentPCode, TargetPCode, VarPCode, RoundPCode, RandomPCode, IndexPCode, EntryPCode, PCodeOperation, OperationPCode, MathPCode } from "./pcode.ts";
+import { PCode, PCodeTarget, SegmentPCode, TargetPCode, VarPCode, RoundPCode, RandomPCode, IndexPCode, EntryPCode, PCodeOperation, OperationPCode, MathPCode, BvarPCode } from "./pcode.ts";
 
 const MATH_SEGMENT_REGEX = new RegExp(
     `.+?(?=[${Object.values(PCodeOperation).map(v=>"\\"+v).join("")}]|$)`,'y'
@@ -14,6 +14,7 @@ export class PCodeParser {
     constructor() {
         this.codeParsers = [
             [/%var\(/y, this.parseVar],
+            [/%bvar\(/y, this.parseBvar],
             [/%round\(/y, this.parseRound],
             [/%random\(/y, this.parseRandom],
             [/%index\(/y, this.parseIndex],
@@ -115,6 +116,16 @@ export class PCodeParser {
         let closeParenIndex = this.getClosingParenIndex(openParenIndex);
 
         return new IndexPCode(
+            this.parseArgsList(openParenIndex+1, closeParenIndex),
+            match.index!, closeParenIndex+1
+        );
+    }
+    
+    private parseBvar = (match: RegExpMatchArray): IndexPCode => {
+        let openParenIndex = match.index! + match[0].length - 1;
+        let closeParenIndex = this.getClosingParenIndex(openParenIndex);
+
+        return new BvarPCode(
             this.parseArgsList(openParenIndex+1, closeParenIndex),
             match.index!, closeParenIndex+1
         );
