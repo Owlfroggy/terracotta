@@ -1,8 +1,9 @@
-import { Expression } from "../ast/expression.ts";
+import { AtomicExpression, Expression } from "../ast/expression.ts";
+import { TokenType } from "../ast/token.ts";
 import { ParameterSignature } from "../compiler/namespace/definition.ts";
 import { getWidestType, ListTypeData, Type } from "../typeProcessor/type.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
-import { getTagsAndArgTypes } from "../util/utils.ts";
+import { getTagsAndArgTypes, tcParseNumber } from "../util/utils.ts";
 
 const firstListGenericType = (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => {
     let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
@@ -626,6 +627,44 @@ export const OVERRIDES: {
                 }
 
                 return Type.list(flatTypes[0] ?? Type.void);
+            },
+            "TrimList": (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => {
+                let [argTypes, _] = getTagsAndArgTypes(args, types, methodCallOf);
+
+                if (argTypes.length < 2 || !argTypes[0].matches(Type.list)) 
+                    return Type.list(Type.any);
+
+                let listData = argTypes[0].data as ListTypeData;
+
+                // todo: read number from type data when that becomes possible
+                let argListOffset = methodCallOf ? -1 : 0;
+                let startArgIndex = 1+argListOffset;
+                let endArgIndex = 2+argListOffset;
+
+                // start index is a constant number, try to actually trim index types if possible
+                // console.log(startArgIndex, endArgIndex, args.length);
+                if (args[startArgIndex] instanceof AtomicExpression && args[startArgIndex].token.type == TokenType.NUMERIC_LITERAL) {
+                    let startIndex = tcParseNumber(args[startArgIndex].token.value);
+                    if (isNaN(startIndex)) 
+                        return Type.list(getWidestType(...listData.indexTypes, listData.genericType));
+                    if (startIndex > listData.indexTypes.length) 
+                        return Type.list(listData.genericType);
+
+                    let endIndex = NaN;
+                    if (args[endArgIndex] instanceof AtomicExpression && args[endArgIndex].token.type == TokenType.NUMERIC_LITERAL) {
+                        endIndex = tcParseNumber(args[endArgIndex].token.value);
+                    };
+
+                    if (isNaN(endIndex) || endIndex > listData.indexTypes.length) {
+                        return Type.list(listData.genericType, listData.indexTypes.slice(startIndex-1));
+                    } else {
+                        return Type.list(Type.void, listData.indexTypes.slice(startIndex-1,endIndex));
+                    }
+                }
+                // if start index is not a constant number, no special behavior can occur
+                else {
+                    return Type.list(getWidestType(...listData.indexTypes, listData.genericType));
+                }
             },
             "GetSoundPitch": (args: Expression[], types: TypeProcessor, methodCallOf?: Type) => {
                 let [_, tags] = getTagsAndArgTypes(args, types, methodCallOf);
