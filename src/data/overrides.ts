@@ -60,6 +60,8 @@ export const OVERRIDES: {
             "SetPlayerTime": "setTime",
             "AttackAnimation": "sendAttackAnimation",
             "SetMaxHealth": "setMaxHealth",
+            "NumEnvOption": "setNumEnvOption",
+            "ColorEnvOption": "setColEnvOption",
         },
         "ENTITY ACTION": {
             "SetBaby": "setIsBaby",
@@ -74,7 +76,9 @@ export const OVERRIDES: {
             "RideEntity": "ride",
             "SetItem": "setItem",
             "SetWitherInvul": "setWitherInvulnerability",
-            "SetInvulTicks": "setInvulnerabilityTicks"
+            "SetInvulTicks": "setInvulnerabilityTicks",
+            "SetFireworkTicks": "setFireworkTicks",
+            "IgniteMob": "ignite",
         },
         "GAME ACTION": {
             "LaunchProj": "launchProjectile",
@@ -159,10 +163,10 @@ export const OVERRIDES: {
             "ShiftAllDirections": "shiftAllDirections",
             "ClampLoc": "clamp",
             "ClearItemTag": "clearTags",
-            "GetItemAttribute": "getAttribute",
+            " GetItemAttribute ": "getAttribute",
             " GetItemName ": "getName",
             "GetItemRarity": "getRarity",
-            "AddItemAttribute": "addAttribute",
+            " AddItemAttribute ": "addAttribute",
             "SetItemDura": "setDurability",
             "SetBreakability": "setBreakability",
             " GetItemLore ": "getLore",
@@ -524,6 +528,7 @@ export const OVERRIDES: {
         "Movement Key": "key",
         "Redstone Power Mode": "mode",
         "Close Player Inventory": "closePlayerInv",
+        "Environment Option": "option"
     },
     gameValueNames: {
         "X-Coordinate": "x",
@@ -798,7 +803,7 @@ export const OVERRIDES: {
             "SetLodestoneLoc": Type.item,
             "SetArmorTrim": Type.item,
             "SetItemColor": Type.item,
-            "AddItemAttribute": Type.item,
+            " AddItemAttribute ": Type.item,
             "SetMapTexture": Type.item,
             " GetItemEnchants ": Type.dict(Type.num),
             " GetItemLore ": Type.list(Type.txt),
