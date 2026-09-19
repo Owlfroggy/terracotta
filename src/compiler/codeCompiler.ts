@@ -1072,6 +1072,8 @@ export class CodeCompiler {
                         return [new MissingValue(e), []];
                     } else if (parsed.length == 1 && parsed[0] instanceof SegmentPCode) {
                         return [new StringValue(e.value), []];
+                    } else if (parsed.length == 0) {
+                        return [new StringValue(""), []];
                     } else {
                         return [new StringValue(parsed,e), []];
                     }
