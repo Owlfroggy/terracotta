@@ -936,9 +936,9 @@ export class LanguageServer {
                     if (posIndexIsInListElement(callNode.args, index, 0)) {
                         items.push(...Object.values(AD.sounds).map(sound => 
                             stringizeCompletionItem({
-                                label: sound.name,
+                                label: sound.id,
                                 kind: CompletionItemKind.Text,
-                                sortText: "\u0000"+sound.name,
+                                sortText: "\u0000"+sound.id,
                             }, node, doc)
                         ));
                     }
@@ -946,8 +946,7 @@ export class LanguageServer {
                     else if (posIndexIsInListElement(callNode.args, index, 3)) {
                         let [nameValue, _] = doc.compiler.compileExpression(callNode.args.elements[0], {});
                         if (nameValue instanceof StringValue && nameValue.isCompileTimeConstant()) {
-                            let soundName = nameValue.value;
-                            let soundDef = AD.sounds[nameValue.value];
+                            let soundDef = AD.getSoundDefinition(nameValue.value, true);
                             if (soundDef) {
                                 items.push(...soundDef.variants.map(name => 
                                     stringizeCompletionItem({
@@ -966,9 +965,9 @@ export class LanguageServer {
                     if (posIndexIsInListElement(callNode.args, index, 0)) {
                         items.push(...Object.values(AD.potions).map(pot => 
                             stringizeCompletionItem({
-                                label: pot.name,
+                                label: pot.id,
                                 kind: CompletionItemKind.Text,
-                                sortText: "\u0000"+pot.name,
+                                sortText: "\u0000"+pot.id,
                             }, node, doc)
                         ));
                     }
@@ -987,9 +986,9 @@ export class LanguageServer {
                     if (posIndexIsInListElement(callNode.args, index, 0)) {
                         items.push(...Object.values(AD.particles).map(par => 
                             stringizeCompletionItem({
-                                label: par.name,
+                                label: par.id,
                                 kind: CompletionItemKind.Text,
-                                sortText: "\u0000"+par.name,
+                                sortText: "\u0000"+par.id,
                             }, node, doc)
                         ));
                     }

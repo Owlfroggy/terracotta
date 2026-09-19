@@ -282,16 +282,16 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
         // validation
         let failed = false;
         if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
-            if (args[0].value.toLowerCase() in AD.sounds) {
+            let soundDef = AD.getSoundDefinition(args[0].value, true);
+            if (soundDef) {
                 // variant validation
-                let soundDef = AD.sounds[args[0].value];
-                if (soundDef && args.length>3 && args[3] instanceof StringValue && args[3].isCompileTimeConstant() && !soundDef.variants.includes(args[3].value)) {
+                if (args.length>3 && args[3] instanceof StringValue && args[3].isCompileTimeConstant() && !soundDef.variants.includes(args[3].value)) {
                     ctx.reportError(
                         args[3].astNode ?? callNode,
                         (
                             soundDef.variants.length == 0
-                            ? `Sound '${soundDef.name}' does not have multiple variants to choose from`
-                            : `Invalid variant '${args[3].value}' for sound '${soundDef.name}'`
+                            ? `Sound '${soundDef.id}' does not have multiple variants to choose from`
+                            : `Invalid variant '${args[3].value}' for sound '${soundDef.id}'`
                         )
                     )
                     failed = true
@@ -316,7 +316,7 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
             ctx, args,
             originalSound, Type.snd,
             [
-                [StringValue, "sound", "SetSoundType"],
+                [StringValue, "sound", " SetSoundType "],
                 undefined,
                 [NumberValue, "volume", "SetSoundVolume"],
                 [StringValue, "variant", "SetSoundVariant"],
@@ -412,7 +412,7 @@ export const POT_CONSTRUCTOR: FunctionDefinition = {
         // validation
         let failed = false;
         if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
-            if (!(args[0].value.toLowerCase() in AD.potions)) {
+            if (!AD.getPotionDefinition(args[0].value, true)) {
                 ctx.reportError(
                     args[0].astNode ?? callNode,
                     `Invalid effect id '${args[0].value}'`
@@ -430,7 +430,7 @@ export const POT_CONSTRUCTOR: FunctionDefinition = {
             ctx, args,
             new PotionValue("Speed", 1, 1000000, callNode), Type.pot,
             [
-                [StringValue, "effect", "SetPotionType"],
+                [StringValue, "effect", " SetPotionType "],
                 [NumberValue, "level", "SetPotionAmp"],
                 [NumberValue, "duration", "SetPotionDur"],
             ]
@@ -494,7 +494,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         }
         // constant value
         else if (args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
-            parDef = AD.particles[args[0].value.toLowerCase()];
+            parDef = AD.getParticleDefinition(args[0].value, true);
             if (!parDef) {
                 ctx.reportError(
                     args[0].astNode ?? callNode.callee,
@@ -506,7 +506,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         // variable value
         else if (validateType(args[0], Type.str)) {
             code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
-                action: "SetParticleType",
+                action: " SetParticleType ",
                 args: [tempVar, latestValue, args[0]]
             }))
             latestValue = tempVar;
@@ -526,7 +526,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
             let name = nameExpr.token.value;
             if (!allowedFields.includes(name)) {
                 if (parDef && name in PARTICLE_FIELD_DEFAULTS) {
-                    ctx.reportError(nameExpr.parent ?? nameExpr, `Particle '${parDef.name}' does not support field '${name}'`)
+                    ctx.reportError(nameExpr.parent ?? nameExpr, `Particle '${parDef.id}' does not support field '${name}'`)
                 } else {
                     ctx.reportError(nameExpr.parent ?? nameExpr, `Invalid particle field '${name}'`);
                 }
@@ -677,7 +677,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         let material = fieldArgs.material;
         if (validateType(material, Type.str)) {
             if (material instanceof StringValue && material.isCompileTimeConstant()) {
-                let validIds = PAR_MATERIAL_FIELD_TYPES[parDef?.name ?? ''] ?? BLOCK_OR_ITEM_IDS; // least sinful use of ?? operator
+                let validIds = PAR_MATERIAL_FIELD_TYPES[parDef?.id ?? ''] ?? BLOCK_OR_ITEM_IDS; // least sinful use of ?? operator
                 if (!validIds.has(material.value)) {
                     let addendum = "";
                     if (validIds == VALID_ITEM_IDS && VALID_BLOCK_IDS.has(material.value)) {

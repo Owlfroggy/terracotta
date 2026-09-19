@@ -8,6 +8,30 @@ import { OVERRIDES } from "../data/overrides.ts";
 
 const ACTION_DUMP_JSON      = JSON.parse((await Deno.readTextFile( pathToFileURL(DATA_PATH+"actiondump.json") )).toString());
 
+/** 
+ * legacy potion, particle, and sound names
+ * 
+ * new potions, particles, and sounds will not be accessible via this method, hence why this
+ * is obtained from a static file as opposed to dynamically generated from the actiondump
+ */
+const LEGACY_ID_MAP: {
+    par: {[legacyId: string]: string},
+    pot: {[legacyId: string]: string},
+    snd: {[legacyId: string]: string},
+} = JSON.parse((await Deno.readTextFile( pathToFileURL(DATA_PATH+"legacy_ids.json") )).toString())
+export const LEGACY_PAR_IDS = new Set(Object.keys(LEGACY_ID_MAP.par));
+export const LEGACY_POT_IDS = new Set(Object.keys(LEGACY_ID_MAP.pot));
+export const LEGACY_SND_IDS = new Set(Object.keys(LEGACY_ID_MAP.snd));
+
+export const VERSIONS: {
+    patch: string, 
+    particle_mapping: number, potion_mapping: number, sound_mapping: number, 
+    bucket_var: number, var: number, num: number, txt: number, comp: number, 
+    loc: number, r_loc: number, vec: number, part: number, snd: number, 
+    pot: number, item: number, g_val: number, bl_tag: number, pn_el: number, 
+    hint: number,
+} = ACTION_DUMP_JSON.versions;
+
 //==========[ classes ]=========\\
 
 /*
@@ -53,21 +77,21 @@ export class Parameter {
 // TODO: particle fields overhaul
 export class Particle {
     constructor(
-        public name: string,
+        public id: string,
         public fields: string[],
     ) {}
 }
 
 export class Sound {
     constructor(
-        public name: string,
+        public id: string,
         public variants: string[]
     ) {}
 }
 
 export class Potion {
     constructor(
-        public name: string,
+        public id: string,
         public description: string,
     ) {}
 }
@@ -208,6 +232,62 @@ export function isParamGroupValueSetter(value: ParameterGroupValue) {
         || ((value.description.startsWith("Save") || value.description.startsWith("Load")) && value.description.endsWith("result"))
         || value.description.startsWith("Variable to store")
     )
+}
+
+function normalizeMcId(id: string) {
+    if (id.startsWith("minecraft:")) id = id.substring("minecraft:".length);
+    return id;
+}
+
+/** 
+ * automatically handles case insensitivity and chopping off of "minecraft:" prefix
+ * @returns `undefined` if there is no particle with that id
+ * */
+export function getParticleDefinition(id: string, allowLegacyNames: boolean = false) {
+    id = id.toLowerCase();
+    if (allowLegacyNames && LEGACY_PAR_IDS.has(id)) 
+        id = LEGACY_ID_MAP.par[id];
+    else
+        id = normalizeMcId(id);
+    return particles[id];
+}
+
+/** 
+ * automatically handles case insensitivity and chopping off of "minecraft:" prefix
+ * @returns `undefined` if there is no potion with that id
+ * */
+export function getPotionDefinition(id: string, allowLegacyNames: boolean = false) {
+    id = id.toLowerCase();
+    if (allowLegacyNames && LEGACY_POT_IDS.has(id)) 
+        id = LEGACY_ID_MAP.pot[id];
+    else
+        id = normalizeMcId(id);
+    return potions[id];
+}
+
+/** 
+ * automatically handles case insensitivity and chopping off of "minecraft:" prefix
+ * @returns `undefined` if there is no sound with that id
+ * */
+export function getSoundDefinition(id: string, allowLegacyNames: boolean = false) {
+    id = id.toLowerCase();
+    if (allowLegacyNames && LEGACY_SND_IDS.has(id)) 
+        id = LEGACY_ID_MAP.snd[id];
+    else
+        id = normalizeMcId(id);
+    return sounds[id];
+}
+
+export function isParticleIdLegacy(id: string): boolean {
+    return LEGACY_PAR_IDS.has(id.toLowerCase());
+}
+
+export function isPotionIdLegacy(id: string): boolean {
+    return LEGACY_POT_IDS.has(id.toLowerCase());
+}
+
+export function isSoundIdLegacy(id: string): boolean {
+    return LEGACY_SND_IDS.has(id.toLowerCase());
 }
 
 //==========[ private functions ]=========\\
@@ -380,7 +460,6 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
 
 // particle pass \\
 for (const particleJson of ACTION_DUMP_JSON.particles) {
-    let name = deColorizeString(particleJson.icon.name);
     let fields = [...particleJson.fields,"Amount","Spread"];
 
     // motion variation has literally 0 effect on particles that just
@@ -391,26 +470,24 @@ for (const particleJson of ACTION_DUMP_JSON.particles) {
         fields.splice(motionVariationIndex, 1);
     }
 
-    particles[name.toLowerCase()] = new Particle(
-        name,
+    particles[particleJson.particleId] = new Particle(
+        particleJson.particleId,
         fields
     );
 }
 
 // sound pass \\
 for (const soundJson of ACTION_DUMP_JSON.sounds) {
-    let name = deColorizeString(soundJson.icon.name);
-    sounds[name.toLowerCase()] = new Sound(
-        name,
+    sounds[soundJson.soundId] = new Sound(
+        soundJson.soundId,
         soundJson.variants ? soundJson.variants.map(v => v.id) : [],
     );
 }
 
 // potion pass \\
 for (const potJson of ACTION_DUMP_JSON.potions) {
-    let name = deColorizeString(potJson.icon.name);
-    potions[name.toLowerCase()] = new Potion(
-        name,
+    potions[potJson.potionId] = new Potion(
+        potJson.potionId,
         potJson.icon.description.map(line => deColorizeString(line)).join(" "),
     );
 }

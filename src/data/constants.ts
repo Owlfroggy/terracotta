@@ -128,12 +128,12 @@ export const DF_PAR_FIELD_TO_TC: {[dfName: string]: string} = {
 
 /** whether or not a particle's material field uses block ids or item ids */
 export const PAR_MATERIAL_FIELD_TYPES = {
-    "Item": VALID_ITEM_IDS,
-    "Dust Pillar": VALID_BLOCK_IDS,
-    "Falling Dust": VALID_BLOCK_IDS,
-    "Block Marker": VALID_BLOCK_IDS,
-    "Block": VALID_BLOCK_IDS,
-    "Block Crumble": VALID_BLOCK_IDS,
+    "item": VALID_ITEM_IDS,
+    "dust_pillar": VALID_BLOCK_IDS,
+    "falling_dust": VALID_BLOCK_IDS,
+    "block_marker": VALID_BLOCK_IDS,
+    "block": VALID_BLOCK_IDS,
+    "block_crumble": VALID_BLOCK_IDS,
 }
 
 export const TYPE_DESCRIPTIONS = {

@@ -144,7 +144,8 @@ export class NumberValue extends TangibleValue {
             "id": "num",
             "data": {
                 "name": typeof this.value == "string" ? this.value : this.value.join("")
-            }
+            },
+            "version": AD.VERSIONS.num,
         };
     }
 
@@ -172,7 +173,8 @@ export class StringValue extends TangibleValue {
             "id": "txt",
             "data": {
                 "name": this.toString()
-            }
+            },
+            "version": AD.VERSIONS.txt,
         };
     }
 
@@ -201,7 +203,8 @@ export class StyledTextValue extends TangibleValue {
             "id": "comp",
             "data": {
                 "name": this.value
-            }
+            },
+            "version": AD.VERSIONS.comp,
         };
     }
 
@@ -229,7 +232,8 @@ export class VectorValue extends TangibleValue {
                 "x": this.x,
                 "y": this.y,
                 "z": this.z,
-            }
+            },
+            "version": AD.VERSIONS.vec,
         };
     }
 
@@ -264,7 +268,8 @@ export class LocationValue extends TangibleValue {
                     "pitch": this.pitch,
                     "yaw": this.yaw,
                 }
-            }
+            },
+            "version": AD.VERSIONS.loc,
         };
     }
 
@@ -296,7 +301,9 @@ export class SoundValue extends TangibleValue {
                 "sound": this.isCustom ? undefined : this.sound,
                 "variant": this.variant,
                 "key": this.isCustom ? this.sound : undefined,
-            }
+                "mappingVersion": AD.VERSIONS.sound_mapping
+            },
+            "version": AD.isSoundIdLegacy(this.sound) ? 0 : AD.VERSIONS.snd,
         }
     }
 }
@@ -322,8 +329,10 @@ export class PotionValue extends TangibleValue {
             "data": {
                 "pot": this.effect,
                 "dur": this.duration,
-                "amp": this.level-1
-            }
+                "amp": this.level-1,
+                "mappingVersion": AD.VERSIONS.potion_mapping
+            },
+            "version": AD.isPotionIdLegacy(this.effect) ? 0 : AD.VERSIONS.pot,
         }
     }
 }
@@ -371,8 +380,10 @@ export class ParticleValue extends TangibleValue {
                     "horizontal": this.spreadHorizontal,
                     "vertical": this.spreadVertical
                 },
-                "data": this.data
-            }
+                "data": this.data,
+                "mappingVersion": AD.VERSIONS.particle_mapping
+            },
+            "version": AD.isParticleIdLegacy(this.particle) ? 0 : AD.VERSIONS.part,
         }
     }
 }
@@ -398,7 +409,8 @@ export class ItemValue extends TangibleValue {
             "id": "item",
             "data": {
                 "item": `{count:${this.count}b,DF_NBT:${this.dfNbt},id:"${this.id}",components:${this.nbt ?? "{}"}}`
-            }
+            },
+            "version": AD.VERSIONS.item,
         }
     }
 }
@@ -429,7 +441,8 @@ export class LibraryItemValue extends TangibleValue {
             "id": "item",
             "data": {
                 "item": NBT.stringify(tag)
-            }
+            },
+            "version": AD.VERSIONS.item,
         }
     }
 }
@@ -470,7 +483,8 @@ export class VariableValue extends TangibleValue {
             "data": {
                 "name": this.name,
                 "scope": scope,
-            }
+            },
+            "version": AD.VERSIONS.var,
         };
     }
 
@@ -502,7 +516,8 @@ export class BucketVariableValue extends TangibleValue {
                 "key": this.bucket,
                 "namespace_type": this.namespaceAlias != undefined ? "ALIAS" : "DEFAULT",
                 "namespace_alias": this.namespaceAlias != undefined ? this.namespaceAlias : ""
-            }
+            },
+            "version": AD.VERSIONS.bucket_var,
         };
     }
 
@@ -529,7 +544,8 @@ export class GameValueValue extends TangibleValue {
             "data": {
                 "type": this.value,
                 "target": this.target
-            }
+            },
+            "version": AD.VERSIONS.g_val,
         };
     }
 
@@ -559,7 +575,8 @@ export class ParameterValue extends TangibleValue {
                 "default_value": this.defaultValue != null ? this.defaultValue.templateForm() : undefined,
                 "plural": this.plural,
                 "optional": this.optional
-            }
+            },
+            "version": AD.VERSIONS.pn_el,
         }
     }
 }
@@ -588,7 +605,8 @@ export class ActionTagValue extends TangibleValue {
                     "block": getCodeblockIdentifier(this.definition.codeblock),
                     "action": this.definition.action,
                     "variable": this.variable?.templateForm(),
-                }
+                },
+                "version": AD.VERSIONS.bl_tag,
             },
             "slot": this.definition.chestSlot
         };
