@@ -485,7 +485,7 @@ export class Parser {
                 elementStartPositions.push(delimiterToken.endPos);
             }
         }
-        let [closer, closerFound] = this.expect(closerType);
+        let [closer, closerFound] = this.expectOrMissing(closerType);
         return new ListExpression<T>(opener, elements, closer, elementStartPositions);
     }
 
