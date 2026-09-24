@@ -74,6 +74,24 @@ function getValueInlineString(v: CodeValue, code: CodeBlock[], relevantASTNode: 
     return `%var(${nameToAdd})`;
 }
 
+function validateNumArg(callNode: ASTNode, ctx: EvaluationContext, arg: CodeValue, field: string, minVal: number = -2147483648, maxValue: number = 2147483647, allowDecimals: boolean = false) {
+    if (arg !== undefined && arg instanceof NumberValue && arg.isCompileTimeConstant()) {
+        let v = arg.toNumber();
+        if (v < minVal || v > maxValue) {
+            ctx.reportError(
+                arg.astNode ?? callNode,
+                `${field} must be in the range ${minVal} to ${maxValue}`
+            );
+        }
+        if (!allowDecimals && !Number.isInteger(v)) {
+            ctx.reportError(
+                arg.astNode ?? callNode,
+                `${field} must be an integer`
+            );
+        }
+    }
+}
+
 /**
  * @returns new outVal (set outVal to the result of this function)
  */
@@ -420,6 +438,7 @@ export const POT_CONSTRUCTOR: FunctionDefinition = {
                 failed = true;
             }
         }
+        validateNumArg(callNode, ctx, args[2] ,"Duration");
 
         
         if (validateArguments(args, callNode, this.signatures, ctx) == null || failed) 
@@ -721,6 +740,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         //=- opacity -=\\
         let opacity = fieldArgs.opacity;
         if (validateType(opacity, Type.num)) {
+            validateNumArg(callNode, ctx, opacity ,"Opacity",0, 100, true);
             if (opacity instanceof NumberValue && opacity.isCompileTimeConstant()) {
                 starterValue.data.opacity = opacity.toNumber();
             }
