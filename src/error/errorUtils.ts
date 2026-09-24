@@ -6,6 +6,8 @@ export function getImprovedErrorNode(node: ASTNode) {
     if (node instanceof CallExpression) {
         if (node.callee instanceof AccessExpression) {
             return node.callee.propertyName;
+        } else {
+            return node.callee;
         }
     }
     return node;
