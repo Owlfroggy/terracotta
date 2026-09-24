@@ -109,7 +109,9 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
             label: name,
             kind: (def as any).compileIf ? CompletionItemKind.Property : CompletionItemKind.Method,
             commitCharacters: ["("],
-
+            data: {
+                deprecationMessage: def.deprecationMessage
+            },
         }
         if (def.autocompleteSortPrefix) {
             item.sortText = "z" + def.autocompleteSortPrefix + item.label;
@@ -623,6 +625,13 @@ export class LanguageServer {
                     label: ""
                 } as SignatureInformation
 
+                if (definition.deprecationMessage !== undefined) {
+                    info.documentation = {
+                        kind: "markdown",
+                        value: `⚠️ **THIS IS DEPRECATED** ⚠️\n\n----\n\n${definition.deprecationMessage}\n\n----\n\n`
+                    };
+                }
+
                 let paramStrings: string[] = []
 
                 for (const param of signature.params) {
@@ -695,6 +704,9 @@ export class LanguageServer {
             }
             else if (data.type == CompletionItemType.TAG_OPTION) {
                 documentation = data.tag.options?.[data.option].description.replaceAll("<","\\<");
+            }
+            else {
+                return item;
             }
             item.documentation = {
                 kind: "markdown",
@@ -1123,15 +1135,8 @@ export class LanguageServer {
                 }
             }
 
-            // items = [];
-            // doc.workspace.forEachItemLibrary(l => {
-            //     if (l.parsedContents == null) return;
-            //     for (const i of Object.keys(l.parsedContents.items)) {
-            //         items.push({
-            //             label: `${l.parsedContents.id} ${i}`
-            //         })
-            //     }
-            // })
+            // final pass: filter out all deprecated items
+            items = items.filter(item => item.data?.deprecationMessage === undefined);
 
             slog ("Returned",items.length,"items")
             let response: CompletionList = {

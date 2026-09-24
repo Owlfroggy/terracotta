@@ -5,7 +5,7 @@ import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } f
 import { MultiValueTypeData, Type, TYPE_NAMESPACES } from "../../typeProcessor/type.ts";
 import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE, FunctionCallExtraInfo, Definition, PropertyDefinition } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
-import { CREATE_SELECTION_ACTION_LIST, FILTER_SELECTION_ACTION_LIST, FORCED_EVENT_ACTIONS, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
+import { CREATE_SELECTION_ACTION_LIST, DEPRECATED_ACTIONS, FILTER_SELECTION_ACTION_LIST, FORCED_EVENT_ACTIONS, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { BVAR_CONSTRUCTOR, ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
 import { expressionizeIfBlock, toNameCase, upperFirst } from "../../util/utils.ts";
 import { OVERRIDES } from "../../data/overrides.ts";
@@ -295,6 +295,7 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             return [returnValue, code];
         },
 
+        deprecationMessage: DEPRECATED_ACTIONS[actionDFName],
         autocompleteSortPrefix: OVERRIDES.autocompleteSortPrefixes[codeblock]?.[actionDFName],
     }
 }

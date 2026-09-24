@@ -247,6 +247,9 @@ export const OVERRIDES: {
             "AppendDict": "append",
             "RemoveDictEntry": "remove",
             "GetDictValue": "get",
+
+            " GetParticleType ": "getId",
+            " SetParticleType ": "setId",
             "SetParticleType": "setType",
             "GetParticleMat": "getMaterial",
             "SetParticleSprd": "setSpread",
@@ -271,6 +274,7 @@ export const OVERRIDES: {
             "GetParticleDur": "getDuration",
             "SetParticlePower": "setPower",
             "GetParticlePower": "getPower",
+
             "ClampVector": "clamp",
             "MultiplyVector": "multiply",
             "VectorBetween": "between",
@@ -291,12 +295,18 @@ export const OVERRIDES: {
             "RotationVector": "fromRotation",
             "RandomVector": "random",
             "SwapVectorComp": "swap",
+
+            " GetPotionType ": "getId",
+            " SetPotionType ": "setId",
             "GetPotionType": "getType",
             "SetPotionDur": "setDuration",
             "SetPotionType": "setType",
             "SetPotionAmp": "setAmplifier",
             "GetPotionAmp": "getAmplifier",
             "GetPotionDur": "getDuration",
+
+            " GetSoundType ": "getId",
+            " SetSoundType ": "setId",
             "GetSoundVolume": "getVolume",
             "GetCustomSound": "getCustomKey",
             "SetSoundType": "setType",
@@ -820,6 +830,7 @@ export const OVERRIDES: {
 
             "GetDictKeys": Type.list(Type.str),
 
+            " SetParticleType ": Type.par,
             "SetParticleType": Type.par,
             "SetParticleAmount": Type.par,
             "SetParticleSprd": Type.par,
@@ -837,10 +848,12 @@ export const OVERRIDES: {
             "SetVectorComp": Type.vec,
             "SetVectorLength": Type.vec,
 
+            " SetPotionType ": Type.pot,
             "SetPotionType": Type.pot,
             "SetPotionAmp": Type.pot,
             "SetPotionDur": Type.pot,
 
+            " SetSoundType ": Type.snd,
             "SetSoundType": Type.snd,
             "SetSoundVariant": Type.snd,
             "SetCustomSound": Type.snd,

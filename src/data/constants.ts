@@ -36,10 +36,10 @@ export const TYPE_DOMAIN_ACTIONS = {
     item: ["GetItemType", "SetItemType", " GetItemName ", " SetItemName ", " GetItemLore ", "GetLoreLine", " SetItemLore ", "GetItemAmount", "SetItemAmount", "GetMaxAmount", "GetItemDura", "SetItemDura", "SetBreakability", " GetItemEnchants ", " SetItemEnchants ", "AddItemEnchant", "RemItemEnchant", "ClearEnchants", "GetHeadOwner", " SetHeadTexture ", " GetBookText ", "SetBookText", "GetItemTag", "GetAllItemTags", "SetItemTag", "RemoveItemTag", "ClearItemTag", "GetItemEffects", "SetItemEffects", "GetCanPlaceOn", "SetCanPlaceOn", "GetCanDestroy", "SetCanDestroy", "GetItemRarity", "GetLodestoneLoc", "SetLodestoneLoc", "SetArmorTrim", "GetItemColor", "SetItemColor", " GetItemAttribute ", " AddItemAttribute ", "SetMapTexture", "SetMaxAmount", "GetBlockByMCTag", "GetItemByMCTag", "SetItemGlowing", "AddItemToolRule", "SetItemMaxDura", "SetItemTool", "SetItemHideTooltip", "AddItemLore", " RemoveItemAttrs ", "ClearItemAttrs", "GetCrossbowProj", "SetCrossbowProj", "SetBundleItems", "SetBreakSound", "SetConsumable", "GetItemLeftover", "SetModelDataNums", "SetItemRarity", "GetBundleItems", "SetModelDataStrs", "GetModelDataStrs", "SetItemLeftover", "SetItemModel", "GetTooltipStyle", "GetModelDataNums", "GetBreakSound", "SetItemWeapon", "GetConsumable", "HiddenComponents", "GetItemModel", "SetAllItemTags", "GetItemWeapon", "SetTooltipStyle", "GetConsumable", "SetConsumable", "GetAllItems"],
     list: ["CreateList", "AppendValue", "AppendList", "GetListValue", "PopListValue", "SetListValue", "GetValueIndex", "ListLength", "InsertListValue", "RemoveListValue", "RemoveListIndex", "DedupList", "TrimList", "SortList", "ReverseList", "RandomizeList", "FlattenList", "DestructureList", "JoinString", "SegmentList", "JoinStyledText"],
     dict: ["CreateDict", "SetDictValue", "GetDictValue", "GetDictSize", "RemoveDictEntry", "ClearDict", "GetDictKeys", "GetDictValues", "AppendDict", "SortDict"],
-    par: ["GetParticleType", "SetParticleType", "GetParticleAmount", "SetParticleAmount", "GetParticleSprd", "SetParticleSprd", "GetParticleSize", "SetParticleSize", "GetParticleMat", "SetParticleMat", "GetParticleColor", "SetParticleColor", "GetParticleMotion", "SetParticleMotion", "GetParticleRoll", "SetParticleRoll", "SetParticleOpac", "GetParticleOpac", "GetParticleFade", "SetParticleFade", "GetParticleDur", "SetParticleDur", "SetParticlePower", "GetParticlePower"],
+    par: ["GetParticleType", "SetParticleType", "GetParticleAmount", "SetParticleAmount", "GetParticleSprd", "SetParticleSprd", "GetParticleSize", "SetParticleSize", "GetParticleMat", "SetParticleMat", "GetParticleColor", "SetParticleColor", "GetParticleMotion", "SetParticleMotion", "GetParticleRoll", "SetParticleRoll", "SetParticleOpac", "GetParticleOpac", "GetParticleFade", "SetParticleFade", "GetParticleDur", "SetParticleDur", "SetParticlePower", "GetParticlePower", " SetParticleType ", " GetParticleType "],
     vec: ["Vector", "VectorBetween", "GetVectorComp", "SetVectorComp", "GetVectorLength", "SetVectorLength", "MultiplyVector", "AddVectors", "SubtractVectors", "AlignVector", "RotateAroundAxis", "RotateAroundVec", "ReflectVector", "CrossProduct", "DotProduct", "DirectionName", "RotationVector", "RandomVector", "SwapVectorComp", "ClampVector"],
-    pot: ["GetPotionType", "SetPotionType", "GetPotionAmp", "SetPotionAmp", "GetPotionDur", "SetPotionDur"],
-    snd: ["GetSoundType", "SetSoundType", "GetSoundVariant", "SetSoundVariant", "GetCustomSound", "SetCustomSound", "GetSoundPitch", "SetSoundPitch", "GetSoundVolume", "SetSoundVolume"],
+    pot: ["GetPotionType", "SetPotionType", "GetPotionAmp", "SetPotionAmp", "GetPotionDur", "SetPotionDur", " SetPotionType ", " GetPotionType "],
+    snd: ["GetSoundType", "SetSoundType", "GetSoundVariant", "SetSoundVariant", "GetCustomSound", "SetCustomSound", "GetSoundPitch", "SetSoundPitch", "GetSoundVolume", "SetSoundVolume", " SetSoundType ", " GetSoundType "],
 }
 
 //controls which if var actions go into which domains
@@ -65,6 +65,19 @@ export const TYPE_DOMAIN_CONDITIONS = {
 // covers both actions, if conditions and game values
 export const FORCED_EVENT_ACTIONS = ["AttackIsCrit","EventChunkNew","CmdArgEquals","CommandEquals"];
 
+// keys are actions which should be hidden from autocomplete but still usable
+// values are the deprecation message
+export const DEPRECATED_ACTIONS = {
+    // actions that work on names instead of ids/keys
+    "GetParticleType":  "This may not work with the newest particle types and could break at any time.\n\nUse `par.getId()` instead.",
+    "SetParticleType":  "This may not work with the newest particle types and could break at any time.\n\nUse `par.setId()` instead.",
+    "GetSoundType":     "This may not work with the newest sounds and could break at any time.\n\nUse `snd.getId()` instead.",
+    "SetSoundType":     "This may not work with the newest sounds and could break at any time.\n\nUse `snd.setId()` instead.",
+    "GetPotionType":    "This may not work with the newest potion effects and could break at any time.\n\nUse `pot.getId()` instead.",
+    "SetPotionType":    "This may not work with the newest potion effects and could break at any time.\n\nUse `pot.setId()` instead.",
+    "GetCustomSound":   "This is no longer supported by DiamondFire and could break at any time.\n\nUse `snd.getId()` instead.",
+    "SetCustomSound":   "This is no longer supported by DiamondFire and could break at any time.\n\nUse `snd.setId()` instead.",
+};
 
 //controls which select actions go with the select/filter keywords
 //! IF A SELECTION ACTION ISN'T PRESENT IN THESE TABLES IT WON'T BE ACCESSIBLE AT ALL !

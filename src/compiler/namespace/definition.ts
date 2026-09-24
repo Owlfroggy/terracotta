@@ -61,6 +61,8 @@ export interface FunctionDefinition {
     action?: Action,
 
     // language server specific stuff
+    /** If present, hide this function from autocomplete and show this deprecation message in signature help */
+    deprecationMessage?: string,
     astNode?: FunctionStatement,
     autocompleteSortPrefix?: string
 }
