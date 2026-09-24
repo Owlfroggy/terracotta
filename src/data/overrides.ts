@@ -734,6 +734,7 @@ export const OVERRIDES: {
             "GetListValue": firstListGenericType,
 
             "WebResponse": Type.dict(Type.void, {statusText: Type.str, body: Type.str, json: Type.any}),
+            "GetColorChannels": Type.list(Type.void, [Type.num, Type.num, Type.num]),
             
             "LoadedBuckets": Type.list(Type.str),
             "GetBucketVars": Type.multivalue([Type.list(Type.any), Type.str], Type.void),
