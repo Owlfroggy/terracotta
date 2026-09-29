@@ -505,6 +505,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         }
         
         //=- particle id -=\\
+        let parIdIsConstant = false;
         if (args.length == 0) {
             ctx.reportError(
                 callNode.callee, 
@@ -513,6 +514,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         }
         // constant value
         else if (args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
+            parIdIsConstant = true;
             parDef = AD.getParticleDefinition(args[0].value, true);
             if (!parDef) {
                 ctx.reportError(
@@ -553,10 +555,41 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
             }
             fieldArgs[name] = argValue[0];
         }
-        // assign default values to any fields not specified
-        for (const field of allowedFields) {
+
+        // assign default values to required fields that were not specified
+
+        // if the particle id isn't constant, id-specific fields will get set to defaults when the setId() action is run
+        function assignDefault(field: string) {
             if (!(field in fieldArgs)) {
                 fieldArgs[field] = PARTICLE_FIELD_DEFAULTS[field];
+            }
+        }
+        let defaultableFields = parIdIsConstant ? allowedFields : ['amount', 'spreadHoriz', 'spreadVert'];
+        for (const field of defaultableFields) {
+            assignDefault(field)
+        }
+
+        if (!parIdIsConstant) {
+            // if there are any linked pairs of fields where only one is specified,
+            // always provide the other as a default. this is required in non-constant
+            // par ids because the linked fields will no longer be added in the defaultable pass.
+            let linkedFields: string[][] = [
+                ["spreadHoriz", "spreadVert"],
+                ["motion","motionVariation"],
+                ["color","colorVariation"],
+                ["size","sizeVariation"],
+            ]
+            for (const group of linkedFields) {
+                let shouldAddGroup = false;
+                for (const field of group) {
+                    if (field in fieldArgs) {
+                        shouldAddGroup = true;
+                        break;
+                    }
+                }
+                if (shouldAddGroup) {
+                    for (const field of group) assignDefault(field);
+                }
             }
         }
         
@@ -607,7 +640,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         }
 
         if (validateType(color, Type.str) && validateType(colorVariation, Type.num)) {
-            if (color instanceof StringValue && color.isCompileTimeConstant() && colorVariation instanceof NumberValue && colorVariation.isCompileTimeConstant()) {
+            if (parIdIsConstant && color instanceof StringValue && color.isCompileTimeConstant() && colorVariation instanceof NumberValue && colorVariation.isCompileTimeConstant()) {
                 let colInt = integerizeHexColor(color.value);
                 if (typeof colInt == "number") {
                     starterValue.data.rgb = colInt;
@@ -628,7 +661,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         //=- fade color -=\\
         let fadeColor = fieldArgs.fadeColor;
         if (validateType(fadeColor, Type.str)) {
-            if (fadeColor instanceof StringValue && fadeColor.isCompileTimeConstant()) {
+            if (parIdIsConstant && fadeColor instanceof StringValue && fadeColor.isCompileTimeConstant()) {
                 let colInt = integerizeHexColor(fadeColor.value);
                 if (typeof colInt == "number") {
                     starterValue.data.rgb_fade = colInt;
@@ -654,7 +687,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         let motionVariation = fieldArgs.motionVariation;
         let includeMotionVariation = allowedFields.includes("motionVariation");
         if (validateType(motion, Type.vec) && (!includeMotionVariation || validateType(motionVariation, Type.num))) {
-            if (motion instanceof VectorValue && motion.isCompileTimeConstant() && (!includeMotionVariation || (motionVariation instanceof NumberValue && motionVariation.isCompileTimeConstant()))) {
+            if (parIdIsConstant && motion instanceof VectorValue && motion.isCompileTimeConstant() && (!includeMotionVariation || (motionVariation instanceof NumberValue && motionVariation.isCompileTimeConstant()))) {
                 starterValue.data.x = tcParseNumber(motion.x);
                 starterValue.data.y = tcParseNumber(motion.y);
                 starterValue.data.z = tcParseNumber(motion.z);
@@ -677,7 +710,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         let size = fieldArgs.size;
         let sizeVariation = fieldArgs.sizeVariation;
         if (validateType(size, Type.num) && validateType(sizeVariation, Type.num)) {
-            if (size instanceof NumberValue && size.isCompileTimeConstant() && sizeVariation instanceof NumberValue && sizeVariation.isCompileTimeConstant()) {
+            if (parIdIsConstant && size instanceof NumberValue && size.isCompileTimeConstant() && sizeVariation instanceof NumberValue && sizeVariation.isCompileTimeConstant()) {
                 starterValue.data.size = size.toNumber();
                 starterValue.data.sizeVariation = sizeVariation.toNumber();
             }
@@ -695,7 +728,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         //=- material -=\\
         let material = fieldArgs.material;
         if (validateType(material, Type.str)) {
-            if (material instanceof StringValue && material.isCompileTimeConstant()) {
+            if (parIdIsConstant && material instanceof StringValue && material.isCompileTimeConstant()) {
                 let validIds = PAR_MATERIAL_FIELD_TYPES[parDef?.id ?? ''] ?? BLOCK_OR_ITEM_IDS; // least sinful use of ?? operator
                 if (!validIds.has(material.value)) {
                     let addendum = "";
@@ -724,7 +757,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         //=- roll -=\\
         let roll = fieldArgs.roll;
         if (validateType(roll, Type.num)) {
-            if (roll instanceof NumberValue && roll.isCompileTimeConstant()) {
+            if (parIdIsConstant && roll instanceof NumberValue && roll.isCompileTimeConstant()) {
                 starterValue.data.roll = roll.toNumber();
             }
             else {
@@ -741,7 +774,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         let opacity = fieldArgs.opacity;
         if (validateType(opacity, Type.num)) {
             validateNumArg(callNode, ctx, opacity ,"Opacity",0, 100, true);
-            if (opacity instanceof NumberValue && opacity.isCompileTimeConstant()) {
+            if (parIdIsConstant && opacity instanceof NumberValue && opacity.isCompileTimeConstant()) {
                 starterValue.data.opacity = opacity.toNumber();
             }
             else {
@@ -757,7 +790,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         //=- power -=\\
         let power = fieldArgs.power;
         if (validateType(power, Type.num)) {
-            if (power instanceof NumberValue && power.isCompileTimeConstant()) {
+            if (parIdIsConstant && power instanceof NumberValue && power.isCompileTimeConstant()) {
                 starterValue.data.power = power.toNumber();
             }
             else {
@@ -773,7 +806,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         //=- duration -=\\
         let duration = fieldArgs.duration;
         if (validateType(duration, Type.num)) {
-            if (duration instanceof NumberValue && duration.isCompileTimeConstant()) {
+            if (parIdIsConstant && duration instanceof NumberValue && duration.isCompileTimeConstant()) {
                 starterValue.data.time = duration.toNumber();
             } else {
                 starterValue.data.time = 20;
