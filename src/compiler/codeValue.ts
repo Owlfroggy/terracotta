@@ -355,6 +355,8 @@ export interface ParticleExtraData {
     opacity?: number,
     power?: number,
     time?: number,
+    waterBlocks?: number,
+    burstImpulse?: number,
 }
 export class ParticleValue extends TangibleValue {
     constructor(

@@ -1,3 +1,4 @@
+import { PrepareSupportDefaultBehavior } from "vscode-languageserver";
 import { ParticleExtraData } from "../compiler/codeValue.ts";
 import { particles, potions, sounds } from "../df/actiondump.ts";
 import { MCNote } from "../util/note.ts";
@@ -174,6 +175,14 @@ export function convertDFValue(value: DFValueData): string | null {
         
         if (pdata.time !== undefined && pdata.time !== 20) {
             fields.duration = convertNumber(pdata.time)
+        }
+
+        if (pdata.waterBlocks !== undefined && pdata.waterBlocks !== 2) {
+            fields.waterBlocks = convertNumber(pdata.waterBlocks)
+        }
+
+        if (pdata.burstImpulse !== undefined && pdata.burstImpulse !== 1.5) {
+            fields.burstImpulse = convertNumber(pdata.burstImpulse)
         }
 
         if (value.data.cluster.horizontal !== 0 || value.data.cluster.vertical !== 0) {

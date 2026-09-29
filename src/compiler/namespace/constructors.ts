@@ -818,6 +818,44 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
             }
         }
 
+        //=- water blocks -=\\
+        let waterBlocks = fieldArgs.waterBlocks;
+        if (validateType(waterBlocks, Type.num)) {
+            if (parIdIsConstant && waterBlocks instanceof NumberValue && waterBlocks.isCompileTimeConstant()) {
+                starterValue.data.waterBlocks = waterBlocks.toNumber();
+            } else {
+                ctx.reportError(
+                    waterBlocks.astNode ?? callNode.callee,
+                    "This field cannot be set dynamicly due to [a DiamondFire bug](https://discord.com/channels/471106238923538454/574342620999057429/1554577808758411332)."
+                )
+                // starterValue.data.waterBlocks = 2;
+                // code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                //     action: "action name here when it comes out",
+                //     args: [tempVar, latestValue, waterBlocks]
+                // }));
+                // latestValue = tempVar;
+            }
+        }
+
+        //=- burst impulse -=\\
+        let burstImpulse = fieldArgs.burstImpulse;
+        if (validateType(burstImpulse, Type.num)) {
+            if (parIdIsConstant && burstImpulse instanceof NumberValue && burstImpulse.isCompileTimeConstant()) {
+                starterValue.data.burstImpulse = burstImpulse.toNumber();
+            } else {
+                ctx.reportError(
+                    burstImpulse.astNode ?? callNode.callee,
+                    "This field cannot be set dynamicly due to a DiamondFire bug. Try again in a future update. \n(https://discord.com/channels/471106238923538454/574342620999057429/1554577808758411332)"
+                )
+                // starterValue.data.burstImpulse = 2;
+                // code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
+                //     action: "action name here when it comes out",
+                //     args: [tempVar, latestValue, burstImpulse]
+                // }));
+                // latestValue = tempVar;
+            }
+        }
+
         return [latestValue, code];
     },
 }

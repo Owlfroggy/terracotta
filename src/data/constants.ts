@@ -121,6 +121,8 @@ export const PARTICLE_FIELD_DEFAULTS = {
     opacity: new NumberValue("100"),
     power: new NumberValue("1"),
     duration: new NumberValue("20"),
+    waterBlocks: new NumberValue("2"),
+    burstImpulse: new NumberValue("1.5"),
 }
 
 /** only includes stuff that goes on the second-level data object */
@@ -137,6 +139,8 @@ export const DF_PAR_FIELD_TO_TC: {[dfName: string]: string} = {
     "Opacity": "opacity",
     "Power": "power",
     "Duration": "duration",
+    "Water Blocks": "waterBlocks",
+    "Burst Impulse": "burstImpulse",
 }
 
 /** whether or not a particle's material field uses block ids or item ids */
