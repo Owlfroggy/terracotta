@@ -504,11 +504,11 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
             ctx.reportError(callNode.callee,`Too many arguments. Expected 1 argument but got ${args.length}`);
         }
         
-        //=- particle name -=\\
+        //=- particle id -=\\
         if (args.length == 0) {
             ctx.reportError(
                 callNode.callee, 
-                "Particle constructor must provide a particle name"
+                "Particle constructor must provide a particle id"
             );
         }
         // constant value
@@ -517,7 +517,7 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
             if (!parDef) {
                 ctx.reportError(
                     args[0].astNode ?? callNode.callee,
-                    `Invalid particle name '${args[0].value}'`
+                    `Invalid particle id '${args[0].value}'`
                 );
             }
             starterValue.particle = args[0].value;
