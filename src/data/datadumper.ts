@@ -1,5 +1,6 @@
 import { NumberValue, StringValue, VectorValue } from "../compiler/codeValue.ts";
-import { FunctionDefinition, isFunctionDefinition, isValueDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
+import { FunctionDefinition } from "../compiler/definition/function.ts";
+import { ValueDefinition } from "../compiler/definition/value.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { actions, gameValues, getTCActionName, getTCGameValueName } from "../df/actiondump.ts";
 import { DF_NBT, dfTypeToTC, GameValueTargetType, tcTypeToDF } from "../df/constants.ts";
@@ -74,12 +75,12 @@ function serialize(obj) {
 export function generateDataDump() {
     let event_namespace_actions = (
         Object.values(Namespace.registry.event.members)
-        .filter(m => isFunctionDefinition(m) && m.action)
+        .filter(m => m instanceof FunctionDefinition && m.action)
         .map(m => (m as FunctionDefinition).action?.name)
     );
     let event_namespace_values = (
         Object.values(Namespace.registry.event.members)
-        .filter(m => isValueDefinition(m) && m.gameValue)
+        .filter(m => m instanceof ValueDefinition && m.gameValue)
         .map(m => (m as ValueDefinition).gameValue?.name)
     );
     return {

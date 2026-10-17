@@ -3,7 +3,7 @@ import { AccessExpression, BinaryExpression, CallExpression, CallOrStartExpressi
 import { TokenType } from "../ast/token.ts";
 import { EvaluationContext } from "../compiler/codeCompiler.ts";
 import { BucketVariableValue, CodeValue, MissingValue, TangibleValue, VariableValue } from "../compiler/codeValue.ts";
-import { ParameterSignature, ParameterSignatureEntry } from "../compiler/namespace/definition.ts";
+import { ParameterSignature, ParameterSignatureEntry } from "../compiler/definition/function.ts";
 import { getImprovedErrorNode } from "../error/errorUtils.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { binaryIsNamedArgument } from "./astUtils.ts";

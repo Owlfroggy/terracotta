@@ -1,7 +1,6 @@
 import { pathToFileURL } from "node:url";
 import { FoldingRangeRefreshRequest, LSPErrorCodes, URI} from "vscode-languageserver";
 import { Type } from "../typeProcessor/type.ts";
-import { ParameterSignature, ParameterSignatureEntry } from "../compiler/namespace/definition.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, CallExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
 import { CodeValue, MissingValue, NumberValue, TangibleValue, VariableValue } from "../compiler/codeValue.ts";

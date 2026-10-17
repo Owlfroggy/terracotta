@@ -9,13 +9,14 @@ import { Namespace } from "../compiler/namespace/namespace.ts";
 import { getTagsAndArgTypes, ps, tcParseNumber } from "../util/utils.ts";
 import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
-import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, ParameterSignature, ParameterSignatureEntry, USE_DEFAULT_RETURN_TYPE } from "../compiler/namespace/definition.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
 import { COMPILE_START_PROCESS, COMPILE_CALL_FUNCTION } from "../compiler/namespace/compileCallFunction.ts";
 import { DFCodeblockName } from "../df/constants.ts";
 import { BooleanOperation } from "../compiler/booleanOperation.ts";
 import { actions } from "../df/actiondump.ts";
 import { commentsToDocumentation } from "../ast/documenter.ts";
+import { FunctionDefinition, ParameterSignatureEntry } from "../compiler/definition/function.ts";
+import { Definition } from "../compiler/definition/base.ts";
 
 export enum VariableScope {
     SAVED,
@@ -513,17 +514,15 @@ export class TypeProcessor {
             if (frame.parent?.astNode instanceof RootNode) {
                 let isProcess = statement.headerType == DFCodeblockName.PROCESS;
                 let map = this.globalFrame[isProcess ? "processes" : "functions"];
-                map.getOrInsert(statement.name.value, []).push({
-                    definitionType: DefinitionType.FUNCTION,
-                    action: isProcess ? actions.get(DFCodeblockName.START_PROCESS)?.dynamic : actions.get(DFCodeblockName.CALL_FUNCTION)?.dynamic,
-                    name: statement.name.value,
-                    description: commentsToDocumentation(statement.attachedComments),
-                    signatures: [{params: signatureParams}],
-                    defaultReturnType: returnType,
-                    getReturnType: USE_DEFAULT_RETURN_TYPE,
-                    compile: isProcess ? COMPILE_START_PROCESS : COMPILE_CALL_FUNCTION,
-                    astNode: statement,
-                })
+                map.getOrInsert(statement.name.value, []).push(
+                    new FunctionDefinition(statement.name.value)
+                    .withAction(isProcess ? actions.get(DFCodeblockName.START_PROCESS)?.dynamic : actions.get(DFCodeblockName.CALL_FUNCTION)?.dynamic)
+                    .withDescription(commentsToDocumentation(statement.attachedComments))
+                    .withSignatures([{params: signatureParams}])
+                    .withReturnType(returnType)
+                    .withCompilationBody(isProcess ? COMPILE_START_PROCESS : COMPILE_CALL_FUNCTION)
+                    .withASTNode(statement)
+                )
             }
         }
         // repeat counter var
@@ -800,7 +799,7 @@ export class TypeProcessor {
                     if (resolved instanceof Namespace) {
                         return Type.namespace(resolved);
                     }
-                    else if (isFunctionDefinition(resolved)) {
+                    else if (resolved instanceof FunctionDefinition) {
                         return Type.func(resolved);
                     }
                     else if (isVariableEntry(resolved) && resolved.type != null) {
@@ -1042,18 +1041,15 @@ export class TypeProcessor {
         if (def) {
             return def;
         } else {
-            def = {
-                definitionType: DefinitionType.FUNCTION,
-                name: name,
-                action: isProcess ? actions.get(DFCodeblockName.START_PROCESS)?.dynamic : actions.get(DFCodeblockName.CALL_FUNCTION)?.dynamic,
+            def = (new FunctionDefinition(name)
+                .withAction(isProcess ? actions.get(DFCodeblockName.START_PROCESS)?.dynamic : actions.get(DFCodeblockName.CALL_FUNCTION)?.dynamic)
                 // TODO: allow declaring functions/parameter signatures with wildcards and hook into those declarations to find signatures
-                signatures: [{params: [
+                .withSignatures([{params: [
                     {name: "arguments", type: Type.any, optional: true, plural: true}
-                ]}],
-                defaultReturnType: Type.void,
-                getReturnType: USE_DEFAULT_RETURN_TYPE,
-                compile: isProcess ? COMPILE_START_PROCESS : COMPILE_CALL_FUNCTION,
-            };
+                ]}])
+                .withReturnType(Type.void)
+                .withCompilationBody(isProcess ? COMPILE_START_PROCESS : COMPILE_CALL_FUNCTION,)
+            );
             this.fallbackCallOrStartDefs.get(isProcess)?.set(name, def);
             return def;
         }

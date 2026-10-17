@@ -3,7 +3,6 @@ import * as AD from "../../df/actiondump.ts";
 import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, MissingValue, MultiValue, NamespaceValue, NumberValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../codeBlock.ts";
 import { MultiValueTypeData, Type, TYPE_NAMESPACES } from "../../typeProcessor/type.ts";
-import { ParameterSignatureEntry, ParameterSignature, DefinitionType, FunctionDefinition, ValueDefinition, ConditionDefinition, USE_DEFAULT_RETURN_TYPE, FunctionCallExtraInfo, Definition, PropertyDefinition } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
 import { CREATE_SELECTION_ACTION_LIST, DEPRECATED_ACTIONS, FILTER_SELECTION_ACTION_LIST, FORCED_EVENT_ACTIONS, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { BVAR_CONSTRUCTOR, ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
@@ -15,6 +14,10 @@ import { EvaluationContext } from "../codeCompiler.ts";
 import { methodizeParameterSignatures } from "./utils.ts";
 import { getImprovedErrorNode } from "../../error/errorUtils.ts";
 import { TokenType } from "../../ast/token.ts";
+import { ConditionDefinition, FunctionCallExtraInfo, FunctionDefinition, ParameterSignature, ParameterSignatureEntry, USE_DEFAULT_RETURN_TYPE } from "../definition/function.ts";
+import { ValueDefinition } from "../definition/value.ts";
+import { PropertyDefinition } from "../definition/property.ts";
+import { Definition } from "../definition/base.ts";
 
 function isGVEventValue(gameValue?: AD.GameValue) {
     if (!gameValue) return false;
@@ -47,7 +50,7 @@ export function handleSingleBlockReturnVars(def: FunctionDefinition, ctx: Evalua
             returnVars.push(tempVar);
         }
 
-        if (def.returnVarsAtEnd) {
+        if (def.flags.returnVarsAtEnd) {
             argListToModify.push(...returnVars)
         } else {
             argListToModify.unshift(...returnVars);
@@ -132,16 +135,15 @@ export function generateGameValueHook(valueName: string, dfName: string, target:
     let valueDef = AD.gameValues[dfName];
     let returnType = OVERRIDES.gameValueReturnTypes[dfName] ?? dfTypeToTC.get(valueDef?.type ?? DFValueType.ANY_TYPE);
     const typeGetter = () => returnType;
-    return {
-        definitionType: DefinitionType.VALUE,
-        returnType,
-        gameValue: valueDef,
-        compile: (ctx) => {
+    return (new ValueDefinition()
+        .withReturnType(returnType)
+        .withGameValue(valueDef)
+        .withCompilationBody((ctx) => {
             let value = new GameValueValue(dfName, target);
             value.getType = typeGetter;
             return [value, []];
-        }
-    }
+        })
+    );
 }
 
 
@@ -251,16 +253,16 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
         signatures = uniqueSignatures.map(v => ({params: v}));
     }
 
-    return {
-        definitionType: DefinitionType.FUNCTION,
-        name: functionName,
-        signatures,
-        action: actionDef,
-        returnVarsAtEnd: OVERRIDES.returnValueAtEndActions[codeblock]?.has(actionDFName),
-        defaultReturnType: tcReturnType,
-        getReturnType,
-        manuallyCompilesNamedArgs: true,
-        compile(this: FunctionDefinition, args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] {
+    return (new FunctionDefinition(functionName)
+        .withSignatures(signatures)
+        .withAction(actionDef)
+        .withReturnType(tcReturnType, getReturnType)
+        .withFlags({
+            returnVarsAtEnd: OVERRIDES.returnValueAtEndActions[codeblock]?.has(actionDFName),
+            manuallyCompilesNamedArgs: true,
+        })
+        // manuallyCompilesNamedArgs: true,
+        .withCompilationBody(function(this: FunctionDefinition, args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] {
             // rank check
             if (!AD.rankCheck(ctx.rank, actionDef.requiresRank)) {
                 ctx.reportError(
@@ -293,11 +295,10 @@ export function generateActionHook(functionName: string, codeblock: DFCodeblockN
             let [returnValue] = handleSingleBlockReturnVars(this, ctx, extraInfo, callNode, insertReturnVars ? actionBlock.args : [])
 
             return [returnValue, code];
-        },
-
-        deprecationMessage: DEPRECATED_ACTIONS[actionDFName],
-        autocompleteSortPrefix: OVERRIDES.autocompleteSortPrefixes[codeblock]?.[actionDFName],
-    }
+        })
+        .withDeprecationMessage(DEPRECATED_ACTIONS[actionDFName])
+        .withAutocompleteSortPrefix(OVERRIDES.autocompleteSortPrefixes[codeblock]?.[actionDFName])
+    );
 }
 
 export function generateTagSpecifiedActionHook(
@@ -314,14 +315,11 @@ export function generateTagSpecifiedActionHook(
     let dfReturnType = actionDef?.returnTypes[0]?.groups[0]?.[0]?.type;
     let tcReturnType = dfReturnType ? dfTypeToTC.get(dfReturnType)! : Type.void;
 
-    return {
-        definitionType: DefinitionType.FUNCTION,
-        name: functionName,
-        description,
-        signatures,
-        defaultReturnType: tcReturnType,
-        getReturnType: USE_DEFAULT_RETURN_TYPE,
-        compile(this: FunctionDefinition, args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] {
+    return (new FunctionDefinition(functionName)
+        .withDescription(description)
+        .withSignatures(signatures)
+        .withReturnType(tcReturnType)
+        .withCompilationBody(function(this: FunctionDefinition, args, namedArgs, ctx, callNode, extraInfo = {}): [CodeValue, CodeBlock[]] {
             let tags: ActionTagValue[] = [];
 
             for (const [name, option] of Object.entries(tagOptions)) {
@@ -348,20 +346,19 @@ export function generateTagSpecifiedActionHook(
             let [returnValue] = handleSingleBlockReturnVars(this, ctx, extraInfo, callNode, code.args)
 
             return [returnValue, [code]];
-        },
-
-        autocompleteSortPrefix: OVERRIDES.autocompleteSortPrefixes[codeblock]?.[actionDFName],
-    }
+        })
+        .withAutocompleteSortPrefix(OVERRIDES.autocompleteSortPrefixes[codeblock]?.[actionDFName])
+    );
 }
 
 export function generateConditionHook(functionName: string, codeblock: DFCodeblockName, actionDFName: string, target: TargetType = TargetType.UNSET): ConditionDefinition {
-    let def = generateActionHook(functionName, codeblock, actionDFName, target, false) as ConditionDefinition;
-    def.compileIf = def.compile;
-    def.compile = (args, namedArgs, ctx, callNode, extraInfo) => {
-        let [item, code] = def.compileIf(args, namedArgs, ctx, callNode, extraInfo);
-        return expressionizeIfBlock(code, ctx);
-    }
-    def.defaultReturnType = Type.num;
+    let def = ConditionDefinition.convertFunctionDefinition(
+        generateActionHook(functionName, codeblock, actionDFName, target, false) as ConditionDefinition,
+        (args, namedArgs, ctx, callNode, extraInfo) => {
+            let [item, code] = def.compileIf(args, namedArgs, ctx, callNode, extraInfo);
+            return expressionizeIfBlock(code, ctx);
+        }
+    );
     return def
 }
 
@@ -596,27 +593,25 @@ function generateCompPropertyDef(type: Type, getterActionName: string, setterAct
     
     let setterActionDef = AD.actions.get(DFCodeblockName.SET_VARIABLE)![setterActionName];
     let setterTag = new ActionTagValue(setterActionDef.tags[tagName],tagValue);
-    return {
-        definitionType: DefinitionType.PROPERTY,
-        type: Type.num,
-        valueExclusive: true,
-        autocompleteSortPrefix: sortPrefix,
-        compileGet(ctx, propertyOf): [CodeValue, CodeBlock[]] {
+    return (new PropertyDefinition(true)
+        .withType(Type.num)
+        .withAutocompleteSortPrefix(sortPrefix)
+        .withGetCompileBody(function(ctx, propertyOf): [CodeValue, CodeBlock[]] {
             let temp = ctx.tvp.newTempVar(type);
             return [temp, [new ActionBlock(DFCodeblockName.SET_VARIABLE,{
                 action: getterActionName,
                 args: [temp, propertyOf as TangibleValue],
                 tags: [getterTag]
             })]]
-        },
-        compileSet(value, ctx, propertyOf): CodeBlock[] {
+        })
+        .withSetCompileBody(function(value, ctx, propertyOf): CodeBlock[] {
             return [new ActionBlock(DFCodeblockName.SET_VARIABLE,{
                 action: setterActionName,
                 args: [propertyOf as TangibleValue, value],
                 tags: [setterTag]
             })]
-        },
-    }
+        })
+    );
 }
 
 export const VEC_NAMESPACE_INJECTIONS: {[tcName: string]: Definition} = {

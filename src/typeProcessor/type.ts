@@ -1,4 +1,6 @@
-import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, isPropertyDefinition } from "../compiler/namespace/definition.ts";
+import { Definition } from "../compiler/definition/base.ts";
+import { FunctionDefinition } from "../compiler/definition/function.ts";
+import { PropertyDefinition } from "../compiler/definition/property.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
 import { canFuncBeMethod, getNamespaceMemberType } from "../compiler/namespace/utils.ts";
 
@@ -251,11 +253,11 @@ export class Type {
             let getPropertyType = (m: string) => getNamespaceMemberType(namespace, m)
             let getPropertyDefinition = (m: string) => {
                 let def = namespace.members[m];
-                if (isPropertyDefinition(def) && def.valueExclusive) return null;
+                if (def instanceof PropertyDefinition && def.valueExclusive) return null;
                 return def;
             }
             let properties = Object.keys(namespace.members)
-                .filter(k => !(isPropertyDefinition(namespace.members[k]) && namespace.members[k].valueExclusive) );
+                .filter(k => !(namespace.members[k] instanceof PropertyDefinition && namespace.members[k].valueExclusive) );
             let getProperties = () => properties;
             return new Type('namespace',{getPropertyType, getPropertyDefinition, getProperties, data: {namespace}})
         }
@@ -291,8 +293,8 @@ export class Type {
         let props: string[] = [];
         for (const [name, member] of Object.entries(namespace.members)) {
             if (
-                (isFunctionDefinition(member) && canFuncBeMethod(member, this))
-                || (isPropertyDefinition(member) && member.valueExclusive)
+                (member instanceof FunctionDefinition && canFuncBeMethod(member, this))
+                || (member instanceof PropertyDefinition && member.valueExclusive)
             ) {
                 props.push(name);
             }

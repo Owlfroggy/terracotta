@@ -1,7 +1,7 @@
 import { DFCodeblockName } from "../../df/constants.ts";
+import { FunctionDefinition } from "../definition/function.ts";
 import { generateActionHook } from "./builtins.ts";
 import { CSND_CONSTRUCTOR, LITEM_CONSTRUCTOR } from "./constructors.ts";
-import { DefinitionType, FunctionDefinition } from "./definition.ts";
 
 export const GLOBAL_SCOPE_INJECTIONS: {[name: string]: FunctionDefinition} = {
     wait: generateActionHook('wait', DFCodeblockName.CONTROL, "Wait"),

@@ -3,7 +3,6 @@ import { Type } from "../../typeProcessor/type.ts";
 import { allAreCompTimeConstant, getAllowedParticleFields, integerizeHexColor, numberIsHighPrecision, tcParseNumber } from "../../util/utils.ts";
 import { ActionBlock, CodeBlock } from "../codeBlock.ts";
 import { ActionTagValue, BucketVariableValue, CodeValue, ItemValue, LibraryItemValue, LocationValue, MissingValue, NumberValue, ParticleValue, PotionValue, SoundValue, StringValue, TangibleValue, VariableValue, VectorValue } from "../codeValue.ts";
-import { DefinitionType, FunctionDefinition, USE_DEFAULT_RETURN_TYPE } from "./definition.ts";
 import * as AD from "../../df/actiondump.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
 import { AtomicExpression } from "../../ast/expression.ts";
@@ -16,6 +15,7 @@ import { MCNote } from "../../util/note.ts";
 import { ASTNode } from "../../ast/astNode.ts";
 import { isSNBTValid } from "../../util/snbtUtils.ts";
 import * as NBT from "nbtify"
+import { FunctionDefinition } from "../definition/function.ts";
 
 /** pass undefined in place of a template to skip this ark */
 function evaluateConstOrBlockTemplates(
@@ -127,11 +127,9 @@ function applyPitchArg(
     }
 }
 
-export const VEC_CONSTRUCTOR: FunctionDefinition = {
-    definitionType: DefinitionType.FUNCTION,
-    name: "vec",
-    defaultReturnType: Type.vec,
-    signatures: [
+export const VEC_CONSTRUCTOR = (new FunctionDefinition("vec")
+    .withReturnType(Type.vec)
+    .withSignatures([
         {
             name: "normal",
             params: [
@@ -146,11 +144,10 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
                 {name: "value", type: Type.num, optional: false, plural: false, description: "Creates a vector with its x, y, and z components all set to this value"},
             ]
         },
-    ],
-    getReturnType: USE_DEFAULT_RETURN_TYPE,
-    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+    ])
+    .withCompilationBody(function (args, namedArgs, ctx, callNode, extraInfo = {}) {
         let x: CodeValue, y: CodeValue, z: CodeValue;
-
+    
         let workingSignature = validateArguments(args, callNode, this.signatures, ctx);
         if (workingSignature == null) {
             return [new MissingValue(callNode), []];
@@ -165,7 +162,7 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
             y = args[1];
             z = args[2];
         }
-
+    
         // constant vector
         if (allAreCompTimeConstant([x,y,z]) && x instanceof NumberValue && y instanceof NumberValue && z instanceof NumberValue) {
             return [new VectorValue(x.value as string, y.value as string, z.value as string, callNode), []];
@@ -174,7 +171,7 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
         else {
             // for a number to be high-precision, it is also necessarily constant
             let highPrecisionComponents: boolean[] = [];
-
+    
             for (let component of [x,y,z]) {
                 if (!(component instanceof NumberValue)) {
                     highPrecisionComponents.push(false);
@@ -182,7 +179,7 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
                 }
                 highPrecisionComponents.push(numberIsHighPrecision(component.value));
             }
-
+    
             // if there are no high precision components, the vector creation codeblock can be used
             let tempVar = ctx.tvp.newTempVar(Type.vec);
             tempVar.astNode = callNode;
@@ -223,14 +220,12 @@ export const VEC_CONSTRUCTOR: FunctionDefinition = {
             // if all components are high precision, the constant vector case
             // will take care of this
         }
-    },
-}
+    })
+);
 
-export const LOC_CONSTRUCTOR: FunctionDefinition = {
-    definitionType: DefinitionType.FUNCTION,
-    name: "loc",
-    defaultReturnType: Type.loc,
-    signatures: [
+export const LOC_CONSTRUCTOR = (new FunctionDefinition("loc")
+    .withReturnType(Type.loc)
+    .withSignatures([
         {
             params: [
                 {name: "x", type: Type.num, optional: false, plural: false},
@@ -240,9 +235,8 @@ export const LOC_CONSTRUCTOR: FunctionDefinition = {
                 {name: "yaw", type: Type.num, optional: true, plural: false},
             ]
         }
-    ],
-    getReturnType: USE_DEFAULT_RETURN_TYPE,
-    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+    ])
+    .withCompilationBody(function (args, namedArgs, ctx, callNode, extraInfo = {}) {
         let tempVar = ctx.tvp.newTempVar(Type.loc);
 
         if (validateArguments(args, callNode, this.signatures, ctx) == null) 
@@ -268,14 +262,12 @@ export const LOC_CONSTRUCTOR: FunctionDefinition = {
                 })
             ]];
         }
-    },
-}
+    })
+);
 
-export const SND_CONSTRUCTOR: FunctionDefinition = {
-    definitionType: DefinitionType.FUNCTION,
-    name: "snd",
-    defaultReturnType: Type.snd,
-    signatures: [
+export const SND_CONSTRUCTOR = (new FunctionDefinition("snd")
+    .withReturnType(Type.snd)
+    .withSignatures([
         {
             params: [
                 {name: "sound", type: Type.str, optional: false, plural: false},
@@ -294,9 +286,8 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
             ],
             disallowSkips: true
         }
-    ],
-    getReturnType: USE_DEFAULT_RETURN_TYPE,
-    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+    ])
+    .withCompilationBody(function(args, namedArgs, ctx, callNode, extraInfo = {}) {
         // validation
         let failed = false;
         if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
@@ -344,15 +335,13 @@ export const SND_CONSTRUCTOR: FunctionDefinition = {
         if (args[1]) outVal = applyPitchArg(args[1], originalSound, callNode, ctx, outVal, code);
 
         return [outVal, code]
-    },
-}
+    })
+);
 
-export const CSND_CONSTRUCTOR: FunctionDefinition = {
-    definitionType: DefinitionType.FUNCTION,
-    name: "csnd",
-    description: "Returns a sound value representing a raw sound key. Use this for custom sounds added by resource packs. Due to DiamondFire/Minecraft limitations, variants cannot be specified.",
-    defaultReturnType: Type.snd,
-    signatures: [
+export const CSND_CONSTRUCTOR = (new FunctionDefinition("csnd")
+    .withDescription("Returns a sound value representing a raw sound key. Use this for custom sounds added by resource packs. Due to DiamondFire/Minecraft limitations, variants cannot be specified.")
+    .withReturnType(Type.snd)
+    .withSignatures([
         {
             params: [
                 {name: "sound", type: Type.str, optional: false, plural: false, description: "Specified using Minecraft's internal IDs, e.g. \"minecraft:block.anvil.land\". Custom resource pack sounds are supported."},
@@ -369,9 +358,8 @@ export const CSND_CONSTRUCTOR: FunctionDefinition = {
             ],
             disallowSkips: true
         }
-    ],
-    getReturnType: USE_DEFAULT_RETURN_TYPE,
-    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+    ])
+    .withCompilationBody(function(args, namedArgs, ctx, callNode, extraInfo = {}) {
         // validation
         let failed = false;
         if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
@@ -408,14 +396,12 @@ export const CSND_CONSTRUCTOR: FunctionDefinition = {
         if (args[1]) outVal = applyPitchArg(args[1], originalSound, callNode, ctx, outVal, code);
 
         return [outVal, code];
-    },
-}
+    })
+);
 
-export const POT_CONSTRUCTOR: FunctionDefinition = {
-    definitionType: DefinitionType.FUNCTION,
-    name: "pot",
-    defaultReturnType: Type.pot,
-    signatures: [
+export const POT_CONSTRUCTOR = (new FunctionDefinition("pot")
+    .withReturnType(Type.pot)
+    .withSignatures([
         {
             params: [
                 {name: "effect", type: Type.str, optional: false, plural: false},
@@ -424,9 +410,8 @@ export const POT_CONSTRUCTOR: FunctionDefinition = {
             ],
             disallowSkips: true
         }
-    ],
-    getReturnType: USE_DEFAULT_RETURN_TYPE,
-    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+    ])
+    .withCompilationBody(function(args, namedArgs, ctx, callNode, extraInfo = {}) {
         // validation
         let failed = false;
         if (args.length > 0 && args[0] instanceof StringValue && args[0].isCompileTimeConstant()) {
@@ -454,25 +439,22 @@ export const POT_CONSTRUCTOR: FunctionDefinition = {
                 [NumberValue, "duration", "SetPotionDur"],
             ]
         );
-    },
-}
+    })
+);
 
 // TODO: when named args become more properly supported, update 
 // this to use that system instead of the weird hack its doing rn
-export const PAR_CONSTRUCTOR: FunctionDefinition = {
-    definitionType: DefinitionType.FUNCTION,
-    name: "par",
-    defaultReturnType: Type.par,
-    signatures: [
+export const PAR_CONSTRUCTOR = (new FunctionDefinition("par")
+    .withReturnType(Type.par)
+    .withSignatures([
         {
             params: [
                 {name: "particle", type: Type.str, optional: false, plural: false},
             ]
         }
-    ],
-    getReturnType: USE_DEFAULT_RETURN_TYPE,
+    ])
     // this function is awful because particles are awful
-    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+    .withCompilationBody(function(args, namedArgs, ctx, callNode, extraInfo = {}) {
         // if this is set, that means theres a constant string as the particle name arg
         let parDef: AD.Particle | undefined;
 
@@ -866,16 +848,14 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         }
 
         return [latestValue, code];
-    },
-}
+    })
+);
 
 
 // TODO: special case for item("air")
-export const ITEM_CONSTRUCTOR: FunctionDefinition = {
-    definitionType: DefinitionType.FUNCTION,
-    name: "item",
-    defaultReturnType: Type.item,
-    signatures: [
+export const ITEM_CONSTRUCTOR = (new FunctionDefinition("item")
+    .withReturnType(Type.item)
+    .withSignatures([
         {
             params: [
                 {name: "item", type: Type.str, optional: false, plural: false},
@@ -883,9 +863,8 @@ export const ITEM_CONSTRUCTOR: FunctionDefinition = {
             ],
             disallowSkips: true
         }
-    ],
-    getReturnType: USE_DEFAULT_RETURN_TYPE,
-    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+    ])
+    .withCompilationBody(function(args, namedArgs, ctx, callNode, extraInfo = {}) {
         // validation
         let failed = false;
         let useAirItem = false;
@@ -918,15 +897,13 @@ export const ITEM_CONSTRUCTOR: FunctionDefinition = {
                 [NumberValue, "count", "SetItemAmount"],
             ]
         );
-    },
-}
+    })
+);
 
-export const LITEM_CONSTRUCTOR: FunctionDefinition = {
-    definitionType: DefinitionType.FUNCTION,
-    name: "litem",
-    description: "Returns an item from an item library. \n\nVariables may be passed to the Library ID and Item ID parameters. Invalid library/item ids will return `0`.",
-    defaultReturnType: Type.item,
-    signatures: [
+export const LITEM_CONSTRUCTOR = (new FunctionDefinition("litem")
+    .withDescription("Returns an item from an item library. \n\nVariables may be passed to the Library ID and Item ID parameters. Invalid library/item ids will return `0`.")
+    .withReturnType(Type.item)
+    .withSignatures([
         {
             params: [
                 {name: "library", type: Type.str, optional: false, plural: false},
@@ -935,9 +912,8 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
             ],
             disallowSkips: true
         }
-    ],
-    getReturnType: USE_DEFAULT_RETURN_TYPE,
-    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+    ])
+    .withCompilationBody(function(args, namedArgs, ctx, callNode, extraInfo = {}) {
         // validation
         let failed = false;
         let constantLibrary: ItemLibrary | undefined;
@@ -1038,15 +1014,13 @@ export const LITEM_CONSTRUCTOR: FunctionDefinition = {
         }
 
         return [outVal!, code];
-    },
-}
+    })
+);
 
-export const BVAR_CONSTRUCTOR: FunctionDefinition = {
-    definitionType: DefinitionType.FUNCTION,
-    name: "bvar",
-    description: "Calling as a function returns the equivalent of a Bucket Variable code value.\n\nThese values can be assigned to variables.\n\`\`\`tc\n// this assignment works!\nbvar('%uuid data', 'coins') = 10\n\`\`\`\n\nAccess this as a namespace for related functions.",
-    defaultReturnType: Type.any,
-    signatures: [
+export const BVAR_CONSTRUCTOR = (new FunctionDefinition("bvar")
+    .withDescription("Calling as a function returns the equivalent of a Bucket Variable code value.\n\nThese values can be assigned to variables.\n\`\`\`tc\n// this assignment works!\nbvar('%uuid data', 'coins') = 10\n\`\`\`\n\nAccess this as a namespace for related functions.")
+    .withReturnType(Type.any)
+    .withSignatures([
         {
             params: [
                 {name: "bucket", type: Type.str, optional: false, plural: false},
@@ -1055,9 +1029,8 @@ export const BVAR_CONSTRUCTOR: FunctionDefinition = {
             ],
             disallowSkips: true
         }
-    ],
-    getReturnType: USE_DEFAULT_RETURN_TYPE,
-    compile(args, namedArgs, ctx, callNode, extraInfo = {}) {
+    ])
+    .withCompilationBody(function(args, namedArgs, ctx, callNode, extraInfo = {}) {
         if (validateArguments(args, callNode, this.signatures, ctx) == null) 
             return [new MissingValue(callNode), []];
 
@@ -1072,5 +1045,5 @@ export const BVAR_CONSTRUCTOR: FunctionDefinition = {
             getValueInlineString(args[1], code, args[1].astNode ?? callNode, ctx),
             args.length > 2 ? getValueInlineString(args[2], code, args[2].astNode ?? callNode, ctx) : undefined
         ), code];
-    },
-}
+    })
+);

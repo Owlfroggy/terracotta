@@ -1,4 +1,5 @@
-import { Definition, FunctionDefinition } from "./definition.ts";
+import { Definition } from "../definition/base.ts";
+import { FunctionDefinition } from "../definition/function.ts";
 
 export class Namespace {
     static registry: {[identifier: string]: Namespace} = {};

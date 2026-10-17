@@ -8,7 +8,6 @@ import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, SelectionExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
 import { DictTypeData, FuncTypeData, NamespaceTypeData, Type, TYPE_NAMESPACES } from "../typeProcessor/type.ts";
 import { Namespace } from "../compiler/namespace/namespace.ts";
-import { Definition, DefinitionType, FunctionDefinition, isFunctionDefinition, ValueDefinition } from "../compiler/namespace/definition.ts";
 import { EnvironmentFrame, isVariableEntry, TypeProcessor, VariableEntry, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { AssignmentStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
@@ -32,6 +31,10 @@ import { TrackedScript } from "./trackedScript.ts";
 import { TrackedItemLibrary } from "./trackedItemLibrary.ts";
 import { MCNote } from "../util/note.ts";
 import { convertDFValue } from "./valueConverter.ts";
+import { FunctionDefinition } from "../compiler/definition/function.ts";
+import { ValueDefinition } from "../compiler/definition/value.ts";
+import { PropertyDefinition } from "../compiler/definition/property.ts";
+import { Definition } from "../compiler/definition/base.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -102,7 +105,7 @@ function stringizeCompletionItem(item: CompletionItem, existingNode: ASTNode, do
 function generateDefinitionCompletion(name: string, def: Definition, allowCallOrStartInersion: boolean = true): CompletionItem {
     let item: CompletionItem;
     let documentation: string = "";
-    if (def.definitionType == DefinitionType.FUNCTION) {
+    if (def instanceof FunctionDefinition) {
         // let isUnusable = !AD.RankCheck(tcConfig.dfRank,action?.RequiresRank!)
         // if (isUnusable && tcConfig.rankBehavior == "hideInaccessible") { return }
         item = {
@@ -161,7 +164,7 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
             if (def.description) documentation = def.description + "\n" + documentation;
         }
     }
-    else if (def.definitionType == DefinitionType.VALUE) {
+    else if (def instanceof ValueDefinition) {
         item = {
             label: name,
             kind: CompletionItemKind.Field,
@@ -171,7 +174,7 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
             documentation = getValueDocumentation(def.gameValue);
         }
     }
-    else /*if (def.definitionType == DefinitionType.PROPERTY)*/ {
+    else if (def instanceof PropertyDefinition) {
         item = {
             label: name,
             kind: CompletionItemKind.Field,
@@ -179,6 +182,9 @@ function generateDefinitionCompletion(name: string, def: Definition, allowCallOr
         };
         if (def.autocompleteSortPrefix) item.sortText = def.autocompleteSortPrefix + name;
         documentation = `\`\`\`tc\n${name}: ${def.type.toString()}\n\`\`\` \nThis property can be accessed and assigned to.`;
+    } else {
+        item = {label: "❌INTERNAL ERROR!❌"};
+        documentation = `Could not generate completion item for definition of type ${def.constructor.name}`
     }
     item.documentation = {
         kind: "markdown",
@@ -226,7 +232,7 @@ function generateTypePropertyCompletions(type: Type): CompletionItem[] {
         if (!def) continue;
         if (
             configuration.rankBehavior == "hideInaccessible" 
-            && isFunctionDefinition(def) 
+            && def instanceof FunctionDefinition
             && def.action
             && !AD.rankCheck(configuration.dfRank, def.action.requiresRank)
         ) continue;
@@ -495,7 +501,7 @@ export class LanguageServer {
             if (!resolved) return;
 
             if (
-                (isFunctionDefinition(resolved) || isVariableEntry(resolved)) 
+                (resolved instanceof FunctionDefinition || isVariableEntry(resolved)) 
                 && resolved 
                 && resolved.astNode
             ) {

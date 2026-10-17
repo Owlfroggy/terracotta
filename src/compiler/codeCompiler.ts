@@ -12,7 +12,6 @@ import { CodeValue, EmptyValue, FunctionValue, ItemValue, MissingValue, MultiVal
 import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
-import { DefinitionType, FunctionCallExtraInfo, FunctionDefinition, isFunctionDefinition, isPropertyDefinition, isValueDefinition } from "./namespace/definition.ts";
 import { Type } from "../typeProcessor/type.ts";
 import { DFCodeblockName, DFRank, dfTypeToTC, DFValueType, DICT_LENGTH_LIMIT, LIST_LENGTH_LIMIT, STRING_LENGTH_LIMIT, TC_HEADER, tcTypeToDFParamType } from "../df/constants.ts";
 import { CodeOptimizer } from "./optimizer/optimizer.ts";
@@ -28,6 +27,9 @@ import { ItemLibrary } from "./itemLibrary.ts";
 import { isSNBTValid } from "../util/snbtUtils.ts";
 import { INVERTIBLE_SELECT_ACTIONS, KEYWORDS } from "../data/constants.ts";
 import { getImprovedErrorNode } from "../error/errorUtils.ts";
+import { FunctionCallExtraInfo, FunctionDefinition } from "./definition/function.ts";
+import { ValueDefinition } from "./definition/value.ts";
+import { PropertyDefinition } from "./definition/property.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -503,7 +505,7 @@ export class CodeCompiler {
             }
         }
 
-        let [args, namedArgs, argCode] = this.compileArgsList(e.args, context, !definition.manuallyCompilesNamedArgs);
+        let [args, namedArgs, argCode] = this.compileArgsList(e.args, context, !definition.flags.manuallyCompilesNamedArgs);
 
         if (definition.action) {
             let tagCount = Object.keys(definition.action.tags).length;
@@ -785,13 +787,13 @@ export class CodeCompiler {
             let accesseeType = accessee.getType(this.env.types);
 
             let definition = accesseeType.getPropertyDefinition(accessor);
-            if (isFunctionDefinition(definition)) {
+            if (definition instanceof FunctionDefinition) {
                 return [new FunctionValue(definition, accessee instanceof TangibleValue ? accessee : undefined, expression), code];
             }
-            else if (isValueDefinition(definition)) {
+            else if (definition instanceof ValueDefinition) {
                 return definition.compile(this.getEvaluationContext(context.perSelectedMode));
             }
-            else if (isPropertyDefinition(definition)) {
+            else if (definition instanceof PropertyDefinition) {
                 return definition.compileGet(this.getEvaluationContext(context.perSelectedMode), accessee);
             }
         }
@@ -822,7 +824,7 @@ export class CodeCompiler {
             }
         } else if (mode == "property" && typeof accessor == "string") {
             let definition = accesseeType.getPropertyDefinition(accessor);
-            if (isPropertyDefinition(definition)) {
+            if (definition instanceof PropertyDefinition) {
                 return definition.compileSet(value, this.getEvaluationContext(context.perSelectedMode), accessee)
             }
         }
@@ -1033,7 +1035,7 @@ export class CodeCompiler {
                     let resolved = this.env.types.resolveIdentifier(e);
                     if (resolved instanceof Namespace) {
                         return [new NamespaceValue(resolved, e), []];
-                    } else if (isFunctionDefinition(resolved)) {
+                    } else if (resolved instanceof FunctionDefinition) {
                         return [new FunctionValue(resolved, undefined, e), []];
                     } else if (isVariableEntry(resolved)) {
                         return [new VariableValue(resolved.id.name, resolved.id.scope, resolved.type ?? undefined, e), []];

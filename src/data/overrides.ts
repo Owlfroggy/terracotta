@@ -1,6 +1,6 @@
 import { AtomicExpression, Expression } from "../ast/expression.ts";
 import { TokenType } from "../ast/token.ts";
-import { ParameterSignature } from "../compiler/namespace/definition.ts";
+import { ParameterSignature } from "../compiler/definition/function.ts";
 import { getWidestType, ListTypeData, Type } from "../typeProcessor/type.ts";
 import { TypeProcessor } from "../typeProcessor/typeProcessor.ts";
 import { getTagsAndArgTypes, tcParseNumber } from "../util/utils.ts";

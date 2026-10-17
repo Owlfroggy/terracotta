@@ -1,7 +1,9 @@
 import { sign } from "node:crypto";
 import { Type } from "../../typeProcessor/type.ts";
-import { DefinitionType, FunctionDefinition, isFunctionDefinition, isPropertyDefinition, isValueDefinition, ParameterSignature } from "./definition.ts";
 import { Namespace } from "./namespace.ts";
+import { FunctionDefinition, ParameterSignature } from "../definition/function.ts";
+import { ValueDefinition } from "../definition/value.ts";
+import { PropertyDefinition } from "../definition/property.ts";
 
 /** Returns true if `func` is able to be called as a method of `type` */
 export function canFuncBeMethod(func: FunctionDefinition, type: Type): boolean {
@@ -18,13 +20,13 @@ export function canFuncBeMethod(func: FunctionDefinition, type: Type): boolean {
 export function getNamespaceMemberType(namespace: Namespace, member: string) {
     if (member && member in namespace.members) {
         let def = namespace.members[member];
-        if (isFunctionDefinition(def)) {
+        if (def instanceof FunctionDefinition) {
             return Type.func(def);
         }
-        else if (isValueDefinition(def)) {
+        else if (def instanceof ValueDefinition) {
             return def.returnType;
         }
-        else if (isPropertyDefinition(def)) {
+        else if (def instanceof PropertyDefinition) {
             return def.type;
         }
     }

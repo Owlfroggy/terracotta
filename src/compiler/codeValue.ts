@@ -7,8 +7,8 @@ import { Type } from "../typeProcessor/type.ts";
 import { TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { tcParseNumber } from "../util/utils.ts";
 import * as NBT from "nbtify";
-import { FunctionDefinition } from "./namespace/definition.ts";
 import { Namespace } from "./namespace/namespace.ts";
+import { FunctionDefinition } from "./definition/function.ts";
 
 //=--------------------=\\
 //=- abstract classes -=\\
