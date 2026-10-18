@@ -450,10 +450,6 @@ const particleFieldCompletions: {[field: string]: CompletionItem} = Object.fromE
     )
 );
 
-const globalScopeInjectionCompletions: CompletionItem[] = Object.entries(GLOBAL_SCOPE_INJECTIONS).map(
-    ([name, def]) => generateDefinitionCompletion(name, def)
-);
-
 const createSelectionCompletions: CompletionItem[] = Object.entries(SELECT_ACTIONS).map(
     ([name, def]) => generateDefinitionCompletion(name, def)
 );
@@ -592,7 +588,7 @@ export class LanguageServer {
             }
             else if (node instanceof Token && node.parent instanceof CallOrStartExpression && node.keyInParent == "callee") {
                 let type = node.parent.keyword.type == TokenType.CALL ? "functions" : "processes"
-                resolved = doc.workspace.typeProcessor.globalFrame[type].get(node.value)?.[0] ?? null;
+                resolved = doc.workspace.typeProcessor.globalFrame.namespace![type][node.value]?.[0] ?? null;
             }
             if (getVarEntryOf) {
                 resolved = doc.workspace.typeProcessor.getNodeFrame(node).getVariableEntry(getVarEntryOf, node.startPos, {requireASTNode: true});
@@ -935,7 +931,7 @@ export class LanguageServer {
                 includeGenerics = false;
                 let callExpression = (node instanceof CallOrStartExpression ? node : node.parent) as CallOrStartExpression;
                 let isProcess = callExpression.keyword.type == TokenType.START;
-                items.push(...doc.workspace.typeProcessor.globalFrame[isProcess ? "processes" : "functions"].values().map(
+                items.push(...Object.values(doc.workspace.typeProcessor.globalFrame.namespace![isProcess ? "processes" : "functions"]).map(
                     v => {
                         let item = generateDefinitionCompletion(v[0].name, v[0]);
                         item = stringizeCompletionItem(item, node, doc, true);
@@ -1213,8 +1209,6 @@ export class LanguageServer {
                 }
                 // keywords
                 items.push(...keywordCompletions);
-
-                items.push(...globalScopeInjectionCompletions);
                 
                 // variables and functions
                 items.push(...generateVariableCompletions(envFrame, node.startPos));

@@ -1224,17 +1224,16 @@ export class CodeCompiler {
             if (e instanceof AtomicExpression && e.token.type == TokenType.IDENTIFIER) {
                 let resolved = this.env.types.resolveIdentifier(e.token);
                 let blockName: string | undefined;
-                if (resolved == GLOBAL_SCOPE_INJECTIONS.wait) {
-                    blockName = "Wait";
-                } else if (resolved == GLOBAL_SCOPE_INJECTIONS.endthread) {
-                    blockName = "End";
-                } else if (resolved == GLOBAL_SCOPE_INJECTIONS.endallthreads) {
-                    blockName = "EndAllThreads";
-                }
-                if (blockName) {
-                    return [new ActionBlock(DFCodeblockName.CONTROL,{
-                        action: blockName
-                    })];
+                if (resolved instanceof FunctionDefinition && resolved.action && resolved.action.codeblock == DFCodeblockName.CONTROL) {
+                    if (
+                        resolved.action.name == "Wait"
+                        || resolved.action.name == "End"
+                        || resolved.action.name == "EndAllThreads"
+                    ) {
+                        return [new ActionBlock(DFCodeblockName.CONTROL,{
+                            action: resolved.action.name
+                        })];
+                    }
                 }
             }
 

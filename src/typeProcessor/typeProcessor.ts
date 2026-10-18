@@ -296,6 +296,10 @@ export class TypeProcessor {
                     .addMembersFromEntries(data.members,true)
             )
         }
+        // global namespace injections
+        for (const [identifier, member] of Object.entries(GLOBAL_SCOPE_INJECTIONS)) {
+            this.globalNamespace.addMember(identifier,member.clone());
+        }
     }
 
     reportError(node: ASTNode, error: string) {
@@ -317,18 +321,23 @@ export class TypeProcessor {
 
     public resolveIdentifier(identifier: Token): VariableEntry | Definition | null {
         let value: string = identifier.value;
-        let frame: EnvironmentFrame = this.getNodeFrame(identifier);
+        let frame: EnvironmentFrame | null = this.getNodeFrame(identifier);
 
+        // TODO(namespaces): lump this in with the main tree walking logic?
+        // right now a variable declared higher up in the tree
+        // will shadow namespace members declared lower down
         let varEntry = frame.getVariableEntry(value, identifier.startPos);
         if (varEntry != undefined) return varEntry;
 
-        if (value in this.globalNamespace.functions) return this.globalNamespace.functions[value][0];
 
-        let namespace = this.globalNamespace.namespaces[value]?.[0];
-        if (namespace != undefined) return namespace;
-
-        if (value in GLOBAL_SCOPE_INJECTIONS) return GLOBAL_SCOPE_INJECTIONS[value];
-
+        while (frame != null) {
+            if (frame.namespace) {
+                let member = frame.namespace.getMember(value);
+                if (member) return member;
+            }
+            frame = frame.parent;
+        }
+        
         return null;
     }
 
@@ -522,11 +531,7 @@ export class TypeProcessor {
             // frame here will be the function's chunk's frame so the parent needs to be accessed 
             if (frame.parent?.astNode instanceof RootNode) {
                 let isProcess = statement.headerType == DFCodeblockName.PROCESS;
-                let map = this.globalNamespace[isProcess ? "processes" : "functions"];
-                // TODO(namespaces): make this suck less
-                if (!(statement.name.value in map)) 
-                    map[statement.name.value] = [];
-                map[statement.name.value].push(
+                this.globalNamespace.addMember(statement.name.value,
                     new FunctionDefinition(statement.name.value)
                     .withAction(isProcess ? actions.get(DFCodeblockName.START_PROCESS)?.dynamic : actions.get(DFCodeblockName.CALL_FUNCTION)?.dynamic)
                     .withDescription(commentsToDocumentation(statement.attachedComments))
@@ -534,7 +539,8 @@ export class TypeProcessor {
                     .withReturnType(returnType)
                     .withCompilationBody(isProcess ? COMPILE_START_PROCESS : COMPILE_CALL_FUNCTION)
                     .withASTNode(statement)
-                )
+                    .withFlags({isProcess})
+                );
             }
         }
         // repeat counter var
