@@ -15,7 +15,7 @@ import { getActionDocumentation, getDFParamString, getEventDocumentation, getVal
 import { getAllowedParticleFields, isIdentifier, valueToTCString } from "../util/utils.ts";
 import { DFCodeblockName, DFRank, tcTypeToDF } from "../df/constants.ts";
 import { OVERRIDES } from "../data/overrides.ts";
-import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
+import { BUILTIN_NAMESPACE_DEFAULT_STATES, FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { posIndexIsInListElement, isForLoopActionCall, binaryIsNamedArgument, getExistingNamedArgs } from "../util/astUtils.ts";
 import { brotliDecompress } from "node:zlib";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
@@ -100,6 +100,105 @@ function stringizeCompletionItem(item: CompletionItem, existingNode: ASTNode, do
         item.insertText = valueToTCString(item.label);
     }
     return item;
+}
+
+function renderNamespaceTree(namespace: NamespaceDefinition, depth: number = 0): string {
+    const builtinNamespaceNames = new Set(Object.keys(BUILTIN_NAMESPACE_DEFAULT_STATES));
+    const seen = new Set<NamespaceDefinition>();
+    const stack: [NamespaceDefinition, number][] = [[namespace, depth]];
+    const lines: string[] = [];
+
+    while (stack.length > 0) {
+        const [current, currentDepth] = stack.pop()!;
+        if (seen.has(current)) continue;
+        seen.add(current);
+
+        const indent = "  ".repeat(currentDepth);
+        lines.push(`${indent}- ${current.getPath()}`);
+
+        const childNamespaces = Object.values(current.namespaces)
+            .flat()
+            .filter(child => child.identifier !== "#ROOT" && !builtinNamespaceNames.has(child.identifier));
+        const nonNamespaceCount = Object.values(current.members)
+            .flat()
+            .filter(member => !(member instanceof NamespaceDefinition) && !builtinNamespaceNames.has(current.identifier))
+            .length;
+
+        if (nonNamespaceCount > 0 || childNamespaces.length > 0) {
+            if (nonNamespaceCount > 0) {
+                lines.push(`${indent}  - (+${nonNamespaceCount} members)`);
+            }
+            for (let i = childNamespaces.length - 1; i >= 0; i--) {
+                stack.push([childNamespaces[i], currentDepth + 1]);
+            }
+        }
+    }
+
+    return lines.join("\n");
+}
+
+function renderSmallNamespaceMembers(namespace: NamespaceDefinition, depth: number = 0): string {
+    const builtinNamespaceNames = new Set(Object.keys(BUILTIN_NAMESPACE_DEFAULT_STATES));
+    const seen = new Set<NamespaceDefinition>();
+    const stack: [NamespaceDefinition, number][] = [[namespace, depth]];
+    const lines: string[] = [];
+
+    while (stack.length > 0) {
+        const [current, currentDepth] = stack.pop()!;
+        if (seen.has(current)) continue;
+        seen.add(current);
+
+        const indent = "  ".repeat(currentDepth);
+        const memberEntries = Object.entries(current.members)
+            .filter(([_, members]) => members.every(member => !(member instanceof NamespaceDefinition)))
+            .sort(([a], [b]) => a.localeCompare(b));
+        const totalMembers = memberEntries.reduce((sum, [, members]) => sum + members.length, 0);
+
+        if (current.identifier === "#ROOT" || (!builtinNamespaceNames.has(current.identifier) && current.identifier !== "#ROOT")) {
+            lines.push(`${indent}- ${current.getPath()} (${totalMembers} members)`);
+            for (const [name, members] of memberEntries) {
+                const memberLabel = members.length > 1 ? `${name} (${members.length})` : name;
+                lines.push(`${indent}  - ${memberLabel}`);
+            }
+        }
+
+        const childNamespaces = Object.values(current.namespaces)
+            .flat()
+            .filter(child => child.identifier !== "#ROOT" && !builtinNamespaceNames.has(child.identifier));
+        for (let i = childNamespaces.length - 1; i >= 0; i--) {
+            stack.push([childNamespaces[i], currentDepth + 1]);
+        }
+    }
+
+    return lines.join("\n");
+}
+
+function generateNamespaceTreeCompletionItem(globalNamespace: NamespaceDefinition): CompletionItem {
+    const tree = renderNamespaceTree(globalNamespace);
+    const truncated = tree.length > 20000 ? `${tree.slice(0, 20000)}\n... (truncated)` : tree;
+    return {
+        label: "__debug_namespace_tree__",
+        kind: CompletionItemKind.Reference,
+        sortText: "\u0000__debug_namespace_tree__",
+        documentation: {
+            kind: "markdown",
+            value: `\n\n\`\`\`text\n${truncated}\n\`\`\`\n`,
+        },
+    };
+}
+
+function generateSmallNamespaceMembersCompletionItem(globalNamespace: NamespaceDefinition): CompletionItem {
+    const tree = renderSmallNamespaceMembers(globalNamespace);
+    const truncated = tree.length > 20000 ? `${tree.slice(0, 20000)}\n... (truncated)` : tree;
+    return {
+        label: "__debug_small_namespace_members__",
+        kind: CompletionItemKind.Reference,
+        sortText: "\u0001__debug_small_namespace_members__",
+        documentation: {
+            kind: "markdown",
+            value: `\n\n\`\`\`text\n${truncated}\n\`\`\`\n`,
+        },
+    };
 }
 
 function generateDefinitionCompletion(name: string, def: Definition, allowCallOrStartInersion: boolean = true): CompletionItem {
@@ -1143,8 +1242,14 @@ export class LanguageServer {
                 }
             }
 
+            items.push(generateNamespaceTreeCompletionItem(doc.workspace.typeProcessor.globalNamespace));
+            items.push(generateSmallNamespaceMembersCompletionItem(doc.workspace.typeProcessor.globalNamespace));
+
             // final pass: filter out all deprecated items
             items = items.filter(item => item.data?.deprecationMessage === undefined);
+
+
+
 
             slog ("Returned",items.length,"items")
             let response: CompletionList = {
