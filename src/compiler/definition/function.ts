@@ -3,11 +3,11 @@ import { AtomicExpression, CallExpression, CallOrStartExpression, Expression } f
 import { FunctionStatement } from "../../ast/statement.ts";
 import { Action } from "../../df/actiondump.ts";
 import { Type } from "../../typeProcessor/type.ts";
-import { TypeProcessor } from "../../typeProcessor/typeProcessor.ts";
+import type { TypeProcessor } from "../../typeProcessor/typeProcessor.ts";
 import { CodeBlock } from "../codeBlock.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
 import { CodeValue, EmptyValue, TangibleValue } from "../codeValue.ts";
-import { Definition } from "./base.ts";
+import { Definition, DefinitionType } from "./base.ts";
 
 export interface ParameterSignatureEntry {
     type: Type,
@@ -76,7 +76,7 @@ export class FunctionDefinition extends Definition {
     autocompleteSortPrefix?: string;
 
     constructor(name: string) {
-        super();
+        super(DefinitionType.FUNCTION);
         this.name = name;
     }
 

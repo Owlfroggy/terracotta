@@ -1,4 +1,5 @@
-import { Type } from "../../typeProcessor/type.ts";
+import type { Type } from "../../typeProcessor/type.ts";
+import { Definition, DefinitionType } from "../definition/base.ts";
 import { CodeBlock } from "../codeBlock.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
 import { CodeValue, TangibleValue } from "../codeValue.ts";
@@ -6,7 +7,7 @@ import { CodeValue, TangibleValue } from "../codeValue.ts";
 type PropertyGetCompileBody = (ctx: EvaluationContext, propertyOf: CodeValue) => [CodeValue, CodeBlock[]];
 type PropertySetCompileBody = (newValue: TangibleValue, ctx: EvaluationContext, propertyOf: CodeValue) => CodeBlock[];
 
-export class PropertyDefinition {
+export class PropertyDefinition extends Definition {
     type: Type;
     /** 
      * If true, this property is only available on values whose type 
@@ -21,6 +22,7 @@ export class PropertyDefinition {
     autocompleteSortPrefix?: string;
 
     constructor(valueExclusive?: boolean) {
+        super(DefinitionType.PROPERTY);
         if (valueExclusive) this.valueExclusive = valueExclusive;
     }
 

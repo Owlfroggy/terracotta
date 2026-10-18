@@ -1,9 +1,9 @@
 import { GameValue } from "../../df/actiondump.ts";
-import { Type } from "../../typeProcessor/type.ts";
+import type { Type } from "../../typeProcessor/type.ts";
 import { CodeBlock } from "../codeBlock.ts";
 import { EvaluationContext } from "../codeCompiler.ts";
 import { CodeValue } from "../codeValue.ts";
-import { Definition } from "./base.ts";
+import { Definition, DefinitionType } from "./base.ts";
 
 export class ValueDefinition extends Definition {
     returnType: Type;
@@ -11,7 +11,7 @@ export class ValueDefinition extends Definition {
     gameValue?: GameValue;
     compile: (ctx: EvaluationContext) => [CodeValue, CodeBlock[]];
     
-    constructor() {super()}
+    constructor() {super(DefinitionType.VALUE)}
     
     withReturnType(type: Type): this {
         this.returnType = type;
