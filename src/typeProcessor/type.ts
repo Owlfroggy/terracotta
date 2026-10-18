@@ -1,19 +1,19 @@
 import { Definition } from "../compiler/definition/base.ts";
 import { FunctionDefinition } from "../compiler/definition/function.ts";
+import { NamespaceDefinition } from "../compiler/definition/namespace.ts";
 import { PropertyDefinition } from "../compiler/definition/property.ts";
-import { Namespace } from "../compiler/namespace/namespace.ts";
 import { canFuncBeMethod, getNamespaceMemberType } from "../compiler/namespace/utils.ts";
 
 // NOTE: this gets populated after this file is done running,
 // when creating types in this file you cannot rely on this being filled out.
-export const TYPE_NAMESPACES: {[typeName: string]: Namespace} = {};
+export const TYPE_NAMESPACES: {[typeName: string]: NamespaceDefinition} = {};
 
 export type FuncTypeData = {
     definition: FunctionDefinition;
 }
 
 export type NamespaceTypeData = {
-    namespace: Namespace;
+    namespace: NamespaceDefinition;
 }
 
 export type VarTypeData = {
@@ -249,7 +249,7 @@ export class Type {
 
     public static namespace = this.makeTypeConstructor(
         'namespace', 0,
-        (namespace: Namespace) => {
+        (namespace: NamespaceDefinition) => {
             let getPropertyType = (m: string) => getNamespaceMemberType(namespace, m)
             let getPropertyDefinition = (m: string) => {
                 let def = namespace.members[m];

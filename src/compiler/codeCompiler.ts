@@ -9,7 +9,6 @@ import * as AD from "../df/actiondump.ts";
 import { ErrorType, TCError, TCNodeError, TCNodePCodeError, TCStandaloneError } from "../error/error.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, ChunkExpression, DictionaryExpression, Expression, GroupExpression, ListExpression, MissingExpression, PerSelectedExpression, SelectionExpression, TypecastExpression, UnaryPrefixExpression, VariableExpression } from "../ast/expression.ts";
 import { CodeValue, EmptyValue, FunctionValue, ItemValue, MissingValue, MultiValue, NamespaceValue, NumberValue, ParameterValue, LibraryItemValue, StringValue, StyledTextValue, TangibleValue, VariableValue, GameValueValue, BucketVariableValue } from "./codeValue.ts";
-import { Namespace } from "./namespace/namespace.ts";
 import { TempVarProvider } from "./tempVarProvider.ts";
 import { Operations } from "./operations.ts";
 import { Type } from "../typeProcessor/type.ts";
@@ -30,6 +29,7 @@ import { getImprovedErrorNode } from "../error/errorUtils.ts";
 import { FunctionCallExtraInfo, FunctionDefinition } from "./definition/function.ts";
 import { ValueDefinition } from "./definition/value.ts";
 import { PropertyDefinition } from "./definition/property.ts";
+import { NamespaceDefinition } from "./definition/namespace.ts";
 
 export type EventType = DFCodeblockName.PLAYER_EVENT | DFCodeblockName.ENTITY_EVENT | DFCodeblockName.GAME_EVENT;
 export type UserMethodType = DFCodeblockName.FUNCTION | DFCodeblockName.PROCESS; 
@@ -184,7 +184,7 @@ export class CodeCompiler {
                 );
             }
             
-            if (name.value in Namespace.registry) {
+            if (name.value in NamespaceDefinition.registry) {
                 this.reportError(
                     name, 
                     `${thingString} name '${name.value}' shadows a built-in namespace of the same name. The normal, original behavior of '${name.value}' will be inaccessible anywhere this ${thingString.toLowerCase()} is in scope.`
@@ -1033,7 +1033,7 @@ export class CodeCompiler {
                 // identifier resolution all happens here
                 case TokenType.IDENTIFIER: {
                     let resolved = this.env.types.resolveIdentifier(e);
-                    if (resolved instanceof Namespace) {
+                    if (resolved instanceof NamespaceDefinition) {
                         return [new NamespaceValue(resolved, e), []];
                     } else if (resolved instanceof FunctionDefinition) {
                         return [new FunctionValue(resolved, undefined, e), []];

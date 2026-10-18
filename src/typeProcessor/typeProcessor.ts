@@ -5,7 +5,6 @@ import { Token, TokenType } from "../ast/token.ts";
 import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
 import { DictTypeData, FuncTypeData, ListTypeData, MultiValueTypeData, NamespaceTypeData, Type, TypeConstructor, VarTypeData } from "./type.ts";
-import { Namespace } from "../compiler/namespace/namespace.ts";
 import { getTagsAndArgTypes, ps, tcParseNumber } from "../util/utils.ts";
 import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
@@ -17,6 +16,7 @@ import { actions } from "../df/actiondump.ts";
 import { commentsToDocumentation } from "../ast/documenter.ts";
 import { FunctionDefinition, ParameterSignatureEntry } from "../compiler/definition/function.ts";
 import { Definition } from "../compiler/definition/base.ts";
+import { NamespaceDefinition } from "../compiler/definition/namespace.ts";
 
 export enum VariableScope {
     SAVED,
@@ -306,7 +306,7 @@ export class TypeProcessor {
         return type;
     }
 
-    public resolveIdentifier(identifier: Token): Namespace | VariableEntry | Definition | null {
+    public resolveIdentifier(identifier: Token): VariableEntry | Definition | null {
         let value: string = identifier.value;
         let frame: EnvironmentFrame = this.getNodeFrame(identifier);
 
@@ -315,7 +315,7 @@ export class TypeProcessor {
 
         if (this.globalFrame.functions.has(value)) return this.globalFrame.functions.get(value)![0];
 
-        let namespace = Namespace.registry[value];
+        let namespace = NamespaceDefinition.registry[value];
         if (namespace != undefined) return namespace;
 
         if (value in GLOBAL_SCOPE_INJECTIONS) return GLOBAL_SCOPE_INJECTIONS[value];
@@ -356,7 +356,7 @@ export class TypeProcessor {
             return []
         }
         else if (expression instanceof AtomicExpression) {
-            if (expression.token.type == TokenType.IDENTIFIER && expression.token.value in Namespace.registry) {
+            if (expression.token.type == TokenType.IDENTIFIER && expression.token.value in NamespaceDefinition.registry) {
                 // dont count namespace identifiers as variable requirements
                 return []
             } else {
@@ -796,7 +796,7 @@ export class TypeProcessor {
             switch (token.type) {
                 case TokenType.IDENTIFIER: {
                     let resolved = this.resolveIdentifier(token);
-                    if (resolved instanceof Namespace) {
+                    if (resolved instanceof NamespaceDefinition) {
                         return Type.namespace(resolved);
                     }
                     else if (resolved instanceof FunctionDefinition) {

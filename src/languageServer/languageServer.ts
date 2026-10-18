@@ -7,7 +7,6 @@ import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, SelectionExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
 import { DictTypeData, FuncTypeData, NamespaceTypeData, Type, TYPE_NAMESPACES } from "../typeProcessor/type.ts";
-import { Namespace } from "../compiler/namespace/namespace.ts";
 import { EnvironmentFrame, isVariableEntry, TypeProcessor, VariableEntry, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { AssignmentStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
@@ -35,6 +34,7 @@ import { FunctionDefinition } from "../compiler/definition/function.ts";
 import { ValueDefinition } from "../compiler/definition/value.ts";
 import { PropertyDefinition } from "../compiler/definition/property.ts";
 import { Definition } from "../compiler/definition/base.ts";
+import { NamespaceDefinition } from "../compiler/definition/namespace.ts";
 
 type ServerTCConfiguration = {
     dfRank: DFRank,
@@ -481,7 +481,7 @@ export class LanguageServer {
 
             let result: Location | null = null;
 
-            let resolved: Namespace | VariableEntry | Definition | null = null;
+            let resolved: VariableEntry | Definition | null = null;
             let getVarEntryOf: VariableId | undefined;
             if (node instanceof Token && node.type == TokenType.IDENTIFIER && node.parent instanceof AtomicExpression) {
                 resolved = doc.workspace.typeProcessor.resolveIdentifier(node);
@@ -1094,7 +1094,7 @@ export class LanguageServer {
             //=-----------------=\\
             if (includeGenerics) {
                 // namespaces
-                for (const [id, namespace] of Object.entries(Namespace.registry)) {
+                for (const [id, namespace] of Object.entries(NamespaceDefinition.registry)) {
                     let isTypeNamespace = (id in TYPE_NAMESPACES && id != "var");
                     items.push({
                         label: id,

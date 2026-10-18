@@ -1,7 +1,7 @@
 import { NumberValue, StringValue, VectorValue } from "../compiler/codeValue.ts";
 import { FunctionDefinition } from "../compiler/definition/function.ts";
+import { NamespaceDefinition } from "../compiler/definition/namespace.ts";
 import { ValueDefinition } from "../compiler/definition/value.ts";
-import { Namespace } from "../compiler/namespace/namespace.ts";
 import { actions, gameValues, getTCActionName, getTCGameValueName } from "../df/actiondump.ts";
 import { DF_NBT, dfTypeToTC, GameValueTargetType, tcTypeToDF } from "../df/constants.ts";
 import { VERSION } from "../main.ts";
@@ -74,12 +74,12 @@ function serialize(obj) {
 
 export function generateDataDump() {
     let event_namespace_actions = (
-        Object.values(Namespace.registry.event.members)
+        Object.values(NamespaceDefinition.registry.event.members)
         .filter(m => m instanceof FunctionDefinition && m.action)
         .map(m => (m as FunctionDefinition).action?.name)
     );
     let event_namespace_values = (
-        Object.values(Namespace.registry.event.members)
+        Object.values(NamespaceDefinition.registry.event.members)
         .filter(m => m instanceof ValueDefinition && m.gameValue)
         .map(m => (m as ValueDefinition).gameValue?.name)
     );
@@ -95,7 +95,7 @@ export function generateDataDump() {
         filter_selection_actions: serialize(FILTER_SELECTION_ACTION_LIST),
         invertible_selection_actions: serialize(INVERTIBLE_SELECT_ACTIONS),
         keywords: serialize(KEYWORDS),
-        namespace_names: serialize(Object.keys(Namespace.registry)),
+        namespace_names: serialize(Object.keys(NamespaceDefinition.registry)),
         par_field_defaults: serialize(PARTICLE_FIELD_DEFAULTS),
         df_par_field_to_tc: serialize(DF_PAR_FIELD_TO_TC),
         df_type_to_tc: serialize(Object.fromEntries(dfTypeToTC.entries())),

@@ -1,9 +1,9 @@
 import { sign } from "node:crypto";
 import { Type } from "../../typeProcessor/type.ts";
-import { Namespace } from "./namespace.ts";
 import { FunctionDefinition, ParameterSignature } from "../definition/function.ts";
 import { ValueDefinition } from "../definition/value.ts";
 import { PropertyDefinition } from "../definition/property.ts";
+import { NamespaceDefinition } from "../definition/namespace.ts";
 
 /** Returns true if `func` is able to be called as a method of `type` */
 export function canFuncBeMethod(func: FunctionDefinition, type: Type): boolean {
@@ -17,7 +17,7 @@ export function canFuncBeMethod(func: FunctionDefinition, type: Type): boolean {
     return true;
 }
 
-export function getNamespaceMemberType(namespace: Namespace, member: string) {
+export function getNamespaceMemberType(namespace: NamespaceDefinition, member: string) {
     if (member && member in namespace.members) {
         let def = namespace.members[member];
         if (def instanceof FunctionDefinition) {

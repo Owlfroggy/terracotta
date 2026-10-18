@@ -3,7 +3,6 @@ import * as AD from "../../df/actiondump.ts";
 import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, MissingValue, MultiValue, NamespaceValue, NumberValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../codeBlock.ts";
 import { MultiValueTypeData, Type, TYPE_NAMESPACES } from "../../typeProcessor/type.ts";
-import { Namespace } from "./namespace.ts";
 import { CREATE_SELECTION_ACTION_LIST, DEPRECATED_ACTIONS, FILTER_SELECTION_ACTION_LIST, FORCED_EVENT_ACTIONS, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { BVAR_CONSTRUCTOR, ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
 import { expressionizeIfBlock, toNameCase, upperFirst } from "../../util/utils.ts";
@@ -18,6 +17,7 @@ import { ConditionDefinition, FunctionCallExtraInfo, FunctionDefinition, Paramet
 import { ValueDefinition } from "../definition/value.ts";
 import { PropertyDefinition } from "../definition/property.ts";
 import { Definition } from "../definition/base.ts";
+import { NamespaceDefinition } from "../definition/namespace.ts";
 
 function isGVEventValue(gameValue?: AD.GameValue) {
     if (!gameValue) return false;
@@ -399,7 +399,7 @@ export function registerBuiltinNamespaces() {
         ["victim",     TargetType.VICTIM],
         ["allPlayers", TargetType.ALL_PLAYERS],
     ] as [string, TargetType][]) {
-        new Namespace(identifier, Object.fromEntries([
+        new NamespaceDefinition(identifier, Object.fromEntries([
             ...codeblockActionEntries(DFCodeblockName.PLAYER_ACTION, target),
             ...codeblockActionEntries(DFCodeblockName.IF_PLAYER, target, generateConditionHook),
             ...gameValueEntries(target, v => v.targetType == GameValueTargetType.TARGETS_ANYTHING || v.targetType == GameValueTargetType.TARGETS_PLAYERS)
@@ -420,7 +420,7 @@ export function registerBuiltinNamespaces() {
         ["allMobs",          TargetType.ALL_MOBS],
         ["lastEntity",       TargetType.LAST_ENTITY],
     ] as [string, TargetType][]) {
-        new Namespace(identifier, Object.fromEntries([
+        new NamespaceDefinition(identifier, Object.fromEntries([
             ...codeblockActionEntries(DFCodeblockName.ENTITY_ACTION, target),
             ...codeblockActionEntries(DFCodeblockName.IF_ENTITY, target, generateConditionHook),
             ...gameValueEntries(target, v => v.targetType == GameValueTargetType.TARGETS_ANYTHING || v.targetType == GameValueTargetType.TARGETS_ENTITIES)
@@ -432,7 +432,7 @@ export function registerBuiltinNamespaces() {
     let untargetedGameValueEntries = gameValueEntries(TargetType.UNSET, v => v.targetType == GameValueTargetType.UNTARGETED);
 
     // game action namespace
-    new Namespace("game", Object.fromEntries([
+    new NamespaceDefinition("game", Object.fromEntries([
         ...gameActionEntries.filter(([k,v]) => !isActionEventAction(v.action)),
         ...ifGameEntries.filter(([k,v]) => !isActionEventAction(v.action)),
         ...Object.entries(typeActionMembers('game')),
@@ -440,7 +440,7 @@ export function registerBuiltinNamespaces() {
     ]));
     
     // event namespace
-    new Namespace("event", Object.fromEntries([
+    new NamespaceDefinition("event", Object.fromEntries([
         ...gameActionEntries.filter(([k,v]) => isActionEventAction(v.action)),
         ...ifGameEntries.filter(([k,v]) => isActionEventAction(v.action)),
         ...untargetedGameValueEntries.filter(([k,v]) => isGVEventValue(v.gameValue))
@@ -641,21 +641,21 @@ function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition
     return members;
 }
 
-TYPE_NAMESPACES.var = new Namespace('var', typeActionMembers('var'));
-TYPE_NAMESPACES.num = new Namespace('num', {...typeActionMembers('num'), ...NUM_NAMESPACE_INJECTIONS});
-TYPE_NAMESPACES.str = new Namespace('str', typeActionMembers('str'));
-TYPE_NAMESPACES.txt = new Namespace('txt', typeActionMembers('txt'));
-TYPE_NAMESPACES.vec = new Namespace('vec', {...typeActionMembers('vec'), ...VEC_NAMESPACE_INJECTIONS}, VEC_CONSTRUCTOR,);
-TYPE_NAMESPACES.loc = new Namespace('loc', {...typeActionMembers('loc'), ...LOC_NAMESPACE_INJECTIONS}, LOC_CONSTRUCTOR);
-TYPE_NAMESPACES.snd = new Namespace('snd', typeActionMembers('snd'), SND_CONSTRUCTOR);
-TYPE_NAMESPACES.pot = new Namespace('pot', typeActionMembers('pot'), POT_CONSTRUCTOR);
-TYPE_NAMESPACES.par = new Namespace('par', typeActionMembers('par'), PAR_CONSTRUCTOR);
-TYPE_NAMESPACES.item = new Namespace('item', typeActionMembers('item'), ITEM_CONSTRUCTOR);
-TYPE_NAMESPACES.list = new Namespace('list', typeActionMembers('list'));
-TYPE_NAMESPACES.dict = new Namespace('dict', typeActionMembers('dict'));
-TYPE_NAMESPACES.dialog = new Namespace('dialog', typeActionMembers('dialog'));
+TYPE_NAMESPACES.var = new NamespaceDefinition('var', typeActionMembers('var'));
+TYPE_NAMESPACES.num = new NamespaceDefinition('num', {...typeActionMembers('num'), ...NUM_NAMESPACE_INJECTIONS});
+TYPE_NAMESPACES.str = new NamespaceDefinition('str', typeActionMembers('str'));
+TYPE_NAMESPACES.txt = new NamespaceDefinition('txt', typeActionMembers('txt'));
+TYPE_NAMESPACES.vec = new NamespaceDefinition('vec', {...typeActionMembers('vec'), ...VEC_NAMESPACE_INJECTIONS}, VEC_CONSTRUCTOR,);
+TYPE_NAMESPACES.loc = new NamespaceDefinition('loc', {...typeActionMembers('loc'), ...LOC_NAMESPACE_INJECTIONS}, LOC_CONSTRUCTOR);
+TYPE_NAMESPACES.snd = new NamespaceDefinition('snd', typeActionMembers('snd'), SND_CONSTRUCTOR);
+TYPE_NAMESPACES.pot = new NamespaceDefinition('pot', typeActionMembers('pot'), POT_CONSTRUCTOR);
+TYPE_NAMESPACES.par = new NamespaceDefinition('par', typeActionMembers('par'), PAR_CONSTRUCTOR);
+TYPE_NAMESPACES.item = new NamespaceDefinition('item', typeActionMembers('item'), ITEM_CONSTRUCTOR);
+TYPE_NAMESPACES.list = new NamespaceDefinition('list', typeActionMembers('list'));
+TYPE_NAMESPACES.dict = new NamespaceDefinition('dict', typeActionMembers('dict'));
+TYPE_NAMESPACES.dialog = new NamespaceDefinition('dialog', typeActionMembers('dialog'));
 
-export const BUCKET_VAR_NAMESPACE = new Namespace('bvar', typeActionMembers('bvar'), BVAR_CONSTRUCTOR);
+export const BUCKET_VAR_NAMESPACE = new NamespaceDefinition('bvar', typeActionMembers('bvar'), BVAR_CONSTRUCTOR);
 
 export const REPEAT_ACTIONS: {[tcName: string]: {def: FunctionDefinition, returnType: Type}} = {
     range:      {def: generateActionHook('range', DFCodeblockName.REPEAT, " Range "),   returnType: Type.num},

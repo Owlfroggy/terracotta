@@ -7,8 +7,8 @@ import { Type } from "../typeProcessor/type.ts";
 import { TypeProcessor, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { tcParseNumber } from "../util/utils.ts";
 import * as NBT from "nbtify";
-import { Namespace } from "./namespace/namespace.ts";
 import { FunctionDefinition } from "./definition/function.ts";
+import { NamespaceDefinition } from "./definition/namespace.ts";
 
 //=--------------------=\\
 //=- abstract classes -=\\
@@ -67,7 +67,7 @@ export abstract class TangibleValue extends CodeValue {
 export class NamespaceValue extends InternalValue {
     private type: Type;
     constructor(
-        public namespace: Namespace,
+        public namespace: NamespaceDefinition,
         astNode?: ASTNode
     ) { 
         super(astNode); 
