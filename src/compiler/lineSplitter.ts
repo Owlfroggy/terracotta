@@ -9,7 +9,7 @@ import { EntryPCode, IndexPCode, MathPCode, PCode, SegmentPCode, VarPCode } from
 import { PCodeParser } from "../pcode/pcodeParser.ts";
 import { VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { ActionBlock, BracketBlock, BracketDirection, CodeBlock, ElseBlock, EventBlock } from "./codeBlock.ts";
-import { NumberValue, ParameterValue, StringValue, StyledTextValue, VariableValue } from "./codeValue.ts";
+import { BucketVariableValue, NumberValue, ParameterValue, StringValue, StyledTextValue, VariableValue } from "./codeValue.ts";
 
 /**the maximum number of line vars that can be shared between the parent codeline and a slice */
 export const MAX_FUNCTION_PARAMS = 26;
@@ -157,6 +157,10 @@ export function SliceCodeLine(inputCodeLine: CodeBlock[], maxLineLength: number)
             
             else if (arg instanceof NumberValue || arg instanceof StringValue || arg instanceof StyledTextValue) {
                 GetAllVariables(arg.value).forEach(addVariableName);
+            }
+            else if (arg instanceof BucketVariableValue) {
+                GetAllVariables(arg.name).forEach(addVariableName);
+                GetAllVariables(arg.bucket).forEach(addVariableName);
             }
         })
 
