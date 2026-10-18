@@ -2,10 +2,11 @@ import { Definition } from "../compiler/definition/base.ts";
 import type { FunctionDefinition } from "../compiler/definition/function.ts";
 import type { NamespaceDefinition } from "../compiler/definition/namespace.ts";
 import { canFuncBeMethod, getNamespaceMemberType } from "../compiler/namespace/utils.ts";
+import { TypeProcessor } from "./typeProcessor.ts";
 
 // NOTE: this gets populated after this file is done running,
 // when creating types in this file you cannot rely on this being filled out.
-export const TYPE_NAMESPACES: {[typeName: string]: NamespaceDefinition} = {};
+// export const TYPE_NAMESPACES: {[typeName: string]: NamespaceDefinition} = {};
 
 export type FuncTypeData = {
     definition: FunctionDefinition;
@@ -251,12 +252,15 @@ export class Type {
         (namespace: NamespaceDefinition) => {
             let getPropertyType = (m: string) => getNamespaceMemberType(namespace, m)
             let getPropertyDefinition = (m: string) => {
-                let def = namespace.members[m];
+                let def = namespace.getMember(m);
                 if (def?.isPropertyDefinition() && def.valueExclusive) return null;
-                return def;
+                return def ?? null;
             }
             let properties = Object.keys(namespace.members)
-                .filter(k => !(namespace.members[k]?.isPropertyDefinition() && namespace.members[k].valueExclusive) );
+                .filter(k => {
+                    let member = namespace.getMember(k);
+                    return !(member?.isPropertyDefinition() && member?.valueExclusive) 
+                });
             let getProperties = () => properties;
             return new Type('namespace',{getPropertyType, getPropertyDefinition, getProperties, data: {namespace}})
         }
@@ -286,11 +290,11 @@ export class Type {
     
     // default behavior: grab methodable functions from this type's namespace, if applicable
     // also grab property definitions that apply to values
-    public readonly getProperties = (): (string[] | null) => {
-        const namespace = TYPE_NAMESPACES[this.name];
+    public readonly getProperties = (typeProcessor: TypeProcessor): (string[] | null) => {
+        const namespace = typeProcessor.globalNamespace.namespaces[this.name]?.[0];
         if (!namespace) return null;
         let props: string[] = [];
-        for (const [name, member] of Object.entries(namespace.members)) {
+        for (const [name, member] of namespace.iterateMembers()) {
             if (
                 (member?.isFunctionDefinition() && canFuncBeMethod(member, this))
                 || (member?.isPropertyDefinition() && member.valueExclusive)
@@ -300,14 +304,14 @@ export class Type {
         }
         return props;
     };
-    public readonly getPropertyType = (p: string) => {
-        let namespace = TYPE_NAMESPACES[this.name];
+    public readonly getPropertyType = (p: string, typeProcessor: TypeProcessor) => {
+        let namespace = typeProcessor.globalNamespace.namespaces[this.name]?.[0];
         if (!namespace) return Type.void;
         if (!(p in namespace.members)) return Type.void;
         return getNamespaceMemberType(namespace, p);
     };
-    public readonly getPropertyDefinition = (p: string): Definition | null => {
-        return TYPE_NAMESPACES[this.name]?.members[p] ?? null
+    public readonly getPropertyDefinition = (p: string, typeProcessor: TypeProcessor): Definition | null => {
+        return typeProcessor.globalNamespace.namespaces[this.name]?.[0]?.getMember(p) ?? null;
     }
 
     public readonly data: TypeExtraData

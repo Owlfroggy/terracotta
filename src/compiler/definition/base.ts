@@ -11,7 +11,11 @@ export enum DefinitionType {
 }
 
 export abstract class Definition {
-  protected constructor(public readonly definitionType: DefinitionType) {}
+  parent: NamespaceDefinition | null;
+
+  protected constructor(
+    public readonly definitionType: DefinitionType,
+  ) {}
 
   isFunctionDefinition(this: Definition): this is FunctionDefinition {
     return this.definitionType === DefinitionType.FUNCTION;
@@ -28,4 +32,11 @@ export abstract class Definition {
   isNamespaceDefinition(this: Definition): this is NamespaceDefinition {
     return this.definitionType === DefinitionType.NAMESPACE;
   }
+
+  /** 
+   * Creates a copy of this Definition that is its own distinct object
+   * 
+   * The copy will have its parent set to `null`
+   */
+  abstract clone(): Definition
 }

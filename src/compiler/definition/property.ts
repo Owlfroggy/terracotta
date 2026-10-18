@@ -26,6 +26,15 @@ export class PropertyDefinition extends Definition {
         if (valueExclusive) this.valueExclusive = valueExclusive;
     }
 
+    clone(): Definition {
+        let c = new PropertyDefinition(this.valueExclusive);
+        c.type = this.type;
+        c.compileGet = this.compileGet;
+        c.compileSet = this.compileSet;
+        c.autocompleteSortPrefix = this.autocompleteSortPrefix;
+        return c;
+    }
+
     withType(type: Type): this {
         this.type = type;
         return this;

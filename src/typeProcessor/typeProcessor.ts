@@ -6,7 +6,7 @@ import { ErrorType, TCError, TCNodeError } from "../error/error.ts";
 import { Operations } from "../compiler/operations.ts";
 import { DictTypeData, FuncTypeData, ListTypeData, MultiValueTypeData, NamespaceTypeData, Type, TypeConstructor, VarTypeData } from "./type.ts";
 import { getTagsAndArgTypes, ps, tcParseNumber } from "../util/utils.ts";
-import { FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
+import { BUILTIN_NAMESPACE_DEFAULT_STATES, FILTER_ACTIONS, REPEAT_ACTIONS, SELECT_ACTIONS } from "../compiler/namespace/builtins.ts";
 import { isForLoopActionCall } from "../util/astUtils.ts";
 import { GLOBAL_SCOPE_INJECTIONS } from "../compiler/namespace/globalScopeInjections.ts";
 import { COMPILE_START_PROCESS, COMPILE_CALL_FUNCTION } from "../compiler/namespace/compileCallFunction.ts";
@@ -64,16 +64,13 @@ export class EnvironmentFrame {
     // public unsolvedTypes: Map<VariableId, {requirements: Requirement[], expression: Expression}> = new Map();
     variables: Map<string, Map<VariableScope, VariableEntry[]>> = new Map();
 
-    /** Currently, only the global frame will have this filled out */
-    functions: Map<string, FunctionDefinition[]> = new Map();
-    /** Currently, only the global frame will have this filled out */
-    processes: Map<string, FunctionDefinition[]> = new Map();
-
     children: Map<RootNode | ChunkExpression, EnvironmentFrame> = new Map();
 
+    
     constructor(
         public astNode: RootNode | ChunkExpression | null,
         public parent: EnvironmentFrame | null,
+        public namespace: NamespaceDefinition | null = null
     ) {}
 
     registerVariable({
@@ -277,7 +274,8 @@ export class VariableId {
 
 export class TypeProcessor {
     errors: TCError[] = [];
-    globalFrame: EnvironmentFrame = new EnvironmentFrame(null,null);
+    globalNamespace: NamespaceDefinition = new NamespaceDefinition("#ROOT", null);
+    globalFrame: EnvironmentFrame = new EnvironmentFrame(null,null, this.globalNamespace);
     framesByASTNode: Map<ASTNode, EnvironmentFrame> = new Map();
 
     /** Boolean layer of this map: true = is process, false = is function*/
@@ -288,6 +286,17 @@ export class TypeProcessor {
     ]);
 
     expressionTypeCache: Map<Expression, Map<EnvironmentFrame, Type>> = new Map();
+
+    constructor() {
+        // initialize default namespaces
+        for (const [identifier, data] of Object.entries(BUILTIN_NAMESPACE_DEFAULT_STATES)) {
+            this.globalNamespace.addMember(
+                identifier, 
+                new NamespaceDefinition(identifier,data.nameFunction)
+                    .addMembersFromEntries(data.members,true)
+            )
+        }
+    }
 
     reportError(node: ASTNode, error: string) {
        this.errors.push(new TCNodeError(
@@ -313,9 +322,9 @@ export class TypeProcessor {
         let varEntry = frame.getVariableEntry(value, identifier.startPos);
         if (varEntry != undefined) return varEntry;
 
-        if (this.globalFrame.functions.has(value)) return this.globalFrame.functions.get(value)![0];
+        if (value in this.globalNamespace.functions) return this.globalNamespace.functions[value][0];
 
-        let namespace = NamespaceDefinition.registry[value];
+        let namespace = this.globalNamespace.namespaces[value]?.[0];
         if (namespace != undefined) return namespace;
 
         if (value in GLOBAL_SCOPE_INJECTIONS) return GLOBAL_SCOPE_INJECTIONS[value];
@@ -356,7 +365,7 @@ export class TypeProcessor {
             return []
         }
         else if (expression instanceof AtomicExpression) {
-            if (expression.token.type == TokenType.IDENTIFIER && expression.token.value in NamespaceDefinition.registry) {
+            if (expression.token.type == TokenType.IDENTIFIER && expression.token.value in this.globalNamespace.namespaces) {
                 // dont count namespace identifiers as variable requirements
                 return []
             } else {
@@ -513,8 +522,11 @@ export class TypeProcessor {
             // frame here will be the function's chunk's frame so the parent needs to be accessed 
             if (frame.parent?.astNode instanceof RootNode) {
                 let isProcess = statement.headerType == DFCodeblockName.PROCESS;
-                let map = this.globalFrame[isProcess ? "processes" : "functions"];
-                map.getOrInsert(statement.name.value, []).push(
+                let map = this.globalNamespace[isProcess ? "processes" : "functions"];
+                // TODO(namespaces): make this suck less
+                if (!(statement.name.value in map)) 
+                    map[statement.name.value] = [];
+                map[statement.name.value].push(
                     new FunctionDefinition(statement.name.value)
                     .withAction(isProcess ? actions.get(DFCodeblockName.START_PROCESS)?.dynamic : actions.get(DFCodeblockName.CALL_FUNCTION)?.dynamic)
                     .withDescription(commentsToDocumentation(statement.attachedComments))
@@ -836,7 +848,7 @@ export class TypeProcessor {
             return this.evaluateExplicitType(expression.type);
         }
         else if (expression instanceof AccessExpression) {
-            return this.evaluateExpression(expression.accessee, frame).getPropertyType(expression.propertyName.value);
+            return this.evaluateExpression(expression.accessee, frame).getPropertyType(expression.propertyName.value, this);
         }
         else if (expression instanceof BracketedAccessExpression) {
             let propNameExpr = expression.propertyName.getRealExpression();
@@ -1056,7 +1068,7 @@ export class TypeProcessor {
     }
 
     getUserFuncDef(isProcess: boolean, name: string, allowFallback: boolean): FunctionDefinition | undefined {
-        let normalDef = this.globalFrame[isProcess ? "processes" : "functions"].get(name)?.[0];
+        let normalDef = this.globalNamespace[isProcess ? "processes" : "functions"][name]?.[0];
         if (normalDef) {
             return normalDef;
         } else {

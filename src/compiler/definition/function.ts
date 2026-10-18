@@ -50,6 +50,7 @@ interface FunctionDefinitionFlags {
      * If set to true, return value vars should be added to the end of the args list as opposed to the start
      * */
     returnVarsAtEnd?: boolean,
+    isProcess?: boolean,
 };
 
 export class FunctionDefinition extends Definition {
@@ -78,6 +79,24 @@ export class FunctionDefinition extends Definition {
     constructor(name: string) {
         super(DefinitionType.FUNCTION);
         this.name = name;
+    }
+
+    /**
+     * WARNING: Currently, clone.signatures will still point to the same array as this.signatures
+     */
+    clone(): FunctionDefinition {
+        let c = new FunctionDefinition(this.name)
+        c.description = this.description;
+        c.signatures = this.signatures;
+        c.defaultReturnType = this.defaultReturnType;
+        c.getReturnType = this.getReturnType;
+        c.compile = this.compile;
+        c.flags = structuredClone(this.flags);
+        c.action = this.action;
+        c.deprecationMessage = this.deprecationMessage;
+        c.astNode = this.astNode;
+        c.autocompleteSortPrefix = this.autocompleteSortPrefix;
+        return c;
     }
 
     withDescription(desc?: string): this {

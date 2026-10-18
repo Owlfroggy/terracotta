@@ -6,7 +6,7 @@ import { TrackedDocument } from "./trackedDocument.ts";
 import { WorkspaceManager } from "./workspaceManager.ts";
 import { ASTNode } from "../ast/astNode.ts";
 import { AccessExpression, AtomicExpression, BinaryExpression, BracketedAccessExpression, CallExpression, CallOrStartExpression, Expression, GroupExpression, ListExpression, MultiTypeAssignmentExpression, ParameterExpression, SelectionExpression, TypeAssignmentExpression, TypeExpression, VariableExpression } from "../ast/expression.ts";
-import { DictTypeData, FuncTypeData, NamespaceTypeData, Type, TYPE_NAMESPACES } from "../typeProcessor/type.ts";
+import { DictTypeData, FuncTypeData, NamespaceTypeData, Type } from "../typeProcessor/type.ts";
 import { EnvironmentFrame, isVariableEntry, TypeProcessor, VariableEntry, VariableId, VariableScope } from "../typeProcessor/typeProcessor.ts";
 import { AssignmentStatement, EventStatement, ExpressionStatement, ForStatement, FunctionStatement, RepeatStatement } from "../ast/statement.ts";
 import { HeaderType, tcEventToDf } from "../compiler/codeCompiler.ts";
@@ -221,14 +221,14 @@ function generateTypeMemberCompletions(type: Type): CompletionItem[] {
     return items;
 }
 
-function generateTypePropertyCompletions(type: Type): CompletionItem[] {
-    let properties = type.getProperties();
+function generateTypePropertyCompletions(type: Type, typeProcessor: TypeProcessor): CompletionItem[] {
+    let properties = type.getProperties(typeProcessor);
     if (properties == null) return [];
 
 
     let items: CompletionItem[] = [];
     for (const p of properties) {
-        let def = type.getPropertyDefinition(p);
+        let def = type.getPropertyDefinition(p, typeProcessor);
         if (!def) continue;
         if (
             configuration.rankBehavior == "hideInaccessible" 
@@ -747,7 +747,7 @@ export class LanguageServer {
             if (node.parent instanceof AccessExpression && (node.keyInParent == "accessorToken" || node.keyInParent == "propertyName")) {
                 let accessExpression = node.parent as AccessExpression;
                 let accesseeType = doc.workspace.typeProcessor.evaluateExpression(accessExpression.accessee, envFrame);
-                items = generateTypePropertyCompletions(accesseeType);
+                items = generateTypePropertyCompletions(accesseeType, doc.workspace.typeProcessor);
 
                 // also include field items that just turn into the proper bracketed access expressions
                 if (accesseeType.matches(Type.dict)) {
@@ -1094,8 +1094,10 @@ export class LanguageServer {
             //=-----------------=\\
             if (includeGenerics) {
                 // namespaces
-                for (const [id, namespace] of Object.entries(NamespaceDefinition.registry)) {
-                    let isTypeNamespace = (id in TYPE_NAMESPACES && id != "var");
+                for (const [id, [namespace]] of Object.entries(doc.workspace.typeProcessor.globalNamespace.namespaces)) {
+                    // TODO(namespaces): fix this
+                    // let isTypeNamespace = (id in TYPE_NAMESPACES && id != "var");
+                    let isTypeNamespace = false;
                     items.push({
                         label: id,
                         kind: isTypeNamespace ? CompletionItemKind.Class : CompletionItemKind.Module,
@@ -1117,7 +1119,7 @@ export class LanguageServer {
                 
                 // variables and functions
                 items.push(...generateVariableCompletions(envFrame, node.startPos));
-                items.push(...doc.workspace.typeProcessor.globalFrame.functions.values().flatMap(
+                items.push(...Object.values(doc.workspace.typeProcessor.globalNamespace.functions).flatMap(
                     funcs => funcs.map(f => generateDefinitionCompletion(f.name, f))
                 ));
 

@@ -184,7 +184,7 @@ export class CodeCompiler {
                 );
             }
             
-            if (name.value in NamespaceDefinition.registry) {
+            if (name.value in this.env.types.globalNamespace.namespaces) {
                 this.reportError(
                     name, 
                     `${thingString} name '${name.value}' shadows a built-in namespace of the same name. The normal, original behavior of '${name.value}' will be inaccessible anywhere this ${thingString.toLowerCase()} is in scope.`
@@ -715,7 +715,7 @@ export class CodeCompiler {
         }
         else if (mode == "member" && typeof accessor == "string") {
             let accesseeType = accessee.getType(this.env.types);
-            let definition = accesseeType.getPropertyDefinition(accessor);
+            let definition = accesseeType.getPropertyDefinition(accessor, this.env.types);
             if (definition == undefined) {
                 // todo: special error messages for if the namespace is a player action or game action or whatever
                 let name: string
@@ -786,7 +786,7 @@ export class CodeCompiler {
         } else if (mode == "property" && typeof accessor == "string") {
             let accesseeType = accessee.getType(this.env.types);
 
-            let definition = accesseeType.getPropertyDefinition(accessor);
+            let definition = accesseeType.getPropertyDefinition(accessor, this.env.types);
             if (definition instanceof FunctionDefinition) {
                 return [new FunctionValue(definition, accessee instanceof TangibleValue ? accessee : undefined, expression), code];
             }
@@ -823,7 +823,7 @@ export class CodeCompiler {
                 })];
             }
         } else if (mode == "property" && typeof accessor == "string") {
-            let definition = accesseeType.getPropertyDefinition(accessor);
+            let definition = accesseeType.getPropertyDefinition(accessor, this.env.types);
             if (definition instanceof PropertyDefinition) {
                 return definition.compileSet(value, this.getEvaluationContext(context.perSelectedMode), accessee)
             }

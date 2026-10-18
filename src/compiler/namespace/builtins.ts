@@ -2,7 +2,7 @@ import { DFCodeblockName, dfTypeToTC, DFValueType, GameValueTargetType, TargetTy
 import * as AD from "../../df/actiondump.ts";
 import { ActionTagValue, CodeValue, EmptyValue, GameValueValue, MissingValue, MultiValue, NamespaceValue, NumberValue, StringValue, TangibleValue, VariableValue } from "../codeValue.ts";
 import { ActionBlock, BracketBlock, BracketDirection, BracketType, CodeBlock } from "../codeBlock.ts";
-import { MultiValueTypeData, Type, TYPE_NAMESPACES } from "../../typeProcessor/type.ts";
+import { MultiValueTypeData, Type } from "../../typeProcessor/type.ts";
 import { CREATE_SELECTION_ACTION_LIST, DEPRECATED_ACTIONS, FILTER_SELECTION_ACTION_LIST, FORCED_EVENT_ACTIONS, TYPE_DOMAIN_ACTIONS, TYPE_DOMAIN_CONDITIONS } from "../../data/constants.ts";
 import { BVAR_CONSTRUCTOR, ITEM_CONSTRUCTOR, LOC_CONSTRUCTOR, PAR_CONSTRUCTOR, POT_CONSTRUCTOR, SND_CONSTRUCTOR, VEC_CONSTRUCTOR } from "./constructors.ts";
 import { expressionizeIfBlock, toNameCase, upperFirst } from "../../util/utils.ts";
@@ -49,8 +49,8 @@ export function handleSingleBlockReturnVars(def: FunctionDefinition, ctx: Evalua
             returnValue = tempVar;
             returnVars.push(tempVar);
         }
-
-        if (def.flags.returnVarsAtEnd) {
+        
+        if (def.flags?.returnVarsAtEnd) {
             argListToModify.push(...returnVars)
         } else {
             argListToModify.unshift(...returnVars);
@@ -387,6 +387,11 @@ function gameValueEntries(target: TargetType, filter: (v: AD.GameValue) => boole
     );
 }
 
+export const BUILTIN_NAMESPACE_DEFAULT_STATES: {[identifier: string]: {
+    members: [identifier: string, member: Definition][],
+    nameFunction?: FunctionDefinition | null
+}} = {};
+
 export function registerBuiltinNamespaces() {
     // player action namespaces
     for (const [identifier, target] of [
@@ -399,11 +404,13 @@ export function registerBuiltinNamespaces() {
         ["victim",     TargetType.VICTIM],
         ["allPlayers", TargetType.ALL_PLAYERS],
     ] as [string, TargetType][]) {
-        new NamespaceDefinition(identifier, Object.fromEntries([
-            ...codeblockActionEntries(DFCodeblockName.PLAYER_ACTION, target),
-            ...codeblockActionEntries(DFCodeblockName.IF_PLAYER, target, generateConditionHook),
-            ...gameValueEntries(target, v => v.targetType == GameValueTargetType.TARGETS_ANYTHING || v.targetType == GameValueTargetType.TARGETS_PLAYERS)
-        ]));
+        BUILTIN_NAMESPACE_DEFAULT_STATES[identifier] = {
+            members: [
+                ...codeblockActionEntries(DFCodeblockName.PLAYER_ACTION, target),
+                ...codeblockActionEntries(DFCodeblockName.IF_PLAYER, target, generateConditionHook),
+                ...gameValueEntries(target, v => v.targetType == GameValueTargetType.TARGETS_ANYTHING || v.targetType == GameValueTargetType.TARGETS_PLAYERS)
+            ],
+        };
     }
 
     // entity action namespaces
@@ -420,11 +427,13 @@ export function registerBuiltinNamespaces() {
         ["allMobs",          TargetType.ALL_MOBS],
         ["lastEntity",       TargetType.LAST_ENTITY],
     ] as [string, TargetType][]) {
-        new NamespaceDefinition(identifier, Object.fromEntries([
-            ...codeblockActionEntries(DFCodeblockName.ENTITY_ACTION, target),
-            ...codeblockActionEntries(DFCodeblockName.IF_ENTITY, target, generateConditionHook),
-            ...gameValueEntries(target, v => v.targetType == GameValueTargetType.TARGETS_ANYTHING || v.targetType == GameValueTargetType.TARGETS_ENTITIES)
-        ]));
+        BUILTIN_NAMESPACE_DEFAULT_STATES[identifier] = {
+            members: [
+                ...codeblockActionEntries(DFCodeblockName.ENTITY_ACTION, target),
+                ...codeblockActionEntries(DFCodeblockName.IF_ENTITY, target, generateConditionHook),
+                ...gameValueEntries(target, v => v.targetType == GameValueTargetType.TARGETS_ANYTHING || v.targetType == GameValueTargetType.TARGETS_ENTITIES)
+            ],
+        };
     }
     
     let gameActionEntries = codeblockActionEntries(DFCodeblockName.GAME_ACTION, TargetType.UNSET)
@@ -432,19 +441,23 @@ export function registerBuiltinNamespaces() {
     let untargetedGameValueEntries = gameValueEntries(TargetType.UNSET, v => v.targetType == GameValueTargetType.UNTARGETED);
 
     // game action namespace
-    new NamespaceDefinition("game", Object.fromEntries([
-        ...gameActionEntries.filter(([k,v]) => !isActionEventAction(v.action)),
-        ...ifGameEntries.filter(([k,v]) => !isActionEventAction(v.action)),
-        ...Object.entries(typeActionMembers('game')),
-        ...untargetedGameValueEntries.filter(([k,v]) => !isGVEventValue(v.gameValue))
-    ]));
+    BUILTIN_NAMESPACE_DEFAULT_STATES.game = {
+        members: [
+            ...gameActionEntries.filter(([k,v]) => !isActionEventAction(v.action)),
+            ...ifGameEntries.filter(([k,v]) => !isActionEventAction(v.action)),
+            ...typeActionMembers('game'),
+            ...untargetedGameValueEntries.filter(([k,v]) => !isGVEventValue(v.gameValue)),
+        ]
+    };
     
     // event namespace
-    new NamespaceDefinition("event", Object.fromEntries([
-        ...gameActionEntries.filter(([k,v]) => isActionEventAction(v.action)),
-        ...ifGameEntries.filter(([k,v]) => isActionEventAction(v.action)),
-        ...untargetedGameValueEntries.filter(([k,v]) => isGVEventValue(v.gameValue))
-    ]));
+    BUILTIN_NAMESPACE_DEFAULT_STATES.event = {
+        members: [
+            ...gameActionEntries.filter(([k,v]) => isActionEventAction(v.action)),
+            ...ifGameEntries.filter(([k,v]) => isActionEventAction(v.action)),
+            ...untargetedGameValueEntries.filter(([k,v]) => isGVEventValue(v.gameValue))
+        ]
+    };
 }
 
 //=-------------------=\\
@@ -452,8 +465,8 @@ export function registerBuiltinNamespaces() {
 //=-------------------=\\
 
 // TODO: write descriptions for all these functions and get their documentation working
-export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition} = {
-    randomd: generateTagSpecifiedActionHook(
+export const NUM_NAMESPACE_INJECTIONS: [tcName: string, Definition][] = [
+    ["randomd", generateTagSpecifiedActionHook(
         "randomd", DFCodeblockName.SET_VARIABLE, "RandomNumber",
         {"Rounding Mode": "Decimal number"},
         [{params: [
@@ -461,10 +474,10 @@ export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition
             {name: "Maximum Number", type: Type.num, optional: false, plural: false},
         ]}],
         "Sets a variable to a random decimal number between two other numbers."
-    ),
+    )],
 
     // rounding
-    floor: generateTagSpecifiedActionHook(
+    ["floor", generateTagSpecifiedActionHook(
         "floor", DFCodeblockName.SET_VARIABLE, " RoundNumber ",
         {"Round Mode": "Floor"},
         [{params: [
@@ -472,8 +485,8 @@ export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition
             {name: "Round multiple", type: Type.num, optional: true, plural: false},
         ]}],
         "Rounds a number down to the nearest whole number or multiple."
-    ),
-    ceil: generateTagSpecifiedActionHook(
+    )],
+    ["ceil", generateTagSpecifiedActionHook(
         "ceil", DFCodeblockName.SET_VARIABLE, " RoundNumber ",
         {"Round Mode": "Ceiling"},
         [{params: [
@@ -481,102 +494,102 @@ export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition
             {name: "Round multiple", type: Type.num, optional: true, plural: false},
         ]}],
         "Rounds a number up to the nearest whole number or multiple."
-    ),
+    )],
     
     // degrees trig functions
-    asin: generateTagSpecifiedActionHook(
+    ["asin", generateTagSpecifiedActionHook(
         "asin", DFCodeblockName.SET_VARIABLE, "Sine",
         {"Sine Variant": "Inverse sine (arcsine)"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the arc sine of a number.\n\nUnit: **degrees**"
-    ),
-    sinh: generateTagSpecifiedActionHook(
+    )],
+    ["sinh", generateTagSpecifiedActionHook(
         "sinh", DFCodeblockName.SET_VARIABLE, "Sine",
         {"Sine Variant": "Hyperbolic sine"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the hyperbolic sine of a number.\n\nUnit: **degrees**"
-    ),    
-    acos: generateTagSpecifiedActionHook(
+    )],
+    ["acos", generateTagSpecifiedActionHook(
         "acos", DFCodeblockName.SET_VARIABLE, "Cosine",
         {"Cosine Variant": "Inverse cosine (arccosine)"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the arc cosine of a number.\n\nUnit: **degrees**"
-    ),
-    cosh: generateTagSpecifiedActionHook(
+    )],
+    ["cosh", generateTagSpecifiedActionHook(
         "cosh", DFCodeblockName.SET_VARIABLE, "Cosine",
         {"Cosine Variant": "Hyperbolic cosine"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the hyperbolic cosine of a number.\n\nUnit: **degrees**"
-    ),    
-    atan: generateTagSpecifiedActionHook(
+    )],
+    ["atan", generateTagSpecifiedActionHook(
         "atan", DFCodeblockName.SET_VARIABLE, "Tangent",
         {"Tangent Variant": "Inverse tangent (arctangent)"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the arc tangent of a number.\n\nUnit: **degrees**"
-    ),
-    tanh: generateTagSpecifiedActionHook(
+    )],
+    ["tanh", generateTagSpecifiedActionHook(
         "tanh", DFCodeblockName.SET_VARIABLE, "Tangent",
         {"Tangent Variant": "Hyperbolic tangent"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the hyperbolic tangent of a number.\n\nUnit: **degrees**"
-    ),
+    )],
     
     // radians trig functions
-    sinr: generateTagSpecifiedActionHook(
+    ["sinr", generateTagSpecifiedActionHook(
         "sinr", DFCodeblockName.SET_VARIABLE, "Sine",
         {"Input": "Radians"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the sine of a number.\n\nUnit: **radians**"
-    ),
-    asinr: generateTagSpecifiedActionHook(
+    )],
+    ["asinr", generateTagSpecifiedActionHook(
         "asinr", DFCodeblockName.SET_VARIABLE, "Sine",
         {"Input": "Radians", "Sine Variant": "Inverse sine (arcsine)"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the arc sine of a number.\n\nUnit: **radians**"
-    ),
-    sinhr: generateTagSpecifiedActionHook(
+    )],
+    ["sinhr", generateTagSpecifiedActionHook(
         "sinhr", DFCodeblockName.SET_VARIABLE, "Sine",
         {"Input": "Radians", "Sine Variant": "Hyperbolic sine"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the hyperbolic sine of a number.\n\nUnit: **radians**"
-    ),    
-    cosr: generateTagSpecifiedActionHook(
+    ),   ],
+    ["cosr", generateTagSpecifiedActionHook(
         "cosr", DFCodeblockName.SET_VARIABLE, "Cosine",
         {"Input": "Radians"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the cosine of a number.\n\nUnit: **radians**"
-    ),
-    acosr: generateTagSpecifiedActionHook(
+    )],
+    ["acosr", generateTagSpecifiedActionHook(
         "acosr", DFCodeblockName.SET_VARIABLE, "Cosine",
         {"Input": "Radians", "Cosine Variant": "Inverse cosine (arccosine)"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the arc cosine of a number.\n\nUnit: **radians**"
-    ),
-    coshr: generateTagSpecifiedActionHook(
+    )],
+    ["coshr", generateTagSpecifiedActionHook(
         "coshr", DFCodeblockName.SET_VARIABLE, "Cosine",
         {"Input": "Radians", "Cosine Variant": "Hyperbolic cosine"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the hyperbolic cosine of a number.\n\nUnit: **radians**"
-    ),    
-    tanr: generateTagSpecifiedActionHook(
+    ),   ],
+    ["tanr", generateTagSpecifiedActionHook(
         "tanr", DFCodeblockName.SET_VARIABLE, "Tangent",
         {"Input": "Radians"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the tangent of a number.\n\nUnit: **radians**"
-    ),
-    atanr: generateTagSpecifiedActionHook(
+    )],
+    ["atanr", generateTagSpecifiedActionHook(
         "atanr", DFCodeblockName.SET_VARIABLE, "Tangent",
         {"Input": "Radians", "Tangent Variant": "Inverse tangent (arctangent)"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the arc tangent of a number.\n\nUnit: **radians**"
-    ),
-    tanhr: generateTagSpecifiedActionHook(
+    )],
+    ["tanhr", generateTagSpecifiedActionHook(
         "tanhr", DFCodeblockName.SET_VARIABLE, "Tangent",
         {"Input": "Radians", "Tangent Variant": "Hyperbolic tangent"},
         [{params: [ {name: "Number input", type: Type.num, optional: false, plural: false}, ]}],
         "Sets a variable to the hyperbolic tangent of a number.\n\nUnit: **radians**"
-    ),
-    atan2r: generateTagSpecifiedActionHook(
+    )],
+    ["atan2r", generateTagSpecifiedActionHook(
         "atan2r", DFCodeblockName.SET_VARIABLE, "ArcTangent2",
         {"Output Type": "Radians"},
         [{params: [ 
@@ -584,8 +597,8 @@ export const NUM_NAMESPACE_INJECTIONS: {[funcTcName: string]: FunctionDefinition
             {name: "X", type: Type.num, optional: false, plural: false}, 
         ]}],
         "Sets a variable to the arc tangent of 2 numbers.\n\nUnit: **radians**"
-    ),
-}
+    )],
+];
 
 function generateCompPropertyDef(type: Type, getterActionName: string, setterActionName: string, tagName: string, tagValue: string, sortPrefix: string = "\u0000"): PropertyDefinition {
     let getterActionDef = AD.actions.get(DFCodeblockName.SET_VARIABLE)![getterActionName];
@@ -614,48 +627,48 @@ function generateCompPropertyDef(type: Type, getterActionName: string, setterAct
     );
 }
 
-export const VEC_NAMESPACE_INJECTIONS: {[tcName: string]: Definition} = {
-    x: generateCompPropertyDef(Type.num,"GetVectorComp","SetVectorComp","Component","X"),
-    y: generateCompPropertyDef(Type.num,"GetVectorComp","SetVectorComp","Component","Y"),
-    z: generateCompPropertyDef(Type.num,"GetVectorComp","SetVectorComp","Component","Z"),
-}
+export const VEC_NAMESPACE_INJECTIONS: [tcName: string, Definition][] = [
+    ["x", generateCompPropertyDef(Type.num,"GetVectorComp","SetVectorComp","Component","X")],
+    ["y", generateCompPropertyDef(Type.num,"GetVectorComp","SetVectorComp","Component","Y")],
+    ["z", generateCompPropertyDef(Type.num,"GetVectorComp","SetVectorComp","Component","Z")],
+];
 
-export const LOC_NAMESPACE_INJECTIONS: {[tcName: string]: Definition} = {
-    x: generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","X"),
-    y: generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Y"),
-    z: generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Z"),
-    pitch: generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Pitch","\u0001"),
-    yaw: generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Yaw","\u0001"),
-}
+export const LOC_NAMESPACE_INJECTIONS: [tcName: string, Definition][] = [
+    ["x", generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","X")],
+    ["y", generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Y")],
+    ["z", generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Z")],
+    ["pitch", generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Pitch","\u0001")],
+    ["yaw", generateCompPropertyDef(Type.num,"GetCoord","SetCoord","Coordinate","Yaw","\u0001")],
+];
 
-function typeActionMembers(typeName: string): {[key: string]: FunctionDefinition} {
-    let members = {};
+function typeActionMembers(typeName: string): [identifier: string, member: FunctionDefinition][] {
+    let members: [string, FunctionDefinition][] = [];
     for (const actionName of TYPE_DOMAIN_ACTIONS[typeName]) {
         let tcName = AD.getTCActionName(DFCodeblockName.SET_VARIABLE,actionName);
-        members[tcName] = generateActionHook(tcName, DFCodeblockName.SET_VARIABLE, actionName);
+        members.push([tcName,generateActionHook(tcName, DFCodeblockName.SET_VARIABLE, actionName)]);
     }
     for (const actionName of TYPE_DOMAIN_CONDITIONS[typeName]) {
         let tcName = AD.getTCActionName(DFCodeblockName.IF_VARIABLE,actionName);
-        members[tcName] = generateConditionHook(tcName, DFCodeblockName.IF_VARIABLE, actionName);
+        members.push([tcName, generateConditionHook(tcName, DFCodeblockName.IF_VARIABLE, actionName)]);
     }
     return members;
 }
 
-TYPE_NAMESPACES.var = new NamespaceDefinition('var', typeActionMembers('var'));
-TYPE_NAMESPACES.num = new NamespaceDefinition('num', {...typeActionMembers('num'), ...NUM_NAMESPACE_INJECTIONS});
-TYPE_NAMESPACES.str = new NamespaceDefinition('str', typeActionMembers('str'));
-TYPE_NAMESPACES.txt = new NamespaceDefinition('txt', typeActionMembers('txt'));
-TYPE_NAMESPACES.vec = new NamespaceDefinition('vec', {...typeActionMembers('vec'), ...VEC_NAMESPACE_INJECTIONS}, VEC_CONSTRUCTOR,);
-TYPE_NAMESPACES.loc = new NamespaceDefinition('loc', {...typeActionMembers('loc'), ...LOC_NAMESPACE_INJECTIONS}, LOC_CONSTRUCTOR);
-TYPE_NAMESPACES.snd = new NamespaceDefinition('snd', typeActionMembers('snd'), SND_CONSTRUCTOR);
-TYPE_NAMESPACES.pot = new NamespaceDefinition('pot', typeActionMembers('pot'), POT_CONSTRUCTOR);
-TYPE_NAMESPACES.par = new NamespaceDefinition('par', typeActionMembers('par'), PAR_CONSTRUCTOR);
-TYPE_NAMESPACES.item = new NamespaceDefinition('item', typeActionMembers('item'), ITEM_CONSTRUCTOR);
-TYPE_NAMESPACES.list = new NamespaceDefinition('list', typeActionMembers('list'));
-TYPE_NAMESPACES.dict = new NamespaceDefinition('dict', typeActionMembers('dict'));
-TYPE_NAMESPACES.dialog = new NamespaceDefinition('dialog', typeActionMembers('dialog'));
+BUILTIN_NAMESPACE_DEFAULT_STATES.var = {members: typeActionMembers('var')};
+BUILTIN_NAMESPACE_DEFAULT_STATES.num = {members: [...typeActionMembers('num'), ...NUM_NAMESPACE_INJECTIONS]};
+BUILTIN_NAMESPACE_DEFAULT_STATES.str = {members: typeActionMembers('str')};
+BUILTIN_NAMESPACE_DEFAULT_STATES.txt = {members: typeActionMembers('txt')};
+BUILTIN_NAMESPACE_DEFAULT_STATES.vec = {members: [...typeActionMembers('vec'), ...VEC_NAMESPACE_INJECTIONS], nameFunction: VEC_CONSTRUCTOR};
+BUILTIN_NAMESPACE_DEFAULT_STATES.loc = {members: [...typeActionMembers('loc'), ...LOC_NAMESPACE_INJECTIONS], nameFunction: LOC_CONSTRUCTOR};
+BUILTIN_NAMESPACE_DEFAULT_STATES.snd = {members: typeActionMembers('snd'), nameFunction: SND_CONSTRUCTOR};
+BUILTIN_NAMESPACE_DEFAULT_STATES.pot = {members: typeActionMembers('pot'), nameFunction: POT_CONSTRUCTOR};
+BUILTIN_NAMESPACE_DEFAULT_STATES.par = {members: typeActionMembers('par'), nameFunction: PAR_CONSTRUCTOR};
+BUILTIN_NAMESPACE_DEFAULT_STATES.item = {members: typeActionMembers('item'), nameFunction: ITEM_CONSTRUCTOR};
+BUILTIN_NAMESPACE_DEFAULT_STATES.list = {members: typeActionMembers('list')};
+BUILTIN_NAMESPACE_DEFAULT_STATES.dict = {members: typeActionMembers('dict')};
+BUILTIN_NAMESPACE_DEFAULT_STATES.dialog = {members: typeActionMembers('dialog')};
 
-export const BUCKET_VAR_NAMESPACE = new NamespaceDefinition('bvar', typeActionMembers('bvar'), BVAR_CONSTRUCTOR);
+BUILTIN_NAMESPACE_DEFAULT_STATES.bvar = {members: typeActionMembers('bvar'), nameFunction: BVAR_CONSTRUCTOR};
 
 export const REPEAT_ACTIONS: {[tcName: string]: {def: FunctionDefinition, returnType: Type}} = {
     range:      {def: generateActionHook('range', DFCodeblockName.REPEAT, " Range "),   returnType: Type.num},

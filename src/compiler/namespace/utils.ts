@@ -16,7 +16,7 @@ export function canFuncBeMethod(func: FunctionDefinition, type: Type): boolean {
 
 export function getNamespaceMemberType(namespace: NamespaceDefinition, member: string) {
     if (member && member in namespace.members) {
-        let def = namespace.members[member];
+        let def = namespace.members[member][0];
         if (def?.isFunctionDefinition()) {
             return Type.func(def);
         }

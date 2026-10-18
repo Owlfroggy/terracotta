@@ -12,6 +12,14 @@ export class ValueDefinition extends Definition {
     compile: (ctx: EvaluationContext) => [CodeValue, CodeBlock[]];
     
     constructor() {super(DefinitionType.VALUE)}
+
+    clone(): Definition {
+        let c = new ValueDefinition();
+        c.returnType = this.returnType;
+        c.gameValue = this.gameValue;
+        c.compile = this.compile;
+        return c;
+    }
     
     withReturnType(type: Type): this {
         this.returnType = type;
