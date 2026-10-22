@@ -686,21 +686,30 @@ export const PAR_CONSTRUCTOR: FunctionDefinition = {
         let motion = fieldArgs.motion;
         let motionVariation = fieldArgs.motionVariation;
         let includeMotionVariation = allowedFields.includes("motionVariation");
-        if (validateType(motion, Type.vec) && (!includeMotionVariation || validateType(motionVariation, Type.num))) {
-            if (parIdIsConstant && motion instanceof VectorValue && motion.isCompileTimeConstant() && (!includeMotionVariation || (motionVariation instanceof NumberValue && motionVariation.isCompileTimeConstant()))) {
-                starterValue.data.x = tcParseNumber(motion.x);
-                starterValue.data.y = tcParseNumber(motion.y);
-                starterValue.data.z = tcParseNumber(motion.z);
+        let includeMotion = allowedFields.includes("motion");
+        if ((!includeMotion || validateType(motion, Type.vec)) && (!includeMotionVariation || validateType(motionVariation, Type.num))) {
+            if (parIdIsConstant && (!includeMotion || (motion instanceof VectorValue && motion.isCompileTimeConstant())) && (!includeMotionVariation || (motionVariation instanceof NumberValue && motionVariation.isCompileTimeConstant()))) {
+                if (includeMotion) {
+                    starterValue.data.x = tcParseNumber((motion as VectorValue).x);
+                    starterValue.data.y = tcParseNumber((motion as VectorValue).y);
+                    starterValue.data.z = tcParseNumber((motion as VectorValue).z);
+                }
                 if (includeMotionVariation) starterValue.data.motionVariation = (motionVariation as NumberValue).toNumber();
             }
             else {
-                starterValue.data.x = 0;
-                starterValue.data.y = 0;
-                starterValue.data.z = 0;
+                if (includeMotion) {
+                    starterValue.data.x = 0;
+                    starterValue.data.y = 0;
+                    starterValue.data.z = 0;
+                }
                 if (includeMotionVariation) starterValue.data.motionVariation = 0;
+                let args: TangibleValue[] = [tempVar, latestValue, includeMotion ? (motion as TangibleValue) : new VectorValue("0","0","0")];
+                if (includeMotionVariation) {
+                    args.push(motionVariation as TangibleValue);
+                }
                 code.push(new ActionBlock(DFCodeblockName.SET_VARIABLE,{
                     action: "SetParticleMotion",
-                    args: includeMotionVariation ? [tempVar, latestValue, motion, motionVariation as TangibleValue] : [tempVar, latestValue, motion],
+                    args: args,
                 }));
                 latestValue = tempVar;
             }

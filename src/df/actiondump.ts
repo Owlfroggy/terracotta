@@ -461,15 +461,7 @@ for (const gameValueJson of ACTION_DUMP_JSON.gameValues) {
 // particle pass \\
 for (const particleJson of ACTION_DUMP_JSON.particles) {
     let fields = [...particleJson.fields,"Amount","Spread"];
-
-    // motion variation has literally 0 effect on particles that just
-    // have Power and they aren't even required to be present for the
-    // template to load, so its easier to just remove it in that case
-    let motionVariationIndex = fields.indexOf("Motion Variation");
-    if (motionVariationIndex != -1 && !fields.includes("Motion")) {
-        fields.splice(motionVariationIndex, 1);
-    }
-
+    
     particles[particleJson.particleId] = new Particle(
         particleJson.particleId,
         fields
