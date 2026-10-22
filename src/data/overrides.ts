@@ -247,6 +247,7 @@ export const OVERRIDES: {
             "AppendDict": "append",
             "RemoveDictEntry": "remove",
             "GetDictValue": "get",
+            "SetPotSherds": "setPotSherds",
 
             " GetParticleType ": "getId",
             " SetParticleType ": "setId",
@@ -556,6 +557,8 @@ export const OVERRIDES: {
         "Entity Height": "height",
         "Event Redstone Current Strength": "redstoneStrength",
         "Event New Redstone Current Strength": "newRedstoneStrength",
+        "Edit Book Event Old Book": "oldBook",
+        "Edit Book Event New Book": "newBook"
     },
     returnTypes: {
         "SET VARIABLE": {
@@ -789,6 +792,11 @@ export const OVERRIDES: {
             "SetItemLeftover": Type.item,
             "SetItemWeapon": Type.item,
 
+            "SetBookGen": Type.item,
+            "SetBookSigned": Type.item,
+            "SetBookTitle": Type.item,
+            "SetBookAuthor": Type.item,
+            "SetPotSherds": Type.item,
             "SetItemType": Type.item,
             " SetItemName ": Type.item,
             " SetItemLore ": Type.item,
