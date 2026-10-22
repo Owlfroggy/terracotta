@@ -394,12 +394,12 @@ export const CSND_CONSTRUCTOR: FunctionDefinition = {
         if (validateArguments(args, callNode, this.signatures, ctx) == null || failed) 
             return [new MissingValue(callNode), []];
 
-        let originalSound = new SoundValue("Pling",1.0,2.0,true,undefined,callNode);
+        let originalSound = new SoundValue("pling",1.0,2.0,true,undefined,callNode);
         let [outVal, code] = evaluateConstOrBlockTemplates(
             ctx, args,
             originalSound, Type.snd,
             [
-                [StringValue, "sound", "SetCustomSound"],
+                [StringValue, "sound", " SetSoundType "],
                 undefined,
                 [NumberValue, "volume", "SetSoundVolume"],
             ]

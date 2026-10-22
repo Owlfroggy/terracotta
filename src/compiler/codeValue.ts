@@ -298,9 +298,8 @@ export class SoundValue extends TangibleValue {
             "data": {
                 "pitch": this.pitch,
                 "vol": this.volume,
-                "sound": this.isCustom ? undefined : this.sound,
+                "sound": this.sound,
                 "variant": this.variant,
-                "key": this.isCustom ? this.sound : undefined,
                 "mappingVersion": AD.VERSIONS.sound_mapping
             },
             "version": AD.isSoundIdLegacy(this.sound) ? 0 : AD.VERSIONS.snd,
