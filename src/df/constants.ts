@@ -27,6 +27,7 @@ export enum DFValueType {
     COMPONENT = "COMPONENT",
     TEXT = "TEXT",
     DICT = "DICT",
+    DIALOG = "DIALOG",
     VARIABLE = "VARIABLE",
     ANY_TYPE = "ANY_TYPE",
     BLOCK_TAG = "BLOCK_TAG",
@@ -134,6 +135,7 @@ export const dfTypeToTC: Map<DFValueType, Type> = new Map([
     [DFValueType.COMPONENT,     Type.txt],
     [DFValueType.TEXT,          Type.str],
     [DFValueType.DICT,          Type.dict(Type.any)],
+    [DFValueType.DIALOG,        Type.dialog],
     [DFValueType.VARIABLE,      Type.var(Type.any)],
     [DFValueType.ANY_TYPE,      Type.any],
     [DFValueType.BLOCK_TAG,     Type.str],
@@ -157,6 +159,7 @@ export const dfTypeToString: Map<DFValueType, string> = new Map([
     [DFValueType.COMPONENT,     "Styled Text"],
     [DFValueType.TEXT,          "String"],
     [DFValueType.DICT,          "Dictionary"],
+    [DFValueType.DIALOG,        "Dialog"],
     [DFValueType.VARIABLE,      "Variable"],
     [DFValueType.ANY_TYPE,      "Any Value"],
     [DFValueType.BLOCK_TAG,     "Block Tag"],
@@ -183,6 +186,7 @@ export const tcTypeToDF: {[tcTypeName: string]: DFValueType} = {
     "dict": DFValueType.DICT,
     "var": DFValueType.VARIABLE,
     "any": DFValueType.ANY_TYPE,
+    "dialog": DFValueType.DIALOG,
 }
 
 export const tcTypeToDFParamType: {[tcTypeName: string]: string} = {
@@ -199,4 +203,5 @@ export const tcTypeToDFParamType: {[tcTypeName: string]: string} = {
     "dict": "dict",
     "var": "var",
     "any": "any",
+    "dialog": "dialog"
 }

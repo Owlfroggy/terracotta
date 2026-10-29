@@ -658,6 +658,7 @@ TYPE_NAMESPACES.par = new Namespace('par', typeActionMembers('par'), PAR_CONSTRU
 TYPE_NAMESPACES.item = new Namespace('item', typeActionMembers('item'), ITEM_CONSTRUCTOR);
 TYPE_NAMESPACES.list = new Namespace('list', typeActionMembers('list'));
 TYPE_NAMESPACES.dict = new Namespace('dict', typeActionMembers('dict'));
+TYPE_NAMESPACES.dialog = new Namespace('dialog', typeActionMembers('dialog'));
 
 export const BUCKET_VAR_NAMESPACE = new Namespace('bvar', typeActionMembers('bvar'), BVAR_CONSTRUCTOR);
 

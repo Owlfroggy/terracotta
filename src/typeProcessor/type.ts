@@ -50,7 +50,7 @@ export type TypeConstructor<F extends ((...args: any[]) => Type)> = F & {
 export class Type {
     /** types that variables can store */
     public static assignableTypes: Set<string> = new Set([
-        'any', 'num', 'str', 'txt', 'list', 'dict', 'item', 'loc', 'vec', 'pot', 'par', 'snd'
+        'any', 'num', 'str', 'txt', 'list', 'dict', 'item', 'loc', 'vec', 'pot', 'par', 'snd', 'dialog'
     ])
 
     private static makeTypeConstructor<F extends (...args: any[]) => Type>(typeName: string, subTypeCount: number, constructor: F): TypeConstructor<F> {
@@ -73,6 +73,7 @@ export class Type {
     public static pot = new Type('pot');
     public static par = new Type('par');
     public static snd = new Type('snd');
+    public static dialog = new Type('dialog');
     public static unknown = this.any; // just in case unknown type ever needs to be separated
 
     // type is created in this way (as opposed to using makeTypeConstructor) so 
