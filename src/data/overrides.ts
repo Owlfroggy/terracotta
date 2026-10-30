@@ -326,6 +326,20 @@ export const OVERRIDES: {
             "LoadedBuckets": "getLoaded",
             "SaveBucket": "save",
             "SaveUnloadBucket": "saveAndUnload",
+
+            "CreateDialog": "create",
+            "DialogInputBool": "addBooleanInput",
+            "DialogInputText": "addTextInput",
+            "DialogInputRange": "addNumberInput",
+            "DialogInputOption": "addOptionInput",
+            "AddDialogButton": "addButton",
+            "DialogBodyText": "addBodyText",
+            "DialogBodyItem": "addBodyItem",
+            "DialogTitle": "setTitle",
+            "DialogType": "setType",
+            "SetDialogType": "setType",
+            "RemDialogInputID": "removeInput",
+            "DialogColumns": "setColumnCount",
         },
         "IF PLAYER": {},
         "IF ENTITY": {
@@ -338,6 +352,7 @@ export const OVERRIDES: {
             "EventChunkNew": "chunkIsNew",
             "HasEntitiesName": "hasEntitiesWithName",
             "HasEntitiesUUID": "hasEntitiesWithUUID",
+            "DialogInputTrue": "inputIsTrue",
         },
         "IF VARIABLE": {
             "=": "equals",
@@ -558,7 +573,9 @@ export const OVERRIDES: {
         "Event Redstone Current Strength": "redstoneStrength",
         "Event New Redstone Current Strength": "newRedstoneStrength",
         "Edit Book Event Old Book": "oldBook",
-        "Edit Book Event New Book": "newBook"
+        "Edit Book Event New Book": "newBook",
+        "Click Dialog Event Dialog ID": "clickedDialogId",
+        "Click Dialog Event Button ID": "clickedButtonId",
     },
     returnTypes: {
         "SET VARIABLE": {
@@ -876,6 +893,8 @@ export const OVERRIDES: {
 
             "GetContainerItems": Type.list(Type.item),
             "ContainerLock": Type.str,
+            
+            // "DialogColumns": 
         },
     },
     returnValueAtEndActions: {

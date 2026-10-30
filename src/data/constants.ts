@@ -40,7 +40,7 @@ export const TYPE_DOMAIN_ACTIONS = {
     vec: ["Vector", "VectorBetween", "GetVectorComp", "SetVectorComp", "GetVectorLength", "SetVectorLength", "MultiplyVector", "AddVectors", "SubtractVectors", "AlignVector", "RotateAroundAxis", "RotateAroundVec", "ReflectVector", "CrossProduct", "DotProduct", "DirectionName", "RotationVector", "RandomVector", "SwapVectorComp", "ClampVector"],
     pot: ["GetPotionType", "SetPotionType", "GetPotionAmp", "SetPotionAmp", "GetPotionDur", "SetPotionDur", " SetPotionType ", " GetPotionType "],
     snd: ["GetSoundType", "SetSoundType", "GetSoundVariant", "SetSoundVariant", "GetCustomSound", "SetCustomSound", "GetSoundPitch", "SetSoundPitch", "GetSoundVolume", "SetSoundVolume", " SetSoundType ", " GetSoundType "],
-    dialog: [],
+    dialog: ["DialogColumns","CreateDialog","RemDialogInputID","DialogInputBool","DialogInputOption","DialogInputRange","DialogInputText","AddDialogButton","DialogTitle","SetDialogType","DialogBodyText","DialogBodyItem"],
 }
 
 //controls which if var actions go into which domains
@@ -65,7 +65,10 @@ export const TYPE_DOMAIN_CONDITIONS = {
 
 // actions which should be forced into the event namespace as opposed to the game namespace
 // covers both actions, if conditions and game values
-export const FORCED_EVENT_ACTIONS = ["AttackIsCrit","EventChunkNew","CmdArgEquals","CommandEquals","IsSigningBook"];
+export const FORCED_EVENT_ACTIONS = [
+    "AttackIsCrit","EventChunkNew","CmdArgEquals","CommandEquals","IsSigningBook","DialogInputTrue",
+    "Click Dialog Event Dialog ID","Click Dialog Event Button ID"
+];
 
 // keys are actions which should be hidden from autocomplete but still usable
 // values are the deprecation message
